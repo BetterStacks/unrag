@@ -3,6 +3,11 @@ name: Release
 on:
   push:
     branches: [main]
+    paths:
+      - ".changeset/**"
+      - "packages/**/package.json"
+      - "packages/**/CHANGELOG.md"
+      - ".github/workflows/release.yml"
 
 jobs:
   release:
