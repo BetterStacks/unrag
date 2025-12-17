@@ -1,0 +1,34 @@
+---
+title: Model selection
+description: Picking an embedding model and keeping dimensions consistent.
+---
+
+## Choose a model
+
+In `unrag.config.ts`, set:
+
+```ts
+export const unragConfig = {
+  embedding: {
+    model: "openai/text-embedding-3-small",
+    timeoutMs: 15_000,
+  },
+  // ...
+} as const;
+```
+
+## Consistency matters
+
+Vectors in your database should be comparable:
+
+- If you change models, you often need to **re-embed** existing content.
+- If you change dimensions, ensure your pgvector column supports it (or use untyped `vector` and validate).
+
+UnRAG stores `embedding_dimension` alongside each embedding row to help you detect mismatches.
+
+## Practical guidance
+
+- Start with a cost-effective model and validate retrieval quality.
+- Re-embed in a controlled job when switching models (see [Reindexing](/docs/guides/reindexing)).
+
+

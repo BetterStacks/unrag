@@ -1,0 +1,38 @@
+---
+title: Installation
+description: Run the CLI and understand what gets generated and modified.
+---
+
+Install UnRAG by running the initializer:
+
+```bash
+bunx unrag init
+```
+
+## Common non-interactive setup
+
+```bash
+bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
+```
+
+- `--store`: `drizzle` | `prisma` | `raw-sql`
+- `--dir`: directory for vendored module code (default `lib/unrag`)
+- `--alias`: import alias base (default `@unrag`)
+
+## What the CLI may change
+
+- **Writes files**:
+  - `unrag.config.ts`
+  - `<dir>/**`
+  - `<dir>/unrag.md`
+  - `unrag.json` (tracks your choices so you can rerun consistently)
+- **Adds dependencies** for your chosen adapter (plus `ai`)
+- **Next.js only**: adds `tsconfig.json` / `jsconfig.json` path aliases:
+  - `@unrag/*` → `./<dir>/*`
+  - `@unrag/config` → `./unrag.config.ts`
+
+## Re-running safely
+
+If a target file already exists, the CLI will ask before overwriting it. Treat the installed module as **vendored code**: updating is usually “rerun and review the diff”.
+
+

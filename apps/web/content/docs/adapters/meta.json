@@ -1,0 +1,13 @@
+{
+  "title": "Adapters",
+  "description": "Store adapters for Postgres + pgvector (Drizzle, Prisma, Raw SQL).",
+  "pages": [
+    "overview",
+    "drizzle-postgres-pgvector",
+    "prisma-postgres-pgvector",
+    "raw-sql-postgres-pgvector",
+    "custom-store"
+  ]
+}
+
+

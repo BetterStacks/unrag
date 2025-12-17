@@ -1,0 +1,34 @@
+---
+title: Admin re-ingest endpoint
+description: Re-ingest a document on demand after edits.
+---
+
+This example shows an “admin-only” endpoint that re-ingests a single document.
+
+## Pattern
+
+- Use a stable `sourceId` for the document.
+- When content changes, call `ingest()` again with the updated content.
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+export async function POST(request: Request) {
+  // TODO: authenticate + authorize admin user here
+  const body = await request.json().catch(() => null);
+  const sourceId = String(body?.sourceId ?? "");
+  const content = String(body?.content ?? "");
+
+  if (!sourceId || !content) {
+    return Response.json({ error: "Missing sourceId or content" }, { status: 400 });
+  }
+
+  const engine = createUnragEngine();
+  const result = await engine.ingest({ sourceId, content });
+  return Response.json(result);
+}
+```
+
+See [Reindexing](/docs/guides/reindexing) for broader strategies.
+
+

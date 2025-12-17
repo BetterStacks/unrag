@@ -1,0 +1,57 @@
+---
+title: Quickstart
+description: End-to-end in minutes - init → env → schema → ingest → retrieve.
+---
+
+## 1) Initialize
+
+```bash
+bunx unrag init --yes
+```
+
+## 2) Set environment variables (server-side)
+
+- `DATABASE_URL`: Postgres connection string
+- `AI_GATEWAY_API_KEY`: required by the `ai` SDK when using Vercel AI Gateway
+- Optional: `AI_GATEWAY_MODEL`: defaults to `openai/text-embedding-3-small`
+
+## 3) Run migrations
+
+Create the schema from [Database (Postgres + pgvector)](/docs/getting-started/database).
+
+## 4) Ingest and retrieve
+
+Use UnRAG only from server code:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+export async function demo() {
+  const engine = createUnragEngine();
+
+  await engine.ingest({
+    sourceId: "docs:quickstart",
+    content: "UnRAG installs a tiny RAG module into your codebase.",
+    metadata: { product: "unrag" },
+  });
+
+  const result = await engine.retrieve({
+    query: "What does UnRAG install?",
+    topK: 5,
+    scope: { sourceId: "docs:quickstart" },
+  });
+
+  return result.chunks;
+}
+```
+
+## 5) Where to customize things
+
+Open `unrag.config.ts`:
+
+- Change **chunking defaults** (`chunkSize`, `chunkOverlap`)
+- Change **retrieval defaults** (`topK`)
+- Change **embedding model** + **timeout**
+- Change how you create your **DB client** (Pool/Prisma/etc.)
+
+

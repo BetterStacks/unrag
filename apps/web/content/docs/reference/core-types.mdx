@@ -1,0 +1,34 @@
+---
+title: Core types
+description: The key interfaces UnRAG is built around.
+---
+
+UnRAG’s core is intentionally small. The most important types are:
+
+## `IngestInput`
+
+- `sourceId: string`
+- `content: string`
+- `metadata?: Record<string, ...>`
+- `chunking?: { chunkSize?: number; chunkOverlap?: number }`
+
+## `RetrieveInput`
+
+- `query: string`
+- `topK?: number` (default 8)
+- `scope?: { sourceId?: string }`
+
+## `EmbeddingProvider`
+
+- `name: string`
+- `dimensions?: number`
+- `embed(input) => Promise<number[]>`
+
+## `VectorStore`
+
+- `upsert(chunks) => Promise<void>`
+- `query({ embedding, topK, scope }) => Promise<Array<Chunk & { score: number }>>`
+
+See [Store interface](/docs/reference/store-interface) for implementation guidance.
+
+

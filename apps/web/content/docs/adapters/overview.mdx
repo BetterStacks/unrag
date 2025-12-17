@@ -1,0 +1,19 @@
+---
+title: Overview
+description: Pick a store adapter and understand what it does.
+---
+
+UnRAG stores vectors in **Postgres + pgvector**. You choose one store adapter at install time:
+
+- **Drizzle**: typed schema module + Drizzle `PgDatabase`
+- **Prisma**: uses `prisma.$executeRaw` / `prisma.$queryRaw`
+- **Raw SQL**: uses `pg` Pool + parameterized SQL
+
+All adapters implement the same interface:
+
+- `upsert(chunks)` writes documents, chunks, embeddings
+- `query({ embedding, topK, scope })` returns topK nearest chunks
+
+If you want a different schema, filters, or distance function, you can fork the adapter (it’s vendored code) or implement your own.
+
+

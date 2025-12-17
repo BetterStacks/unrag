@@ -1,0 +1,25 @@
+---
+title: unrag.config.ts
+description: The generated config file you edit to wire DB clients and defaults.
+---
+
+`unrag.config.ts` is the single place you typically edit after installation.
+
+## What it contains
+
+- `unragConfig`: defaults for chunking, retrieval, embedding model/timeout
+- `createUnragEngine()`: constructs embedding + store + engine
+- `retrieve(query: string)`: a convenience wrapper using default `topK`
+
+## Typical edits
+
+- Update how you create the DB client (pool options, Prisma options, etc.)
+- Update embedding model and timeouts
+- Update chunking defaults (`chunkSize`, `chunkOverlap`)
+- Add app-specific helpers (e.g. `retrieveForTenant(tenantId, query)`)
+
+## Server-only
+
+Keep this file server-only. It often imports DB drivers and reads secrets from environment variables.
+
+

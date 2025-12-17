@@ -1,0 +1,36 @@
+---
+title: Performance
+description: Practical knobs for speed, cost, and stability.
+---
+
+## Connection pooling
+
+The generated `unrag.config.ts` uses a singleton pattern (`globalThis`) for DB clients to avoid hot-reload connection storms in dev.
+
+If you deploy to serverless, prefer:
+
+- a single shared pool per runtime (when supported)
+- or a provider-recommended driver (e.g. pgBouncer, Neon, etc.)
+
+## Chunk size and overlap
+
+- Larger chunks: fewer embeddings, cheaper, but less precise retrieval.
+- Smaller chunks: better recall/precision, but more embeddings and higher cost.
+
+Start with the defaults, then tune based on:
+
+- your content type (docs vs code vs tickets)
+- embedding model context characteristics
+
+## topK
+
+`topK` controls result count. Typical values: 5–20.
+
+- Too low: misses relevant context
+- Too high: slower queries + bigger prompts
+
+## Indexing
+
+Make sure pgvector extension is enabled and add indexes on `source_id` if you scope frequently.
+
+

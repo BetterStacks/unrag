@@ -1,0 +1,30 @@
+---
+title: Custom embedding provider
+description: Implement the EmbeddingProvider interface (OpenAI, local models, etc.).
+---
+
+UnRAG’s embedding interface is intentionally tiny:
+
+```ts
+import type { EmbeddingProvider } from "@unrag/core/types";
+
+export const myEmbedding: EmbeddingProvider = {
+  name: "my-embeddings:v1",
+  dimensions: undefined,
+  embed: async ({ text }) => {
+    // call your service/SDK/local model
+    return [0, 1, 2];
+  },
+};
+```
+
+## Wiring it in
+
+Update `createUnragEngine()` in `unrag.config.ts` to use `myEmbedding` instead of `createAiEmbeddingProvider(...)`.
+
+## Tips
+
+- Keep `name` stable for a given model/version so you can debug model drift.
+- Consider adding timeouts and retries (embedding calls are often the slowest part of ingest).
+
+

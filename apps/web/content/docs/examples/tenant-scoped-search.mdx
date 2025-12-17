@@ -1,0 +1,32 @@
+---
+title: Tenant-scoped search
+description: Keep retrieval isolated per tenant by encoding tenant id in sourceId.
+---
+
+This example uses `sourceId` scoping as a low-friction multi-tenant strategy.
+
+## Ingest
+
+```ts
+await engine.ingest({
+  sourceId: `tenant:${tenantId}:kb:${docId}`,
+  content,
+  metadata: { tenantId, docId },
+});
+```
+
+## Retrieve
+
+```ts
+const result = await engine.retrieve({
+  query,
+  topK: 8,
+  scope: { sourceId: `tenant:${tenantId}` },
+});
+```
+
+In practice, you might scope to `tenant:${tenantId}:kb` to avoid collisions with other sources.
+
+See [Multi-tenant](/docs/guides/multi-tenant).
+
+

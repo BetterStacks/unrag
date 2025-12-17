@@ -1,0 +1,22 @@
+---
+title: Raw SQL (Postgres + pgvector)
+description: The most portable adapter - pg Pool + parameterized SQL.
+---
+
+## Create the store
+
+```ts
+import { Pool } from "pg";
+import { createRawSqlVectorStore } from "@unrag/store/raw-sql";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const store = createRawSqlVectorStore(pool);
+```
+
+## Notes
+
+- This adapter is a good default when you don’t want to commit to an ORM.
+- Upserts run in a transaction (begin/commit/rollback).
+- Query uses `<=> $1::vector` and `limit $2`.
+
+

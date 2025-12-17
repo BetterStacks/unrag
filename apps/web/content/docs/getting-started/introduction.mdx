@@ -1,0 +1,38 @@
+---
+title: Introduction
+description: What UnRAG is, what it installs, and when to use it.
+---
+
+UnRAG is a **RAG installer**. You run one command and it vendors a small RAG module into your codebase as TypeScript source files you own.
+
+## Why this approach?
+
+- **Auditable**: the core primitives are small and readable.
+- **Composable**: you can swap the embedding provider, store adapter, and chunker.
+- **Owned by you**: you ship your app with your own `lib/unrag/**` code—no hidden runtime.
+
+## What UnRAG installs
+
+After `unrag init`, you’ll have:
+
+- `unrag.config.ts` (project root): your “single place” to wire DB clients + embedding provider + defaults.
+- `lib/unrag/**` (or your chosen directory): the vendored primitives:
+  - `core/*` (`ContextEngine`, `ingest`, `retrieve`, types, chunking)
+  - `store/*` (one adapter: Drizzle / Prisma / Raw SQL; Postgres + pgvector)
+  - `embedding/*` (default: `ai` SDK embedding provider)
+- `lib/unrag/unrag.md`: setup notes (schema + adapter notes), generated for your selection.
+
+## What UnRAG is not
+
+- A hosted vector DB
+- A full “chat framework”
+- A crawler / ETL suite (you bring content; UnRAG gives you primitives)
+
+## Assumptions
+
+- **Postgres + pgvector** for storage.
+- **Server-only usage** (your DB credentials and embedding API keys stay server-side).
+
+Next: install it and create the schema.
+
+

@@ -1,0 +1,40 @@
+---
+title: Next.js
+description: Use UnRAG in Route Handlers and Server Actions (server-only).
+---
+
+## Server-only usage
+
+Use UnRAG only in server code (Route Handlers / Server Actions). Your DB credentials and embedding keys must not ship to the browser.
+
+If you used the default alias (`@unrag`), import:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+```
+
+## Route Handler example
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const q = searchParams.get("q") ?? "";
+  if (!q) return Response.json({ error: "Missing q" }, { status: 400 });
+
+  const engine = createUnragEngine();
+  const result = await engine.retrieve({ query: q, topK: 8 });
+  return Response.json(result);
+}
+```
+
+## Ingestion patterns
+
+- Ingest during admin actions (uploads, knowledge-base edits)
+- Ingest in background jobs/cron
+- Re-ingest on change (upsert patterns)
+
+See [Ingest from the filesystem](/docs/guides/ingest-from-filesystem) and [Reindexing](/docs/guides/reindexing).
+
+

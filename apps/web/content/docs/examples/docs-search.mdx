@@ -1,0 +1,37 @@
+---
+title: Docs search (single collection)
+description: Index a docs folder and query it from an API endpoint.
+---
+
+## Ingest (script)
+
+Use the filesystem ingestion script pattern:
+
+- [Ingest from the filesystem](/docs/guides/ingest-from-filesystem)
+
+Keep `sourceId` stable and scoped, e.g. `docs:<path>`.
+
+## Retrieve (endpoint)
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const q = searchParams.get("q") ?? "";
+  if (!q) return Response.json({ error: "Missing q" }, { status: 400 });
+
+  const engine = createUnragEngine();
+  const result = await engine.retrieve({ query: q, topK: 10 });
+
+  return Response.json(result);
+}
+```
+
+## Next step
+
+Add a chat layer on top:
+
+- [Use with chat](/docs/guides/use-with-chat)
+
+

@@ -1,0 +1,27 @@
+---
+title: Prisma (Postgres + pgvector)
+description: Use Prisma while keeping vector search in SQL.
+---
+
+The Prisma adapter uses `prisma.$executeRaw` and `prisma.$queryRaw`, so you can keep Prisma models minimal and manage schema with SQL migrations.
+
+## Create the store
+
+```ts
+import { PrismaClient } from "@prisma/client";
+import { createPrismaVectorStore } from "@unrag/store/prisma";
+
+const prisma = new PrismaClient();
+export const store = createPrismaVectorStore(prisma);
+```
+
+## Optional Prisma models
+
+If you want models, pgvector is typically represented as `Unsupported("vector")` in Prisma. Many teams skip modeling embeddings and just manage them via SQL migrations and raw queries.
+
+## Notes
+
+- The adapter writes to `documents`, `chunks`, `embeddings` tables via SQL.
+- Vector similarity uses `<=>` and sorts ascending (closest first).
+
+

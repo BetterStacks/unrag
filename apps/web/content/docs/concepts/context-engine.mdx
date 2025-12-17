@@ -1,0 +1,38 @@
+---
+title: ContextEngine
+description: The small class you use to ingest and retrieve.
+---
+
+The main object you interact with is `ContextEngine`:
+
+```ts
+const engine = createUnragEngine();
+await engine.ingest({ sourceId: "doc-1", content: "..." });
+const result = await engine.retrieve({ query: "search", topK: 5 });
+```
+
+## Configuration shape
+
+At runtime, the engine only needs:
+
+- `embedding`: `{ name, embed(text → number[]) }`
+- `store`: `{ upsert(chunks), query({ embedding, topK, scope }) }`
+- optional `defaults` for chunking
+- optional custom `chunker` and `idGenerator`
+
+This means you can:
+
+- keep your embedding provider simple (call a service, call an SDK, or run local models)
+- keep your store adapter explicit (SQL you can inspect)
+
+## Where config lives
+
+UnRAG generates `unrag.config.ts` with:
+
+- `unragConfig`: defaults (chunking, retrieval, embedding model/timeout)
+- `createUnragEngine()`: constructs embedding provider + store adapter + engine
+- `retrieve(query: string)`: convenience wrapper for default retrieval
+
+See [unrag.config.ts](/docs/reference/unrag-config).
+
+

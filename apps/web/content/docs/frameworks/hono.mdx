@@ -1,0 +1,28 @@
+---
+title: Hono
+description: Minimal Hono integration (Node runtime).
+---
+
+```ts
+import { Hono } from "hono";
+import { createUnragEngine } from "@unrag/config";
+
+const app = new Hono();
+
+app.get("/api/search", async (c) => {
+  const q = c.req.query("q") ?? "";
+  if (!q) return c.json({ error: "Missing q" }, 400);
+
+  const engine = createUnragEngine();
+  const result = await engine.retrieve({ query: q, topK: 8 });
+  return c.json(result);
+});
+
+export default app;
+```
+
+## Notes
+
+UnRAG’s default adapters assume Node + Postgres drivers. For edge runtimes, you’ll typically need a compatible Postgres driver and possibly a custom store adapter.
+
+

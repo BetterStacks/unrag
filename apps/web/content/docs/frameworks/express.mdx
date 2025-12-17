@@ -1,0 +1,31 @@
+---
+title: Express
+description: Minimal Express integration (server-only).
+---
+
+## Example route
+
+```ts
+import express from "express";
+import { createUnragEngine } from "@unrag/config";
+
+const app = express();
+
+app.get("/api/search", async (req, res) => {
+  const q = String(req.query.q ?? "");
+  if (!q) return res.status(400).json({ error: "Missing q" });
+
+  const engine = createUnragEngine();
+  const result = await engine.retrieve({ query: q, topK: 8 });
+  return res.json(result);
+});
+
+app.listen(3000);
+```
+
+## Notes
+
+- Keep a singleton DB client/pool in `unrag.config.ts` for stability.
+- Add auth/tenant filters before returning chunks.
+
+

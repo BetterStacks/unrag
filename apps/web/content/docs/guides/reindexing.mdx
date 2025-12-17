@@ -1,0 +1,26 @@
+---
+title: Reindexing
+description: Re-ingest content safely when your model or chunking changes.
+---
+
+You’ll typically reindex when you change:
+
+- embedding model
+- chunking defaults
+- retrieval logic / store schema
+
+## Approach
+
+1. Decide your unit of reindexing (by `sourceId`, by tenant, by collection)
+2. Re-run ingestion for the chosen scope
+3. Optionally delete old chunks/embeddings (depends on your adapter/schema strategy)
+
+## Practical patterns
+
+- **Immutable IDs**: keep `sourceId` stable so “re-ingest” updates the same document logical identity.
+- **Versioned IDs**: use `sourceId` like `docs:v2:<slug>` when you want old and new to coexist.
+- **Background jobs**: reindex in a queue/cron with progress tracking.
+
+UnRAG adapters are intentionally straightforward; if you want a “delete by sourceId” helper, add it to your vendored store adapter.
+
+

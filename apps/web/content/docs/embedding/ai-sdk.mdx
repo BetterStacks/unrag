@@ -1,0 +1,33 @@
+---
+title: AI SDK embedding provider
+description: The default embedding provider installed by UnRAG.
+---
+
+By default, UnRAG installs an embedding provider built on the `ai` SDK.
+
+## Environment variables
+
+- `AI_GATEWAY_API_KEY`: required by the `ai` SDK when using Vercel AI Gateway
+- Optional: `AI_GATEWAY_MODEL`: defaults to `openai/text-embedding-3-small`
+
+## Usage
+
+This is typically wired inside `createUnragEngine()` in `unrag.config.ts`:
+
+```ts
+import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+
+const embedding = createAiEmbeddingProvider({
+  model: "openai/text-embedding-3-small",
+  timeoutMs: 15_000,
+});
+```
+
+## What the provider returns
+
+- `name`: includes the model identifier (useful for debugging)
+- `embed({ text })`: returns `number[]` (vector)
+
+If the SDK response doesn’t include an embedding, the provider throws.
+
+

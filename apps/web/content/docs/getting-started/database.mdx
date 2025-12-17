@@ -1,22 +1,25 @@
 ---
-title: Database schema
-description: Postgres + pgvector tables Unrag expects
+title: Database (Postgres + pgvector)
+description: The tables and indexes UnRAG expects (you run migrations).
 ---
 
-You manage migrations yourself. Unrag expects Postgres with pgvector enabled and these tables.
+UnRAG assumes **Postgres + pgvector**. You manage migrations yourself (SQL, Drizzle, Prisma, etc.).
 
-## Enable pgvector
+## 1) Enable pgvector
 
 ```sql
 create extension if not exists vector;
 ```
 
-## Tables
+## 2) Create tables
+
+The default adapters expect these tables:
 
 ```sql
 create table documents (
   id uuid primary key,
   source_id text not null,
+  content text not null,
   metadata jsonb,
   created_at timestamp default now()
 );
@@ -40,11 +43,16 @@ create table embeddings (
 );
 ```
 
-## Recommended indexes
+## 3) Recommended indexes
 
 ```sql
 create index if not exists chunks_source_id_idx on chunks(source_id);
 create index if not exists documents_source_id_idx on documents(source_id);
 ```
+
+## Notes
+
+- **Distance function**: the adapters use pgvector’s `<=>` operator and sort by ascending score (smaller is “closer”).
+- **Embedding dimensions**: stored per-row in `embeddings.embedding_dimension` so you can introspect/verify model changes.
 
 

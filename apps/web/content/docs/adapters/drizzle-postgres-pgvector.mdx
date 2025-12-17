@@ -1,0 +1,37 @@
+---
+title: Drizzle (Postgres + pgvector)
+description: Use the Drizzle adapter and reuse the generated schema.
+---
+
+## Create the store
+
+```ts
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { createDrizzleVectorStore } from "@unrag/store/drizzle";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const db = drizzle(pool);
+
+export const store = createDrizzleVectorStore(db);
+```
+
+## Reuse the generated Drizzle schema
+
+If you use Drizzle migrations, you can import the installed schema:
+
+```ts
+import * as rag from "@unrag/store/drizzle/schema";
+
+export const schema = {
+  ...rag.schema,
+  // ...your app tables
+};
+```
+
+## Notes
+
+- The adapter stores `metadata` as `jsonb` and sanitizes it (non-serializable values become `null`).
+- Vector similarity uses pgvector’s `<=>` operator.
+
+

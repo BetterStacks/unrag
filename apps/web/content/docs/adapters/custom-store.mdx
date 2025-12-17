@@ -1,0 +1,28 @@
+---
+title: Custom store adapter
+description: Implement the VectorStore interface for your own schema or DB.
+---
+
+UnRAG stores and queries vectors through a small interface:
+
+```ts
+import type { VectorStore, Chunk } from "@unrag/core/types";
+
+export const myStore: VectorStore = {
+  upsert: async (chunks: Chunk[]) => {
+    // write documents/chunks/embeddings
+  },
+  query: async ({ embedding, topK, scope }) => {
+    // return Array<Chunk & { score: number }>
+    return [];
+  },
+};
+```
+
+## Common reasons to build your own
+
+- You want additional filters (tenant id, permissions, doc type, time range).
+- You want a different scoring function or distance metric.
+- You want a different schema (e.g. store document text elsewhere).
+
+

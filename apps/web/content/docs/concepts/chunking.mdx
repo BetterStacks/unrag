@@ -1,0 +1,39 @@
+---
+title: Chunking
+description: Defaults, overrides, and custom chunkers.
+---
+
+Chunking determines how a document is split into chunks before embedding.
+
+## Defaults
+
+UnRAG ships with a simple default chunker:
+
+- word-based splitting
+- `chunkSize` (default 200 “tokens” where tokens ~= words)
+- `chunkOverlap` (default 40)
+
+You can change defaults in `unrag.config.ts`:
+
+```ts
+export const unragConfig = {
+  chunking: { chunkSize: 300, chunkOverlap: 60 },
+  // ...
+} as const;
+```
+
+## Per-ingest override
+
+```ts
+await engine.ingest({
+  sourceId: "doc-1",
+  content,
+  chunking: { chunkSize: 500 },
+});
+```
+
+## Custom chunker
+
+If you want sentence-based chunking, markdown-aware splitting, tokenization, etc., provide a custom `chunker` when constructing the engine (typically inside `createUnragEngine()`).
+
+

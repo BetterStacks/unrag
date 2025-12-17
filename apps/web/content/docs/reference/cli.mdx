@@ -1,0 +1,37 @@
+---
+title: CLI
+description: unrag init flags, outputs, and behavior.
+---
+
+## `unrag init`
+
+```bash
+bunx unrag init
+```
+
+### Flags
+
+- `--yes` / `-y`: non-interactive, uses defaults (or `unrag.json` if present)
+- `--dir` / `--install-dir <path>`: where to install vendored module code (default `lib/unrag`)
+- `--store <adapter>`: `drizzle` | `prisma` | `raw-sql`
+- `--alias <base>`: import alias base (default `@unrag`)
+
+### Files written
+
+- `unrag.config.ts` (root)
+- `<dir>/**` (vendored module code)
+- `<dir>/unrag.md` (generated setup notes + schema)
+- `unrag.json` (records selections)
+
+### Dependencies
+
+UnRAG adds dependencies for the chosen adapter (and `ai`). If they already exist, it won’t overwrite versions.
+
+### Next.js behavior
+
+If Next.js is detected, UnRAG patches `tsconfig.json` / `jsconfig.json` paths so:
+
+- `@unrag/*` points to `./<dir>/*`
+- `@unrag/config` points to `./unrag.config.ts`
+
+

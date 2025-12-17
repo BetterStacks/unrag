@@ -1,17 +1,40 @@
 ---
-title: Unrag
-description: Install RAG primitives into your app (shadcn-style)
+title: UnRAG Documentation
+description: Install small, auditable RAG primitives into your codebase as vendored source.
 ---
 
-Unrag installs a small RAG module into your codebase:
-- Ingest: chunk → embed → store
-- Retrieve: embed query → pgvector similarity search
+UnRAG is a **RAG installer** for TypeScript projects. Instead of shipping a framework, it installs a **tiny, composable module** (ingest + retrieve + adapters) into *your* repo as source files you own.
 
-## What is Next?
+## The 30-second mental model
+
+- **Ingest**: chunk → embed → store (Postgres + pgvector)
+- **Retrieve**: embed query → vector similarity search → return chunks
+
+## Quick start
+
+```bash
+bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
+```
+
+Then (server-only):
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+await engine.ingest({ sourceId: "docs:intro", content: "Hello from UnRAG" });
+const result = await engine.retrieve({ query: "hello", topK: 5 });
+```
+
+## What’s next
 
 <Cards>
-  <Card title="Install Unrag" href="/docs/install" />
-  <Card title="Database schema (pgvector)" href="/docs/schema" />
-  <Card title="Adapters (Drizzle/Prisma/Raw SQL)" href="/docs/adapters" />
-  <Card title="Next.js usage" href="/docs/nextjs" />
+  <Card title="Getting Started" href="/docs/getting-started/introduction" />
+  <Card title="Concepts" href="/docs/concepts/philosophy" />
+  <Card title="Adapters (Drizzle / Prisma / Raw SQL)" href="/docs/adapters/overview" />
+  <Card title="Framework guides" href="/docs/frameworks/nextjs" />
+  <Card title="Guides & examples" href="/docs/guides/build-a-search-endpoint" />
+  <Card title="Reference" href="/docs/reference/cli" />
 </Cards>
+
+

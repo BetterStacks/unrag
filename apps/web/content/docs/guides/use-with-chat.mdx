@@ -1,0 +1,36 @@
+---
+title: Use with chat
+description: Retrieve chunks, then build context for an LLM call.
+---
+
+UnRAG intentionally stops at retrieval. A common pattern:
+
+1. Retrieve relevant chunks
+2. Build a context string
+3. Call your model (streaming or not)
+
+## Example (pseudo-code)
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+export async function answer(question: string) {
+  const engine = createUnragEngine();
+  const { chunks } = await engine.retrieve({ query: question, topK: 8 });
+
+  const context = chunks
+    .map((c) => `Source: ${c.sourceId}\n${c.content}`)
+    .join("\n\n---\n\n");
+
+  // Call your LLM with: system + user + context
+  return { context, chunks };
+}
+```
+
+## Tips
+
+- Don’t blindly dump many chunks into the prompt—trim and format.
+- Add tenant scoping and authorization before retrieval.
+- Consider reranking for better quality.
+
+

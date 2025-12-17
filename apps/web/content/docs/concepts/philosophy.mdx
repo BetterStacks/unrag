@@ -1,0 +1,21 @@
+---
+title: Philosophy
+description: Why UnRAG vendors primitives instead of shipping a framework.
+---
+
+UnRAG’s core idea is simple: **you should own your RAG implementation**.
+
+## Principles
+
+- **Primitives over frameworks**: UnRAG gives you `ingest()` and `retrieve()` primitives, not a black box.
+- **Drop-in + auditable**: installed code is small enough to read and modify.
+- **Swap components**: embedding providers and stores are interfaces you can implement.
+- **Local-first**: start in your repo, keep diffs reviewable, keep prod behavior explicit.
+
+## When UnRAG shines
+
+- You want a “vendored source” install: source files in your repo, not an SDK that hides complexity.
+- You need Postgres anyway and want pgvector without introducing a new system.
+- You want to tune chunking, embedding models, or queries without fighting a framework.
+
+

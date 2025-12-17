@@ -1,0 +1,54 @@
+---
+title: Build a search endpoint
+description: A practical retrieval API you can ship today.
+---
+
+This guide shows a simple “retrieve-only” endpoint. You can layer auth, tenant scoping, and prompt building later.
+
+## Next.js Route Handler
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get("q") ?? "";
+
+  if (!query) {
+    return Response.json({ error: "Missing q" }, { status: 400 });
+  }
+
+  const engine = createUnragEngine();
+
+  // Optional: restrict to a “collection”
+  const scopeSourceId = searchParams.get("sourceId") ?? undefined;
+
+  const result = await engine.retrieve({
+    query,
+    topK: 8,
+    scope: scopeSourceId ? { sourceId: scopeSourceId } : undefined,
+  });
+
+  return Response.json({
+    query,
+    chunks: result.chunks.map((c) => ({
+      id: c.id,
+      sourceId: c.sourceId,
+      content: c.content,
+      score: c.score,
+      metadata: c.metadata,
+    })),
+    durations: result.durations,
+    embeddingModel: result.embeddingModel,
+  });
+}
+```
+
+## Hardening checklist
+
+- Validate input length (avoid embedding huge queries)
+- Add auth and authorization checks
+- Add tenant scoping (see [Multi-tenant](/docs/guides/multi-tenant))
+- Add caching / rate limits as needed
+
+

@@ -1,0 +1,37 @@
+---
+title: Architecture
+description: The ingest and retrieve pipelines, end-to-end.
+---
+
+UnRAG’s `ContextEngine` is configured with:
+
+- an `EmbeddingProvider` (turns text → vector)
+- a `VectorStore` (stores + queries vectors)
+- chunking defaults (`chunkSize`, `chunkOverlap`) and optional custom `chunker`
+
+## Ingest pipeline
+
+When you call `engine.ingest({ sourceId, content, ... })`:
+
+1. **Chunk** the document into chunk texts (default: word-based chunks)
+2. **Embed** each chunk with your embedding provider
+3. **Upsert** document + chunks + embeddings via your store adapter
+
+## Retrieve pipeline
+
+When you call `engine.retrieve({ query, topK, scope })`:
+
+1. Embed the **query**
+2. Ask the store adapter for the **topK nearest chunks**
+3. Return chunks + scores + timing metadata
+
+## Where “RAG” happens
+
+UnRAG intentionally stops at retrieval. You decide how to:
+
+- build prompts
+- rerank results
+- merge chunks into context
+- apply permissions / tenant checks
+
+

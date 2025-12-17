@@ -1,0 +1,58 @@
+---
+title: Ingest from the filesystem
+description: Index docs/markdown files with a small Node script.
+---
+
+This pattern is useful for indexing:
+
+- markdown docs in `./docs`
+- changelogs
+- static help center articles
+
+## Script
+
+```ts
+import { readFile, readdir } from "node:fs/promises";
+import path from "node:path";
+import { createUnragEngine } from "@unrag/config";
+
+async function listMarkdownFiles(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const out: string[] = [];
+  for (const e of entries) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...(await listMarkdownFiles(full)));
+    if (e.isFile() && (e.name.endsWith(".md") || e.name.endsWith(".mdx"))) out.push(full);
+  }
+  return out;
+}
+
+async function main() {
+  const engine = createUnragEngine();
+  const root = path.join(process.cwd(), "docs");
+  const files = await listMarkdownFiles(root);
+
+  for (const file of files) {
+    const content = await readFile(file, "utf8");
+    const rel = path.relative(process.cwd(), file).replaceAll("\\", "/");
+
+    await engine.ingest({
+      sourceId: `fs:${rel}`,
+      content,
+      metadata: { path: rel },
+    });
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+```
+
+## Notes
+
+- Decide how you want to map files to `sourceId` (stable IDs make re-ingesting easier).
+- Consider stripping frontmatter if your content includes it.
+
+

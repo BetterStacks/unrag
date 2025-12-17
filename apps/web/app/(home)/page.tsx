@@ -3,9 +3,9 @@ import Link from 'next/link';
 export default function HomePage() {
   return (
     <div className="flex flex-col justify-center text-center flex-1">
-      <h1 className="text-3xl font-bold mb-4">Unrag</h1>
+      <h1 className="text-3xl font-bold mb-4">UnRAG</h1>
       <p>
-        Shadcn-style RAG installer: drop ingest/retrieve primitives into any project.
+        RAG installer that vendors small ingest/retrieve primitives into your project as source files you own.
       </p>
       <p className="mt-4">
         Start here:{' '}

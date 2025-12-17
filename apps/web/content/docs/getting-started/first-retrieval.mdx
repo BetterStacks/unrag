@@ -1,0 +1,38 @@
+---
+title: Your first retrieval endpoint
+description: Turn retrieve() into an API route (Next.js example).
+---
+
+## Next.js Route Handler (App Router)
+
+Create `app/api/search/route.ts`:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get("q") ?? "";
+
+  if (!query) {
+    return Response.json({ error: "Missing q" }, { status: 400 });
+  }
+
+  const engine = createUnragEngine();
+  const result = await engine.retrieve({ query, topK: 8 });
+
+  return Response.json(result);
+}
+```
+
+## Next step
+
+Add ingestion (a one-time job, admin UI, or webhook) so there’s content to retrieve. A good pattern is:
+
+- Ingest on deploy (build step) for docs-like content
+- Ingest on upload (user content) for app data
+- Re-ingest on change (upsert-by-document-id patterns)
+
+See [Build a search endpoint](/docs/guides/build-a-search-endpoint).
+
+

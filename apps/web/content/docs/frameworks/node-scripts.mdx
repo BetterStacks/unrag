@@ -1,0 +1,31 @@
+---
+title: Node scripts
+description: Use UnRAG from one-off scripts for ingestion and maintenance.
+---
+
+UnRAG is great for scripts that ingest content on a schedule or during deployments.
+
+## Example: ingest a string
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+async function main() {
+  const engine = createUnragEngine();
+  await engine.ingest({
+    sourceId: "script:demo",
+    content: "Hello from a script",
+  });
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
+```
+
+## Next step
+
+See [Ingest from the filesystem](/docs/guides/ingest-from-filesystem).
+
+

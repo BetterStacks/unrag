@@ -1,0 +1,38 @@
+---
+title: Metadata and scoping
+description: Attach metadata on ingest and filter retrieval by sourceId.
+---
+
+## Metadata
+
+`ingest()` accepts optional `metadata`:
+
+```ts
+await engine.ingest({
+  sourceId: "docs:rag",
+  content,
+  metadata: { repo: "unrag", version: 1 },
+});
+```
+
+Adapters store metadata as `jsonb` on `documents` and `chunks`.
+
+## Scoping
+
+Retrieval supports a basic scope filter:
+
+```ts
+const result = await engine.retrieve({
+  query: "how do I install?",
+  scope: { sourceId: "docs:rag" },
+});
+```
+
+This is intentionally minimal: many apps model authorization and tenancy differently.
+
+## Recommended patterns
+
+- **Multi-tenant**: encode tenant id in `sourceId` (or add your own store filter support).
+- **Per-project indexing**: use `sourceId` like `project:<id>` so you can isolate results cheaply.
+
+

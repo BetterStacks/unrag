@@ -8,7 +8,7 @@
  * - How you construct your DB client (Pool/Prisma/etc)
  *
  * The files under your install dir (e.g. `lib/unrag/**`) are intended to be
- * treated like vendored source code (shadcn-style).
+ * treated like vendored source code.
  */
 
 // __UNRAG_IMPORTS__

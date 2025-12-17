@@ -1,0 +1,12 @@
+{
+  "title": "Guides",
+  "pages": [
+    "build-a-search-endpoint",
+    "ingest-from-filesystem",
+    "reindexing",
+    "multi-tenant",
+    "use-with-chat"
+  ]
+}
+
+

@@ -1,0 +1,34 @@
+---
+title: Multi-tenant
+description: Patterns for isolating retrieval by tenant or project.
+---
+
+UnRAG provides a simple retrieval scope:
+
+```ts
+await engine.retrieve({
+  query: "…",
+  scope: { sourceId: "tenant:abc" },
+});
+```
+
+## Pattern: encode tenant in sourceId
+
+Use `sourceId` like:
+
+- `tenant:<tenantId>:<docId>`
+- `project:<projectId>:<path>`
+
+Then always query within that scope.
+
+## Pattern: extend the store adapter
+
+If you need richer filtering (tenant + docType + time range), add it in your store adapter:
+
+- add columns to your schema
+- add `where ...` conditions in the adapter query
+- expose a richer scope type in your app code
+
+Because the adapter is vendored source, this stays fully under your control.
+
+

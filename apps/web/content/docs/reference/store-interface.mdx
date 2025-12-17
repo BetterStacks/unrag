@@ -1,0 +1,37 @@
+---
+title: Store interface
+description: Implementing VectorStore correctly (upsert + query).
+---
+
+## Responsibilities
+
+Your store is responsible for:
+
+- Writing:
+  - a document row (logical identity)
+  - chunk rows (content slices + metadata)
+  - embedding rows (vectors)
+- Querying:
+  - nearest neighbors in pgvector
+  - optional scope filters (e.g. `sourceId`)
+
+## Interface (simplified)
+
+```ts
+import type { Chunk, VectorStore } from "@unrag/core/types";
+
+export const store: VectorStore = {
+  upsert: async (chunks: Chunk[]) => {},
+  query: async ({ embedding, topK, scope }) => {
+    return [];
+  },
+};
+```
+
+## Score semantics
+
+The default adapters return `score` as **distance** (smaller is better) using pgvector `<=>`.
+
+If you change the distance function, document your score semantics clearly so callers don’t assume “bigger is better”.
+
+
