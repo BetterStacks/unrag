@@ -14,6 +14,7 @@ export type Chunk = {
   tokenCount: number;
   metadata: Metadata;
   embedding?: number[];
+  documentContent?: string;
 };
 
 export type ChunkText = {

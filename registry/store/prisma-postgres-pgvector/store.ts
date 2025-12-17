@@ -23,12 +23,13 @@ export const createPrismaVectorStore = (prisma: PrismaClient): VectorStore => ({
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw(
         Prisma.sql`
-          insert into documents (id, source_id, metadata)
-          values (${head.documentId}::uuid, ${head.sourceId}, ${
+          insert into documents (id, source_id, content, metadata)
+          values (${head.documentId}::uuid, ${head.sourceId}, ${head.documentContent ?? ""}, ${
             JSON.stringify(documentMetadata)
           }::jsonb)
           on conflict (id) do update set
             source_id = excluded.source_id,
+            content = excluded.content,
             metadata = excluded.metadata
         `
       );

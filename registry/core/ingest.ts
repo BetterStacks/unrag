@@ -31,6 +31,7 @@ export const ingest = async (
       content: chunk.content,
       tokenCount: chunk.tokenCount,
       metadata,
+      documentContent: input.content,
     })
   );
 

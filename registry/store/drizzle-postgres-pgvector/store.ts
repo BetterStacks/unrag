@@ -20,6 +20,7 @@ const sanitizeMetadata = (metadata: unknown) => {
 const toDocumentRow = (chunk: Chunk) => ({
   id: chunk.documentId,
   sourceId: chunk.sourceId,
+  content: chunk.documentContent ?? "",
   metadata: sanitizeMetadata(chunk.metadata) as Record<string, unknown> | null,
 });
 
@@ -50,6 +51,7 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
           target: documents.id,
           set: {
             sourceId: documentRow.sourceId,
+            content: documentRow.content,
             metadata: documentRow.metadata,
           },
         });

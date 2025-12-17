@@ -44,13 +44,14 @@ export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
 
       await client.query(
         `
-        insert into documents (id, source_id, metadata)
-        values ($1, $2, $3::jsonb)
+        insert into documents (id, source_id, content, metadata)
+        values ($1, $2, $3, $4::jsonb)
         on conflict (id) do update set
           source_id = excluded.source_id,
+          content = excluded.content,
           metadata = excluded.metadata
         `,
-        [head.documentId, head.sourceId, JSON.stringify(documentMetadata)]
+        [head.documentId, head.sourceId, head.documentContent ?? "", JSON.stringify(documentMetadata)]
       );
 
       for (const chunk of chunkItems) {
