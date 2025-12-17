@@ -33,52 +33,53 @@
 
 .dark {
   /*
-    Palette (converted from RGB -> HSL)
-    - rgb(27, 33, 26)   -> hsl(112, 12%, 12%)  (original darkest)
-    - rgb(98, 129, 65)  -> hsl(89, 33%, 38%)   (dark green)
-    - rgb(139, 174, 102)-> hsl(89, 31%, 54%)   (light green)
-    - rgb(235, 213, 171)-> hsl(39, 62%, 80%)   (beige)
+    Neutral high-contrast palette (dark modern)
+    - near-black backgrounds
+    - subtle elevated surfaces
+    - crisp white/gray typography
+    - restrained borders
   */
-  /*
-    Use a near-black "slate ink" base for backgrounds/surfaces, then tint it slightly
-    towards the original green-black so it doesn't feel purely gray.
-  */
-  --unrag-ink: hsl(220, 12%, 5%);
-  --unrag-bg-raw: hsl(112, 12%, 7%);
-  --unrag-base: color-mix(in oklab, var(--unrag-ink) 95%, var(--unrag-bg-raw) 5%);
+  --unrag-ink: hsl(0, 0%, 4%);
+  --unrag-base: var(--unrag-ink);
+  --unrag-surface-1: hsl(0, 0%, 7%);
+  --unrag-surface-2: hsl(0, 0%, 9%);
+  --unrag-surface-3: hsl(0, 0%, 12%);
+  --unrag-fg: hsl(0, 0%, 96%);
+  --unrag-fg-muted: hsla(0, 0%, 100%, 0.68);
+
+  /* Brand accent (used explicitly by landing components) */
   --unrag-green-700: hsl(89, 33%, 38%);
   --unrag-green-500: hsl(89, 31%, 54%);
-  /* Lighter + less yellow for text on very dark backgrounds */
-  --unrag-beige: hsl(40, 18%, 92%);
 
   /* Map palette to Fumadocs tokens */
   --color-fd-background: var(--unrag-base);
-  --color-fd-foreground: var(--unrag-beige);
+  --color-fd-foreground: var(--unrag-fg);
 
-  /* Elevated surfaces: mostly slate-black, very subtle lift */
-  --color-fd-card: color-mix(in oklab, var(--unrag-base) 96%, hsl(0, 0%, 100%) 4%);
-  --color-fd-card-foreground: var(--unrag-beige);
-  --color-fd-popover: color-mix(in oklab, var(--unrag-base) 95%, hsl(0, 0%, 100%) 5%);
-  --color-fd-popover-foreground: var(--unrag-beige);
+  /* Elevated surfaces */
+  --color-fd-card: var(--unrag-surface-1);
+  --color-fd-card-foreground: var(--unrag-fg);
+  --color-fd-popover: var(--unrag-surface-2);
+  --color-fd-popover-foreground: var(--unrag-fg);
 
-  --color-fd-muted: color-mix(in oklab, var(--unrag-base) 93%, hsl(0, 0%, 100%) 7%);
-  --color-fd-muted-foreground: hsla(40, 18%, 92%, 0.70);
+  --color-fd-muted: var(--unrag-surface-3);
+  --color-fd-muted-foreground: var(--unrag-fg-muted);
 
-  --color-fd-border: hsla(40, 18%, 92%, 0.12);
+  --color-fd-border: hsla(0, 0%, 100%, 0.10);
 
   /* Accents */
-  --color-fd-primary: var(--unrag-green-500);
-  --color-fd-primary-foreground: var(--unrag-ink);
-  --color-fd-secondary: color-mix(in oklab, var(--unrag-base) 92%, hsl(0, 0%, 100%) 8%);
-  --color-fd-secondary-foreground: var(--unrag-beige);
-  --color-fd-accent: hsla(89, 31%, 54%, 0.12);
-  --color-fd-accent-foreground: var(--unrag-beige);
-  --color-fd-ring: var(--unrag-green-500);
+  /* Keep docs UI feeling neutral; landing pages can still use --unrag-green-500 explicitly. */
+  --color-fd-primary: var(--unrag-fg);
+  --color-fd-primary-foreground: hsl(0, 0%, 6%);
+  --color-fd-secondary: hsla(0, 0%, 100%, 0.06);
+  --color-fd-secondary-foreground: var(--unrag-fg);
+  --color-fd-accent: hsla(0, 0%, 100%, 0.08);
+  --color-fd-accent-foreground: var(--unrag-fg);
+  --color-fd-ring: hsla(0, 0%, 100%, 0.30);
 }
 
 /* Fumadocs' `neutral.css` tweaks the sidebar with a more specific selector; override that too. */
 .dark #nd-sidebar {
   /* Keep sidebar extremely dark and very close to main content */
   background-color: var(--color-fd-background);
-  --color-fd-muted-foreground: hsla(40, 18%, 92%, 0.70);
+  --color-fd-muted-foreground: var(--unrag-fg-muted);
 }

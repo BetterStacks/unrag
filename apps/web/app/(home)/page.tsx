@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { TerminalWindow } from './components/terminal-window';
 import { AnimatedInstall } from './components/animated-install';
 import { CodeBlock } from './components/code-block';
@@ -47,6 +48,8 @@ export const metadata: Metadata = {
 };
 
 export default function HomePage() {
+  const LICENSE_URL = `${GITHUB_REPO}/blob/main/LICENSE`;
+
   return (
     <div className="flex flex-col min-h-screen">
       {/* Subtle grid background */}
@@ -70,7 +73,15 @@ export default function HomePage() {
 
           {/* Headline */}
           <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight text-[var(--color-fd-foreground)] mb-6">
-            <span className="text-[var(--unrag-green-500,hsl(89,31%,54%))]">Un</span>RAG
+            <span className="sr-only">UnRAG</span>
+            <Image
+              src="/logo.svg"
+              alt="UnRAG"
+              width={420}
+              height={108}
+              priority
+              className="mx-auto h-16 sm:h-20 md:h-24 w-auto"
+            />
           </h1>
 
           <p className="text-xl md:text-2xl text-[var(--color-fd-muted-foreground)] max-w-2xl mx-auto mb-12 leading-relaxed">
@@ -167,7 +178,16 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="px-6 py-8 border-t border-[var(--color-fd-border)] text-center text-sm text-[var(--color-fd-muted-foreground)]">
         <p>
-          Built with care. MIT Licensed.{' '}
+          Built with care.{' '}
+          <a
+            href={LICENSE_URL}
+            className="underline hover:text-[var(--color-fd-foreground)]"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Apache-2.0 Licensed
+          </a>
+          .{' '}
           <a
             href={GITHUB_REPO}
             className="underline hover:text-[var(--color-fd-foreground)]"
