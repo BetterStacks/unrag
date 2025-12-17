@@ -1,0 +1,37 @@
+{
+  "name": "unrag",
+  "type": "module",
+  "bin": {
+    "unrag": "./dist/cli/index.js"
+  },
+  "version": "0.0.0",
+  "private": false,
+  "license": "MIT",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/pg": "^8.16.0",
+    "drizzle-kit": "^0.31.8"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "ai": "^5.0.113",
+    "drizzle-orm": "^0.45.1",
+    "jsonc-parser": "^3.3.1",
+    "pg": "^8.16.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "scripts": {
+    "build": "bun build --target=node --format=esm --packages=external --outfile dist/cli/index.js cli/index.ts",
+    "test": "bun test"
+  },
+  "files": [
+    "dist/**",
+    "registry/**",
+    "../../README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

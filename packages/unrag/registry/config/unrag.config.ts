@@ -1,5 +1,5 @@
 /**
- * Root RAG config (generated).
+ * Root Unrag config (generated).
  *
  * This file is meant to be the single place you tweak:
  * - Embedding provider/model/timeouts
@@ -7,13 +7,13 @@
  * - Retrieval defaults
  * - How you construct your DB client (Pool/Prisma/etc)
  *
- * The files under your install dir (e.g. `src/lib/rag/**`) are intended to be
+ * The files under your install dir (e.g. `lib/unrag/**`) are intended to be
  * treated like vendored source code (shadcn-style).
  */
 
-// __CONTEXT_ENGINE_IMPORTS__
+// __UNRAG_IMPORTS__
 
-export const ragConfig = {
+export const unragConfig = {
   chunking: {
     chunkSize: 200,
     chunkOverlap: 40,
@@ -27,6 +27,6 @@ export const ragConfig = {
   },
 } as const;
 
-// __CONTEXT_ENGINE_CREATE_ENGINE__
+// __UNRAG_CREATE_ENGINE__
 
 

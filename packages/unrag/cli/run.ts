@@ -4,10 +4,10 @@ import { initCommand } from "./commands/init";
 export async function run(argv: string[]) {
   const [, , command, ...rest] = argv;
 
-  intro("context-engine");
+  intro("unrag");
 
   if (!command || command === "help" || command === "--help" || command === "-h") {
-    outro("Usage: context-engine init");
+    outro("Usage: unrag init");
     return;
   }
 

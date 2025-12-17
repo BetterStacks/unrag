@@ -1,32 +1,19 @@
 {
-  "name": "context-engine",
-  "type": "module",
-  "bin": {
-    "context-engine": "./dist/cli/index.js"
-  },
+  "name": "unrag",
   "private": true,
-  "devDependencies": {
-    "@types/bun": "latest",
-    "@types/pg": "^8.16.0",
-    "drizzle-kit": "^0.31.8"
-  },
-  "dependencies": {
-    "@clack/prompts": "^0.11.0",
-    "ai": "^5.0.113",
-    "drizzle-orm": "^0.45.1",
-    "jsonc-parser": "^3.3.1",
-    "pg": "^8.16.3"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
+  "type": "module",
+  "packageManager": "bun@1.2.22",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "build": "bun build --target=node --format=esm --packages=external --outfile dist/cli/index.js cli/index.ts",
-    "test": "bun test"
+    "build": "turbo run build",
+    "test": "turbo run test"
   },
-  "files": [
-    "dist/**",
-    "registry/**",
-    "README.md"
-  ]
+  "devDependencies": {
+    "turbo": "^2.5.6"
+  }
 }
+
+

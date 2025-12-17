@@ -1,6 +1,6 @@
-# RAG setup (Context Engine)
+# Unrag setup
 
-This project uses a simple RAG “context engine” with:
+Unrag installs a small RAG module into your codebase with:
 - chunk → embed → store on ingest
 - embed → vector similarity search on retrieve
 
@@ -57,26 +57,23 @@ create index if not exists chunks_source_id_idx on chunks(source_id);
 create index if not exists documents_source_id_idx on documents(source_id);
 ```
 
-Vector index (optional, recommended later):
-- Add an IVFFLAT or HNSW index based on your pgvector version and needs.
-
-<!-- __CONTEXT_ENGINE_ADAPTER_NOTES__ -->
+<!-- __UNRAG_ADAPTER_NOTES__ -->
 
 ## Usage (Next.js)
 
 - Use the engine only on the server (Route Handlers / Server Actions).
 - Prefer a singleton DB client/pool pattern to avoid hot-reload connection storms.
-- If `context-engine` detected Next.js, it added:
-  - `@rag/*` path alias to your installed module directory
-  - `@rag/config` path alias to `./rag.config.ts`
+- If Unrag detected Next.js, it added:
+  - `@unrag/*` path alias to your installed module directory
+  - `@unrag/config` path alias to `./unrag.config.ts`
 
 Example route handler:
 
 ```ts
-import { createRagEngine } from "@rag/config";
+import { createUnragEngine } from "@unrag/config";
 
 export async function GET() {
-  const engine = createRagEngine();
+  const engine = createUnragEngine();
   const result = await engine.retrieve({ query: "hello", topK: 5 });
   return Response.json(result);
 }

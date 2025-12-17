@@ -17,10 +17,11 @@ import { patchTsconfigPaths } from "../lib/tsconfig";
 type InitConfig = {
   installDir: string;
   storeAdapter: "drizzle" | "prisma" | "raw-sql";
+  aliasBase?: string;
   version: number;
 };
 
-const CONFIG_FILE = "context-engine.json";
+const CONFIG_FILE = "unrag.json";
 const CONFIG_VERSION = 1;
 
 const __filename = fileURLToPath(import.meta.url);
@@ -79,7 +80,7 @@ export async function initCommand(args: string[]) {
   const parsed = parseInitArgs(args);
 
   const defaults = {
-    installDir: existing?.installDir ?? "src/lib/rag",
+    installDir: existing?.installDir ?? "lib/unrag",
     storeAdapter: existing?.storeAdapter ?? "drizzle",
   } as const;
 
@@ -161,14 +162,14 @@ export async function initCommand(args: string[]) {
 
   outro(
     [
-      "Installed Context Engine.",
+      "Installed Unrag.",
       "",
       `- Code: ${path.join(installDir)}`,
-      `- Docs: ${path.join(installDir, "rag.md")}`,
-      `- Config: rag.config.ts`,
+      `- Docs: ${path.join(installDir, "unrag.md")}`,
+      `- Config: unrag.config.ts`,
       isNext
         ? tsconfigResult.changed
-          ? `- Next.js: updated ${tsconfigResult.file} (added @rag/* and @rag/config aliases)`
+          ? `- Next.js: updated ${tsconfigResult.file} (added @unrag/* and @unrag/config aliases)`
           : `- Next.js: no tsconfig changes needed`
         : `- Next.js: not detected`,
       "",

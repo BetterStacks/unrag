@@ -30,10 +30,10 @@ export async function patchTsconfigPaths(params: {
         ? "jsconfig.json"
         : null;
 
-  const aliasKey = "@rag/*";
+  const aliasKey = "@unrag/*";
   const target = [`./${params.installDir.replace(/\\/g, "/")}/*`];
-  const configAliasKey = "@rag/config";
-  const configTarget = ["./rag.config.ts"];
+  const configAliasKey = "@unrag/config";
+  const configTarget = ["./unrag.config.ts"];
 
   // If there's no tsconfig/jsconfig yet (common in fresh Next apps), create one.
   if (!configFile) {

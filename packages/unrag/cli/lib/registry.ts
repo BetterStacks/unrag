@@ -23,7 +23,7 @@ const writeText = async (filePath: string, content: string) => {
   await writeFile(filePath, content, "utf8");
 };
 
-const renderRagConfig = (content: string, selection: RegistrySelection) => {
+const renderUnragConfig = (content: string, selection: RegistrySelection) => {
   const installImportBase = `./${selection.installDir.replace(/\\/g, "/")}`;
 
   const baseImports = [
@@ -81,10 +81,10 @@ const renderRagConfig = (content: string, selection: RegistrySelection) => {
   const importsBlock = [...baseImports, ...storeImports].join("\n");
 
   const createEngineBlock = [
-    `export function createRagEngine() {`,
+    `export function createUnragEngine() {`,
     `  const embedding = createAiEmbeddingProvider({`,
-    `    model: ragConfig.embedding.model,`,
-    `    timeoutMs: ragConfig.embedding.timeoutMs,`,
+    `    model: unragConfig.embedding.model,`,
+    `    timeoutMs: unragConfig.embedding.timeoutMs,`,
     `  });`,
     ...storeCreateLines,
     ``,
@@ -92,20 +92,20 @@ const renderRagConfig = (content: string, selection: RegistrySelection) => {
     `    defineConfig({`,
     `      embedding,`,
     `      store,`,
-    `      defaults: ragConfig.chunking,`,
+    `      defaults: unragConfig.chunking,`,
     `    })`,
     `  );`,
     `}`,
     ``,
     `export async function retrieve(query: string) {`,
-    `  const engine = createRagEngine();`,
-    `  return engine.retrieve({ query, topK: ragConfig.retrieval.topK });`,
+    `  const engine = createUnragEngine();`,
+    `  return engine.retrieve({ query, topK: unragConfig.retrieval.topK });`,
     `}`,
   ].join("\n");
 
   return content
-    .replace("// __CONTEXT_ENGINE_IMPORTS__", importsBlock)
-    .replace("// __CONTEXT_ENGINE_CREATE_ENGINE__", createEngineBlock);
+    .replace("// __UNRAG_IMPORTS__", importsBlock)
+    .replace("// __UNRAG_CREATE_ENGINE__", createEngineBlock);
 };
 
 const renderDocs = (content: string, selection: RegistrySelection) => {
@@ -147,7 +147,7 @@ const renderDocs = (content: string, selection: RegistrySelection) => {
     );
   }
 
-  return content.replace("<!-- __CONTEXT_ENGINE_ADAPTER_NOTES__ -->", notes.join("\n"));
+  return content.replace("<!-- __UNRAG_ADAPTER_NOTES__ -->", notes.join("\n"));
 };
 
 export async function copyRegistryFiles(selection: RegistrySelection) {
@@ -159,13 +159,13 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
   const fileMappings: FileMapping[] = [
     // root config + docs
     {
-      src: path.join(selection.registryRoot, "config/rag.config.ts"),
-      dest: toAbs("rag.config.ts"),
-      transform: (c) => renderRagConfig(c, selection),
+      src: path.join(selection.registryRoot, "config/unrag.config.ts"),
+      dest: toAbs("unrag.config.ts"),
+      transform: (c) => renderUnragConfig(c, selection),
     },
     {
-      src: path.join(selection.registryRoot, "docs/rag.md"),
-      dest: path.join(installBaseAbs, "rag.md"),
+      src: path.join(selection.registryRoot, "docs/unrag.md"),
+      dest: path.join(installBaseAbs, "unrag.md"),
       transform: (c) => renderDocs(c, selection),
     },
 

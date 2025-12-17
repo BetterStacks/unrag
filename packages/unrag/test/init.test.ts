@@ -49,15 +49,15 @@ describe("context-engine init", () => {
     });
 
     process.chdir(runDir);
-    await initCommand(["--yes", "--store", "drizzle", "--dir", "src/lib/rag"]);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag"]);
 
-    expect(await pathExists(path.join(runDir, "context-engine.json"))).toBe(true);
-    expect(await pathExists(path.join(runDir, "rag.config.ts"))).toBe(true);
-    expect(await pathExists(path.join(runDir, "src/lib/rag", "rag.md"))).toBe(true);
+    expect(await pathExists(path.join(runDir, "unrag.json"))).toBe(true);
+    expect(await pathExists(path.join(runDir, "unrag.config.ts"))).toBe(true);
+    expect(await pathExists(path.join(runDir, "lib/unrag", "unrag.md"))).toBe(true);
 
     expect(
       await pathExists(
-        path.join(runDir, "src/lib/rag/store/drizzle/schema.ts")
+        path.join(runDir, "lib/unrag/store/drizzle/schema.ts")
       )
     ).toBe(true);
 
@@ -84,12 +84,12 @@ describe("context-engine init", () => {
     });
 
     process.chdir(runDir);
-    await initCommand(["--yes", "--store", "raw-sql", "--dir", "src/lib/rag"]);
+    await initCommand(["--yes", "--store", "raw-sql", "--dir", "lib/unrag"]);
 
     const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
     expect(tsconfig.compilerOptions.baseUrl).toBe(".");
-    expect(tsconfig.compilerOptions.paths["@rag/*"]).toEqual(["./src/lib/rag/*"]);
-    expect(tsconfig.compilerOptions.paths["@rag/config"]).toEqual(["./rag.config.ts"]);
+    expect(tsconfig.compilerOptions.paths["@unrag/*"]).toEqual(["./lib/unrag/*"]);
+    expect(tsconfig.compilerOptions.paths["@unrag/config"]).toEqual(["./unrag.config.ts"]);
   });
 
   test("detects Next and creates tsconfig when missing", async () => {
@@ -101,12 +101,12 @@ describe("context-engine init", () => {
     });
 
     process.chdir(runDir);
-    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/rag"]);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag"]);
 
     const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
     expect(tsconfig.compilerOptions.baseUrl).toBe(".");
-    expect(tsconfig.compilerOptions.paths["@rag/*"]).toEqual(["./lib/rag/*"]);
-    expect(tsconfig.compilerOptions.paths["@rag/config"]).toEqual(["./rag.config.ts"]);
+    expect(tsconfig.compilerOptions.paths["@unrag/*"]).toEqual(["./lib/unrag/*"]);
+    expect(tsconfig.compilerOptions.paths["@unrag/config"]).toEqual(["./unrag.config.ts"]);
   });
 
   test("patches Next tsconfig when paths already exist", async () => {
@@ -128,13 +128,13 @@ describe("context-engine init", () => {
     });
 
     process.chdir(runDir);
-    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/rag"]);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag"]);
 
     const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
     expect(tsconfig.compilerOptions.baseUrl).toBe(".");
     expect(tsconfig.compilerOptions.paths["@/*"]).toEqual(["./*"]);
-    expect(tsconfig.compilerOptions.paths["@rag/*"]).toEqual(["./lib/rag/*"]);
-    expect(tsconfig.compilerOptions.paths["@rag/config"]).toEqual(["./rag.config.ts"]);
+    expect(tsconfig.compilerOptions.paths["@unrag/*"]).toEqual(["./lib/unrag/*"]);
+    expect(tsconfig.compilerOptions.paths["@unrag/config"]).toEqual(["./unrag.config.ts"]);
   });
 });
 
