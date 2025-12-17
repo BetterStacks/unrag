@@ -55,7 +55,7 @@ export function AnimatedInstall() {
         <div className="opacity-0">✓ Installed lib/unrag/core/*</div>
         <div className="opacity-0">✓ Installed lib/unrag/store/drizzle</div>
         <div className="opacity-0">✓ Installed lib/unrag/embedding/ai</div>
-        <div className="opacity-0 mt-2 text-cyan-300">Done. Your RAG module is ready.</div>
+        <div className="opacity-0 mt-2 text-amber-300">Done. Your RAG module is ready.</div>
       </div>
     );
   }
@@ -102,7 +102,7 @@ export function AnimatedInstall() {
       </div>
       
       <div
-        className={`text-[var(--color-fd-foreground)] font-medium mt-2 transition-opacity duration-300 ${
+        className={`text-amber-300 font-medium mt-2 transition-opacity duration-300 ${
           phase >= 3 ? 'opacity-100' : 'opacity-0'
         }`}
       >

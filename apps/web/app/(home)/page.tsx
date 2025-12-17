@@ -37,12 +37,21 @@ export const metadata: Metadata = {
     url: '/',
     siteName: 'UnRAG',
     type: 'website',
+    images: [
+      {
+        url: '/opengraph-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'UnRAG',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'UnRAG | Install RAG as source files, not dependencies',
     description:
       'UnRAG vendors small, auditable ingest/retrieve primitives into your codebase as source you own. Two methods: ingest() and retrieve(). Built for Postgres + pgvector.',
+    images: ['/twitter-image.png'],
   },
   keywords: ['RAG', 'retrieval augmented generation', 'pgvector', 'Postgres', 'TypeScript', 'ingest', 'retrieve'],
 };
@@ -73,8 +82,17 @@ export default function HomePage() {
             A simple system of ergonomically designed primitive that you can customize, extend, and build on to create versatile, robust and extendable RAG systems.
           </p>
 
+          {/* Main command */}
+          <div className="my-6 flex justify-center">
+            <div className="inline-flex items-center gap-3 px-5 py-3 rounded-lg bg-white/5 border border-white/10 backdrop-blur font-mono text-sm">
+              <span className="text-white/55">$</span>
+              <span className="text-white">bunx unrag init</span>
+              <CopyButton text="bunx unrag init" />
+            </div>
+          </div>
+
           {/* Terminal Demo */}
-          <section className="relative px-6 py-12">
+          <section className="relative px-6 mb-12">
             <div className="max-w-lg mx-auto">
             <TerminalWindow title="~/your-project">
               <AnimatedInstall />
