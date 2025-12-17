@@ -24,7 +24,7 @@ async function pathExists(p: string) {
   }
 }
 
-describe("context-engine init", () => {
+describe("unrag init", () => {
   let runDir: string;
   let originalCwd: string;
 
