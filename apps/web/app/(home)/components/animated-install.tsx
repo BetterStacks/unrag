@@ -49,13 +49,13 @@ export function AnimatedInstall() {
     return (
       <div className="space-y-1 text-left">
         <div className="text-[var(--color-fd-muted-foreground)]">
-          <span className="text-[var(--unrag-green-500,hsl(89,31%,54%))]">$</span> bunx unrag init
+          <span className="text-[var(--color-fd-muted-foreground)]">$</span> bunx unrag init
         </div>
         <div className="opacity-0">✓ Created unrag.config.ts</div>
         <div className="opacity-0">✓ Installed lib/unrag/core/*</div>
         <div className="opacity-0">✓ Installed lib/unrag/store/drizzle</div>
         <div className="opacity-0">✓ Installed lib/unrag/embedding/ai</div>
-        <div className="opacity-0 mt-2">Done. Your RAG module is ready.</div>
+        <div className="opacity-0 mt-2 text-cyan-300">Done. Your RAG module is ready.</div>
       </div>
     );
   }
@@ -63,7 +63,7 @@ export function AnimatedInstall() {
   return (
     <div className="space-y-1 text-left">
       <div className="text-[var(--color-fd-muted-foreground)]">
-        <span className="text-[var(--unrag-green-500,hsl(89,31%,54%))]">$</span>{' '}
+        <span className="text-[var(--color-fd-muted-foreground)]">$</span>{' '}
         <TypeWriter text="bunx unrag init" delay={60} onComplete={startPhaseSequence} />
       </div>
       
@@ -102,7 +102,7 @@ export function AnimatedInstall() {
       </div>
       
       <div
-        className={`text-[var(--unrag-green-500,hsl(89,31%,54%))] font-medium mt-2 transition-opacity duration-300 ${
+        className={`text-[var(--color-fd-foreground)] font-medium mt-2 transition-opacity duration-300 ${
           phase >= 3 ? 'opacity-100' : 'opacity-0'
         }`}
       >

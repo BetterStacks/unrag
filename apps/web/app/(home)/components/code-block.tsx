@@ -111,7 +111,7 @@ export function CodeBlock({ code, highlight }: { code: string; highlight?: numbe
           key={i}
           className={
             highlight?.includes(i)
-              ? 'bg-[var(--unrag-green-500,hsl(89,31%,54%))]/10 -mx-4 px-4'
+              ? 'bg-[hsla(0,0%,100%,0.04)] -mx-4 px-4'
               : ''
           }
         >

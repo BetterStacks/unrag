@@ -1,7 +1,7 @@
 export function TerminalWindow({ children, title = 'terminal' }: { children: React.ReactNode; title?: string }) {
   return (
-    <div className="rounded-lg overflow-hidden border border-[var(--color-fd-border)] bg-[var(--unrag-ink,hsl(220,12%,5%))]">
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-fd-muted)] border-b border-[var(--color-fd-border)]">
+    <div className="rounded-lg overflow-hidden border border-[var(--color-fd-border)] bg-[hsl(0,0%,4%)]">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-[var(--color-fd-card)] border-b border-[var(--color-fd-border)]">
         <div className="flex gap-1.5">
           <span className="w-3 h-3 rounded-full bg-[#ff5f57]" />
           <span className="w-3 h-3 rounded-full bg-[#febc2e]" />
@@ -13,4 +13,3 @@ export function TerminalWindow({ children, title = 'terminal' }: { children: Rea
     </div>
   );
 }
-

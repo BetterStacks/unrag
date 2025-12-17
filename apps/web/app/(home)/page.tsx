@@ -4,9 +4,9 @@ import Image from 'next/image';
 import { TerminalWindow } from './components/terminal-window';
 import { AnimatedInstall } from './components/animated-install';
 import { CodeBlock } from './components/code-block';
-import { FeatureCard } from './components/feature-card';
 import { CopyButton } from './components/copy-button';
 import { GITHUB_REPO } from '@/constants';
+import { GlowingStarsBackground } from './components/glowing-stars-background';
 
 const CODE_EXAMPLE = `import { createUnragEngine } from "@unrag/config";
 
@@ -51,84 +51,70 @@ export default function HomePage() {
   const LICENSE_URL = `${GITHUB_REPO}/blob/main/LICENSE`;
 
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Subtle grid background */}
-      <div
-        className="fixed inset-0 pointer-events-none opacity-[0.03]"
-        style={{
-          backgroundImage: `linear-gradient(var(--color-fd-foreground) 1px, transparent 1px),
-            linear-gradient(90deg, var(--color-fd-foreground) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px',
-        }}
-      />
+    <div className="flex flex-col min-h-screen bg-[var(--color-fd-background)]">
+      {/* Hero - forced dark for circuit visibility */}
+      <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-6 py-24 overflow-hidden bg-[hsl(0,0%,2%)]">
+        {/* Glowing stars background */}
+        <GlowingStarsBackground className="z-[1]" />
 
-      {/* Hero */}
-      <section className="relative flex-1 flex flex-col items-center justify-center px-6 py-20 text-center">
-        <div className="max-w-4xl mx-auto">
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-fd-accent)] border border-[var(--color-fd-border)] text-xs font-medium text-[var(--color-fd-muted-foreground)] mb-8">
-            <span className="w-2 h-2 rounded-full bg-[var(--unrag-green-500,hsl(89,31%,54%))] animate-pulse" />
-            Not a dependency. Source code you own.
-          </div>
+        {/* Gradient overlays for depth */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsla(0,0%,100%,0.05),transparent_55%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[hsl(0,0%,2%)] opacity-60 pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,hsl(0,0%,2%)_70%)] opacity-45 pointer-events-none" />
 
+        <div className="relative z-10 max-w-4xl mx-auto text-center">
           {/* Headline */}
-          <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold tracking-tight text-[var(--color-fd-foreground)] mb-6">
-            <span className="sr-only">UnRAG</span>
-            <Image
-              src="/logo.svg"
-              alt="UnRAG"
-              width={420}
-              height={108}
-              priority
-              className="mx-auto h-16 sm:h-20 md:h-24 w-auto"
-            />
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight bg-gradient-to-b from-white to-white/55 bg-clip-text text-transparent mb-6 leading-[1]">
+            Composable & extendable primitives to build rag systems
           </h1>
 
-          <p className="text-xl md:text-2xl text-[var(--color-fd-muted-foreground)] max-w-2xl mx-auto mb-12 leading-relaxed">
-            Install RAG as source files, not dependencies.
-            <br />
-            <span className="text-[var(--color-fd-foreground)]">Two methods. Zero abstraction.</span>
+          {/* Description */}
+          <p className="text-lg text-white/55 max-w-2xl mx-auto leading-snug">
+            A simple system of ergonomically designed primitive that you can customize, extend, and build on to create versatile, robust and extendable RAG systems.
           </p>
 
           {/* Terminal Demo */}
-          <div className="max-w-lg mx-auto mb-12">
+          <section className="relative px-6 py-12">
+            <div className="max-w-lg mx-auto">
             <TerminalWindow title="~/your-project">
               <AnimatedInstall />
             </TerminalWindow>
           </div>
+          </section>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link
               href="/docs"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-lg bg-[var(--unrag-green-500,hsl(89,31%,54%))] text-[var(--unrag-ink,hsl(220,12%,5%))] font-semibold hover:opacity-90 transition-opacity"
+              className="group relative inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-[hsl(0,0%,8%)] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                background: 'linear-gradient(to bottom, hsl(0, 0%, 100%) 0%, hsl(0, 0%, 85%) 100%)',
+                boxShadow: 'inset 0 1px 0 0 hsla(0, 0%, 100%, 0.4), 0 1px 2px 0 hsla(0, 0%, 0%, 0.3)',
+              }}
             >
-              Get Started
-              <svg className="ml-2 w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+              Get started
+            </Link>
+            <Link
+              href="/docs/getting-started/quickstart"
+              className="group inline-flex items-center gap-2 px-4 py-2.5 text-[var(--color-fd-muted-foreground)] font-medium text-sm hover:text-[var(--color-fd-foreground)] transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              Documentation
+              <svg className="w-4 h-4 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
             </Link>
-            <a
-              href={GITHUB_REPO}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center px-6 py-3 rounded-lg border border-[var(--color-fd-border)] text-[var(--color-fd-foreground)] font-semibold hover:bg-[var(--color-fd-accent)] transition-colors"
-            >
-              <svg className="mr-2 w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path
-                  fillRule="evenodd"
-                  d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              View on GitHub
-            </a>
           </div>
         </div>
       </section>
 
       {/* Code Example */}
-      <section className="relative px-6 py-20 border-t border-[var(--color-fd-border)] bg-[var(--color-fd-card)]/50">
+      <section className="relative px-6 py-20">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-[var(--color-fd-foreground)] mb-4">
@@ -159,18 +145,33 @@ export default function HomePage() {
           </p>
 
           <div className="inline-flex items-center gap-3 px-5 py-3 rounded-lg bg-[var(--color-fd-card)] border border-[var(--color-fd-border)] font-mono text-sm">
-            <span className="text-[var(--unrag-green-500,hsl(89,31%,54%))]">$</span>
+            <span className="text-[var(--color-fd-muted-foreground)]">$</span>
             <span className="text-[var(--color-fd-foreground)]">bunx unrag init</span>
             <CopyButton text="bunx unrag init" />
           </div>
 
-          <div className="mt-8">
+          <div className="mt-8 flex flex-wrap gap-4 justify-center">
             <Link
               href="/docs/getting-started/quickstart"
-              className="text-[var(--unrag-green-500,hsl(89,31%,54%))] hover:underline font-medium"
+              className="text-[var(--color-fd-foreground)] hover:text-[var(--color-fd-muted-foreground)] font-medium transition-colors"
             >
-              Read the quickstart guide →
+              Read the quickstart →
             </Link>
+            <a
+              href={GITHUB_REPO}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-[var(--color-fd-muted-foreground)] hover:text-[var(--color-fd-foreground)] font-medium transition-colors"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path
+                  fillRule="evenodd"
+                  d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              View on GitHub
+            </a>
           </div>
         </div>
       </section>
@@ -181,7 +182,7 @@ export default function HomePage() {
           Built with care.{' '}
           <a
             href={LICENSE_URL}
-            className="underline hover:text-[var(--color-fd-foreground)]"
+            className="underline hover:text-[var(--color-fd-foreground)] transition-colors"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -190,7 +191,7 @@ export default function HomePage() {
           .{' '}
           <a
             href={GITHUB_REPO}
-            className="underline hover:text-[var(--color-fd-foreground)]"
+            className="underline hover:text-[var(--color-fd-foreground)] transition-colors"
             target="_blank"
             rel="noopener noreferrer"
           >

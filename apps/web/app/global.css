@@ -12,6 +12,10 @@
 */
 
 @theme {
+  /* Fonts (Next.js optimized via `next/font`) */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
   /* Darker "neutral" (still considered light mode) */
   --color-fd-background: hsl(0, 0%, 92%);
   --color-fd-foreground: hsl(0, 0%, 7%);
@@ -33,23 +37,19 @@
 
 .dark {
   /*
-    Neutral high-contrast palette (dark modern)
-    - near-black backgrounds
-    - subtle elevated surfaces
-    - crisp white/gray typography
-    - restrained borders
+    Deep black high-contrast palette (Unkey-inspired)
+    - true black backgrounds
+    - barely-lifted surfaces
+    - crisp white typography
+    - very subtle borders
   */
-  --unrag-ink: hsl(0, 0%, 4%);
+  --unrag-ink: hsl(0, 0%, 2%);
   --unrag-base: var(--unrag-ink);
-  --unrag-surface-1: hsl(0, 0%, 7%);
-  --unrag-surface-2: hsl(0, 0%, 9%);
-  --unrag-surface-3: hsl(0, 0%, 12%);
-  --unrag-fg: hsl(0, 0%, 96%);
-  --unrag-fg-muted: hsla(0, 0%, 100%, 0.68);
-
-  /* Brand accent (used explicitly by landing components) */
-  --unrag-green-700: hsl(89, 33%, 38%);
-  --unrag-green-500: hsl(89, 31%, 54%);
+  --unrag-surface-1: hsl(0, 0%, 4%);
+  --unrag-surface-2: hsl(0, 0%, 6%);
+  --unrag-surface-3: hsl(0, 0%, 8%);
+  --unrag-fg: hsl(0, 0%, 98%);
+  --unrag-fg-muted: hsla(0, 0%, 100%, 0.55);
 
   /* Map palette to Fumadocs tokens */
   --color-fd-background: var(--unrag-base);
@@ -64,17 +64,16 @@
   --color-fd-muted: var(--unrag-surface-3);
   --color-fd-muted-foreground: var(--unrag-fg-muted);
 
-  --color-fd-border: hsla(0, 0%, 100%, 0.10);
+  --color-fd-border: hsla(0, 0%, 100%, 0.07);
 
   /* Accents */
-  /* Keep docs UI feeling neutral; landing pages can still use --unrag-green-500 explicitly. */
   --color-fd-primary: var(--unrag-fg);
-  --color-fd-primary-foreground: hsl(0, 0%, 6%);
-  --color-fd-secondary: hsla(0, 0%, 100%, 0.06);
+  --color-fd-primary-foreground: hsl(0, 0%, 2%);
+  --color-fd-secondary: hsla(0, 0%, 100%, 0.04);
   --color-fd-secondary-foreground: var(--unrag-fg);
-  --color-fd-accent: hsla(0, 0%, 100%, 0.08);
+  --color-fd-accent: hsla(0, 0%, 100%, 0.05);
   --color-fd-accent-foreground: var(--unrag-fg);
-  --color-fd-ring: hsla(0, 0%, 100%, 0.30);
+  --color-fd-ring: hsla(0, 0%, 100%, 0.20);
 }
 
 /* Fumadocs' `neutral.css` tweaks the sidebar with a more specific selector; override that too. */
