@@ -1,3 +1,84 @@
 @import 'tailwindcss';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
+
+/*
+  Fumadocs UI theme overrides
+
+  Fumadocs exposes its design tokens as CSS variables (e.g. --color-fd-background).
+  We override them here to make the default neutral theme significantly darker.
+
+  Ref: https://www.fumadocs.dev/docs/ui/theme
+*/
+
+@theme {
+  /* Darker "neutral" (still considered light mode) */
+  --color-fd-background: hsl(0, 0%, 92%);
+  --color-fd-foreground: hsl(0, 0%, 7%);
+  --color-fd-muted: hsl(0, 0%, 88%);
+  --color-fd-muted-foreground: hsl(0, 0%, 34%);
+  --color-fd-popover: hsl(0, 0%, 90%);
+  --color-fd-popover-foreground: hsl(0, 0%, 10%);
+  --color-fd-card: hsl(0, 0%, 89%);
+  --color-fd-card-foreground: hsl(0, 0%, 7%);
+  --color-fd-border: hsla(0, 0%, 20%, 0.18);
+  --color-fd-primary: hsl(0, 0%, 10%);
+  --color-fd-primary-foreground: hsl(0, 0%, 98%);
+  --color-fd-secondary: hsl(0, 0%, 86%);
+  --color-fd-secondary-foreground: hsl(0, 0%, 10%);
+  --color-fd-accent: hsla(0, 0%, 20%, 0.10);
+  --color-fd-accent-foreground: hsl(0, 0%, 10%);
+  --color-fd-ring: hsl(0, 0%, 45%);
+}
+
+.dark {
+  /*
+    Palette (converted from RGB -> HSL)
+    - rgb(27, 33, 26)   -> hsl(112, 12%, 12%)  (original darkest)
+    - rgb(98, 129, 65)  -> hsl(89, 33%, 38%)   (dark green)
+    - rgb(139, 174, 102)-> hsl(89, 31%, 54%)   (light green)
+    - rgb(235, 213, 171)-> hsl(39, 62%, 80%)   (beige)
+  */
+  /*
+    Use a near-black "slate ink" base for backgrounds/surfaces, then tint it slightly
+    towards the original green-black so it doesn't feel purely gray.
+  */
+  --unrag-ink: hsl(220, 12%, 5%);
+  --unrag-bg-raw: hsl(112, 12%, 7%);
+  --unrag-base: color-mix(in oklab, var(--unrag-ink) 95%, var(--unrag-bg-raw) 5%);
+  --unrag-green-700: hsl(89, 33%, 38%);
+  --unrag-green-500: hsl(89, 31%, 54%);
+  /* Lighter + less yellow for text on very dark backgrounds */
+  --unrag-beige: hsl(40, 18%, 92%);
+
+  /* Map palette to Fumadocs tokens */
+  --color-fd-background: var(--unrag-base);
+  --color-fd-foreground: var(--unrag-beige);
+
+  /* Elevated surfaces: mostly slate-black, very subtle lift */
+  --color-fd-card: color-mix(in oklab, var(--unrag-base) 96%, hsl(0, 0%, 100%) 4%);
+  --color-fd-card-foreground: var(--unrag-beige);
+  --color-fd-popover: color-mix(in oklab, var(--unrag-base) 95%, hsl(0, 0%, 100%) 5%);
+  --color-fd-popover-foreground: var(--unrag-beige);
+
+  --color-fd-muted: color-mix(in oklab, var(--unrag-base) 93%, hsl(0, 0%, 100%) 7%);
+  --color-fd-muted-foreground: hsla(40, 18%, 92%, 0.70);
+
+  --color-fd-border: hsla(40, 18%, 92%, 0.12);
+
+  /* Accents */
+  --color-fd-primary: var(--unrag-green-500);
+  --color-fd-primary-foreground: var(--unrag-ink);
+  --color-fd-secondary: color-mix(in oklab, var(--unrag-base) 92%, hsl(0, 0%, 100%) 8%);
+  --color-fd-secondary-foreground: var(--unrag-beige);
+  --color-fd-accent: hsla(89, 31%, 54%, 0.12);
+  --color-fd-accent-foreground: var(--unrag-beige);
+  --color-fd-ring: var(--unrag-green-500);
+}
+
+/* Fumadocs' `neutral.css` tweaks the sidebar with a more specific selector; override that too. */
+.dark #nd-sidebar {
+  /* Keep sidebar extremely dark and very close to main content */
+  background-color: var(--color-fd-background);
+  --color-fd-muted-foreground: hsla(40, 18%, 92%, 0.70);
+}
