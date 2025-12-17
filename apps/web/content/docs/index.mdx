@@ -1,32 +1,41 @@
 ---
 title: UnRAG Documentation
-description: Install small, auditable RAG primitives into your codebase as vendored source.
+description: Install small, auditable RAG primitives into your codebase as vendored source files you own and control.
 ---
 
-UnRAG is a **RAG installer** for TypeScript projects. Instead of shipping a framework, it installs a **tiny, composable module** (ingest + retrieve + adapters) into *your* repo as source files you own.
+UnRAG takes a different approach to building retrieval-augmented generation systems. Instead of shipping a framework or SDK that abstracts away the internals, UnRAG installs a small, readable module directly into your codebase. You run one command, and you get TypeScript source files that you own, can read, can modify, and can ship with your application.
 
-## The 30-second mental model
+The core idea is simple: RAG is not complicated enough to warrant a black-box dependency. The two fundamental operations—ingesting content into vectors and retrieving relevant chunks—can be expressed in a few hundred lines of clear, typed code. UnRAG gives you exactly that, wired up to work with Postgres and pgvector out of the box.
 
-- **Ingest**: chunk → embed → store (Postgres + pgvector)
-- **Retrieve**: embed query → vector similarity search → return chunks
-
-## Quick start
+When you run `bunx unrag init`, you get a complete working system:
 
 ```bash
 bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
 ```
 
-Then (server-only):
+This creates a `unrag.config.ts` file at your project root (your single place to configure database clients, embedding providers, and defaults) plus a `lib/unrag/` directory containing the actual implementation code. From there, using UnRAG is straightforward:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
 
 const engine = createUnragEngine();
-await engine.ingest({ sourceId: "docs:intro", content: "Hello from UnRAG" });
+
+// Ingest content: chunk it, embed each chunk, store in Postgres
+await engine.ingest({
+  sourceId: "docs:intro",
+  content: "Hello from UnRAG. This content will be chunked and embedded.",
+});
+
+// Retrieve relevant chunks for a query
 const result = await engine.retrieve({ query: "hello", topK: 5 });
+console.log(result.chunks);
 ```
 
-## What’s next
+That's the entire API surface. Two methods—`ingest()` and `retrieve()`—plus the configuration to wire them together. Everything else (how you build prompts, how you integrate with chat, how you handle permissions) is up to you.
+
+UnRAG works with Postgres and pgvector because that's what most teams already have or can easily add. You manage your own migrations, you see the exact SQL being executed, and you can extend or modify the schema as your needs evolve.
+
+## What's next
 
 <Cards>
   <Card title="Getting Started" href="/docs/getting-started/introduction" />
@@ -36,5 +45,4 @@ const result = await engine.retrieve({ query: "hello", topK: 5 });
   <Card title="Guides & examples" href="/docs/guides/build-a-search-endpoint" />
   <Card title="Reference" href="/docs/reference/cli" />
 </Cards>
-
 

@@ -1,18 +1,13 @@
 ---
-title: AI SDK embedding provider
-description: The default embedding provider installed by UnRAG.
+title: AI SDK Embedding Provider
+description: The default embedding provider that ships with UnRAG, built on Vercel's AI SDK.
 ---
 
-By default, UnRAG installs an embedding provider built on the `ai` SDK.
+UnRAG ships with an embedding provider built on Vercel's AI SDK. This provider handles the communication with OpenAI's embedding API (or compatible endpoints) and returns the vectors your store adapter needs.
 
-## Environment variables
+## How it works
 
-- `AI_GATEWAY_API_KEY`: required by the `ai` SDK when using Vercel AI Gateway
-- Optional: `AI_GATEWAY_MODEL`: defaults to `openai/text-embedding-3-small`
-
-## Usage
-
-This is typically wired inside `createUnragEngine()` in `unrag.config.ts`:
+When you call `engine.ingest()` or `engine.retrieve()`, the embedding provider takes text and returns a vector. The AI SDK provider wraps this in a clean interface:
 
 ```ts
 import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
@@ -21,13 +16,113 @@ const embedding = createAiEmbeddingProvider({
   model: "openai/text-embedding-3-small",
   timeoutMs: 15_000,
 });
+
+// Later, inside the engine:
+const vector = await embedding.embed({ 
+  text: "Your content here",
+  metadata: {},
+  position: 0,
+  sourceId: "doc-1",
+  documentId: "uuid-here"
+});
+// vector is number[], e.g., [0.012, -0.045, 0.089, ...]
 ```
+
+The provider is stateless—each call is independent. The engine calls it once per chunk during ingestion and once for the query during retrieval.
+
+## Configuration
+
+The provider accepts two options:
+
+**`model`** specifies which embedding model to use. The format is `provider/model-name`, matching the AI SDK's model string format. Common choices include:
+
+- `openai/text-embedding-3-small` (1536 dimensions, fast, cheap)
+- `openai/text-embedding-3-large` (3072 dimensions, more accurate, costs more)
+- `openai/text-embedding-ada-002` (1536 dimensions, legacy)
+
+**`timeoutMs`** sets how long to wait for an embedding response before failing. The default is 15 seconds, which is generous for most use cases. Reduce it if you want faster failures, or increase it for high-latency scenarios.
+
+These options are typically set in `unrag.config.ts`:
+
+```ts
+export const unragConfig = {
+  embedding: {
+    model: "openai/text-embedding-3-small",
+    timeoutMs: 15_000,
+  },
+  // ...
+} as const;
+```
+
+## Environment variables
+
+The AI SDK reads configuration from environment variables:
+
+**`AI_GATEWAY_API_KEY`** (required): Your API key for the embedding service. For OpenAI, this is your OpenAI API key.
+
+**`AI_GATEWAY_MODEL`** (optional): Overrides the model specified in code. This lets you change models without redeploying.
+
+```bash
+# .env
+AI_GATEWAY_API_KEY="sk-..."
+AI_GATEWAY_MODEL="openai/text-embedding-3-large"
+```
+
+The provider reads these at runtime, so you can have different models in different environments (staging vs production) by changing environment variables.
 
 ## What the provider returns
 
-- `name`: includes the model identifier (useful for debugging)
-- `embed({ text })`: returns `number[]` (vector)
+The provider object has three properties:
 
-If the SDK response doesn’t include an embedding, the provider throws.
+```ts
+{
+  name: "ai-sdk:openai/text-embedding-3-small",  // For logging/debugging
+  dimensions: undefined,  // Not always known ahead of time
+  embed: async ({ text }) => number[]
+}
+```
 
+The `name` includes the model identifier, which appears in ingest and retrieve responses. This helps you verify which model was used and debug issues when switching models.
+
+The `dimensions` field is `undefined` because different models produce different-sized vectors, and the provider doesn't want to hardcode this. The actual dimension is stored alongside each embedding in your database.
+
+## Error handling
+
+If the embedding call fails (network error, rate limit, invalid API key), the provider throws an exception. This propagates up through the engine, causing your `ingest()` or `retrieve()` call to fail.
+
+Common failures include:
+
+- **Network timeouts**: Increase `timeoutMs` or check your connectivity
+- **Rate limits**: The AI SDK doesn't retry automatically; implement backoff in your application
+- **Invalid API key**: Check your `AI_GATEWAY_API_KEY` environment variable
+- **Model not found**: Verify the model string is correct
+
+For production systems, wrap your UnRAG calls in error handling:
+
+```ts
+try {
+  await engine.ingest({ sourceId: "doc-1", content: "..." });
+} catch (err) {
+  if (err.message.includes("rate limit")) {
+    // Queue for retry
+  } else {
+    // Log and alert
+  }
+}
+```
+
+## Using a different base URL
+
+If you're using an OpenAI-compatible API (Azure OpenAI, local models with compatible endpoints, etc.), you can configure the AI SDK's base URL through environment variables or SDK configuration. Check the AI SDK documentation for details on configuring alternative endpoints.
+
+## When to use a custom provider
+
+The AI SDK provider works well for most use cases, but you might want a custom provider if:
+
+- You're using embedding models from a different vendor (Cohere, Anthropic, etc.)
+- You're running local models and want direct control
+- You need custom retry logic or caching
+- You want to log or transform embeddings
+
+See [Custom Embedding Provider](/docs/embedding/custom-provider) for implementation guidance.
 

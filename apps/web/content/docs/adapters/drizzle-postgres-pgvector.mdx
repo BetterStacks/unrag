@@ -1,9 +1,13 @@
 ---
-title: Drizzle (Postgres + pgvector)
-description: Use the Drizzle adapter and reuse the generated schema.
+title: Drizzle Adapter
+description: Use the Drizzle ORM adapter with examples for Neon, Supabase, AWS RDS, and existing Drizzle setups.
 ---
 
-## Create the store
+The Drizzle adapter gives you type-safe database access and integrates cleanly with Drizzle's migration system. If you're already using Drizzle in your project, this is the natural choice—you can import UnRAG's schema into your existing configuration and manage everything together.
+
+## Basic setup
+
+At its simplest, creating the Drizzle store looks like this:
 
 ```ts
 import { Pool } from "pg";
@@ -16,22 +20,250 @@ const db = drizzle(pool);
 export const store = createDrizzleVectorStore(db);
 ```
 
-## Reuse the generated Drizzle schema
+This creates a store adapter that uses your Drizzle instance for all database operations. The adapter handles transactions, upserts, and vector similarity queries.
 
-If you use Drizzle migrations, you can import the installed schema:
+## Connecting to Neon
+
+Neon is a serverless Postgres provider that works well with UnRAG. For serverless environments, use Neon's HTTP driver for lower latency on cold starts:
 
 ```ts
-import * as rag from "@unrag/store/drizzle/schema";
+import { neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-http";
+import { createDrizzleVectorStore } from "@unrag/store/drizzle";
 
+const sql = neon(process.env.DATABASE_URL!);
+const db = drizzle(sql);
+
+export const store = createDrizzleVectorStore(db);
+```
+
+For long-running processes (traditional servers, background jobs), use the standard Postgres driver with Neon's connection pooler:
+
+```ts
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { createDrizzleVectorStore } from "@unrag/store/drizzle";
+
+// Use the pooled connection string from Neon dashboard
+const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+const db = drizzle(pool);
+
+export const store = createDrizzleVectorStore(db);
+```
+
+Your connection string for Neon looks like:
+```
+postgresql://user:password@ep-xxx.us-east-1.aws.neon.tech/dbname?sslmode=require
+```
+
+## Connecting to Supabase
+
+Supabase provides managed Postgres with pgvector pre-installed. Use their connection pooler endpoint for better connection handling:
+
+```ts
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { createDrizzleVectorStore } from "@unrag/store/drizzle";
+
+// Use the connection pooler URL from Supabase dashboard
+const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+});
+const db = drizzle(pool);
+
+export const store = createDrizzleVectorStore(db);
+```
+
+The Supabase connection string format:
+```
+postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+```
+
+For serverless deployments on Supabase, consider using their Supavisor pooler in transaction mode to avoid connection exhaustion.
+
+## Connecting to AWS RDS
+
+AWS RDS requires SSL in most configurations. Ensure your connection includes the necessary certificates:
+
+```ts
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { createDrizzleVectorStore } from "@unrag/store/drizzle";
+
+const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: true,
+    // For RDS, you may need the CA bundle
+    // ca: fs.readFileSync('/path/to/rds-ca-bundle.pem').toString(),
+  },
+});
+const db = drizzle(pool);
+
+export const store = createDrizzleVectorStore(db);
+```
+
+For Lambda or other serverless deployments, use RDS Proxy to manage connections:
+
+```ts
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { createDrizzleVectorStore } from "@unrag/store/drizzle";
+
+// RDS Proxy endpoint
+const pool = new Pool({ 
+  host: "your-proxy.proxy-xxx.us-east-1.rds.amazonaws.com",
+  port: 5432,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  ssl: { rejectUnauthorized: true },
+});
+const db = drizzle(pool);
+
+export const store = createDrizzleVectorStore(db);
+```
+
+## Using your existing Drizzle instance
+
+If your project already has Drizzle configured, you don't need to create a separate connection for UnRAG. Pass your existing Drizzle instance directly:
+
+```ts
+// Your existing db setup (maybe in lib/db.ts)
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+export const db = drizzle(pool);
+```
+
+```ts
+// In unrag.config.ts
+import { db } from "@/lib/db";  // Your existing Drizzle instance
+import { createDrizzleVectorStore } from "@unrag/store/drizzle";
+import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+import { createContextEngine, defineConfig } from "@unrag/core";
+
+const store = createDrizzleVectorStore(db);
+
+export function createUnragEngine() {
+  return createContextEngine(
+    defineConfig({
+      embedding: createAiEmbeddingProvider({
+        model: "openai/text-embedding-3-small",
+      }),
+      store,
+      defaults: { chunkSize: 200, chunkOverlap: 40 },
+    })
+  );
+}
+```
+
+This approach means UnRAG shares the same connection pool as the rest of your application, which is more efficient and simpler to manage.
+
+## Integrating UnRAG's schema with your Drizzle migrations
+
+UnRAG's Drizzle adapter comes with a schema definition you can import into your project's Drizzle configuration. This lets you manage UnRAG tables alongside your application tables in a single migration workflow.
+
+```ts
+// In your drizzle schema file (e.g., lib/db/schema.ts)
+import * as unrag from "@unrag/store/drizzle/schema";
+
+// Your application tables
+export const users = pgTable("users", {
+  id: uuid("id").primaryKey(),
+  email: text("email").notNull(),
+  // ...
+});
+
+export const posts = pgTable("posts", {
+  id: uuid("id").primaryKey(),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  userId: uuid("user_id").references(() => users.id),
+  // ...
+});
+
+// Re-export UnRAG tables so migrations pick them up
+export const { documents, chunks, embeddings } = unrag;
+
+// Or export everything together
 export const schema = {
-  ...rag.schema,
-  // ...your app tables
+  users,
+  posts,
+  ...unrag.schema,
 };
 ```
 
-## Notes
+Now when you run `drizzle-kit generate` or `drizzle-kit push`, Drizzle will manage both your application tables and UnRAG's tables together.
 
-- The adapter stores `metadata` as `jsonb` and sanitizes it (non-serializable values become `null`).
-- Vector similarity uses pgvector’s `<=>` operator.
+## Transaction example
 
+Because the adapter uses your Drizzle instance, you can wrap operations in transactions that span both UnRAG and your application data:
+
+```ts
+import { db } from "@/lib/db";
+import { posts } from "@/lib/db/schema";
+import { createUnragEngine } from "@unrag/config";
+
+async function createAndIndexPost(title: string, content: string, userId: string) {
+  const engine = createUnragEngine();
+  
+  // Insert the post and index it in a single transaction
+  await db.transaction(async (tx) => {
+    // Insert into your posts table
+    const [post] = await tx.insert(posts).values({
+      id: crypto.randomUUID(),
+      title,
+      content,
+      userId,
+    }).returning();
+    
+    // Index the content for search
+    // Note: For transactional consistency, you might call ingest
+    // outside the transaction or build custom adapter methods
+    await engine.ingest({
+      sourceId: `post:${post.id}`,
+      content: `${title}\n\n${content}`,
+      metadata: { postId: post.id, userId },
+    });
+  });
+}
+```
+
+## How the adapter handles vectors
+
+The Drizzle adapter defines a custom `vector` column type that properly serializes and deserializes pgvector data:
+
+```ts
+// From the generated schema
+const vector = (name: string, dimensions?: number) =>
+  customType<{ data: number[]; driverData: string }>({
+    dataType: () => (dimensions ? `vector(${dimensions})` : "vector"),
+    toDriver: (value) => `[${value.join(",")}]`,
+  })(name);
+```
+
+This lets you work with embeddings as plain `number[]` arrays in TypeScript while storing them as proper vector types in Postgres.
+
+When querying for similar vectors, the adapter uses raw SQL with Drizzle's `sql` template tag to construct the pgvector distance operation:
+
+```ts
+const vectorLiteral = `[${embedding.join(",")}]`;
+const rows = await db.execute(
+  sql`
+    SELECT c.*, (e.embedding <=> ${vectorLiteral}) as score
+    FROM chunks c
+    JOIN embeddings e ON e.chunk_id = c.id
+    WHERE c.source_id LIKE ${scope.sourceId + '%'}
+    ORDER BY score ASC
+    LIMIT ${topK}
+  `
+);
+```
+
+The `<=>` operator computes cosine distance. Lower values mean higher similarity.
 

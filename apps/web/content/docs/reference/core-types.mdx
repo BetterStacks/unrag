@@ -1,34 +1,186 @@
 ---
-title: Core types
-description: The key interfaces UnRAG is built around.
+title: Core Types Reference
+description: TypeScript types for the UnRAG engine, inputs, outputs, and interfaces.
 ---
 
-UnRAG’s core is intentionally small. The most important types are:
+UnRAG's type system is intentionally small. Understanding these types helps you work with the engine effectively and build custom components.
 
-## `IngestInput`
+## IngestInput
 
-- `sourceId: string`
-- `content: string`
-- `metadata?: Record<string, ...>`
-- `chunking?: { chunkSize?: number; chunkOverlap?: number }`
+The input to `engine.ingest()`:
 
-## `RetrieveInput`
+```ts
+type IngestInput = {
+  sourceId: string;           // Logical document identifier
+  content: string;            // The text to chunk and embed
+  metadata?: Metadata;        // Optional JSON metadata
+  chunking?: {                // Optional per-call chunking override
+    chunkSize?: number;
+    chunkOverlap?: number;
+  };
+};
+```
 
-- `query: string`
-- `topK?: number` (default 8)
-- `scope?: { sourceId?: string }`
+The `sourceId` should be stable and meaningful. When you ingest with an existing `sourceId`, the store adapter updates the existing document rather than creating a duplicate.
 
-## `EmbeddingProvider`
+The `metadata` object is stored as JSON and appears in retrieval results. Use it for titles, categories, timestamps, or any information you want to access later.
 
-- `name: string`
-- `dimensions?: number`
-- `embed(input) => Promise<number[]>`
+## IngestResult
 
-## `VectorStore`
+The output from `engine.ingest()`:
 
-- `upsert(chunks) => Promise<void>`
-- `query({ embedding, topK, scope }) => Promise<Array<Chunk & { score: number }>>`
+```ts
+type IngestResult = {
+  documentId: string;         // UUID of the created/updated document
+  chunkCount: number;         // How many chunks were created
+  embeddingModel: string;     // Which model was used (e.g., "ai-sdk:openai/...")
+  durations: {
+    totalMs: number;          // Total operation time
+    chunkingMs: number;       // Time spent chunking
+    embeddingMs: number;      // Time spent generating embeddings
+    storageMs: number;        // Time spent writing to database
+  };
+};
+```
 
-See [Store interface](/docs/reference/store-interface) for implementation guidance.
+The timing breakdown helps identify bottlenecks. Embedding typically dominates; if storage is slow, check your database connection and indexes.
 
+## RetrieveInput
+
+The input to `engine.retrieve()`:
+
+```ts
+type RetrieveInput = {
+  query: string;              // The search query
+  topK?: number;              // How many results to return (default: 8)
+  scope?: {                   // Optional filtering
+    sourceId?: string;        // Prefix filter on sourceId
+  };
+};
+```
+
+The `scope.sourceId` uses prefix matching. If you provide `"docs:"`, only chunks whose `sourceId` starts with `"docs:"` are considered.
+
+## RetrieveResult
+
+The output from `engine.retrieve()`:
+
+```ts
+type RetrieveResult = {
+  chunks: Array<Chunk & { score: number }>;  // Matching chunks with scores
+  embeddingModel: string;                     // Which model embedded the query
+  durations: {
+    totalMs: number;                          // Total operation time
+    embeddingMs: number;                      // Time spent embedding the query
+    retrievalMs: number;                      // Time spent querying the database
+  };
+};
+```
+
+Chunks are ordered by score ascending (lower scores mean higher similarity for cosine distance).
+
+## Chunk
+
+The chunk type represents a piece of a document:
+
+```ts
+type Chunk = {
+  id: string;                 // UUID of the chunk
+  documentId: string;         // UUID of the parent document
+  sourceId: string;           // Logical identifier from ingestion
+  index: number;              // Position in the original document (0, 1, 2, ...)
+  content: string;            // The chunk's text
+  tokenCount: number;         // Approximate token count
+  metadata: Metadata;         // JSON metadata from ingestion
+  embedding?: number[];       // Vector (present during upsert, not in query results)
+  documentContent?: string;   // Full document text (during upsert only)
+};
+```
+
+During retrieval, chunks include a `score` field representing similarity to the query.
+
+## Metadata
+
+Metadata is a flexible JSON object:
+
+```ts
+type MetadataValue = string | number | boolean | null;
+
+type Metadata = Record<
+  string,
+  MetadataValue | MetadataValue[] | undefined
+>;
+```
+
+Keep values simple and serializable. The adapter stores metadata as JSONB, so complex nested objects work but may be harder to query.
+
+## EmbeddingProvider
+
+The interface for embedding text into vectors:
+
+```ts
+type EmbeddingInput = {
+  text: string;               // The text to embed
+  metadata: Metadata;         // Context (from chunk or query)
+  position: number;           // Chunk index (or 0 for queries)
+  sourceId: string;           // Document sourceId (or "query")
+  documentId: string;         // Document UUID (or "query")
+};
+
+type EmbeddingProvider = {
+  name: string;               // Identifier for debugging
+  dimensions?: number;        // Expected output size (optional)
+  embed: (input: EmbeddingInput) => Promise<number[]>;
+};
+```
+
+The `embed` function receives context about what's being embedded, though most implementations only use `text`. Return a numeric array representing the embedding vector.
+
+## VectorStore
+
+The interface for database operations:
+
+```ts
+type VectorStore = {
+  upsert: (chunks: Chunk[]) => Promise<void>;
+  query: (params: {
+    embedding: number[];
+    topK: number;
+    scope?: { sourceId?: string };
+  }) => Promise<Array<Chunk & { score: number }>>;
+};
+```
+
+The `upsert` method handles both inserts and updates. If a document with the same ID exists, it should be replaced.
+
+The `query` method finds the most similar chunks and returns them with similarity scores.
+
+## ContextEngineConfig
+
+The configuration for creating an engine:
+
+```ts
+type ContextEngineConfig = {
+  embedding: EmbeddingProvider;
+  store: VectorStore;
+  defaults?: Partial<ChunkingOptions>;
+  chunker?: Chunker;
+  idGenerator?: () => string;
+};
+
+type ChunkingOptions = {
+  chunkSize: number;
+  chunkOverlap: number;
+};
+
+type Chunker = (content: string, options: ChunkingOptions) => ChunkText[];
+
+type ChunkText = {
+  index: number;
+  content: string;
+  tokenCount: number;
+};
+```
+
+Most configurations only specify `embedding`, `store`, and `defaults`. Custom `chunker` and `idGenerator` are optional overrides for advanced use cases.
 

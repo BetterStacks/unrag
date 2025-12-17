@@ -1,36 +1,128 @@
 ---
 title: Performance
-description: Practical knobs for speed, cost, and stability.
+description: Understanding and optimizing ingest and retrieve performance.
 ---
+
+UnRAG is designed to be fast by default, but understanding where time goes helps you optimize for your specific workload. Let's look at the performance characteristics of both operations and the knobs you can turn.
+
+## Where time goes during ingestion
+
+When you call `engine.ingest()`, the timing breakdown typically looks like this:
+
+```ts
+{
+  totalMs: 1523,
+  chunkingMs: 2,      // Almost instant
+  embeddingMs: 1456,  // Dominates
+  storageMs: 65       // Fast with connection pooling
+}
+```
+
+**Chunking** is nearly instant—splitting text is cheap. Unless you're processing enormous documents with complex custom chunkers, this will never be your bottleneck.
+
+**Embedding** is where the time goes. Each chunk requires an API call to your embedding provider, and those calls have network latency. UnRAG embeds chunks concurrently, which helps, but you're still bound by your embedding provider's throughput.
+
+For OpenAI's embedding API, expect roughly 100-200ms per chunk when running sequentially. With concurrency, you can process a 10-chunk document in about 300-500ms total, depending on your rate limits and network conditions.
+
+**Storage** is fast if your database connection is healthy. Writing a document with 10 chunks and embeddings takes 20-100ms with a warmed connection pool. Cold connections or distant databases add latency.
+
+## Optimizing ingestion
+
+If ingestion is too slow for your use case, consider these approaches:
+
+**Batch your ingests.** Instead of ingesting documents one at a time, collect multiple documents and process them together. The overhead of establishing connections and waiting for network round-trips amortizes across more work.
+
+**Use a background job queue.** For user-triggered ingestion (like file uploads), return immediately and process in a background job. This keeps your API response times fast while still getting content indexed quickly.
+
+**Adjust chunk size.** Larger chunks mean fewer embedding calls. If you're embedding hundreds of documents and retrieval quality is acceptable with 300-word chunks instead of 150-word chunks, you'll cut your embedding costs and time roughly in half.
+
+**Consider local embedding models.** If you're embedding at scale and have GPU resources, running your own embedding model eliminates API latency entirely. Models like `sentence-transformers/all-MiniLM-L6-v2` run fast on modest hardware and produce good results for many use cases.
+
+## Where time goes during retrieval
+
+Retrieval is typically faster than ingestion:
+
+```ts
+{
+  totalMs: 234,
+  embeddingMs: 189,   // Single embedding call
+  retrievalMs: 45     // Database query
+}
+```
+
+**Embedding the query** is a single API call—just your search string, not multiple chunks. This takes 100-200ms with a cloud embedding provider.
+
+**The database query** runs a vector similarity search and returns results. With proper indexing and a well-configured database, this takes 10-100ms depending on your data size and query complexity.
+
+## Optimizing retrieval
+
+**Cache query embeddings.** If users frequently search for the same terms, cache the embedding vectors. The embedding API call is the slowest part—skipping it for common queries dramatically improves response times.
+
+```ts
+const cache = new Map<string, number[]>();
+
+async function embedWithCache(query: string): Promise<number[]> {
+  const cached = cache.get(query);
+  if (cached) return cached;
+  
+  const embedding = await embeddingProvider.embed({ text: query, ... });
+  cache.set(query, embedding);
+  return embedding;
+}
+```
+
+**Add a vector index.** For datasets with more than 50,000 chunks, add an HNSW index to speed up similarity search:
+
+```sql
+create index embeddings_hnsw_idx 
+on embeddings using hnsw (embedding vector_cosine_ops);
+```
+
+This trades some recall accuracy for dramatically faster queries. For most applications, the tradeoff is worthwhile.
+
+**Tune topK.** Don't retrieve more results than you need. Each additional result adds (small) overhead to the database query and increases the data transferred over the wire.
 
 ## Connection pooling
 
-The generated `unrag.config.ts` uses a singleton pattern (`globalThis`) for DB clients to avoid hot-reload connection storms in dev.
+The generated `unrag.config.ts` uses a singleton pattern for database connections:
 
-If you deploy to serverless, prefer:
+```ts
+const pool = (globalThis as any).__unragPool ?? new Pool({ connectionString });
+(globalThis as any).__unragPool = pool;
+```
 
-- a single shared pool per runtime (when supported)
-- or a provider-recommended driver (e.g. pgBouncer, Neon, etc.)
+This prevents connection pool exhaustion during development with hot reloading, where modules get re-executed on every change. In production, it ensures you reuse connections across requests.
 
-## Chunk size and overlap
+For serverless environments (Vercel, AWS Lambda, etc.), consider using:
 
-- Larger chunks: fewer embeddings, cheaper, but less precise retrieval.
-- Smaller chunks: better recall/precision, but more embeddings and higher cost.
+- **Neon's serverless driver** for automatic connection pooling
+- **Supabase's connection pooler** endpoint
+- **AWS RDS Proxy** for RDS connections
+- **PgBouncer** if you're managing your own infrastructure
 
-Start with the defaults, then tune based on:
+These tools pool connections across function invocations, preventing the "too many connections" errors common in serverless deployments.
 
-- your content type (docs vs code vs tickets)
-- embedding model context characteristics
+## Monitoring and debugging
 
-## topK
+The timing information returned by both `ingest()` and `retrieve()` is your primary tool for understanding performance. Log these values in production:
 
-`topK` controls result count. Typical values: 5–20.
+```ts
+const result = await engine.retrieve({ query, topK: 10 });
 
-- Too low: misses relevant context
-- Too high: slower queries + bigger prompts
+console.log({
+  query,
+  resultCount: result.chunks.length,
+  embeddingMs: result.durations.embeddingMs,
+  retrievalMs: result.durations.retrievalMs,
+  totalMs: result.durations.totalMs,
+});
+```
 
-## Indexing
+Watch for:
 
-Make sure pgvector extension is enabled and add indexes on `source_id` if you scope frequently.
+- **Sudden increases in embedding time**: Usually indicates API issues or rate limiting
+- **High storage/retrieval times**: Check database connection health, missing indexes, or lock contention
+- **Consistent slowness**: May indicate undersized database instance or network latency issues
 
+The explicit timing breakdown makes it straightforward to identify which component needs attention.
 

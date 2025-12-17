@@ -1,37 +1,228 @@
 ---
-title: Store interface
-description: Implementing VectorStore correctly (upsert + query).
+title: Store Interface Reference
+description: Implementing the VectorStore interface for custom database adapters.
 ---
 
-## Responsibilities
+The `VectorStore` interface is how UnRAG interacts with your database. The built-in adapters (Drizzle, Prisma, Raw SQL) all implement this interface, and you can build your own for different databases or custom requirements.
 
-Your store is responsible for:
-
-- Writing:
-  - a document row (logical identity)
-  - chunk rows (content slices + metadata)
-  - embedding rows (vectors)
-- Querying:
-  - nearest neighbors in pgvector
-  - optional scope filters (e.g. `sourceId`)
-
-## Interface (simplified)
+## The interface
 
 ```ts
-import type { Chunk, VectorStore } from "@unrag/core/types";
+import type { Chunk } from "@unrag/core/types";
 
-export const store: VectorStore = {
-  upsert: async (chunks: Chunk[]) => {},
-  query: async ({ embedding, topK, scope }) => {
-    return [];
-  },
+type VectorStore = {
+  upsert: (chunks: Chunk[]) => Promise<void>;
+  query: (params: {
+    embedding: number[];
+    topK: number;
+    scope?: { sourceId?: string };
+  }) => Promise<Array<Chunk & { score: number }>>;
 };
 ```
 
+Just two methods. The simplicity is intentional—it keeps adapters small and easy to understand.
+
+## The upsert method
+
+`upsert` receives an array of chunks from a single document, each with an embedding attached:
+
+```ts
+upsert: async (chunks: Chunk[]) => {
+  // All chunks belong to the same document
+  // chunks[0].documentId is the document UUID
+  // chunks[0].sourceId is the logical identifier
+  // chunks[0].documentContent has the full original text
+  
+  // Each chunk has:
+  // - id: UUID for this chunk
+  // - index: position in document (0, 1, 2, ...)
+  // - content: the chunk's text
+  // - tokenCount: approximate token count
+  // - metadata: JSON from ingestion
+  // - embedding: number[] (the vector)
+}
+```
+
+Your implementation should:
+
+1. Insert or update a document record (using `documentId` as the key)
+2. Insert or update chunk records for each chunk
+3. Insert or update embedding records with the vectors
+4. Handle the case where the document already exists (update rather than duplicate)
+
+The standard schema uses three tables, but you can structure storage however makes sense for your use case.
+
+## The query method
+
+`query` receives a vector and returns similar chunks:
+
+```ts
+query: async ({ embedding, topK, scope }) => {
+  // embedding: number[] - the query vector
+  // topK: number - how many results to return
+  // scope.sourceId: optional prefix filter
+  
+  // Return Array<Chunk & { score: number }>
+  // Ordered by score ascending (lower is more similar for distance metrics)
+}
+```
+
+Your implementation should:
+
+1. Run a similarity search against stored embeddings
+2. Apply any scope filters (sourceId prefix matching)
+3. Return the top K most similar chunks with their scores
+4. Include all chunk fields plus the `score`
+
 ## Score semantics
 
-The default adapters return `score` as **distance** (smaller is better) using pgvector `<=>`.
+The default adapters use pgvector's `<=>` operator for cosine distance, where:
 
-If you change the distance function, document your score semantics clearly so callers don’t assume “bigger is better”.
+- Lower scores mean higher similarity
+- Scores range from 0 (identical) to 2 (opposite)
+- Typical "good" matches have scores under 0.5
 
+If you use a different distance function, document your score semantics so calling code knows how to interpret them.
+
+## Example: Minimal Postgres adapter
+
+Here's a stripped-down implementation showing the essential structure:
+
+```ts
+import type { Pool } from "pg";
+import type { Chunk, VectorStore } from "@unrag/core/types";
+
+export const createSimpleStore = (pool: Pool): VectorStore => ({
+  upsert: async (chunks) => {
+    if (chunks.length === 0) return;
+    
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      
+      // Upsert document
+      const doc = chunks[0];
+      await client.query(`
+        INSERT INTO documents (id, source_id, content, metadata)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (id) DO UPDATE SET 
+          source_id = $2, content = $3, metadata = $4
+      `, [doc.documentId, doc.sourceId, doc.documentContent, JSON.stringify(doc.metadata)]);
+      
+      // Upsert chunks and embeddings
+      for (const chunk of chunks) {
+        await client.query(`
+          INSERT INTO chunks (id, document_id, source_id, idx, content, token_count, metadata)
+          VALUES ($1, $2, $3, $4, $5, $6, $7)
+          ON CONFLICT (id) DO UPDATE SET 
+            content = $5, token_count = $6, metadata = $7
+        `, [chunk.id, chunk.documentId, chunk.sourceId, chunk.index, 
+            chunk.content, chunk.tokenCount, JSON.stringify(chunk.metadata)]);
+        
+        if (chunk.embedding) {
+          await client.query(`
+            INSERT INTO embeddings (chunk_id, embedding)
+            VALUES ($1, $2::vector)
+            ON CONFLICT (chunk_id) DO UPDATE SET embedding = $2::vector
+          `, [chunk.id, `[${chunk.embedding.join(",")}]`]);
+        }
+      }
+      
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  },
+  
+  query: async ({ embedding, topK, scope }) => {
+    const vectorLiteral = `[${embedding.join(",")}]`;
+    const conditions = scope?.sourceId 
+      ? `WHERE c.source_id LIKE '${scope.sourceId}%'` 
+      : "";
+    
+    const res = await pool.query(`
+      SELECT c.*, (e.embedding <=> $1::vector) as score
+      FROM chunks c
+      JOIN embeddings e ON e.chunk_id = c.id
+      ${conditions}
+      ORDER BY score ASC
+      LIMIT $2
+    `, [vectorLiteral, topK]);
+    
+    return res.rows.map((row) => ({
+      id: row.id,
+      documentId: row.document_id,
+      sourceId: row.source_id,
+      index: row.idx,
+      content: row.content,
+      tokenCount: row.token_count,
+      metadata: row.metadata ?? {},
+      score: parseFloat(row.score),
+    }));
+  },
+});
+```
+
+## Extending for custom filters
+
+If you need filtering beyond `sourceId`, extend the query parameters:
+
+```ts
+type ExtendedScope = {
+  sourceId?: string;
+  tenantId?: string;
+  contentType?: string;
+};
+
+query: async ({ embedding, topK, scope }) => {
+  const extScope = scope as ExtendedScope;
+  const conditions: string[] = [];
+  
+  if (extScope.sourceId) {
+    conditions.push(`c.source_id LIKE '${extScope.sourceId}%'`);
+  }
+  if (extScope.tenantId) {
+    conditions.push(`c.metadata->>'tenantId' = '${extScope.tenantId}'`);
+  }
+  // ... build query with all conditions
+}
+```
+
+The scope is passed through from `engine.retrieve()`, so you can add any filtering your application needs.
+
+## Testing your adapter
+
+Before deploying a custom adapter, verify both methods work correctly:
+
+```ts
+test("upsert and query round-trip", async () => {
+  const store = createMyStore(pool);
+  
+  const testChunks = [{
+    id: "chunk-1",
+    documentId: "doc-1",
+    sourceId: "test:doc",
+    index: 0,
+    content: "test content",
+    tokenCount: 2,
+    metadata: {},
+    embedding: [0.1, 0.2, 0.3],
+    documentContent: "test content",
+  }];
+  
+  await store.upsert(testChunks);
+  
+  const results = await store.query({
+    embedding: [0.1, 0.2, 0.3],
+    topK: 5,
+  });
+  
+  expect(results.length).toBe(1);
+  expect(results[0].content).toBe("test content");
+  expect(results[0].score).toBeLessThan(0.1); // Should be very similar
+});
+```
 

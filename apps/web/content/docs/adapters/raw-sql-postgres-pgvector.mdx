@@ -1,9 +1,13 @@
 ---
-title: Raw SQL (Postgres + pgvector)
-description: The most portable adapter - pg Pool + parameterized SQL.
+title: Raw SQL Adapter
+description: Use the pg driver directly for maximum control and minimal dependencies.
 ---
 
-## Create the store
+The Raw SQL adapter uses the `pg` driver directly, giving you explicit control over your database connection without any ORM layer. This is the most portable option and a good choice if you prefer seeing the actual SQL or want to minimize dependencies.
+
+## Basic setup
+
+The adapter takes a `pg` Pool instance:
 
 ```ts
 import { Pool } from "pg";
@@ -13,10 +17,258 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const store = createRawSqlVectorStore(pool);
 ```
 
-## Notes
+That's it. The adapter handles connection acquisition, transactions, and result mapping internally.
 
-- This adapter is a good default when you don’t want to commit to an ORM.
-- Upserts run in a transaction (begin/commit/rollback).
-- Query uses `<=> $1::vector` and `limit $2`.
+## Connecting to Neon
 
+Neon works seamlessly with the `pg` driver. Use the pooled connection string for better connection reuse:
+
+```ts
+import { Pool } from "pg";
+import { createRawSqlVectorStore } from "@unrag/store/raw-sql";
+
+const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+export const store = createRawSqlVectorStore(pool);
+```
+
+For serverless environments, Neon's serverless driver might give you better cold start performance:
+
+```ts
+import { neon } from "@neondatabase/serverless";
+import { createRawSqlVectorStore } from "@unrag/store/raw-sql";
+
+// Note: You'd need to wrap the neon client to match pg's Pool interface
+// or modify the adapter to accept the neon client directly
+const sql = neon(process.env.DATABASE_URL!);
+
+// For raw SQL with Neon serverless, you might want to modify the adapter
+// or use the Pool-based approach for compatibility
+```
+
+## Connecting to Supabase
+
+Supabase's pooler works with the standard `pg` driver:
+
+```ts
+import { Pool } from "pg";
+import { createRawSqlVectorStore } from "@unrag/store/raw-sql";
+
+// Use the connection pooler URL from your Supabase dashboard
+const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+});
+
+export const store = createRawSqlVectorStore(pool);
+```
+
+Connection string format:
+```
+postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
+```
+
+## Connecting to AWS RDS
+
+For RDS, configure SSL appropriately:
+
+```ts
+import { Pool } from "pg";
+import { createRawSqlVectorStore } from "@unrag/store/raw-sql";
+
+const pool = new Pool({ 
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: true,
+    // Optionally specify the CA certificate for RDS
+    // ca: fs.readFileSync('/path/to/rds-ca-bundle.pem').toString(),
+  },
+});
+
+export const store = createRawSqlVectorStore(pool);
+```
+
+For Lambda deployments, use RDS Proxy to avoid connection limits:
+
+```ts
+import { Pool } from "pg";
+import { createRawSqlVectorStore } from "@unrag/store/raw-sql";
+
+const pool = new Pool({ 
+  host: process.env.RDS_PROXY_HOST,
+  port: 5432,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  ssl: { rejectUnauthorized: true },
+  max: 1,  // Keep pool small in Lambda
+});
+
+export const store = createRawSqlVectorStore(pool);
+```
+
+## Connecting to local Postgres
+
+For development with a local Postgres instance:
+
+```ts
+import { Pool } from "pg";
+import { createRawSqlVectorStore } from "@unrag/store/raw-sql";
+
+const pool = new Pool({ 
+  host: "localhost",
+  port: 5432,
+  user: "postgres",
+  password: "postgres",
+  database: "myapp_dev",
+});
+
+export const store = createRawSqlVectorStore(pool);
+```
+
+Or using a connection string:
+
+```ts
+const pool = new Pool({ 
+  connectionString: "postgresql://postgres:postgres@localhost:5432/myapp_dev",
+});
+```
+
+## Using an existing pg Pool
+
+If your application already has a `pg` Pool configured, pass it directly:
+
+```ts
+// Your existing pool (maybe in lib/db.ts)
+import { Pool } from "pg";
+
+export const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
+```
+
+```ts
+// In unrag.config.ts
+import { pool } from "@/lib/db";
+import { createRawSqlVectorStore } from "@unrag/store/raw-sql";
+import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+import { createContextEngine, defineConfig } from "@unrag/core";
+
+const store = createRawSqlVectorStore(pool);
+
+export function createUnragEngine() {
+  return createContextEngine(
+    defineConfig({
+      embedding: createAiEmbeddingProvider({
+        model: "openai/text-embedding-3-small",
+      }),
+      store,
+      defaults: { chunkSize: 200, chunkOverlap: 40 },
+    })
+  );
+}
+```
+
+Sharing the pool means UnRAG and your application compete for the same connections, which is usually what you want—it prevents total connection count from exceeding your database limits.
+
+## Pool configuration for different environments
+
+The `pg` Pool accepts configuration for connection limits, timeouts, and behavior. Here are recommendations for different scenarios:
+
+**Traditional server (Express, Fastify, etc.):**
+
+```ts
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,                        // Max connections in pool
+  idleTimeoutMillis: 30000,       // Close idle connections after 30s
+  connectionTimeoutMillis: 5000,  // Fail if can't connect in 5s
+});
+```
+
+**Serverless (Vercel, AWS Lambda, etc.):**
+
+```ts
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 1,                          // Single connection per function instance
+  idleTimeoutMillis: 120000,       // Keep alive between invocations
+  connectionTimeoutMillis: 10000,  // Allow for cold start latency
+});
+```
+
+**Development with hot reloading:**
+
+```ts
+const globalPool = (globalThis as any).__pgPool;
+const pool = globalPool ?? new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 5,
+});
+(globalThis as any).__pgPool = pool;
+```
+
+## How the adapter works
+
+The Raw SQL adapter executes parameterized queries directly against your database. For ingestion, it wraps operations in a transaction:
+
+```ts
+async function withTx<T>(pool: Pool, fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const result = await fn(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+```
+
+Queries use parameterized SQL to prevent injection:
+
+```ts
+// Upsert a document
+await client.query(`
+  INSERT INTO documents (id, source_id, content, metadata)
+  VALUES ($1, $2, $3, $4::jsonb)
+  ON CONFLICT (id) DO UPDATE SET
+    source_id = excluded.source_id,
+    content = excluded.content,
+    metadata = excluded.metadata
+`, [documentId, sourceId, content, JSON.stringify(metadata)]);
+
+// Query for similar chunks
+const res = await pool.query(`
+  SELECT c.*, (e.embedding <=> $1::vector) as score
+  FROM chunks c
+  JOIN embeddings e ON e.chunk_id = c.id
+  WHERE c.source_id LIKE $2
+  ORDER BY score ASC
+  LIMIT $3
+`, [vectorLiteral, sourceIdPrefix + '%', topK]);
+```
+
+The vector is passed as a string literal `[0.1,0.2,...]` and cast to the `vector` type in SQL.
+
+## When to choose Raw SQL
+
+The Raw SQL adapter is ideal when:
+
+- You don't use an ORM and don't want to add one
+- You want to see exactly what SQL is being executed
+- You're comfortable with `pg` and want minimal abstraction
+- You're optimizing for bundle size or startup time
+- You need to customize queries and don't want to work around ORM limitations
+
+The adapter code is small and readable—about 150 lines of straightforward SQL and connection handling. If you need to modify it, the barrier to understanding is low.
 

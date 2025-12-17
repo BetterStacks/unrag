@@ -1,21 +1,58 @@
 ---
 title: Philosophy
-description: Why UnRAG vendors primitives instead of shipping a framework.
+description: Why UnRAG vendors primitives into your codebase instead of shipping a framework.
 ---
 
-UnRAG’s core idea is simple: **you should own your RAG implementation**.
+The RAG ecosystem has grown complex. You can choose from hosted vector databases, all-in-one frameworks, agent toolkits, and managed services—each adding layers of abstraction between you and what's actually happening with your data. UnRAG takes a deliberately different approach.
 
-## Principles
+## You should own your RAG implementation
 
-- **Primitives over frameworks**: UnRAG gives you `ingest()` and `retrieve()` primitives, not a black box.
-- **Drop-in + auditable**: installed code is small enough to read and modify.
-- **Swap components**: embedding providers and stores are interfaces you can implement.
-- **Local-first**: start in your repo, keep diffs reviewable, keep prod behavior explicit.
+The core operations in RAG—chunking text, generating embeddings, storing vectors, and running similarity queries—are not complicated. They're a few hundred lines of straightforward code. There's no reason this code needs to live behind an SDK, in a proprietary service, or spread across a framework with plugin architectures and lifecycle hooks.
 
-## When UnRAG shines
+When you install UnRAG, you're not adding a dependency that abstracts away the implementation. You're copying source files into your repository. These files are yours. You can read them, understand them, modify them, and delete them. When something goes wrong, you can step through the code in your debugger. When you need a feature that doesn't exist, you can add it directly.
 
-- You want a “vendored source” install: source files in your repo, not an SDK that hides complexity.
-- You need Postgres anyway and want pgvector without introducing a new system.
-- You want to tune chunking, embedding models, or queries without fighting a framework.
+This matters because RAG is often the critical path for your application's core value. If your chat feature or search functionality is built on code you can't see or modify, you're betting your product on someone else's abstractions remaining correct and sufficient for your needs.
 
+## Primitives over frameworks
+
+UnRAG gives you two operations: `ingest()` and `retrieve()`. That's it. There's no routing layer, no agent orchestration, no prompt templating, no LLM integration, no streaming infrastructure. These are things you might need, but they're things you should build (or choose) based on your specific requirements.
+
+By staying narrow, UnRAG stays simple. The codebase you install is small enough to read in one sitting. There are no hidden behaviors, no magic conventions, no lifecycle methods you need to understand. When you call `ingest()`, it chunks your content, embeds each chunk, and stores everything in your database. When you call `retrieve()`, it embeds your query and runs a similarity search. Everything is explicit and traceable.
+
+This also means UnRAG composes well with whatever else you're using. If you have opinions about prompt engineering, streaming, caching, or model selection, UnRAG doesn't fight you. It handles the vector storage layer and gets out of your way.
+
+## Swappable components
+
+UnRAG's internal structure uses simple interfaces rather than concrete implementations. The embedding provider is an object with an `embed()` method. The store adapter is an object with `upsert()` and `query()` methods. If you want to use a different embedding service, run local models, or store vectors somewhere other than Postgres, you implement the interface and plug it in.
+
+This isn't a plugin system with registration and discovery. It's just function arguments. You construct the engine with the components you want, and those components don't need to know about each other. The implementation is visible in your `unrag.config.ts` file.
+
+## Local-first development
+
+Because UnRAG is source files in your repository, your development workflow stays normal:
+
+1. You can see exactly what code is running by opening the files
+2. Changes appear in pull requests and get code review
+3. Your IDE can navigate into UnRAG code, set breakpoints, and show type information
+4. Tests can cover your customizations alongside your application code
+5. Deployment is just deploying your app—no external services to provision or configure
+
+There's no separate "UnRAG environment" to manage. It's just part of your codebase.
+
+## When this approach makes sense
+
+UnRAG works well when:
+
+- You want complete visibility into how your RAG system works
+- You're already using Postgres and don't want to add another database system
+- You have specific requirements for chunking, embedding, or retrieval that might require customization
+- Your team prefers owning code to depending on services
+- You want to version control your RAG implementation alongside your application
+
+It might not be the right fit if:
+
+- You want a fully managed solution where someone else handles operations
+- You need features beyond basic ingest/retrieve (crawling, document processing, complex workflows)
+- Your team doesn't have bandwidth to maintain vendored code
+- You're evaluating RAG and want the fastest possible prototype (though UnRAG is still pretty fast)
 

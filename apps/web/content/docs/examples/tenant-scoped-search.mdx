@@ -1,32 +1,182 @@
 ---
-title: Tenant-scoped search
-description: Keep retrieval isolated per tenant by encoding tenant id in sourceId.
+title: Tenant-Scoped Search
+description: A complete example of multi-tenant search using sourceId scoping.
 ---
 
-This example uses `sourceId` scoping as a low-friction multi-tenant strategy.
+This example demonstrates multi-tenant search for a SaaS application where each customer has their own knowledge base. Content is isolated by tenant, and searches only return results from the authenticated tenant.
 
-## Ingest
+## The approach
+
+Tenant isolation works by encoding the tenant ID in `sourceId`. During ingestion, every document gets a `sourceId` prefixed with the tenant identifier. During retrieval, we scope queries to that prefix, ensuring customers only see their own content.
+
+## Ingestion with tenant context
+
+When a customer uploads or creates content, include their tenant ID:
 
 ```ts
-await engine.ingest({
-  sourceId: `tenant:${tenantId}:kb:${docId}`,
-  content,
-  metadata: { tenantId, docId },
+// lib/kb/ingest.ts
+import { createUnragEngine } from "@unrag/config";
+
+export async function ingestKnowledgeArticle(
+  tenantId: string,
+  articleId: string,
+  title: string,
+  content: string
+) {
+  const engine = createUnragEngine();
+  
+  const result = await engine.ingest({
+    sourceId: `tenant:${tenantId}:kb:${articleId}`,
+    content: `# ${title}\n\n${content}`,
+    metadata: {
+      tenantId,
+      articleId,
+      title,
+      type: "knowledge-article",
+      indexedAt: new Date().toISOString(),
+    },
+  });
+  
+  return {
+    documentId: result.documentId,
+    chunkCount: result.chunkCount,
+  };
+}
+```
+
+Call this from your admin API when articles are created or updated:
+
+```ts
+// app/api/admin/articles/route.ts
+import { ingestKnowledgeArticle } from "@/lib/kb/ingest";
+
+export async function POST(request: Request) {
+  const session = await getSession(request);
+  if (!session?.tenantId) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  const { articleId, title, content } = await request.json();
+  
+  const result = await ingestKnowledgeArticle(
+    session.tenantId,
+    articleId,
+    title,
+    content
+  );
+  
+  return Response.json({ success: true, ...result });
+}
+```
+
+## Scoped retrieval
+
+The search endpoint extracts the tenant from the authenticated session and scopes all queries:
+
+```ts
+// app/api/kb/search/route.ts
+import { createUnragEngine } from "@unrag/config";
+
+export async function GET(request: Request) {
+  const session = await getSession(request);
+  if (!session?.tenantId) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get("q")?.trim();
+  
+  if (!query) {
+    return Response.json({ error: "Missing query" }, { status: 400 });
+  }
+  
+  const engine = createUnragEngine();
+  const result = await engine.retrieve({
+    query,
+    topK: 10,
+    scope: { sourceId: `tenant:${session.tenantId}:kb:` },
+  });
+  
+  return Response.json({
+    query,
+    results: result.chunks.map((chunk) => ({
+      id: chunk.metadata.articleId,
+      title: chunk.metadata.title,
+      excerpt: chunk.content.substring(0, 200),
+      score: chunk.score,
+    })),
+  });
+}
+```
+
+The `scope: { sourceId: "tenant:acme:kb:" }` ensures the database query only considers chunks belonging to that tenant's knowledge base.
+
+## Frontend search component
+
+```tsx
+"use client";
+import { useState } from "react";
+
+export function KnowledgeSearch() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  
+  const search = async () => {
+    const res = await fetch(`/api/kb/search?q=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    setResults(data.results ?? []);
+  };
+  
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && search()}
+          placeholder="Search your knowledge base..."
+          className="flex-1 px-3 py-2 border rounded"
+        />
+        <button onClick={search} className="px-4 py-2 bg-blue-600 text-white rounded">
+          Search
+        </button>
+      </div>
+      
+      {results.map((result) => (
+        <a 
+          key={result.id} 
+          href={`/kb/${result.id}`}
+          className="block p-4 border rounded hover:border-blue-300"
+        >
+          <h3 className="font-medium">{result.title}</h3>
+          <p className="text-gray-600 text-sm mt-1">{result.excerpt}...</p>
+        </a>
+      ))}
+    </div>
+  );
+}
+```
+
+## Verifying isolation
+
+A test to ensure tenant isolation is working:
+
+```ts
+import { ingestKnowledgeArticle, searchKnowledgeBase } from "@/lib/kb";
+
+test("tenant isolation", async () => {
+  // Ingest for two different tenants
+  await ingestKnowledgeArticle("tenant-a", "article-1", "Secret A", "Content for tenant A");
+  await ingestKnowledgeArticle("tenant-b", "article-1", "Secret B", "Content for tenant B");
+  
+  // Search as tenant A
+  const resultsA = await searchKnowledgeBase("tenant-a", "secret");
+  
+  // Verify only tenant A's content is returned
+  expect(resultsA.every((r) => r.metadata.tenantId === "tenant-a")).toBe(true);
+  expect(resultsA.some((r) => r.metadata.tenantId === "tenant-b")).toBe(false);
 });
 ```
 
-## Retrieve
-
-```ts
-const result = await engine.retrieve({
-  query,
-  topK: 8,
-  scope: { sourceId: `tenant:${tenantId}` },
-});
-```
-
-In practice, you might scope to `tenant:${tenantId}:kb` to avoid collisions with other sources.
-
-See [Multi-tenant](/docs/guides/multi-tenant).
-
+This example establishes a robust pattern for multi-tenant search that scales to any number of tenants while maintaining strict data isolation.
 

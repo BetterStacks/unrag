@@ -1,31 +1,302 @@
 ---
-title: Node scripts
-description: Use UnRAG from one-off scripts for ingestion and maintenance.
+title: Node Scripts
+description: Using UnRAG in standalone scripts for ingestion jobs, migrations, and maintenance.
 ---
 
-UnRAG is great for scripts that ingest content on a schedule or during deployments.
+Not every UnRAG use case involves a web server. Scripts are perfect for one-time ingestion jobs, scheduled reindexing, data migrations, and maintenance tasks. The same engine you use in your API works identically in a script.
 
-## Example: ingest a string
+## Basic ingestion script
+
+Here's a minimal script that ingests a single document:
 
 ```ts
-import { createUnragEngine } from "@unrag/config";
+// scripts/ingest-demo.ts
+import { createUnragEngine } from "../unrag.config";
 
 async function main() {
   const engine = createUnragEngine();
-  await engine.ingest({
-    sourceId: "script:demo",
-    content: "Hello from a script",
+  
+  const result = await engine.ingest({
+    sourceId: "demo:test-document",
+    content: "This is a test document for verifying the ingestion pipeline.",
+    metadata: {
+      script: "ingest-demo",
+      timestamp: new Date().toISOString(),
+    },
   });
+  
+  console.log("Ingestion complete:");
+  console.log(`  Document ID: ${result.documentId}`);
+  console.log(`  Chunks created: ${result.chunkCount}`);
+  console.log(`  Duration: ${result.durations.totalMs}ms`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error("Ingestion failed:", error);
+    process.exit(1);
+  });
 ```
 
-## Next step
+Run it with tsx or ts-node:
 
-See [Ingest from the filesystem](/docs/guides/ingest-from-filesystem).
+```bash
+npx tsx scripts/ingest-demo.ts
+```
 
+## Batch ingestion from a data source
+
+Most real ingestion jobs process multiple documents. Here's a pattern for batch ingestion with progress tracking:
+
+```ts
+// scripts/ingest-batch.ts
+import { createUnragEngine } from "../unrag.config";
+import { documents } from "./data"; // Your data source
+
+async function main() {
+  const engine = createUnragEngine();
+  
+  let processed = 0;
+  let failed = 0;
+  const startTime = Date.now();
+  
+  for (const doc of documents) {
+    try {
+      await engine.ingest({
+        sourceId: doc.id,
+        content: doc.content,
+        metadata: doc.metadata,
+      });
+      processed++;
+      
+      if (processed % 100 === 0) {
+        console.log(`Progress: ${processed}/${documents.length}`);
+      }
+    } catch (error) {
+      console.error(`Failed to ingest ${doc.id}:`, error.message);
+      failed++;
+    }
+  }
+  
+  const duration = Date.now() - startTime;
+  console.log("\nIngestion complete:");
+  console.log(`  Processed: ${processed}`);
+  console.log(`  Failed: ${failed}`);
+  console.log(`  Duration: ${(duration / 1000).toFixed(1)}s`);
+  console.log(`  Rate: ${(processed / (duration / 1000)).toFixed(1)} docs/sec`);
+}
+
+main().catch(console.error);
+```
+
+## Ingesting from the filesystem
+
+A common pattern is indexing markdown files from a docs directory:
+
+```ts
+// scripts/ingest-docs.ts
+import { createUnragEngine } from "../unrag.config";
+import { readFile, readdir } from "fs/promises";
+import path from "path";
+
+async function findMarkdownFiles(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files: string[] = [];
+  
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    
+    if (entry.isDirectory()) {
+      files.push(...await findMarkdownFiles(fullPath));
+    } else if (entry.isFile() && /\.(md|mdx)$/.test(entry.name)) {
+      files.push(fullPath);
+    }
+  }
+  
+  return files;
+}
+
+async function main() {
+  const engine = createUnragEngine();
+  const docsRoot = path.join(process.cwd(), "content/docs");
+  
+  console.log(`Scanning ${docsRoot}...`);
+  const files = await findMarkdownFiles(docsRoot);
+  console.log(`Found ${files.length} markdown files\n`);
+  
+  for (const file of files) {
+    const content = await readFile(file, "utf8");
+    const relativePath = path.relative(docsRoot, file);
+    const sourceId = `docs:${relativePath.replace(/\.(md|mdx)$/, "")}`;
+    
+    const result = await engine.ingest({
+      sourceId,
+      content,
+      metadata: {
+        path: relativePath,
+        lastIndexed: new Date().toISOString(),
+      },
+    });
+    
+    console.log(`✓ ${sourceId} (${result.chunkCount} chunks)`);
+  }
+  
+  console.log("\nDone!");
+}
+
+main().catch(console.error);
+```
+
+## Reindexing script
+
+When you change embedding models or chunking parameters, you need to reindex. This script fetches existing content and re-ingests it:
+
+```ts
+// scripts/reindex.ts
+import { createUnragEngine } from "../unrag.config";
+import { pool } from "../lib/db"; // Your database connection
+
+async function main() {
+  const engine = createUnragEngine();
+  
+  // Fetch all existing documents
+  const { rows } = await pool.query(`
+    SELECT source_id, content, metadata 
+    FROM documents 
+    ORDER BY created_at
+  `);
+  
+  console.log(`Reindexing ${rows.length} documents...\n`);
+  
+  for (const row of rows) {
+    const result = await engine.ingest({
+      sourceId: row.source_id,
+      content: row.content,
+      metadata: row.metadata,
+    });
+    
+    console.log(`✓ ${row.source_id} (${result.chunkCount} chunks)`);
+  }
+  
+  console.log("\nReindexing complete!");
+}
+
+main().catch(console.error);
+```
+
+## Scheduled ingestion with cron
+
+For content that updates regularly, schedule ingestion jobs. Here's a pattern using node-cron:
+
+```ts
+// scripts/scheduled-ingest.ts
+import cron from "node-cron";
+import { createUnragEngine } from "../unrag.config";
+import { fetchContentFromCMS } from "./cms-client";
+
+async function syncContent() {
+  console.log(`[${new Date().toISOString()}] Starting content sync...`);
+  
+  const engine = createUnragEngine();
+  const content = await fetchContentFromCMS();
+  
+  for (const item of content) {
+    await engine.ingest({
+      sourceId: `cms:${item.id}`,
+      content: item.body,
+      metadata: {
+        title: item.title,
+        updatedAt: item.updatedAt,
+      },
+    });
+  }
+  
+  console.log(`Synced ${content.length} items`);
+}
+
+// Run every hour
+cron.schedule("0 * * * *", syncContent);
+
+// Also run on startup
+syncContent();
+
+console.log("Scheduled sync running (every hour)");
+```
+
+## Testing retrieval
+
+Scripts are also useful for testing that your retrieval is working correctly:
+
+```ts
+// scripts/test-retrieval.ts
+import { createUnragEngine } from "../unrag.config";
+
+const testQueries = [
+  { query: "how do I install", expectedSource: "docs:getting-started" },
+  { query: "database schema", expectedSource: "docs:database" },
+  { query: "authentication", expectedSource: "docs:auth" },
+];
+
+async function main() {
+  const engine = createUnragEngine();
+  
+  for (const { query, expectedSource } of testQueries) {
+    const result = await engine.retrieve({ query, topK: 5 });
+    const found = result.chunks.some((c) => c.sourceId.includes(expectedSource));
+    
+    console.log(`${found ? "✓" : "✗"} "${query}"`);
+    if (!found) {
+      console.log(`  Expected: ${expectedSource}`);
+      console.log(`  Got: ${result.chunks[0]?.sourceId ?? "no results"}`);
+    }
+  }
+}
+
+main().catch(console.error);
+```
+
+## Handling large datasets
+
+For very large ingestion jobs, consider:
+
+1. **Processing in batches** with pauses to avoid rate limits
+2. **Checkpointing progress** so you can resume after failures
+3. **Running in parallel** (carefully, respecting API rate limits)
+4. **Logging to files** for later analysis
+
+```ts
+// scripts/large-ingest.ts
+import { createUnragEngine } from "../unrag.config";
+import { appendFile } from "fs/promises";
+
+const BATCH_SIZE = 100;
+const PAUSE_MS = 1000; // Pause between batches
+
+async function main() {
+  const engine = createUnragEngine();
+  const allDocs = await loadAllDocuments();
+  
+  for (let i = 0; i < allDocs.length; i += BATCH_SIZE) {
+    const batch = allDocs.slice(i, i + BATCH_SIZE);
+    
+    for (const doc of batch) {
+      try {
+        await engine.ingest(doc);
+        await appendFile("ingest.log", `OK: ${doc.sourceId}\n`);
+      } catch (error) {
+        await appendFile("ingest.log", `FAIL: ${doc.sourceId}: ${error.message}\n`);
+      }
+    }
+    
+    console.log(`Processed ${Math.min(i + BATCH_SIZE, allDocs.length)}/${allDocs.length}`);
+    
+    if (i + BATCH_SIZE < allDocs.length) {
+      await new Promise((r) => setTimeout(r, PAUSE_MS));
+    }
+  }
+}
+
+main().catch(console.error);
+```
 

@@ -1,36 +1,288 @@
 ---
-title: Use with chat
-description: Retrieve chunks, then build context for an LLM call.
+title: Use with Chat
+description: Integrate UnRAG retrieval into a conversational AI interface.
 ---
 
-UnRAG intentionally stops at retrieval. A common pattern:
+UnRAG handles the "retrieval" in RAG. The "augmented generation" part—using retrieved chunks to ground an LLM's responses—is where you take over. This guide shows common patterns for building chat interfaces that use UnRAG for context.
 
-1. Retrieve relevant chunks
-2. Build a context string
-3. Call your model (streaming or not)
+## The basic RAG chat flow
 
-## Example (pseudo-code)
+A RAG-powered chat follows this sequence:
+
+1. User asks a question
+2. Your app calls UnRAG to retrieve relevant chunks
+3. Your app builds a prompt with the chunks as context
+4. Your app calls an LLM with the prompt
+5. The LLM response is streamed back to the user
+
+Here's a minimal implementation:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
+import { openai } from "@ai-sdk/openai";
+import { streamText } from "ai";
 
-export async function answer(question: string) {
+export async function answerQuestion(question: string) {
   const engine = createUnragEngine();
-  const { chunks } = await engine.retrieve({ query: question, topK: 8 });
+  
+  // Step 1: Retrieve relevant context
+  const { chunks } = await engine.retrieve({
+    query: question,
+    topK: 5,
+  });
+  
+  // Step 2: Format context for the prompt
+  const context = chunks
+    .map((chunk) => `[Source: ${chunk.sourceId}]\n${chunk.content}`)
+    .join("\n\n---\n\n");
+  
+  // Step 3: Build the prompt
+  const systemPrompt = `You are a helpful assistant. Answer the user's question based on the provided context. If the context doesn't contain relevant information, say so.
+
+Context:
+${context}`;
+  
+  // Step 4: Stream the response
+  const result = await streamText({
+    model: openai("gpt-4o"),
+    system: systemPrompt,
+    prompt: question,
+  });
+  
+  return result;
+}
+```
+
+## Building effective prompts
+
+How you format the context significantly impacts response quality. Here are patterns that work well:
+
+**Structured context blocks** make it clear where each piece of information comes from:
+
+```ts
+const formatContext = (chunks: Chunk[]) => {
+  return chunks.map((chunk, i) => {
+    const source = chunk.metadata.title ?? chunk.sourceId;
+    return `### Source ${i + 1}: ${source}\n${chunk.content}`;
+  }).join("\n\n");
+};
+```
+
+**Include relevance signals** so the model knows which chunks are most pertinent:
+
+```ts
+const formatContextWithScores = (chunks: Chunk[]) => {
+  return chunks.map((chunk) => {
+    const relevance = chunk.score < 0.3 ? "HIGH" : chunk.score < 0.5 ? "MEDIUM" : "LOW";
+    return `[Relevance: ${relevance}]\n${chunk.content}`;
+  }).join("\n\n---\n\n");
+};
+```
+
+**Truncate intelligently** when context might exceed token limits:
+
+```ts
+const MAX_CONTEXT_CHARS = 8000;
+
+const formatContextWithLimit = (chunks: Chunk[]) => {
+  let total = 0;
+  const included: string[] = [];
+  
+  for (const chunk of chunks) {
+    if (total + chunk.content.length > MAX_CONTEXT_CHARS) break;
+    included.push(chunk.content);
+    total += chunk.content.length;
+  }
+  
+  return included.join("\n\n---\n\n");
+};
+```
+
+## Streaming responses in Next.js
+
+For chat interfaces, streaming provides a better user experience. Here's a complete Next.js route handler:
+
+```ts
+// app/api/chat/route.ts
+import { createUnragEngine } from "@unrag/config";
+import { openai } from "@ai-sdk/openai";
+import { streamText } from "ai";
+
+export async function POST(request: Request) {
+  const { messages } = await request.json();
+  const lastMessage = messages[messages.length - 1];
+  const question = lastMessage.content;
+
+  // Retrieve context
+  const engine = createUnragEngine();
+  const { chunks } = await engine.retrieve({
+    query: question,
+    topK: 5,
+  });
 
   const context = chunks
     .map((c) => `Source: ${c.sourceId}\n${c.content}`)
     .join("\n\n---\n\n");
 
-  // Call your LLM with: system + user + context
-  return { context, chunks };
+  const systemPrompt = `You are a helpful assistant for our product documentation. Answer questions based on the provided context. Cite sources when possible.
+
+Context:
+${context}`;
+
+  const result = streamText({
+    model: openai("gpt-4o"),
+    system: systemPrompt,
+    messages,
+  });
+
+  return result.toDataStreamResponse();
 }
 ```
 
-## Tips
+Use with the Vercel AI SDK's `useChat` hook on the frontend:
 
-- Don’t blindly dump many chunks into the prompt—trim and format.
-- Add tenant scoping and authorization before retrieval.
-- Consider reranking for better quality.
+```tsx
+"use client";
+import { useChat } from "ai/react";
 
+export function Chat() {
+  const { messages, input, handleInputChange, handleSubmit } = useChat();
+
+  return (
+    <div>
+      {messages.map((m) => (
+        <div key={m.id}>
+          <strong>{m.role}:</strong> {m.content}
+        </div>
+      ))}
+      
+      <form onSubmit={handleSubmit}>
+        <input value={input} onChange={handleInputChange} />
+        <button type="submit">Send</button>
+      </form>
+    </div>
+  );
+}
+```
+
+## Returning sources with responses
+
+Users often want to know where information came from. Include source references in your response:
+
+```ts
+export async function POST(request: Request) {
+  const { question } = await request.json();
+  
+  const engine = createUnragEngine();
+  const { chunks } = await engine.retrieve({ query: question, topK: 5 });
+  
+  // ... generate response ...
+  
+  return Response.json({
+    answer: generatedText,
+    sources: chunks.map((c) => ({
+      id: c.sourceId,
+      title: c.metadata.title,
+      excerpt: c.content.substring(0, 200) + "...",
+      score: c.score,
+    })),
+  });
+}
+```
+
+Display sources alongside the response so users can verify or explore further.
+
+## Conversational context
+
+For multi-turn conversations, you might want to retrieve based on the full conversation context, not just the latest message:
+
+```ts
+function extractSearchQuery(messages: Message[]): string {
+  // Option 1: Just use the last message
+  const lastMessage = messages[messages.length - 1];
+  return lastMessage.content;
+  
+  // Option 2: Combine recent messages for context
+  const recentMessages = messages.slice(-3);
+  return recentMessages.map((m) => m.content).join(" ");
+  
+  // Option 3: Use an LLM to generate a search query
+  // (More expensive but can be more accurate)
+}
+
+// In your handler
+const searchQuery = extractSearchQuery(messages);
+const { chunks } = await engine.retrieve({ query: searchQuery, topK: 5 });
+```
+
+## Handling "I don't know"
+
+When retrieved context doesn't contain the answer, the model should admit it rather than hallucinate. Guide this in your system prompt:
+
+```ts
+const systemPrompt = `You are a helpful assistant. Answer based ONLY on the provided context.
+
+IMPORTANT RULES:
+- If the context doesn't contain information to answer the question, say "I don't have information about that in my knowledge base."
+- Don't make up information that isn't in the context.
+- If you're unsure, say so.
+
+Context:
+${context}`;
+```
+
+You can also check retrieval quality before calling the LLM:
+
+```ts
+const { chunks } = await engine.retrieve({ query: question, topK: 5 });
+
+// Check if we got good matches
+const bestScore = chunks[0]?.score ?? 1;
+if (bestScore > 0.7 || chunks.length === 0) {
+  return Response.json({
+    answer: "I don't have information about that topic in my knowledge base. Could you try rephrasing your question?",
+    sources: [],
+  });
+}
+
+// Proceed with generation
+```
+
+## Scoping chat to specific content
+
+For applications with multiple content collections, scope retrieval to relevant sources:
+
+```ts
+// Help chat only searches help articles
+const helpEngine = () => ({
+  retrieve: (query: string) => 
+    engine.retrieve({ query, topK: 5, scope: { sourceId: "help:" } })
+});
+
+// Docs chat searches documentation
+const docsEngine = () => ({
+  retrieve: (query: string) => 
+    engine.retrieve({ query, topK: 5, scope: { sourceId: "docs:" } })
+});
+
+// Route based on chat context
+const scopedRetrieve = chatType === "help" ? helpEngine() : docsEngine();
+const { chunks } = await scopedRetrieve.retrieve(question);
+```
+
+## Performance considerations
+
+Chat interfaces need to feel responsive. The latency breakdown is typically:
+
+1. **Retrieval** (embedding + database): 200-400ms
+2. **LLM generation**: 500-2000ms+ depending on response length
+
+To improve perceived performance:
+
+- **Stream responses** so users see text appearing immediately
+- **Cache embeddings** for common questions
+- **Prefetch** context when you can predict what the user might ask
+- **Show "thinking" indicators** while retrieval happens
+
+The retrieval step is usually fast enough that users don't notice it if you stream the generation.
 

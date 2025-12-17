@@ -1,38 +1,57 @@
 ---
 title: Introduction
-description: What UnRAG is, what it installs, and when to use it.
+description: What UnRAG is, how it works, and why you might want to use it.
 ---
 
-UnRAG is a **RAG installer**. You run one command and it vendors a small RAG module into your codebase as TypeScript source files you own.
+Most RAG solutions fall into two categories: hosted services where you upload documents and query an API, or heavyweight frameworks that abstract away the vector storage and retrieval logic behind layers of configuration. UnRAG takes a third path.
 
-## Why this approach?
-
-- **Auditable**: the core primitives are small and readable.
-- **Composable**: you can swap the embedding provider, store adapter, and chunker.
-- **Owned by you**: you ship your app with your own `lib/unrag/**` code—no hidden runtime.
+When you install UnRAG, you're not adding a dependency that phones home or hides its implementation. You're copying a small, self-contained TypeScript module into your project. This module lives in your repository, gets reviewed in your pull requests, and ships with your application. If you want to understand exactly what happens when you call `ingest()` or `retrieve()`, you can open the source files and read them. If you need to modify the chunking algorithm, change the similarity function, or add custom filters to your queries, you edit the code directly.
 
 ## What UnRAG installs
 
-After `unrag init`, you’ll have:
+After running `bunx unrag init`, your project will contain:
 
-- `unrag.config.ts` (project root): your “single place” to wire DB clients + embedding provider + defaults.
-- `lib/unrag/**` (or your chosen directory): the vendored primitives:
-  - `core/*` (`ContextEngine`, `ingest`, `retrieve`, types, chunking)
-  - `store/*` (one adapter: Drizzle / Prisma / Raw SQL; Postgres + pgvector)
-  - `embedding/*` (default: `ai` SDK embedding provider)
-- `lib/unrag/unrag.md`: setup notes (schema + adapter notes), generated for your selection.
+**`unrag.config.ts`** at your project root. This is your configuration hub—the single file where you wire together your database client, embedding provider, and default settings. When you need to change how UnRAG connects to your database or which embedding model it uses, this is where you do it.
+
+**`lib/unrag/`** (or your chosen directory) containing the actual implementation:
+
+The `core/` subdirectory has the heart of the system. The `ContextEngine` class orchestrates ingestion and retrieval. The `ingest.ts` file handles chunking documents, generating embeddings for each chunk, and storing everything in your database. The `retrieve.ts` file embeds your query and runs a similarity search. The types are explicit and documented.
+
+The `store/` subdirectory contains your chosen database adapter—whether that's Drizzle, Prisma, or raw SQL. Each adapter implements the same interface: `upsert()` to write documents and their chunks, and `query()` to find the most similar chunks for a given embedding.
+
+The `embedding/` subdirectory contains your embedding provider, which by default uses the Vercel AI SDK to call OpenAI's embedding models. You can swap this out for any embedding service or even local models.
+
+**`lib/unrag/unrag.md`** is a generated README with setup notes specific to your configuration—the database schema you need to create, environment variables to set, and adapter-specific tips.
+
+## What UnRAG assumes
+
+UnRAG is opinionated in a few ways that keep it simple:
+
+**Postgres with pgvector.** Vector databases are proliferating, but most teams already have Postgres. Adding the pgvector extension gives you vector similarity search without introducing a new system. UnRAG's adapters generate the SQL to create tables, insert embeddings, and query by cosine distance—all using standard Postgres tooling.
+
+**Server-side only.** UnRAG reads your database credentials and embedding API keys from environment variables. It's designed to run in Route Handlers, Server Actions, API routes, or backend scripts—never in browser code.
+
+**You manage migrations.** UnRAG doesn't run migrations for you. It gives you the SQL schema you need, and you apply it however your team manages database changes (raw SQL files, Drizzle migrations, Prisma migrations, or any other approach).
 
 ## What UnRAG is not
 
-- A hosted vector DB
-- A full “chat framework”
-- A crawler / ETL suite (you bring content; UnRAG gives you primitives)
+UnRAG focuses narrowly on the storage and retrieval layer. It intentionally doesn't include:
 
-## Assumptions
+**A hosted vector database.** Your vectors live in your Postgres instance.
 
-- **Postgres + pgvector** for storage.
-- **Server-only usage** (your DB credentials and embedding API keys stay server-side).
+**A chat framework.** UnRAG returns chunks; you decide how to build prompts, stream responses, or integrate with chat interfaces.
 
-Next: install it and create the schema.
+**A crawler or ETL pipeline.** You bring content to UnRAG. Whether that content comes from uploaded files, scraped web pages, database records, or API responses is outside UnRAG's scope.
 
+**Permission or authentication logic.** UnRAG provides basic scoping by `sourceId`, but anything more sophisticated (row-level security, tenant isolation, access control lists) is something you implement in your application code.
+
+## The mental model
+
+The entire system boils down to two operations:
+
+**Ingestion** takes a piece of content (a document, an article, a code file, whatever), splits it into chunks, generates an embedding vector for each chunk, and stores everything in Postgres. The `sourceId` you provide acts as a logical identifier—if you ingest the same `sourceId` again, you're updating that document.
+
+**Retrieval** takes a query string, generates an embedding for it, and asks Postgres for the chunks whose embeddings are most similar to your query embedding. You get back the chunks, their similarity scores, and timing information.
+
+Everything else—how you turn those chunks into a prompt, how you call an LLM, how you handle streaming, how you surface results in your UI—is your application's concern. UnRAG gives you the retrieval primitive and gets out of your way.
 

@@ -1,38 +1,170 @@
 ---
-title: Metadata and scoping
-description: Attach metadata on ingest and filter retrieval by sourceId.
+title: Metadata and Scoping
+description: Attach information to documents and filter retrieval results.
 ---
 
-## Metadata
+When you ingest content, you can attach metadata that travels with the document through the system. When you retrieve content, you can scope results to specific subsets of your data. These two features work together to support common patterns like multi-tenant applications, content categorization, and filtered search.
 
-`ingest()` accepts optional `metadata`:
+## Attaching metadata during ingestion
+
+The `metadata` parameter on `ingest()` accepts any JSON-serializable object. This data is stored alongside both the document and its chunks in your database:
 
 ```ts
 await engine.ingest({
-  sourceId: "docs:rag",
-  content,
-  metadata: { repo: "unrag", version: 1 },
+  sourceId: "kb:article-123",
+  content: "Your article content here...",
+  metadata: {
+    tenantId: "acme-corp",
+    category: "billing",
+    author: "alice@example.com",
+    publishedAt: "2024-01-15",
+    tags: ["invoices", "payments", "quickbooks"],
+  },
 });
 ```
 
-Adapters store metadata as `jsonb` on `documents` and `chunks`.
+The metadata is stored as JSONB in Postgres, which means you can query it directly if you need to (though UnRAG doesn't expose this through its API—it's available in your vendored store adapter code).
 
-## Scoping
+Common metadata patterns:
 
-Retrieval supports a basic scope filter:
+- **Tenant or user IDs** for multi-tenant applications
+- **Content categories** for filtered search UIs
+- **Timestamps** for freshness or version tracking
+- **Source information** like URLs, file paths, or CMS IDs
+- **Author or ownership data** for audit trails
+
+Keep metadata relatively flat and use simple types. Deeply nested objects work but make queries harder if you later want to filter on them.
+
+## The sourceId pattern
+
+The `sourceId` field serves double duty. It's both a logical identifier for your document (so re-ingesting updates rather than duplicates) and the primary mechanism for scoping retrieval.
+
+Think of `sourceId` as a hierarchical path. Some common patterns:
 
 ```ts
+// Documentation organized by section
+"docs:getting-started:installation"
+"docs:api-reference:auth"
+"docs:guides:deployment"
+
+// Multi-tenant knowledge base
+"tenant:acme:kb:article-123"
+"tenant:acme:kb:article-456"
+"tenant:globex:kb:article-789"
+
+// User-uploaded content
+"user:u_12345:upload:file-abc"
+"user:u_12345:upload:file-def"
+
+// Project-scoped content
+"project:p_789:docs:readme"
+"project:p_789:code:src/auth.ts"
+```
+
+The key insight is that `sourceId` prefix matching gives you free scoping. If you ingest with `sourceId: "tenant:acme:kb:article-123"` and retrieve with `scope: { sourceId: "tenant:acme:" }`, you'll only search content belonging to that tenant.
+
+## Scoping retrieval
+
+The `scope` parameter on `retrieve()` filters which chunks are considered:
+
+```ts
+// Search all content
 const result = await engine.retrieve({
-  query: "how do I install?",
-  scope: { sourceId: "docs:rag" },
+  query: "how do I reset my password?",
+  topK: 10,
+});
+
+// Search only within a specific tenant
+const result = await engine.retrieve({
+  query: "how do I reset my password?",
+  topK: 10,
+  scope: { sourceId: "tenant:acme:" },
+});
+
+// Search only documentation
+const result = await engine.retrieve({
+  query: "how do I reset my password?",
+  topK: 10,
+  scope: { sourceId: "docs:" },
 });
 ```
 
-This is intentionally minimal: many apps model authorization and tenancy differently.
+The scope filter uses prefix matching on `sourceId`. Any chunk whose `sourceId` starts with the specified value will be included in the search; all others are excluded.
 
-## Recommended patterns
+This happens in the database query, so it's efficient even with large datasets. The SQL includes a `WHERE source_id LIKE 'tenant:acme:%'` clause (or equivalent) that uses the index on `source_id`.
 
-- **Multi-tenant**: encode tenant id in `sourceId` (or add your own store filter support).
-- **Per-project indexing**: use `sourceId` like `project:<id>` so you can isolate results cheaply.
+## Building a multi-tenant search
 
+Here's how these pieces come together for a typical SaaS application:
+
+```ts
+// During ingestion: include tenant in sourceId
+async function ingestForTenant(
+  tenantId: string, 
+  docId: string, 
+  content: string
+) {
+  const engine = createUnragEngine();
+  
+  await engine.ingest({
+    sourceId: `tenant:${tenantId}:doc:${docId}`,
+    content,
+    metadata: { tenantId, docId },
+  });
+}
+
+// During retrieval: scope to current tenant
+async function searchForTenant(tenantId: string, query: string) {
+  const engine = createUnragEngine();
+  
+  const result = await engine.retrieve({
+    query,
+    topK: 10,
+    scope: { sourceId: `tenant:${tenantId}:` },
+  });
+  
+  return result.chunks;
+}
+```
+
+The tenant isolation happens entirely through the `sourceId` scoping. No data from other tenants will ever appear in results because the database query filters them out before similarity scoring.
+
+## Going beyond sourceId
+
+The built-in scoping is intentionally minimal. If you need more sophisticated filtering—by metadata fields, date ranges, content types, or combinations thereof—you have several options:
+
+**Filter after retrieval**: Fetch more results than you need, then filter in application code:
+
+```ts
+const result = await engine.retrieve({ query, topK: 50 });
+const filtered = result.chunks.filter(
+  (chunk) => chunk.metadata.category === "billing"
+);
+return filtered.slice(0, 10);
+```
+
+This works for small-scale filtering but wastes computation for queries where most results will be filtered out.
+
+**Extend the store adapter**: Since the adapter code is vendored in your project, you can modify the `query()` method to accept additional filter parameters:
+
+```ts
+// In your modified store adapter
+query: async ({ embedding, topK, scope, filters }) => {
+  const conditions = [];
+  
+  if (scope?.sourceId) {
+    conditions.push(`c.source_id LIKE '${scope.sourceId}%'`);
+  }
+  
+  if (filters?.category) {
+    conditions.push(`c.metadata->>'category' = '${filters.category}'`);
+  }
+  
+  // Build and execute query with all conditions
+}
+```
+
+**Use database features**: Add columns, partial indexes, or views to support your specific access patterns. The schema is yours to extend.
+
+The flexibility to choose your approach based on scale and requirements is one of the benefits of owning the code.
 

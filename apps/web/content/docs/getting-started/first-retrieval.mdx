@@ -1,13 +1,16 @@
 ---
-title: Your first retrieval endpoint
-description: Turn retrieve() into an API route (Next.js example).
+title: Your First Retrieval Endpoint
+description: Turn retrieve() into a production-ready API route that your frontend can call.
 ---
 
-## Next.js Route Handler (App Router)
+Once you have content ingested, the next step is exposing retrieval through an API endpoint. This guide shows how to build a search endpoint in Next.js, but the pattern applies to any server framework.
 
-Create `app/api/search/route.ts`:
+## The basic pattern
+
+A retrieval endpoint receives a query from the client, passes it to UnRAG, and returns the relevant chunks. Here's a minimal implementation as a Next.js Route Handler:
 
 ```ts
+// app/api/search/route.ts
 import { createUnragEngine } from "@unrag/config";
 
 export async function GET(request: Request) {
@@ -15,7 +18,7 @@ export async function GET(request: Request) {
   const query = searchParams.get("q") ?? "";
 
   if (!query) {
-    return Response.json({ error: "Missing q" }, { status: 400 });
+    return Response.json({ error: "Missing query parameter 'q'" }, { status: 400 });
   }
 
   const engine = createUnragEngine();
@@ -25,14 +28,149 @@ export async function GET(request: Request) {
 }
 ```
 
-## Next step
+Your frontend can now call `/api/search?q=how+do+I+install` and get back relevant chunks. The response includes everything UnRAG returns: the chunks themselves, similarity scores, timing information, and which embedding model was used.
 
-Add ingestion (a one-time job, admin UI, or webhook) so there’s content to retrieve. A good pattern is:
+## Adding scoped search
 
-- Ingest on deploy (build step) for docs-like content
-- Ingest on upload (user content) for app data
-- Re-ingest on change (upsert-by-document-id patterns)
+Many applications have multiple collections of content—documentation, blog posts, help articles, user-generated content. You can scope retrieval to a specific collection using the `sourceId` prefix:
 
-See [Build a search endpoint](/docs/guides/build-a-search-endpoint).
+```ts
+// app/api/search/route.ts
+import { createUnragEngine } from "@unrag/config";
 
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get("q") ?? "";
+  const collection = searchParams.get("collection");
+
+  if (!query) {
+    return Response.json({ error: "Missing query parameter 'q'" }, { status: 400 });
+  }
+
+  const engine = createUnragEngine();
+  
+  // If a collection is specified, only search within that collection
+  const scope = collection ? { sourceId: collection } : undefined;
+  
+  const result = await engine.retrieve({ 
+    query, 
+    topK: 8,
+    scope 
+  });
+
+  return Response.json(result);
+}
+```
+
+Now `/api/search?q=deployment&collection=docs:` searches only chunks whose `sourceId` starts with `docs:`. This works because the scope filter uses prefix matching—any chunk whose `sourceId` begins with the specified value will be included.
+
+## Shaping the response
+
+The raw UnRAG response includes everything, but you might want to return a simpler structure to your frontend. Here's a version that transforms the response into a cleaner format:
+
+```ts
+// app/api/search/route.ts
+import { createUnragEngine } from "@unrag/config";
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get("q") ?? "";
+
+  if (!query.trim()) {
+    return Response.json({ error: "Query cannot be empty" }, { status: 400 });
+  }
+
+  const engine = createUnragEngine();
+  const result = await engine.retrieve({ query, topK: 10 });
+
+  // Transform to a frontend-friendly format
+  const response = {
+    query,
+    results: result.chunks.map((chunk) => ({
+      id: chunk.id,
+      content: chunk.content,
+      source: chunk.sourceId,
+      score: chunk.score,
+      // Include any metadata you stored during ingestion
+      metadata: chunk.metadata,
+    })),
+    meta: {
+      totalResults: result.chunks.length,
+      embeddingModel: result.embeddingModel,
+      retrievalTimeMs: result.durations.retrievalMs,
+    },
+  };
+
+  return Response.json(response);
+}
+```
+
+## Adding input validation
+
+For production, you'll want to validate and sanitize the query. Extremely long queries waste embedding API calls and can produce poor results:
+
+```ts
+// app/api/search/route.ts
+import { createUnragEngine } from "@unrag/config";
+
+const MAX_QUERY_LENGTH = 500;
+const MIN_QUERY_LENGTH = 2;
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const rawQuery = searchParams.get("q") ?? "";
+  const query = rawQuery.trim();
+
+  // Validate query length
+  if (query.length < MIN_QUERY_LENGTH) {
+    return Response.json(
+      { error: `Query must be at least ${MIN_QUERY_LENGTH} characters` }, 
+      { status: 400 }
+    );
+  }
+  
+  if (query.length > MAX_QUERY_LENGTH) {
+    return Response.json(
+      { error: `Query cannot exceed ${MAX_QUERY_LENGTH} characters` }, 
+      { status: 400 }
+    );
+  }
+
+  const engine = createUnragEngine();
+  const result = await engine.retrieve({ query, topK: 8 });
+
+  return Response.json({
+    query,
+    results: result.chunks.map((chunk) => ({
+      id: chunk.id,
+      content: chunk.content,
+      source: chunk.sourceId,
+      score: chunk.score,
+    })),
+  });
+}
+```
+
+## Connecting to your ingestion strategy
+
+A search endpoint only works if there's content to search. Think about when and how you'll ingest content:
+
+**For static content like documentation**, ingest during your build or deployment process. A script that runs on `npm run build` or as a CI step ensures your search index is always up to date with your latest content.
+
+**For user-generated content**, ingest when content is created or updated. If a user saves a document, call `engine.ingest()` in the same request handler or queue it as a background job.
+
+**For content that changes independently**, set up a periodic sync job. A cron that runs every hour to re-ingest from your CMS or database keeps search fresh without manual intervention.
+
+The key is that `sourceId` should be stable across re-ingests. Use identifiers like `docs:getting-started` or `article:12345` rather than random strings, so that updating content replaces the old version rather than creating duplicates.
+
+## What's next
+
+With a working search endpoint, you can:
+
+- Build a search UI in your frontend that calls this endpoint
+- Layer this into a chat interface by using retrieved chunks as context for an LLM
+- Add caching (Redis, CDN) for frequently-queried terms
+- Add authentication and tenant scoping for multi-user applications
+
+See the [Guides](/docs/guides/build-a-search-endpoint) section for more patterns and production considerations.
 

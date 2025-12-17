@@ -1,47 +1,323 @@
 ---
-title: Ingest from the filesystem
-description: Index docs/markdown files with a small Node script.
+title: Ingest from the Filesystem
+description: Index markdown files, documentation, and other static content from your project.
 ---
 
-This pattern is useful for indexing:
+Many projects have documentation, help articles, or other content stored as files in the repository. Ingesting this content at build time ensures your search index stays synchronized with your latest content. This guide shows how to build a robust filesystem ingestion pipeline.
 
-- markdown docs in `./docs`
-- changelogs
-- static help center articles
+## The basic pattern
 
-## Script
+At its core, filesystem ingestion walks a directory tree, reads each file, and calls `engine.ingest()`:
 
 ```ts
-import { readFile, readdir } from "node:fs/promises";
-import path from "node:path";
-import { createUnragEngine } from "@unrag/config";
-
-async function listMarkdownFiles(dir: string): Promise<string[]> {
-  const entries = await readdir(dir, { withFileTypes: true });
-  const out: string[] = [];
-  for (const e of entries) {
-    const full = path.join(dir, e.name);
-    if (e.isDirectory()) out.push(...(await listMarkdownFiles(full)));
-    if (e.isFile() && (e.name.endsWith(".md") || e.name.endsWith(".mdx"))) out.push(full);
-  }
-  return out;
-}
+// scripts/ingest-docs.ts
+import { createUnragEngine } from "../unrag.config";
+import { readFile, readdir } from "fs/promises";
+import path from "path";
 
 async function main() {
   const engine = createUnragEngine();
-  const root = path.join(process.cwd(), "docs");
-  const files = await listMarkdownFiles(root);
+  const docsDir = path.join(process.cwd(), "docs");
+  const files = await readdir(docsDir, { recursive: true });
 
   for (const file of files) {
-    const content = await readFile(file, "utf8");
-    const rel = path.relative(process.cwd(), file).replaceAll("\\", "/");
+    if (!file.endsWith(".md")) continue;
+
+    const fullPath = path.join(docsDir, file);
+    const content = await readFile(fullPath, "utf8");
 
     await engine.ingest({
-      sourceId: `fs:${rel}`,
+      sourceId: `docs:${file.replace(".md", "")}`,
       content,
-      metadata: { path: rel },
     });
+
+    console.log(`Indexed: ${file}`);
   }
+}
+
+main().catch(console.error);
+```
+
+This works, but real projects need more: handling multiple file types, extracting metadata, dealing with frontmatter, and tracking progress.
+
+## Walking directories recursively
+
+For nested directory structures, build a proper file walker:
+
+```ts
+import { readdir } from "fs/promises";
+import path from "path";
+
+async function findFiles(
+  dir: string,
+  extensions: string[] = [".md", ".mdx"]
+): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      // Skip common directories that shouldn't be indexed
+      if (["node_modules", ".git", "dist", "build"].includes(entry.name)) {
+        continue;
+      }
+      files.push(...await findFiles(fullPath, extensions));
+    } else if (entry.isFile()) {
+      const ext = path.extname(entry.name).toLowerCase();
+      if (extensions.includes(ext)) {
+        files.push(fullPath);
+      }
+    }
+  }
+
+  return files;
+}
+```
+
+Now you can index everything in your content directory:
+
+```ts
+const files = await findFiles("./content");
+console.log(`Found ${files.length} files to index`);
+```
+
+## Handling frontmatter
+
+Most markdown files have YAML frontmatter with metadata. Extract it and pass it to UnRAG:
+
+```ts
+import matter from "gray-matter";
+import { readFile } from "fs/promises";
+
+async function parseMarkdownFile(filePath: string) {
+  const raw = await readFile(filePath, "utf8");
+  const { data: frontmatter, content } = matter(raw);
+
+  return {
+    content,
+    metadata: {
+      title: frontmatter.title,
+      description: frontmatter.description,
+      tags: frontmatter.tags ?? [],
+      // Include the file path for reference
+      path: filePath,
+    },
+  };
+}
+```
+
+Use this in your ingestion loop:
+
+```ts
+for (const file of files) {
+  const { content, metadata } = await parseMarkdownFile(file);
+  const relativePath = path.relative(rootDir, file);
+
+  await engine.ingest({
+    sourceId: `docs:${relativePath}`,
+    content,
+    metadata,
+  });
+}
+```
+
+The metadata travels through the system and appears in your search results, letting you display titles and tags in your UI.
+
+## Generating stable source IDs
+
+Your `sourceId` strategy matters for updates. Use a stable, human-readable format:
+
+```ts
+function generateSourceId(rootDir: string, filePath: string): string {
+  const relative = path.relative(rootDir, filePath);
+  
+  // Remove extension and normalize separators
+  const withoutExt = relative.replace(/\.(md|mdx)$/, "");
+  const normalized = withoutExt.replace(/\\/g, "/");
+  
+  return `docs:${normalized}`;
+}
+```
+
+Examples of generated IDs:
+
+```
+docs/getting-started.md     → docs:getting-started
+docs/guides/auth/login.md   → docs:guides/auth/login
+content/blog/2024-post.mdx  → docs:content/blog/2024-post
+```
+
+When you re-run ingestion, files with the same path get the same `sourceId`, so UnRAG updates them rather than creating duplicates.
+
+## Progress tracking and error handling
+
+For larger docs sites, add progress tracking and graceful error handling:
+
+```ts
+async function ingestDirectory(rootDir: string) {
+  const engine = createUnragEngine();
+  const files = await findFiles(rootDir);
+  
+  let processed = 0;
+  let failed = 0;
+  const errors: { file: string; error: string }[] = [];
+
+  console.log(`\nIndexing ${files.length} files from ${rootDir}\n`);
+
+  for (const file of files) {
+    try {
+      const { content, metadata } = await parseMarkdownFile(file);
+      const sourceId = generateSourceId(rootDir, file);
+
+      const result = await engine.ingest({
+        sourceId,
+        content,
+        metadata,
+      });
+
+      processed++;
+      console.log(`✓ ${sourceId} (${result.chunkCount} chunks)`);
+    } catch (error) {
+      failed++;
+      errors.push({ file, error: error.message });
+      console.log(`✗ ${file}: ${error.message}`);
+    }
+  }
+
+  console.log(`\n${"─".repeat(50)}`);
+  console.log(`Processed: ${processed}`);
+  console.log(`Failed: ${failed}`);
+  
+  if (errors.length > 0) {
+    console.log("\nErrors:");
+    for (const { file, error } of errors) {
+      console.log(`  ${file}: ${error}`);
+    }
+  }
+}
+```
+
+## Running at build time
+
+Integrate ingestion into your build process:
+
+```json
+{
+  "scripts": {
+    "build": "npm run ingest && next build",
+    "ingest": "tsx scripts/ingest-docs.ts"
+  }
+}
+```
+
+For Next.js, you can also use a custom webpack plugin or a `prebuild` script. The key is ensuring ingestion runs before your site builds, so search is always current.
+
+## Incremental updates
+
+For very large documentation sites, you might want to skip unchanged files. Track file hashes and only re-ingest modified content:
+
+```ts
+import { createHash } from "crypto";
+import { readFile, writeFile } from "fs/promises";
+
+const HASH_FILE = ".ingest-hashes.json";
+
+async function loadHashes(): Promise<Record<string, string>> {
+  try {
+    return JSON.parse(await readFile(HASH_FILE, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+async function saveHashes(hashes: Record<string, string>) {
+  await writeFile(HASH_FILE, JSON.stringify(hashes, null, 2));
+}
+
+function hashContent(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+async function ingestIfChanged(
+  engine: ContextEngine,
+  sourceId: string,
+  content: string,
+  metadata: object,
+  hashes: Record<string, string>
+): Promise<boolean> {
+  const newHash = hashContent(content);
+  
+  if (hashes[sourceId] === newHash) {
+    return false; // Skip, unchanged
+  }
+  
+  await engine.ingest({ sourceId, content, metadata });
+  hashes[sourceId] = newHash;
+  return true;
+}
+```
+
+This reduces ingestion time significantly when only a few files have changed.
+
+## Complete example
+
+Here's a production-ready ingestion script:
+
+```ts
+// scripts/ingest-docs.ts
+import { createUnragEngine } from "../unrag.config";
+import { readFile, readdir } from "fs/promises";
+import matter from "gray-matter";
+import path from "path";
+
+async function findMarkdownFiles(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true, recursive: true });
+  return entries
+    .filter((e) => e.isFile() && /\.(md|mdx)$/.test(e.name))
+    .map((e) => path.join(e.parentPath ?? e.path, e.name));
+}
+
+async function main() {
+  const rootDir = path.join(process.cwd(), "content/docs");
+  const engine = createUnragEngine();
+  
+  console.log(`Scanning ${rootDir}...`);
+  const files = await findMarkdownFiles(rootDir);
+  console.log(`Found ${files.length} files\n`);
+
+  let indexed = 0;
+  let failed = 0;
+
+  for (const file of files) {
+    const raw = await readFile(file, "utf8");
+    const { data: frontmatter, content } = matter(raw);
+    
+    const relativePath = path.relative(rootDir, file);
+    const sourceId = `docs:${relativePath.replace(/\.(md|mdx)$/, "")}`;
+
+    try {
+      const result = await engine.ingest({
+        sourceId,
+        content,
+        metadata: {
+          title: frontmatter.title ?? path.basename(file, path.extname(file)),
+          description: frontmatter.description,
+          path: relativePath,
+        },
+      });
+      
+      indexed++;
+      console.log(`✓ ${sourceId} (${result.chunkCount} chunks)`);
+    } catch (error) {
+      failed++;
+      console.error(`✗ ${sourceId}: ${error.message}`);
+    }
+  }
+
+  console.log(`\nIndexed: ${indexed}, Failed: ${failed}`);
+  process.exit(failed > 0 ? 1 : 0);
 }
 
 main().catch((err) => {
@@ -49,10 +325,4 @@ main().catch((err) => {
   process.exit(1);
 });
 ```
-
-## Notes
-
-- Decide how you want to map files to `sourceId` (stable IDs make re-ingesting easier).
-- Consider stripping frontmatter if your content includes it.
-
 

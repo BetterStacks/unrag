@@ -1,31 +1,197 @@
 ---
-title: Express
-description: Minimal Express integration (server-only).
+title: Express Integration
+description: Using UnRAG with Express.js for traditional Node.js server applications.
 ---
 
-## Example route
+Express remains one of the most straightforward ways to build a Node.js API. UnRAG integrates cleanly—you import the engine, call its methods in your route handlers, and return JSON responses. No special setup required beyond what UnRAG already generates.
+
+## Basic search endpoint
+
+Here's a complete Express app with search and ingestion endpoints:
 
 ```ts
 import express from "express";
 import { createUnragEngine } from "@unrag/config";
 
 const app = express();
+app.use(express.json());
 
+// Search endpoint
 app.get("/api/search", async (req, res) => {
-  const q = String(req.query.q ?? "");
-  if (!q) return res.status(400).json({ error: "Missing q" });
-
-  const engine = createUnragEngine();
-  const result = await engine.retrieve({ query: q, topK: 8 });
-  return res.json(result);
+  const query = String(req.query.q ?? "").trim();
+  
+  if (!query) {
+    return res.status(400).json({ error: "Missing query parameter 'q'" });
+  }
+  
+  if (query.length > 500) {
+    return res.status(400).json({ error: "Query too long" });
+  }
+  
+  try {
+    const engine = createUnragEngine();
+    const result = await engine.retrieve({ query, topK: 10 });
+    
+    res.json({
+      query,
+      results: result.chunks.map((chunk) => ({
+        id: chunk.id,
+        content: chunk.content,
+        source: chunk.sourceId,
+        score: chunk.score,
+      })),
+      meta: {
+        embeddingModel: result.embeddingModel,
+        durationMs: result.durations.totalMs,
+      },
+    });
+  } catch (error) {
+    console.error("Search error:", error);
+    res.status(500).json({ error: "Search failed" });
+  }
 });
 
-app.listen(3000);
+// Ingestion endpoint (protect this in production!)
+app.post("/api/ingest", async (req, res) => {
+  const { sourceId, content, metadata } = req.body;
+  
+  if (!sourceId || !content) {
+    return res.status(400).json({ error: "Missing sourceId or content" });
+  }
+  
+  try {
+    const engine = createUnragEngine();
+    const result = await engine.ingest({
+      sourceId,
+      content,
+      metadata: metadata ?? {},
+    });
+    
+    res.json({
+      success: true,
+      documentId: result.documentId,
+      chunkCount: result.chunkCount,
+      durationMs: result.durations.totalMs,
+    });
+  } catch (error) {
+    console.error("Ingest error:", error);
+    res.status(500).json({ error: "Ingestion failed" });
+  }
+});
+
+const PORT = process.env.PORT ?? 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 ```
 
-## Notes
+## TypeScript path aliases
 
-- Keep a singleton DB client/pool in `unrag.config.ts` for stability.
-- Add auth/tenant filters before returning chunks.
+Express projects typically don't have path alias support out of the box. You have a few options:
 
+**Option 1: Update your TypeScript config and use ts-node or tsx**
+
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@unrag/*": ["./lib/unrag/*"],
+      "@unrag/config": ["./unrag.config.ts"]
+    }
+  }
+}
+```
+
+Run with `tsx` or `ts-node` with path support enabled:
+
+```bash
+npx tsx src/server.ts
+```
+
+**Option 2: Use relative imports**
+
+```ts
+import { createUnragEngine } from "../../unrag.config";
+```
+
+Less elegant, but works without additional configuration.
+
+## Connection management
+
+Express apps are long-running processes, so connection pooling behaves differently than serverless environments. The singleton pattern in `unrag.config.ts` works well—the pool is created once when the module first loads and reused for all requests.
+
+For high-traffic applications, you might want to tune pool settings:
+
+```ts
+// In unrag.config.ts
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,                        // Allow more concurrent connections
+  idleTimeoutMillis: 30000,       // Release idle connections after 30s
+  connectionTimeoutMillis: 5000,  // Fail fast if pool is exhausted
+});
+```
+
+## Adding authentication
+
+UnRAG doesn't handle auth—that's your application's responsibility. Here's a simple pattern:
+
+```ts
+import type { Request, Response, NextFunction } from "express";
+
+const requireAuth = (req: Request, res: Response, next: NextFunction) => {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  
+  if (!token || !isValidToken(token)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  
+  next();
+};
+
+// Protect ingestion endpoint
+app.post("/api/ingest", requireAuth, async (req, res) => {
+  // ... ingestion logic
+});
+
+// Search might be public or protected depending on your needs
+app.get("/api/search", async (req, res) => {
+  // ... search logic
+});
+```
+
+## Error handling
+
+Wrap UnRAG operations in try-catch blocks and return appropriate HTTP status codes. The engine throws on failures (network errors, database issues, invalid configuration), and you should handle these gracefully:
+
+```ts
+app.get("/api/search", async (req, res) => {
+  try {
+    const engine = createUnragEngine();
+    const result = await engine.retrieve({ query, topK: 10 });
+    res.json(result);
+  } catch (error) {
+    if (error.message.includes("rate limit")) {
+      return res.status(429).json({ error: "Rate limited by embedding provider" });
+    }
+    if (error.message.includes("connection")) {
+      return res.status(503).json({ error: "Database temporarily unavailable" });
+    }
+    console.error("Unexpected error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+```
+
+## Running in production
+
+For production Express deployments:
+
+1. Use a process manager like PM2 or run in a container
+2. Set `NODE_ENV=production` to disable development behaviors
+3. Configure your database for production (SSL, connection limits)
+4. Add health check endpoints that verify database connectivity
+5. Set up logging and monitoring for the embedding and database operations
 

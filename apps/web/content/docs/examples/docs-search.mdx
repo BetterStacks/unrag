@@ -1,37 +1,203 @@
 ---
-title: Docs search (single collection)
-description: Index a docs folder and query it from an API endpoint.
+title: Documentation Search
+description: A complete example of semantic search over markdown documentation.
 ---
 
-## Ingest (script)
+This example shows how to build a documentation search feature from end to end. You'll ingest markdown files from a docs directory and expose a search endpoint that returns relevant sections.
 
-Use the filesystem ingestion script pattern:
+## Project structure
 
-- [Ingest from the filesystem](/docs/guides/ingest-from-filesystem)
+```
+my-docs-site/
+├── content/
+│   └── docs/
+│       ├── getting-started.mdx
+│       ├── configuration.mdx
+│       └── guides/
+│           ├── deployment.mdx
+│           └── authentication.mdx
+├── scripts/
+│   └── ingest-docs.ts
+├── app/
+│   └── api/
+│       └── search/
+│           └── route.ts
+└── unrag.config.ts
+```
 
-Keep `sourceId` stable and scoped, e.g. `docs:<path>`.
+## Ingestion script
 
-## Retrieve (endpoint)
+This script walks the docs directory, parses frontmatter, and indexes each file:
 
 ```ts
+// scripts/ingest-docs.ts
+import { createUnragEngine } from "../unrag.config";
+import { readFile, readdir } from "fs/promises";
+import matter from "gray-matter";
+import path from "path";
+
+async function findDocs(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true, recursive: true });
+  return entries
+    .filter((e) => e.isFile() && /\.(md|mdx)$/.test(e.name))
+    .map((e) => path.join(e.parentPath ?? dir, e.name));
+}
+
+async function main() {
+  const engine = createUnragEngine();
+  const docsDir = path.join(process.cwd(), "content/docs");
+  const files = await findDocs(docsDir);
+
+  console.log(`Indexing ${files.length} documentation files...\n`);
+
+  for (const file of files) {
+    const raw = await readFile(file, "utf8");
+    const { data: frontmatter, content } = matter(raw);
+    
+    const relativePath = path.relative(docsDir, file);
+    const sourceId = `docs:${relativePath.replace(/\.(md|mdx)$/, "")}`;
+
+    const result = await engine.ingest({
+      sourceId,
+      content,
+      metadata: {
+        title: frontmatter.title ?? path.basename(file, path.extname(file)),
+        description: frontmatter.description ?? null,
+        path: relativePath,
+      },
+    });
+
+    console.log(`✓ ${frontmatter.title ?? relativePath} (${result.chunkCount} chunks)`);
+  }
+
+  console.log("\nDone! Run your dev server and try searching.");
+}
+
+main().catch(console.error);
+```
+
+Run it with `npx tsx scripts/ingest-docs.ts`.
+
+## Search endpoint
+
+The search endpoint receives a query and returns matching sections with their context:
+
+```ts
+// app/api/search/route.ts
 import { createUnragEngine } from "@unrag/config";
+import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const q = searchParams.get("q") ?? "";
-  if (!q) return Response.json({ error: "Missing q" }, { status: 400 });
+  const query = searchParams.get("q")?.trim();
+
+  if (!query || query.length < 2) {
+    return NextResponse.json(
+      { error: "Query must be at least 2 characters" },
+      { status: 400 }
+    );
+  }
 
   const engine = createUnragEngine();
-  const result = await engine.retrieve({ query: q, topK: 10 });
+  const result = await engine.retrieve({ 
+    query, 
+    topK: 10,
+    scope: { sourceId: "docs:" }, // Only search docs
+  });
 
-  return Response.json(result);
+  return NextResponse.json({
+    query,
+    results: result.chunks.map((chunk) => ({
+      id: chunk.id,
+      title: chunk.metadata.title,
+      path: chunk.metadata.path,
+      content: chunk.content,
+      score: chunk.score,
+    })),
+    meta: {
+      searchTimeMs: Math.round(result.durations.totalMs),
+    },
+  });
 }
 ```
 
-## Next step
+## Frontend integration
 
-Add a chat layer on top:
+A simple search component that calls the endpoint:
 
-- [Use with chat](/docs/guides/use-with-chat)
+```tsx
+"use client";
+import { useState } from "react";
 
+type SearchResult = {
+  id: string;
+  title: string;
+  path: string;
+  content: string;
+  score: number;
+};
+
+export function DocsSearch() {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const search = async () => {
+    if (!query.trim()) return;
+    
+    setLoading(true);
+    const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    setResults(data.results ?? []);
+    setLoading(false);
+  };
+
+  return (
+    <div>
+      <div className="flex gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && search()}
+          placeholder="Search docs..."
+          className="flex-1 px-3 py-2 border rounded"
+        />
+        <button onClick={search} disabled={loading} className="px-4 py-2 bg-blue-500 text-white rounded">
+          {loading ? "..." : "Search"}
+        </button>
+      </div>
+      
+      <div className="mt-4 space-y-4">
+        {results.map((result) => (
+          <a 
+            key={result.id} 
+            href={`/docs/${result.path.replace(/\.(md|mdx)$/, "")}`}
+            className="block p-4 border rounded hover:bg-gray-50"
+          >
+            <h3 className="font-medium">{result.title}</h3>
+            <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+              {result.content}
+            </p>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+## Adding to your build process
+
+Re-index docs automatically on every build:
+
+```json
+{
+  "scripts": {
+    "build": "npm run ingest && next build",
+    "ingest": "tsx scripts/ingest-docs.ts"
+  }
+}
+```
+
+Now your documentation search stays current with every deployment.
 

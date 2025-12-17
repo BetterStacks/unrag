@@ -1,34 +1,287 @@
 ---
-title: Multi-tenant
-description: Patterns for isolating retrieval by tenant or project.
+title: Multi-Tenant Search
+description: Isolate search results by tenant using sourceId scoping and custom filters.
 ---
 
-UnRAG provides a simple retrieval scope:
+Multi-tenant applications need to ensure one customer's data never appears in another customer's search results. UnRAG provides built-in scoping through `sourceId` prefixes, and you can extend this with custom filters for more complex requirements.
+
+## The sourceId scoping pattern
+
+The simplest multi-tenant strategy encodes tenant identity in your `sourceId`:
 
 ```ts
-await engine.retrieve({
-  query: "…",
-  scope: { sourceId: "tenant:abc" },
+// Ingestion: prefix sourceId with tenant
+await engine.ingest({
+  sourceId: `tenant:${tenantId}:kb:${documentId}`,
+  content: documentContent,
+  metadata: { tenantId, documentId },
+});
+
+// Retrieval: scope to tenant prefix
+const result = await engine.retrieve({
+  query: userQuery,
+  topK: 10,
+  scope: { sourceId: `tenant:${tenantId}:` },
 });
 ```
 
-## Pattern: encode tenant in sourceId
+The scope filter uses prefix matching—only chunks whose `sourceId` starts with `tenant:acme:` are considered when searching for that tenant. The filtering happens in the database query, so it's efficient and secure.
 
-Use `sourceId` like:
+## Building tenant-aware helpers
 
-- `tenant:<tenantId>:<docId>`
-- `project:<projectId>:<path>`
+Wrap the engine in helper functions that enforce tenant context:
 
-Then always query within that scope.
+```ts
+// lib/tenant-search.ts
+import { createUnragEngine } from "@unrag/config";
 
-## Pattern: extend the store adapter
+const engine = createUnragEngine();
 
-If you need richer filtering (tenant + docType + time range), add it in your store adapter:
+export async function ingestForTenant(
+  tenantId: string,
+  documentId: string,
+  content: string,
+  metadata: Record<string, unknown> = {}
+) {
+  return engine.ingest({
+    sourceId: `tenant:${tenantId}:doc:${documentId}`,
+    content,
+    metadata: {
+      ...metadata,
+      tenantId,
+      documentId,
+    },
+  });
+}
 
-- add columns to your schema
-- add `where ...` conditions in the adapter query
-- expose a richer scope type in your app code
+export async function searchForTenant(
+  tenantId: string,
+  query: string,
+  options: { topK?: number; collection?: string } = {}
+) {
+  const { topK = 10, collection } = options;
+  
+  // Build scope prefix
+  let scopePrefix = `tenant:${tenantId}:`;
+  if (collection) {
+    scopePrefix += `${collection}:`;
+  }
+  
+  return engine.retrieve({
+    query,
+    topK,
+    scope: { sourceId: scopePrefix },
+  });
+}
+```
 
-Because the adapter is vendored source, this stays fully under your control.
+Using these helpers makes it harder to accidentally forget tenant isolation:
 
+```ts
+// In your API route
+const tenantId = getCurrentTenantId(request); // From auth
+
+const result = await searchForTenant(tenantId, query);
+// Results are guaranteed to be from this tenant only
+```
+
+## Hierarchical scoping
+
+Your `sourceId` structure can represent hierarchical relationships:
+
+```
+tenant:{tenantId}:workspace:{workspaceId}:doc:{docId}
+```
+
+This lets you scope to different levels:
+
+```ts
+// Search entire tenant
+scope: { sourceId: `tenant:${tenantId}:` }
+
+// Search specific workspace
+scope: { sourceId: `tenant:${tenantId}:workspace:${workspaceId}:` }
+
+// Search specific document type within workspace
+scope: { sourceId: `tenant:${tenantId}:workspace:${workspaceId}:doc:` }
+```
+
+Design your `sourceId` schema to match how users navigate and think about their content.
+
+## Extending the store adapter for richer filtering
+
+The built-in `sourceId` scoping is prefix-based. If you need more sophisticated filtering—by metadata fields, date ranges, or boolean combinations—extend your store adapter.
+
+Here's an example that adds tenant filtering via metadata:
+
+```ts
+// lib/tenant-store.ts
+import type { Pool } from "pg";
+import type { Chunk, VectorStore } from "@unrag/core/types";
+
+type TenantScope = {
+  sourceId?: string;
+  tenantId?: string;
+  documentType?: string;
+  createdAfter?: Date;
+};
+
+export const createTenantAwareStore = (pool: Pool): VectorStore => ({
+  upsert: async (chunks) => {
+    // Standard upsert logic - tenant info is in metadata
+    // ... (same as raw SQL adapter)
+  },
+
+  query: async ({ embedding, topK, scope = {} }) => {
+    const tenantScope = scope as TenantScope;
+    const vectorLiteral = `[${embedding.join(",")}]`;
+    
+    const conditions: string[] = [];
+    const values: unknown[] = [vectorLiteral, topK];
+    let paramIndex = 3;
+
+    // Standard sourceId prefix filter
+    if (tenantScope.sourceId) {
+      conditions.push(`c.source_id LIKE $${paramIndex}`);
+      values.push(tenantScope.sourceId + "%");
+      paramIndex++;
+    }
+
+    // Tenant filter via metadata
+    if (tenantScope.tenantId) {
+      conditions.push(`c.metadata->>'tenantId' = $${paramIndex}`);
+      values.push(tenantScope.tenantId);
+      paramIndex++;
+    }
+
+    // Document type filter
+    if (tenantScope.documentType) {
+      conditions.push(`c.metadata->>'documentType' = $${paramIndex}`);
+      values.push(tenantScope.documentType);
+      paramIndex++;
+    }
+
+    // Date filter
+    if (tenantScope.createdAfter) {
+      conditions.push(`c.created_at > $${paramIndex}`);
+      values.push(tenantScope.createdAfter);
+      paramIndex++;
+    }
+
+    const whereClause = conditions.length > 0
+      ? `WHERE ${conditions.join(" AND ")}`
+      : "";
+
+    const res = await pool.query(`
+      SELECT 
+        c.id, c.document_id, c.source_id, c.idx,
+        c.content, c.token_count, c.metadata,
+        (e.embedding <=> $1::vector) as score
+      FROM chunks c
+      JOIN embeddings e ON e.chunk_id = c.id
+      ${whereClause}
+      ORDER BY score ASC
+      LIMIT $2
+    `, values);
+
+    return res.rows.map((row) => ({
+      id: String(row.id),
+      documentId: String(row.document_id),
+      sourceId: String(row.source_id),
+      index: Number(row.idx),
+      content: String(row.content),
+      tokenCount: Number(row.token_count),
+      metadata: row.metadata ?? {},
+      score: Number(row.score),
+    }));
+  },
+});
+```
+
+Now you can filter by multiple dimensions:
+
+```ts
+const result = await engine.retrieve({
+  query: "billing questions",
+  topK: 10,
+  scope: {
+    tenantId: "acme",
+    documentType: "faq",
+    createdAfter: new Date("2024-01-01"),
+  },
+});
+```
+
+## Database indexes for tenant queries
+
+If you filter by tenant frequently, add indexes to keep queries fast:
+
+```sql
+-- Index for tenant filtering via metadata
+CREATE INDEX chunks_tenant_idx ON chunks ((metadata->>'tenantId'));
+
+-- Composite index for tenant + source_id
+CREATE INDEX chunks_tenant_source_idx ON chunks ((metadata->>'tenantId'), source_id);
+
+-- Index for date filtering
+CREATE INDEX chunks_created_idx ON chunks (created_at);
+```
+
+Without indexes, filtering by metadata requires scanning all rows, which gets slow as your dataset grows.
+
+## Security considerations
+
+Tenant isolation in UnRAG happens at the query level, not the database level. A bug in your application code could expose one tenant's data to another. Consider defense in depth:
+
+1. **Verify tenant context early.** Extract the tenant ID from authentication tokens before any database operations.
+
+2. **Use the helper functions consistently.** Don't call `engine.retrieve()` directly in your route handlers—always go through tenant-aware wrappers.
+
+3. **Log tenant context.** Include tenant ID in your logs so you can audit who accessed what.
+
+4. **Test isolation explicitly.** Write tests that verify tenant A's search cannot return tenant B's content.
+
+```ts
+// Example test
+test("tenant isolation", async () => {
+  // Ingest content for two tenants
+  await ingestForTenant("tenant-a", "doc-1", "Secret content for A");
+  await ingestForTenant("tenant-b", "doc-1", "Secret content for B");
+
+  // Search as tenant A
+  const resultA = await searchForTenant("tenant-a", "secret");
+  
+  // Verify only tenant A's content appears
+  expect(resultA.chunks.every((c) => 
+    c.metadata.tenantId === "tenant-a"
+  )).toBe(true);
+});
+```
+
+## Row-level security (advanced)
+
+For the strongest isolation guarantees, consider Postgres row-level security (RLS). This enforces tenant isolation at the database level, so even bugs in application code can't leak data:
+
+```sql
+-- Enable RLS
+ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chunks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE embeddings ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for tenant isolation
+CREATE POLICY tenant_isolation ON documents
+  USING ((metadata->>'tenantId') = current_setting('app.tenant_id'));
+
+CREATE POLICY tenant_isolation ON chunks
+  USING ((metadata->>'tenantId') = current_setting('app.tenant_id'));
+```
+
+Set the tenant context before queries:
+
+```ts
+await pool.query(`SET app.tenant_id = $1`, [tenantId]);
+const result = await engine.retrieve({ query, topK: 10 });
+```
+
+RLS adds overhead and complexity, but for high-security applications, it's worth considering.
 

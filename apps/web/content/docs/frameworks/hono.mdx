@@ -1,7 +1,13 @@
 ---
-title: Hono
-description: Minimal Hono integration (Node runtime).
+title: Hono Integration
+description: Using UnRAG with Hono for lightweight, fast APIs on Node.js or edge runtimes.
 ---
+
+Hono is a lightweight web framework that works across Node.js, Bun, Deno, and Cloudflare Workers. When running on Node.js or Bun with standard Postgres drivers, UnRAG integrates seamlessly. For edge runtimes, you'll need compatible database drivers.
+
+## Basic setup on Node.js
+
+On Node.js or Bun, UnRAG's default adapters work out of the box:
 
 ```ts
 import { Hono } from "hono";
@@ -10,19 +16,219 @@ import { createUnragEngine } from "@unrag/config";
 const app = new Hono();
 
 app.get("/api/search", async (c) => {
-  const q = c.req.query("q") ?? "";
-  if (!q) return c.json({ error: "Missing q" }, 400);
-
+  const query = c.req.query("q")?.trim();
+  
+  if (!query) {
+    return c.json({ error: "Missing query parameter" }, 400);
+  }
+  
   const engine = createUnragEngine();
-  const result = await engine.retrieve({ query: q, topK: 8 });
-  return c.json(result);
+  const result = await engine.retrieve({ query, topK: 10 });
+  
+  return c.json({
+    query,
+    results: result.chunks.map((chunk) => ({
+      id: chunk.id,
+      content: chunk.content,
+      source: chunk.sourceId,
+      score: chunk.score,
+    })),
+  });
+});
+
+app.post("/api/ingest", async (c) => {
+  const body = await c.req.json().catch(() => null);
+  
+  if (!body?.sourceId || !body?.content) {
+    return c.json({ error: "Missing sourceId or content" }, 400);
+  }
+  
+  const engine = createUnragEngine();
+  const result = await engine.ingest({
+    sourceId: body.sourceId,
+    content: body.content,
+    metadata: body.metadata ?? {},
+  });
+  
+  return c.json({
+    documentId: result.documentId,
+    chunkCount: result.chunkCount,
+  });
 });
 
 export default app;
 ```
 
-## Notes
+Run with Node.js, Bun, or Deno (with Node compatibility):
 
-UnRAG’s default adapters assume Node + Postgres drivers. For edge runtimes, you’ll typically need a compatible Postgres driver and possibly a custom store adapter.
+```bash
+# With Bun
+bun run --hot src/index.ts
 
+# With Node.js (using tsx)
+npx tsx src/index.ts
+```
+
+## Input validation with Zod
+
+Hono works well with Zod for request validation:
+
+```ts
+import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
+import { createUnragEngine } from "@unrag/config";
+
+const app = new Hono();
+
+const searchSchema = z.object({
+  q: z.string().min(2).max(500),
+  topK: z.coerce.number().min(1).max(50).default(10),
+  scope: z.string().optional(),
+});
+
+app.get(
+  "/api/search",
+  zValidator("query", searchSchema),
+  async (c) => {
+    const { q, topK, scope } = c.req.valid("query");
+    
+    const engine = createUnragEngine();
+    const result = await engine.retrieve({
+      query: q,
+      topK,
+      scope: scope ? { sourceId: scope } : undefined,
+    });
+    
+    return c.json({
+      query: q,
+      results: result.chunks,
+      meta: { embeddingModel: result.embeddingModel },
+    });
+  }
+);
+
+const ingestSchema = z.object({
+  sourceId: z.string().min(1),
+  content: z.string().min(1),
+  metadata: z.record(z.unknown()).optional(),
+});
+
+app.post(
+  "/api/ingest",
+  zValidator("json", ingestSchema),
+  async (c) => {
+    const { sourceId, content, metadata } = c.req.valid("json");
+    
+    const engine = createUnragEngine();
+    const result = await engine.ingest({ sourceId, content, metadata });
+    
+    return c.json(result);
+  }
+);
+```
+
+## Edge runtime considerations
+
+UnRAG's default adapters use the `pg` driver, which relies on Node.js APIs not available in edge runtimes (Cloudflare Workers, Vercel Edge). If you're deploying to edge, you have options:
+
+**Option 1: Use an edge-compatible Postgres driver**
+
+Neon's serverless driver works in edge environments:
+
+```ts
+import { neon } from "@neondatabase/serverless";
+// You'll need a custom store adapter that uses neon()
+```
+
+**Option 2: Proxy to a Node.js backend**
+
+Keep UnRAG operations in a Node.js service and call it from your edge function:
+
+```ts
+// Edge function
+app.get("/api/search", async (c) => {
+  const query = c.req.query("q");
+  
+  // Forward to your Node.js backend
+  const response = await fetch(`${BACKEND_URL}/api/search?q=${query}`);
+  return c.json(await response.json());
+});
+```
+
+**Option 3: Use a different vector database**
+
+Some vector databases (like Pinecone or Upstash Vector) offer edge-compatible SDKs. Build a custom store adapter for them.
+
+## Middleware for common patterns
+
+Hono's middleware system lets you add cross-cutting concerns:
+
+```ts
+import { Hono } from "hono";
+import { cors } from "hono/cors";
+import { logger } from "hono/logger";
+import { timing } from "hono/timing";
+
+const app = new Hono();
+
+// Enable CORS for frontend access
+app.use("/api/*", cors());
+
+// Log requests
+app.use("*", logger());
+
+// Add server timing headers
+app.use("*", timing());
+
+// Your routes
+app.get("/api/search", async (c) => {
+  // ...
+});
+```
+
+## Error handling
+
+Wrap operations in try-catch and return appropriate responses:
+
+```ts
+import { HTTPException } from "hono/http-exception";
+
+app.get("/api/search", async (c) => {
+  const query = c.req.query("q");
+  
+  if (!query) {
+    throw new HTTPException(400, { message: "Missing query" });
+  }
+  
+  try {
+    const engine = createUnragEngine();
+    const result = await engine.retrieve({ query, topK: 10 });
+    return c.json(result);
+  } catch (error) {
+    console.error("Search failed:", error);
+    throw new HTTPException(500, { message: "Search failed" });
+  }
+});
+
+// Global error handler
+app.onError((err, c) => {
+  if (err instanceof HTTPException) {
+    return c.json({ error: err.message }, err.status);
+  }
+  return c.json({ error: "Internal server error" }, 500);
+});
+```
+
+## Deployment patterns
+
+Hono apps can deploy to many platforms:
+
+- **Bun**: `bun run src/index.ts`
+- **Node.js**: Use `@hono/node-server` adapter
+- **Deno**: `deno run --allow-net src/index.ts`
+- **Cloudflare Workers**: Use `wrangler deploy` (edge-compatible driver needed)
+- **AWS Lambda**: Use `@hono/aws-lambda` adapter
+
+For Node.js deployments where UnRAG works best, the integration is straightforward. For edge deployments, plan for the driver compatibility issues ahead of time.
 

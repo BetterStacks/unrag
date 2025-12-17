@@ -1,34 +1,199 @@
 ---
-title: Admin re-ingest endpoint
-description: Re-ingest a document on demand after edits.
+title: Admin Re-ingest Endpoint
+description: An admin endpoint for re-indexing individual documents on demand.
 ---
 
-This example shows an “admin-only” endpoint that re-ingests a single document.
+When content is edited through a CMS, admin panel, or external system, you need a way to update the search index. This example shows how to build a secure admin endpoint that re-ingests specific documents.
 
-## Pattern
+## The use case
 
-- Use a stable `sourceId` for the document.
-- When content changes, call `ingest()` again with the updated content.
+Imagine you have a help center where support team members edit articles through an admin interface. When they save an article, the search index should update to reflect the changes. Rather than re-indexing everything, you target the specific document that changed.
+
+## Admin endpoint
+
+This endpoint accepts a document identifier and content, then re-ingests it:
 
 ```ts
+// app/api/admin/reingest/route.ts
 import { createUnragEngine } from "@unrag/config";
+import { verifyAdminToken } from "@/lib/auth";
 
 export async function POST(request: Request) {
-  // TODO: authenticate + authorize admin user here
-  const body = await request.json().catch(() => null);
-  const sourceId = String(body?.sourceId ?? "");
-  const content = String(body?.content ?? "");
-
-  if (!sourceId || !content) {
-    return Response.json({ error: "Missing sourceId or content" }, { status: 400 });
+  // Verify the request is from an authenticated admin
+  const authHeader = request.headers.get("authorization");
+  const isAdmin = await verifyAdminToken(authHeader);
+  
+  if (!isAdmin) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
-
-  const engine = createUnragEngine();
-  const result = await engine.ingest({ sourceId, content });
-  return Response.json(result);
+  
+  // Parse the request body
+  const body = await request.json().catch(() => null);
+  
+  if (!body?.sourceId || typeof body.sourceId !== "string") {
+    return Response.json(
+      { error: "Missing or invalid sourceId" },
+      { status: 400 }
+    );
+  }
+  
+  if (!body?.content || typeof body.content !== "string") {
+    return Response.json(
+      { error: "Missing or invalid content" },
+      { status: 400 }
+    );
+  }
+  
+  try {
+    const engine = createUnragEngine();
+    
+    const result = await engine.ingest({
+      sourceId: body.sourceId,
+      content: body.content,
+      metadata: {
+        ...body.metadata,
+        reindexedAt: new Date().toISOString(),
+        reindexedBy: body.adminId ?? "unknown",
+      },
+    });
+    
+    return Response.json({
+      success: true,
+      documentId: result.documentId,
+      chunkCount: result.chunkCount,
+      embeddingModel: result.embeddingModel,
+      durationMs: result.durations.totalMs,
+    });
+  } catch (error) {
+    console.error("Reingest failed:", error);
+    return Response.json(
+      { error: "Ingestion failed. Check server logs." },
+      { status: 500 }
+    );
+  }
 }
 ```
 
-See [Reindexing](/docs/guides/reindexing) for broader strategies.
+## Calling from your CMS
 
+When content is saved in your admin interface, call the reingest endpoint:
+
+```ts
+// lib/cms/on-save.ts
+async function onArticleSave(article: Article) {
+  // Save to your database first
+  await db.articles.update(article);
+  
+  // Then update the search index
+  const response = await fetch("/api/admin/reingest", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${getAdminToken()}`,
+    },
+    body: JSON.stringify({
+      sourceId: `help:${article.id}`,
+      content: `# ${article.title}\n\n${article.body}`,
+      metadata: {
+        articleId: article.id,
+        title: article.title,
+        category: article.category,
+        lastUpdated: article.updatedAt,
+      },
+      adminId: getCurrentAdminId(),
+    }),
+  });
+  
+  if (!response.ok) {
+    console.error("Failed to update search index:", await response.text());
+    // Decide how to handle: retry, queue, alert, etc.
+  }
+}
+```
+
+## Webhook integration
+
+If your CMS supports webhooks, set up automatic reindexing:
+
+```ts
+// app/api/webhooks/cms/route.ts
+import { createUnragEngine } from "@unrag/config";
+import { verifyWebhookSignature } from "@/lib/webhooks";
+
+export async function POST(request: Request) {
+  // Verify the webhook is legitimate
+  const signature = request.headers.get("x-cms-signature");
+  const body = await request.text();
+  
+  if (!verifyWebhookSignature(signature, body)) {
+    return Response.json({ error: "Invalid signature" }, { status: 401 });
+  }
+  
+  const payload = JSON.parse(body);
+  
+  // Handle different event types
+  if (payload.event === "article.updated" || payload.event === "article.created") {
+    const engine = createUnragEngine();
+    
+    await engine.ingest({
+      sourceId: `help:${payload.article.id}`,
+      content: payload.article.content,
+      metadata: {
+        title: payload.article.title,
+        category: payload.article.category,
+      },
+    });
+    
+    return Response.json({ success: true });
+  }
+  
+  if (payload.event === "article.deleted") {
+    // You might want to add a delete capability to your store adapter
+    // For now, the orphaned embeddings don't affect search accuracy
+    return Response.json({ success: true, action: "ignored" });
+  }
+  
+  return Response.json({ success: true, action: "unhandled" });
+}
+```
+
+## Batch reindexing
+
+Sometimes you need to reindex multiple documents at once:
+
+```ts
+// app/api/admin/reingest-batch/route.ts
+export async function POST(request: Request) {
+  const { documents } = await request.json();
+  
+  if (!Array.isArray(documents) || documents.length === 0) {
+    return Response.json({ error: "No documents provided" }, { status: 400 });
+  }
+  
+  const engine = createUnragEngine();
+  const results = [];
+  
+  for (const doc of documents) {
+    try {
+      const result = await engine.ingest({
+        sourceId: doc.sourceId,
+        content: doc.content,
+        metadata: doc.metadata,
+      });
+      results.push({ sourceId: doc.sourceId, success: true, chunkCount: result.chunkCount });
+    } catch (error) {
+      results.push({ sourceId: doc.sourceId, success: false, error: error.message });
+    }
+  }
+  
+  return Response.json({
+    total: documents.length,
+    successful: results.filter((r) => r.success).length,
+    failed: results.filter((r) => !r.success).length,
+    results,
+  });
+}
+```
+
+This makes it easy to build admin UIs that let you select multiple articles and reindex them all at once.
 

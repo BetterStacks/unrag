@@ -1,19 +1,47 @@
 ---
-title: Overview
-description: Pick a store adapter and understand what it does.
+title: Store Adapters Overview
+description: How UnRAG stores vectors in Postgres and which adapter to choose.
 ---
 
-UnRAG stores vectors in **Postgres + pgvector**. You choose one store adapter at install time:
+UnRAG stores everything in Postgres using the pgvector extension. The store adapter is the piece that handles the database operations—creating records, building queries, managing transactions. UnRAG ships three adapters, each suited to different project setups.
 
-- **Drizzle**: typed schema module + Drizzle `PgDatabase`
-- **Prisma**: uses `prisma.$executeRaw` / `prisma.$queryRaw`
-- **Raw SQL**: uses `pg` Pool + parameterized SQL
+## The three adapters
 
-All adapters implement the same interface:
+**Drizzle** is the best choice if you're already using Drizzle ORM or want type-safe database access. The adapter uses Drizzle's query builder and provides a typed schema you can import into your own Drizzle configuration. This means UnRAG's tables become first-class citizens in your migration workflow.
 
-- `upsert(chunks)` writes documents, chunks, embeddings
-- `query({ embedding, topK, scope })` returns topK nearest chunks
+**Prisma** works well if Prisma is your project's ORM. Since Prisma doesn't natively support pgvector types, this adapter uses raw SQL queries through `$executeRaw` and `$queryRaw`. You get Prisma's connection management and transaction handling while bypassing its schema limitations for vector operations.
 
-If you want a different schema, filters, or distance function, you can fork the adapter (it’s vendored code) or implement your own.
+**Raw SQL** is the most portable option. It uses the `pg` driver directly with parameterized SQL queries. Choose this if you don't use an ORM, prefer explicit SQL, or want the simplest possible integration with no framework dependencies.
 
+All three adapters implement the same interface, produce the same database schema, and are functionally equivalent. Your choice depends on what fits your existing codebase.
+
+## What adapters do
+
+Each adapter implements two methods:
+
+**`upsert(chunks)`** writes documents, chunks, and embeddings to the database. It receives an array of chunks (with embeddings attached) and performs the necessary inserts or updates within a transaction. If you ingest with a `sourceId` that already exists, the adapter updates the existing records.
+
+**`query({ embedding, topK, scope })`** runs a similarity search. It takes a query embedding vector and returns the most similar chunks. The SQL uses pgvector's `<=>` operator for cosine distance, orders by ascending distance (lower is more similar), and limits to `topK` results.
+
+The adapter code is vendored into your project at `lib/unrag/store/`. You can read it, modify it, or use it as a reference for building custom adapters.
+
+## Common to all adapters
+
+Regardless of which adapter you choose, you need:
+
+1. A Postgres database with the pgvector extension enabled
+2. The schema tables created (documents, chunks, embeddings)
+3. A connection string in your environment
+
+All adapters use the same table structure, so you can switch adapters without migrating data. The SQL is standard Postgres—nothing adapter-specific in the schema itself.
+
+## Choosing an adapter
+
+If your project already uses Drizzle, use the Drizzle adapter. If it uses Prisma, use the Prisma adapter. If you're not using an ORM or starting fresh, consider:
+
+- **Drizzle** if you want typed schemas and enjoy Drizzle's API
+- **Prisma** if you might add Prisma later or have team familiarity with it
+- **Raw SQL** if you prefer explicit queries and minimal dependencies
+
+The actual runtime behavior is nearly identical. The difference is in how you manage connections and integrate with the rest of your data layer.
 

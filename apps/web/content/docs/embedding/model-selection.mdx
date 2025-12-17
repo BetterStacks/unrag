@@ -1,11 +1,21 @@
 ---
-title: Model selection
-description: Picking an embedding model and keeping dimensions consistent.
+title: Model Selection
+description: Choosing an embedding model and understanding the tradeoffs.
 ---
 
-## Choose a model
+The embedding model you choose affects retrieval quality, latency, and cost. There's no universally best model—the right choice depends on your content, query patterns, and budget. Here's how to think about the decision.
 
-In `unrag.config.ts`, set:
+## The key tradeoffs
+
+**Dimensions vs. performance**: Higher-dimensional embeddings capture more nuance but require more storage and slightly slower similarity calculations. OpenAI's text-embedding-3-small produces 1536-dimensional vectors; text-embedding-3-large produces 3072 dimensions. For most use cases, the quality difference doesn't justify doubling your storage.
+
+**Quality vs. cost**: Better models cost more per embedding. If you're embedding millions of documents, the cost difference between models adds up. Start with a cheaper model and upgrade only if retrieval quality demonstrably suffers.
+
+**Latency**: All cloud embedding APIs have similar latency (100-300ms per call), but some models process tokens faster than others. For real-time applications, the embedding call is usually your bottleneck.
+
+## Recommended starting points
+
+For general-purpose text (documentation, articles, support content):
 
 ```ts
 export const unragConfig = {
@@ -13,22 +23,137 @@ export const unragConfig = {
     model: "openai/text-embedding-3-small",
     timeoutMs: 15_000,
   },
-  // ...
 } as const;
 ```
 
-## Consistency matters
+This model is fast, cheap, and produces good results for most English text. It's the default for a reason.
 
-Vectors in your database should be comparable:
+For multilingual content or when quality is paramount:
 
-- If you change models, you often need to **re-embed** existing content.
-- If you change dimensions, ensure your pgvector column supports it (or use untyped `vector` and validate).
+```ts
+export const unragConfig = {
+  embedding: {
+    model: "openai/text-embedding-3-large",
+    timeoutMs: 20_000,
+  },
+} as const;
+```
 
-UnRAG stores `embedding_dimension` alongside each embedding row to help you detect mismatches.
+The larger model handles multiple languages better and captures finer semantic distinctions. Use it when retrieval quality directly impacts user experience.
 
-## Practical guidance
+## Keeping embeddings consistent
 
-- Start with a cost-effective model and validate retrieval quality.
-- Re-embed in a controlled job when switching models (see [Reindexing](/docs/guides/reindexing)).
+Here's a critical point that catches many teams: all vectors in your database must come from the same embedding model. You cannot mix embeddings from different models and expect similarity search to work correctly.
 
+Different models produce vectors in different semantic spaces. A query embedded with model A cannot meaningfully compare to chunks embedded with model B. The math produces numbers, but those numbers are meaningless.
+
+This means:
+
+1. **Pick a model and stick with it.** Don't change models on a whim.
+
+2. **If you change models, re-embed everything.** There's no shortcut. Delete your existing embeddings and regenerate them with the new model.
+
+3. **Store which model was used.** UnRAG records `embedding_dimension` in the database, and the `embeddingModel` field in responses tells you which model was active. Use this to detect mismatches.
+
+## Detecting model changes
+
+UnRAG tracks the embedding model name in every response:
+
+```ts
+const result = await engine.ingest({ sourceId: "doc-1", content: "..." });
+console.log(result.embeddingModel);
+// "ai-sdk:openai/text-embedding-3-small"
+
+const retrieved = await engine.retrieve({ query: "test" });
+console.log(retrieved.embeddingModel);
+// Should match!
+```
+
+If you're switching models, verify that your retrieval is using the same model that was used for ingestion. A mismatch produces results, but they'll be essentially random rather than semantically meaningful.
+
+## Re-embedding after model changes
+
+When you decide to switch models, the safest approach is:
+
+1. **Deploy the new model to your config** but don't use it yet
+2. **Run a re-ingestion job** that processes all your content with the new model
+3. **Verify retrieval quality** with test queries
+4. **Delete old embeddings** if you're confident the new ones are correct
+
+```ts
+// Re-ingestion script
+async function reembed() {
+  const engine = createUnragEngine(); // Now using new model
+  
+  // Fetch all documents from your database
+  const docs = await fetchAllDocuments();
+  
+  for (const doc of docs) {
+    await engine.ingest({
+      sourceId: doc.sourceId,
+      content: doc.content,
+      metadata: doc.metadata,
+    });
+    console.log(`Re-embedded: ${doc.sourceId}`);
+  }
+}
+```
+
+For large datasets, batch this work and track progress. Re-embedding 100,000 documents takes hours and costs money—plan accordingly.
+
+## Evaluating retrieval quality
+
+How do you know if a model change improved things? You need test queries with expected results:
+
+```ts
+const testCases = [
+  { query: "how do I reset my password?", expectedSourceId: "docs:auth" },
+  { query: "pricing for enterprise", expectedSourceId: "docs:pricing" },
+  // ... more cases
+];
+
+for (const { query, expectedSourceId } of testCases) {
+  const result = await engine.retrieve({ query, topK: 5 });
+  const found = result.chunks.some((c) => c.sourceId.includes(expectedSourceId));
+  console.log(`${query}: ${found ? "PASS" : "FAIL"}`);
+}
+```
+
+Build a set of representative queries and track whether the expected documents appear in results. Run this before and after model changes to quantify the impact.
+
+## Dimension truncation
+
+Some embedding models support dimension truncation—you can request fewer dimensions to save space while retaining most of the semantic information. OpenAI's text-embedding-3 models support this:
+
+```ts
+// Using the OpenAI API directly (not via AI SDK)
+const response = await openai.embeddings.create({
+  model: "text-embedding-3-small",
+  input: "Your text",
+  dimensions: 512,  // Truncate from 1536 to 512
+});
+```
+
+This isn't exposed through the default AI SDK provider, but you can implement a custom provider that supports it. Truncation can reduce storage by 60-70% with a modest quality tradeoff.
+
+## Local embedding models
+
+For cost control or privacy requirements, consider running embedding models locally. Models like `sentence-transformers/all-MiniLM-L6-v2` run on modest hardware and produce reasonable results:
+
+```ts
+// Example with a local model server
+const localEmbedding: EmbeddingProvider = {
+  name: "local:all-MiniLM-L6-v2",
+  dimensions: 384,
+  embed: async ({ text }) => {
+    const res = await fetch("http://localhost:8080/embed", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+    return (await res.json()).embedding;
+  },
+};
+```
+
+Local models eliminate API costs entirely, reduce latency (no network round-trip), and keep your data private. The quality may be lower than OpenAI's models for some use cases, but it's often sufficient.
 

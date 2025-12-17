@@ -1,11 +1,13 @@
 ---
-title: Prisma (Postgres + pgvector)
-description: Use Prisma while keeping vector search in SQL.
+title: Prisma Adapter
+description: Use the Prisma adapter with examples for different providers and existing Prisma setups.
 ---
 
-The Prisma adapter uses `prisma.$executeRaw` and `prisma.$queryRaw`, so you can keep Prisma models minimal and manage schema with SQL migrations.
+The Prisma adapter integrates UnRAG with projects using Prisma ORM. Since Prisma doesn't have native support for pgvector types, the adapter uses raw SQL queries through `$executeRaw` and `$queryRaw`. This gives you Prisma's connection management and transaction handling while working around its schema limitations for vector operations.
 
-## Create the store
+## Basic setup
+
+Creating the Prisma store is straightforward:
 
 ```ts
 import { PrismaClient } from "@prisma/client";
@@ -15,13 +17,278 @@ const prisma = new PrismaClient();
 export const store = createPrismaVectorStore(prisma);
 ```
 
-## Optional Prisma models
+The adapter uses your Prisma client for all database operations, executing raw SQL for the vector-specific functionality while benefiting from Prisma's connection pooling.
 
-If you want models, pgvector is typically represented as `Unsupported("vector")` in Prisma. Many teams skip modeling embeddings and just manage them via SQL migrations and raw queries.
+## Using your existing Prisma client
 
-## Notes
+If your project already has a Prisma client configured (which most Prisma projects do), pass it directly to UnRAG:
 
-- The adapter writes to `documents`, `chunks`, `embeddings` tables via SQL.
-- Vector similarity uses `<=>` and sorts ascending (closest first).
+```ts
+// Your existing Prisma setup (maybe in lib/prisma.ts)
+import { PrismaClient } from "@prisma/client";
 
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
+
+export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
+}
+```
+
+```ts
+// In unrag.config.ts
+import { prisma } from "@/lib/prisma";  // Your existing client
+import { createPrismaVectorStore } from "@unrag/store/prisma";
+import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+import { createContextEngine, defineConfig } from "@unrag/core";
+
+const store = createPrismaVectorStore(prisma);
+
+export function createUnragEngine() {
+  return createContextEngine(
+    defineConfig({
+      embedding: createAiEmbeddingProvider({
+        model: "openai/text-embedding-3-small",
+      }),
+      store,
+      defaults: { chunkSize: 200, chunkOverlap: 40 },
+    })
+  );
+}
+```
+
+This keeps UnRAG on the same connection pool as your application, avoiding the overhead of multiple Prisma clients.
+
+## Connecting to Neon with Prisma
+
+Neon works well with Prisma. Use the pooled connection string and configure the connection for serverless:
+
+```ts
+// schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+```
+
+```
+# .env
+DATABASE_URL="postgresql://user:password@ep-xxx.pooler.us-east-1.aws.neon.tech/dbname?sslmode=require"
+```
+
+For Neon's serverless driver with Prisma (lower cold start latency):
+
+```ts
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaClient } from "@prisma/client";
+import { createPrismaVectorStore } from "@unrag/store/prisma";
+
+neonConfig.webSocketConstructor = WebSocket;
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaNeon(pool);
+const prisma = new PrismaClient({ adapter });
+
+export const store = createPrismaVectorStore(prisma);
+```
+
+## Connecting to Supabase with Prisma
+
+Supabase provides a direct connection and a pooled connection. Use the pooled connection for better reliability:
+
+```ts
+// schema.prisma
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")  // For migrations
+}
+```
+
+```
+# .env
+# Pooled connection for runtime
+DATABASE_URL="postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres?pgbouncer=true"
+
+# Direct connection for migrations
+DIRECT_URL="postgresql://postgres.[ref]:[password]@db.[ref].supabase.co:5432/postgres"
+```
+
+The `pgbouncer=true` parameter ensures compatibility with Supabase's connection pooler.
+
+## Connecting to AWS RDS with Prisma
+
+For RDS, you'll typically need SSL configuration:
+
+```ts
+// schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+```
+
+```
+# .env
+DATABASE_URL="postgresql://user:password@mydb.xxx.us-east-1.rds.amazonaws.com:5432/mydb?sslmode=require"
+```
+
+If you're using RDS Proxy for serverless deployments:
+
+```
+# .env  
+DATABASE_URL="postgresql://user:password@myproxy.proxy-xxx.us-east-1.rds.amazonaws.com:5432/mydb?sslmode=require"
+```
+
+## Managing the schema
+
+Prisma doesn't natively understand pgvector types, but you can still manage the schema through Prisma migrations by using raw SQL. Create a migration and add the UnRAG tables manually:
+
+```bash
+npx prisma migrate dev --create-only --name add_unrag_tables
+```
+
+Then edit the generated migration file to include the schema:
+
+```sql
+-- Enable pgvector
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Create UnRAG tables
+CREATE TABLE documents (
+  id UUID PRIMARY KEY,
+  source_id TEXT NOT NULL,
+  content TEXT NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE chunks (
+  id UUID PRIMARY KEY,
+  document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+  source_id TEXT NOT NULL,
+  idx INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  token_count INTEGER NOT NULL,
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE embeddings (
+  chunk_id UUID PRIMARY KEY REFERENCES chunks(id) ON DELETE CASCADE,
+  embedding VECTOR,
+  embedding_dimension INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX chunks_source_id_idx ON chunks(source_id);
+CREATE INDEX documents_source_id_idx ON documents(source_id);
+```
+
+Apply the migration:
+
+```bash
+npx prisma migrate dev
+```
+
+You don't need to define Prisma models for these tables since the adapter uses raw SQL. This actually simplifies things—you avoid fighting with Prisma's type system around the `vector` type.
+
+## Optional: Adding Prisma models
+
+If you want to query UnRAG tables through Prisma for other purposes (admin UIs, analytics), you can add models that ignore the vector column:
+
+```prisma
+model Document {
+  id        String   @id @db.Uuid
+  sourceId  String   @map("source_id")
+  content   String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  chunks    Chunk[]
+
+  @@map("documents")
+}
+
+model Chunk {
+  id          String    @id @db.Uuid
+  documentId  String    @map("document_id") @db.Uuid
+  sourceId    String    @map("source_id")
+  idx         Int
+  content     String
+  tokenCount  Int       @map("token_count")
+  metadata    Json?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@map("chunks")
+}
+
+// Note: We skip the embeddings model since Prisma can't handle the vector type
+// The UnRAG adapter handles embeddings through raw SQL
+```
+
+With these models, you can use Prisma to query documents and chunks while UnRAG handles the vector operations through its adapter.
+
+## How the adapter handles vectors
+
+The Prisma adapter constructs raw SQL queries for all vector operations. For insertion:
+
+```ts
+await prisma.$executeRaw`
+  INSERT INTO embeddings (chunk_id, embedding, embedding_dimension)
+  VALUES (${chunkId}::uuid, ${vectorLiteral}::vector, ${dimensions})
+  ON CONFLICT (chunk_id) DO UPDATE SET
+    embedding = excluded.embedding,
+    embedding_dimension = excluded.embedding_dimension
+`;
+```
+
+For similarity search:
+
+```ts
+const rows = await prisma.$queryRaw`
+  SELECT c.*, (e.embedding <=> ${vectorLiteral}::vector) as score
+  FROM chunks c
+  JOIN embeddings e ON e.chunk_id = c.id
+  JOIN documents d ON d.id = c.document_id
+  WHERE c.source_id LIKE ${scope.sourceId + '%'}
+  ORDER BY score ASC
+  LIMIT ${topK}
+`;
+```
+
+The `<=>` operator computes cosine distance, with lower scores indicating higher similarity.
+
+## Transactions with application data
+
+You can coordinate UnRAG operations with your application's Prisma transactions:
+
+```ts
+import { prisma } from "@/lib/prisma";
+import { createUnragEngine } from "@unrag/config";
+
+async function createArticleWithSearch(title: string, content: string) {
+  const engine = createUnragEngine();
+  
+  // Create the article in your Prisma-managed table
+  const article = await prisma.article.create({
+    data: { title, content },
+  });
+  
+  // Index it for search
+  await engine.ingest({
+    sourceId: `article:${article.id}`,
+    content: `${title}\n\n${content}`,
+    metadata: { articleId: article.id },
+  });
+  
+  return article;
+}
+```
+
+For strict transactional consistency, you would need to modify the adapter to accept a transaction client, but for most use cases, the sequential approach above is sufficient.
 

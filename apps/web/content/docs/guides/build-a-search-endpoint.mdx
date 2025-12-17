@@ -1,54 +1,281 @@
 ---
-title: Build a search endpoint
-description: A practical retrieval API you can ship today.
+title: Build a Search Endpoint
+description: A complete guide to building a production-ready semantic search API.
 ---
 
-This guide shows a simple “retrieve-only” endpoint. You can layer auth, tenant scoping, and prompt building later.
+This guide walks through building a search endpoint from scratch, covering input validation, response shaping, error handling, and common enhancements. By the end, you'll have a search API ready for production.
 
-## Next.js Route Handler
+## The minimal version
+
+Let's start with the simplest possible search endpoint:
 
 ```ts
+// app/api/search/route.ts (Next.js)
 import { createUnragEngine } from "@unrag/config";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q") ?? "";
 
+  const engine = createUnragEngine();
+  const result = await engine.retrieve({ query, topK: 10 });
+
+  return Response.json(result);
+}
+```
+
+This works, but it's not production-ready. Let's improve it step by step.
+
+## Input validation
+
+Never trust user input. Query strings can be empty, too long, or malicious:
+
+```ts
+const MAX_QUERY_LENGTH = 500;
+const MIN_QUERY_LENGTH = 2;
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const rawQuery = searchParams.get("q") ?? "";
+  const query = rawQuery.trim();
+
+  // Validate query exists
   if (!query) {
-    return Response.json({ error: "Missing q" }, { status: 400 });
+    return Response.json(
+      { error: "Query parameter 'q' is required" },
+      { status: 400 }
+    );
   }
 
+  // Validate minimum length
+  if (query.length < MIN_QUERY_LENGTH) {
+    return Response.json(
+      { error: `Query must be at least ${MIN_QUERY_LENGTH} characters` },
+      { status: 400 }
+    );
+  }
+
+  // Validate maximum length
+  if (query.length > MAX_QUERY_LENGTH) {
+    return Response.json(
+      { error: `Query cannot exceed ${MAX_QUERY_LENGTH} characters` },
+      { status: 400 }
+    );
+  }
+
+  // ... rest of handler
+}
+```
+
+The maximum length prevents abuse—embedding extremely long queries wastes API calls and can degrade results.
+
+## Shaping the response
+
+The raw UnRAG response includes internal details (document IDs, indices) that your frontend probably doesn't need. Create a cleaner response shape:
+
+```ts
+export async function GET(request: Request) {
+  // ... validation ...
+
   const engine = createUnragEngine();
-
-  // Optional: restrict to a “collection”
-  const scopeSourceId = searchParams.get("sourceId") ?? undefined;
-
-  const result = await engine.retrieve({
-    query,
-    topK: 8,
-    scope: scopeSourceId ? { sourceId: scopeSourceId } : undefined,
-  });
+  const result = await engine.retrieve({ query, topK: 10 });
 
   return Response.json({
     query,
-    chunks: result.chunks.map((c) => ({
-      id: c.id,
-      sourceId: c.sourceId,
-      content: c.content,
-      score: c.score,
-      metadata: c.metadata,
+    results: result.chunks.map((chunk) => ({
+      id: chunk.id,
+      content: chunk.content,
+      source: chunk.sourceId,
+      score: chunk.score,
+      // Include useful metadata
+      ...(chunk.metadata.title && { title: chunk.metadata.title }),
+      ...(chunk.metadata.url && { url: chunk.metadata.url }),
     })),
-    durations: result.durations,
-    embeddingModel: result.embeddingModel,
+    meta: {
+      totalResults: result.chunks.length,
+      searchTimeMs: result.durations.totalMs,
+    },
   });
 }
 ```
 
-## Hardening checklist
+This response is frontend-friendly: relevant fields, predictable structure, and no internal implementation details leaking through.
 
-- Validate input length (avoid embedding huge queries)
-- Add auth and authorization checks
-- Add tenant scoping (see [Multi-tenant](/docs/guides/multi-tenant))
-- Add caching / rate limits as needed
+## Adding scope support
 
+Let users search within specific collections:
+
+```ts
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get("q")?.trim() ?? "";
+  const collection = searchParams.get("collection");
+  const topK = Math.min(parseInt(searchParams.get("limit") ?? "10"), 50);
+
+  // ... validation ...
+
+  const engine = createUnragEngine();
+  
+  const result = await engine.retrieve({
+    query,
+    topK,
+    scope: collection ? { sourceId: collection } : undefined,
+  });
+
+  return Response.json({
+    query,
+    collection: collection ?? "all",
+    results: result.chunks.map(/* ... */),
+  });
+}
+```
+
+Now `/api/search?q=auth&collection=docs:` searches only documentation, while `/api/search?q=auth` searches everything.
+
+## Error handling
+
+Wrap everything in try-catch and return meaningful errors:
+
+```ts
+export async function GET(request: Request) {
+  try {
+    // ... validation and retrieval ...
+    return Response.json({ query, results: /* ... */ });
+  } catch (error) {
+    console.error("Search error:", error);
+
+    // Handle specific error types
+    if (error.message?.includes("rate limit")) {
+      return Response.json(
+        { error: "Search is temporarily rate limited. Please try again." },
+        { status: 429 }
+      );
+    }
+
+    if (error.message?.includes("connection")) {
+      return Response.json(
+        { error: "Database temporarily unavailable" },
+        { status: 503 }
+      );
+    }
+
+    // Generic error for unexpected failures
+    return Response.json(
+      { error: "Search failed. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+```
+
+Never expose internal error messages to users—they might contain sensitive information like connection strings or query details.
+
+## The complete endpoint
+
+Here's everything combined:
+
+```ts
+// app/api/search/route.ts
+import { createUnragEngine } from "@unrag/config";
+
+const MAX_QUERY_LENGTH = 500;
+const MIN_QUERY_LENGTH = 2;
+const MAX_RESULTS = 50;
+const DEFAULT_RESULTS = 10;
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    
+    // Parse parameters
+    const rawQuery = searchParams.get("q") ?? "";
+    const query = rawQuery.trim();
+    const collection = searchParams.get("collection") ?? undefined;
+    const limit = Math.min(
+      Math.max(parseInt(searchParams.get("limit") ?? String(DEFAULT_RESULTS)), 1),
+      MAX_RESULTS
+    );
+
+    // Validate query
+    if (!query) {
+      return Response.json(
+        { error: "Query parameter 'q' is required" },
+        { status: 400 }
+      );
+    }
+
+    if (query.length < MIN_QUERY_LENGTH) {
+      return Response.json(
+        { error: `Query must be at least ${MIN_QUERY_LENGTH} characters` },
+        { status: 400 }
+      );
+    }
+
+    if (query.length > MAX_QUERY_LENGTH) {
+      return Response.json(
+        { error: `Query cannot exceed ${MAX_QUERY_LENGTH} characters` },
+        { status: 400 }
+      );
+    }
+
+    // Execute search
+    const engine = createUnragEngine();
+    const result = await engine.retrieve({
+      query,
+      topK: limit,
+      scope: collection ? { sourceId: collection } : undefined,
+    });
+
+    // Format response
+    return Response.json({
+      query,
+      collection: collection ?? null,
+      results: result.chunks.map((chunk) => ({
+        id: chunk.id,
+        content: chunk.content,
+        source: chunk.sourceId,
+        score: chunk.score,
+        metadata: chunk.metadata,
+      })),
+      meta: {
+        totalResults: result.chunks.length,
+        searchTimeMs: Math.round(result.durations.totalMs),
+        embeddingTimeMs: Math.round(result.durations.embeddingMs),
+      },
+    });
+  } catch (error) {
+    console.error("Search error:", error);
+
+    if (error.message?.includes("rate limit")) {
+      return Response.json(
+        { error: "Rate limited. Please try again shortly." },
+        { status: 429 }
+      );
+    }
+
+    return Response.json(
+      { error: "Search failed. Please try again." },
+      { status: 500 }
+    );
+  }
+}
+```
+
+## Enhancements to consider
+
+Once your basic search works, you might want to add:
+
+**Caching**: Cache embedding results for repeated queries. The embedding call is usually the slowest part.
+
+**Rate limiting**: Protect your embedding API costs by limiting requests per user or IP.
+
+**Analytics**: Log queries to understand what users are searching for. This helps you improve content and identify gaps.
+
+**Highlighting**: Return which parts of the content matched the query. This requires additional processing but improves UX.
+
+**Facets**: If your content has categories or tags, return counts of results per facet so users can filter.
+
+**Autocomplete**: Build a separate endpoint that suggests queries based on past searches or content titles.
+
+Each enhancement adds complexity, so add them as your needs require rather than all at once.
 

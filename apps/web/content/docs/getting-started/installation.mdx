@@ -1,38 +1,91 @@
 ---
 title: Installation
-description: Run the CLI and understand what gets generated and modified.
+description: Run the CLI to install UnRAG into your project and understand what gets created.
 ---
 
-Install UnRAG by running the initializer:
+Installing UnRAG is a one-command operation. You run the initializer, answer a few questions (or skip them with flags), and the CLI writes the necessary files into your project.
+
+## Running the initializer
+
+The simplest invocation is interactive:
 
 ```bash
 bunx unrag init
 ```
 
-## Common non-interactive setup
+This will prompt you for:
+
+1. **Install directory** — where to put the vendored module code. The default is `lib/unrag`, but you can choose any project-relative path that makes sense for your codebase structure.
+
+2. **Store adapter** — which database adapter to use. Your options are Drizzle (a typed schema with Drizzle ORM), Prisma (using raw SQL through Prisma's client), or Raw SQL (using the `pg` driver directly).
+
+3. **Import alias base** — the TypeScript path alias for importing UnRAG. The default is `@unrag`, which means you'll import from `@unrag/core`, `@unrag/config`, etc. If you already have an `@unrag` alias or prefer something else, you can change it.
+
+If you want to skip the prompts—useful in CI or when scripting—pass the `--yes` flag along with your choices:
 
 ```bash
 bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
 ```
 
-- `--store`: `drizzle` | `prisma` | `raw-sql`
-- `--dir`: directory for vendored module code (default `lib/unrag`)
-- `--alias`: import alias base (default `@unrag`)
+## What the CLI creates
 
-## What the CLI may change
+After initialization completes, your project will have several new files:
 
-- **Writes files**:
-  - `unrag.config.ts`
-  - `<dir>/**`
-  - `<dir>/unrag.md`
-  - `unrag.json` (tracks your choices so you can rerun consistently)
-- **Adds dependencies** for your chosen adapter (plus `ai`)
-- **Next.js only**: adds `tsconfig.json` / `jsconfig.json` path aliases:
-  - `@unrag/*` → `./<dir>/*`
-  - `@unrag/config` → `./unrag.config.ts`
+**`unrag.config.ts`** is created at your project root. This is where you configure the embedding provider, database connection, and default settings. The CLI generates this file with working code for your chosen adapter—you can use it immediately or customize it to match your existing database setup.
 
-## Re-running safely
+**`lib/unrag/`** (or your chosen directory) contains the vendored module code. This includes the core engine, your chosen store adapter, and the default embedding provider. These files are yours to read and modify.
 
-If a target file already exists, the CLI will ask before overwriting it. Treat the installed module as **vendored code**: updating is usually “rerun and review the diff”.
+**`lib/unrag/unrag.md`** contains setup documentation specific to your choices—the exact SQL schema you need to create, environment variables to set, and notes about your adapter.
 
+**`unrag.json`** records your installation choices. If you run `unrag init` again later, it will read this file and use your previous selections as defaults, making it easy to update the vendored code when new versions are available.
+
+## Changes to existing files
+
+The CLI may also modify your existing configuration:
+
+**Dependencies.** UnRAG adds the packages needed for your chosen adapter to your `package.json`. For Drizzle, that includes `drizzle-orm` and `pg`. For Prisma, it adds `@prisma/client`. For Raw SQL, just `pg`. All adapters need the `ai` package for embedding. If these dependencies already exist, UnRAG won't overwrite their versions.
+
+**TypeScript paths.** If UnRAG detects you're in a Next.js project, it patches your `tsconfig.json` (or `jsconfig.json`) to add path aliases:
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "@unrag/*": ["./lib/unrag/*"],
+      "@unrag/config": ["./unrag.config.ts"]
+    }
+  }
+}
+```
+
+This lets you import UnRAG modules cleanly without relative paths threading through your codebase.
+
+## Installing dependencies
+
+After the CLI finishes, install the new dependencies:
+
+```bash
+# With bun
+bun install
+
+# With pnpm
+pnpm install
+
+# With npm
+npm install
+
+# With yarn
+yarn
+```
+
+## Updating UnRAG
+
+Because UnRAG vendors code into your project, "updating" means re-running the initializer. The CLI will ask before overwriting any existing files, so you can review changes before accepting them. A typical update workflow:
+
+1. Run `bunx unrag init` (it reads your previous choices from `unrag.json`)
+2. Review the diff for any files the CLI wants to overwrite
+3. Accept or reject file-by-file
+4. Run your tests to make sure everything still works
+
+This approach keeps you in control. You can see exactly what changed between versions, and you can choose to keep local modifications if they're intentional.
 

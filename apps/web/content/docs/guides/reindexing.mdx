@@ -1,26 +1,248 @@
 ---
-title: Reindexing
-description: Re-ingest content safely when your model or chunking changes.
+title: Reindexing Content
+description: How to safely re-embed content when you change models, chunking, or need to refresh your index.
 ---
 
-You’ll typically reindex when you change:
+At some point you'll need to reindex your content. Maybe you're switching embedding models for better quality. Maybe you're adjusting chunk sizes after seeing retrieval results. Maybe you just want to ensure everything is fresh and consistent. This guide covers the patterns for safe, efficient reindexing.
 
-- embedding model
-- chunking defaults
-- retrieval logic / store schema
+## When you need to reindex
 
-## Approach
+Several situations require full or partial reindexing:
 
-1. Decide your unit of reindexing (by `sourceId`, by tenant, by collection)
-2. Re-run ingestion for the chosen scope
-3. Optionally delete old chunks/embeddings (depends on your adapter/schema strategy)
+**Changing embedding models.** Different models produce vectors in different semantic spaces. You cannot meaningfully compare embeddings from model A with embeddings from model B. If you switch models, all existing content must be re-embedded with the new model.
 
-## Practical patterns
+**Changing chunking parameters.** If you adjust `chunkSize` or `chunkOverlap`, existing chunks don't automatically update. Re-ingesting content applies the new chunking logic and regenerates embeddings for the new chunks.
 
-- **Immutable IDs**: keep `sourceId` stable so “re-ingest” updates the same document logical identity.
-- **Versioned IDs**: use `sourceId` like `docs:v2:<slug>` when you want old and new to coexist.
-- **Background jobs**: reindex in a queue/cron with progress tracking.
+**Schema changes.** If you modify your database schema (adding columns, changing indexes), you might need to re-process content to populate new fields.
 
-UnRAG adapters are intentionally straightforward; if you want a “delete by sourceId” helper, add it to your vendored store adapter.
+**Content corrections.** If you discover that source content was corrupted, malformed, or incorrectly processed, reindexing fixes the affected documents.
 
+## The basic reindexing approach
+
+The simplest reindex strategy: fetch all your documents and re-ingest them.
+
+```ts
+// scripts/reindex.ts
+import { createUnragEngine } from "../unrag.config";
+import { pool } from "../lib/db";
+
+async function reindexAll() {
+  const engine = createUnragEngine();
+  
+  // Fetch existing documents
+  const { rows } = await pool.query(`
+    SELECT source_id, content, metadata
+    FROM documents
+    ORDER BY created_at
+  `);
+
+  console.log(`Reindexing ${rows.length} documents...\n`);
+
+  for (const doc of rows) {
+    try {
+      const result = await engine.ingest({
+        sourceId: doc.source_id,
+        content: doc.content,
+        metadata: doc.metadata,
+      });
+      console.log(`✓ ${doc.source_id} (${result.chunkCount} chunks)`);
+    } catch (error) {
+      console.error(`✗ ${doc.source_id}: ${error.message}`);
+    }
+  }
+
+  console.log("\nReindexing complete!");
+}
+
+reindexAll().catch(console.error);
+```
+
+Because you're re-ingesting with the same `sourceId`, the store adapter updates existing records rather than creating duplicates.
+
+## Handling large datasets
+
+For thousands of documents, a simple loop might not be enough. Consider:
+
+**Batching with pauses.** Embedding APIs have rate limits. Add delays between batches to stay within limits.
+
+```ts
+const BATCH_SIZE = 50;
+const PAUSE_MS = 2000;
+
+for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+  const batch = rows.slice(i, i + BATCH_SIZE);
+  
+  await Promise.all(
+    batch.map((doc) =>
+      engine.ingest({
+        sourceId: doc.source_id,
+        content: doc.content,
+        metadata: doc.metadata,
+      })
+    )
+  );
+  
+  console.log(`Processed ${Math.min(i + BATCH_SIZE, rows.length)}/${rows.length}`);
+  
+  if (i + BATCH_SIZE < rows.length) {
+    await new Promise((r) => setTimeout(r, PAUSE_MS));
+  }
+}
+```
+
+**Checkpointing progress.** Record which documents have been processed so you can resume after failures.
+
+```ts
+import { appendFile, readFile } from "fs/promises";
+
+const CHECKPOINT_FILE = ".reindex-checkpoint";
+
+async function getProcessedIds(): Promise<Set<string>> {
+  try {
+    const data = await readFile(CHECKPOINT_FILE, "utf8");
+    return new Set(data.split("\n").filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
+async function markProcessed(sourceId: string) {
+  await appendFile(CHECKPOINT_FILE, sourceId + "\n");
+}
+
+// In your loop:
+const processed = await getProcessedIds();
+
+for (const doc of rows) {
+  if (processed.has(doc.source_id)) {
+    console.log(`⊘ ${doc.source_id} (skipped, already processed)`);
+    continue;
+  }
+  
+  await engine.ingest({ ... });
+  await markProcessed(doc.source_id);
+}
+```
+
+**Queue-based processing.** For very large datasets, use a job queue (BullMQ, AWS SQS) to distribute work across workers.
+
+## Partial reindexing by scope
+
+Sometimes you only need to reindex a subset of documents:
+
+```ts
+async function reindexScope(scopePrefix: string) {
+  const engine = createUnragEngine();
+  
+  const { rows } = await pool.query(`
+    SELECT source_id, content, metadata
+    FROM documents
+    WHERE source_id LIKE $1
+    ORDER BY created_at
+  `, [scopePrefix + "%"]);
+
+  console.log(`Reindexing ${rows.length} documents in scope '${scopePrefix}'`);
+
+  for (const doc of rows) {
+    await engine.ingest({
+      sourceId: doc.source_id,
+      content: doc.content,
+      metadata: doc.metadata,
+    });
+  }
+}
+
+// Reindex just documentation
+await reindexScope("docs:");
+
+// Reindex a specific tenant
+await reindexScope("tenant:acme:");
+```
+
+This is faster than full reindexing when only part of your content needs updating.
+
+## Zero-downtime reindexing
+
+If you can't afford search being unavailable during reindexing, use a versioned approach:
+
+1. Create new tables with a version suffix
+2. Ingest into the new tables
+3. Swap the active tables atomically
+4. Clean up old tables
+
+```ts
+async function reindexWithVersioning() {
+  const version = Date.now();
+  
+  // Create versioned tables
+  await pool.query(`
+    CREATE TABLE documents_${version} (LIKE documents INCLUDING ALL);
+    CREATE TABLE chunks_${version} (LIKE chunks INCLUDING ALL);
+    CREATE TABLE embeddings_${version} (LIKE embeddings INCLUDING ALL);
+  `);
+  
+  // Configure engine to write to versioned tables
+  // (You'd need a modified store adapter for this)
+  const engine = createVersionedEngine(version);
+  
+  // Ingest all content
+  for (const doc of await fetchAllDocuments()) {
+    await engine.ingest(doc);
+  }
+  
+  // Atomic swap using views or table renaming
+  await pool.query(`
+    BEGIN;
+    ALTER TABLE documents RENAME TO documents_old;
+    ALTER TABLE documents_${version} RENAME TO documents;
+    -- ... same for chunks and embeddings
+    COMMIT;
+  `);
+  
+  // Clean up old tables
+  await pool.query(`
+    DROP TABLE documents_old CASCADE;
+  `);
+}
+```
+
+This is more complex but ensures search stays available throughout the reindexing process.
+
+## Verifying reindex results
+
+After reindexing, verify that your search still works correctly:
+
+```ts
+const testQueries = [
+  { query: "how to install", expectedSource: "docs:installation" },
+  { query: "pricing plans", expectedSource: "docs:pricing" },
+];
+
+for (const { query, expectedSource } of testQueries) {
+  const result = await engine.retrieve({ query, topK: 5 });
+  const found = result.chunks.some((c) => c.sourceId.includes(expectedSource));
+  
+  console.log(`${found ? "✓" : "✗"} "${query}" → ${expectedSource}`);
+}
+```
+
+Run these tests before and after reindexing to catch any regressions.
+
+## Scheduling regular reindexing
+
+For content that changes frequently, schedule periodic reindexing:
+
+```ts
+// scripts/scheduled-reindex.ts
+import cron from "node-cron";
+
+// Reindex every night at 2 AM
+cron.schedule("0 2 * * *", async () => {
+  console.log(`[${new Date().toISOString()}] Starting scheduled reindex...`);
+  await reindexAll();
+  console.log("Reindex complete");
+});
+```
+
+This ensures your index stays fresh even if incremental updates miss something.
 

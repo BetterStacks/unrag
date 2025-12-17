@@ -1,19 +1,41 @@
 ---
-title: Database (Postgres + pgvector)
-description: The tables and indexes UnRAG expects (you run migrations).
+title: Database Setup
+description: Set up Postgres with pgvector and create the tables UnRAG needs.
 ---
 
-UnRAG assumes **Postgres + pgvector**. You manage migrations yourself (SQL, Drizzle, Prisma, etc.).
+UnRAG stores everything in Postgres using the pgvector extension. This means you can run vector similarity search alongside your regular application data, use your existing backup and replication setup, and avoid adding another system to your infrastructure.
 
-## 1) Enable pgvector
+## Why Postgres with pgvector?
+
+Most teams already run Postgres, or can easily provision it from their cloud provider. Adding pgvector is usually just enabling an extension—there's no separate service to deploy, no additional credentials to manage, and no data to sync between systems.
+
+pgvector gives you proper vector indexing and similarity search using standard SQL. You can join your embeddings with your application tables, use transactions that span both, and rely on Postgres's mature tooling for migrations, backups, and monitoring.
+
+## Enabling pgvector
+
+Before creating tables, you need to enable the pgvector extension in your database:
 
 ```sql
 create extension if not exists vector;
 ```
 
-## 2) Create tables
+How you run this depends on your database provider:
 
-The default adapters expect these tables:
+**Local Postgres or self-hosted:** Run the SQL directly, or add it to your migration files. You may need to install the pgvector extension first—on Ubuntu, that's `apt install postgresql-15-pgvector` (adjust for your Postgres version).
+
+**Neon:** pgvector is pre-installed. Just run `create extension if not exists vector;` and you're ready.
+
+**Supabase:** pgvector is available in the dashboard under Database → Extensions. Enable it there, or run the SQL in the SQL Editor.
+
+**AWS RDS:** pgvector is available on RDS for PostgreSQL 15.2+. You enable it with the same `create extension` command.
+
+**Azure Database for PostgreSQL:** Enable pgvector through the Azure portal under Server parameters, then run the extension command.
+
+**Google Cloud SQL:** pgvector is supported on Cloud SQL for PostgreSQL. Enable it via the Google Cloud Console or `gcloud` CLI.
+
+## Creating the schema
+
+UnRAG expects three tables. Here's the schema with explanations:
 
 ```sql
 create table documents (
@@ -23,7 +45,11 @@ create table documents (
   metadata jsonb,
   created_at timestamp default now()
 );
+```
 
+The `documents` table represents logical documents you've ingested. The `source_id` is your identifier for the document—something like `docs:getting-started` or `kb:article-123`. When you re-ingest content with the same `source_id`, UnRAG updates the existing document. The `content` column stores the full original text (useful for debugging and re-chunking), and `metadata` holds any JSON you passed during ingestion.
+
+```sql
 create table chunks (
   id uuid primary key,
   document_id uuid not null references documents(id) on delete cascade,
@@ -34,7 +60,11 @@ create table chunks (
   metadata jsonb,
   created_at timestamp default now()
 );
+```
 
+The `chunks` table holds the individual pieces that documents are split into. Each chunk belongs to a document (`document_id`), has an index showing its position in the original document (`idx`), contains the chunk's text (`content`), and records an approximate token count. The `source_id` is denormalized here for faster filtering during retrieval.
+
+```sql
 create table embeddings (
   chunk_id uuid primary key references chunks(id) on delete cascade,
   embedding vector,
@@ -43,16 +73,63 @@ create table embeddings (
 );
 ```
 
-## 3) Recommended indexes
+The `embeddings` table stores the vector representation of each chunk. The `embedding` column uses pgvector's `vector` type. We store `embedding_dimension` alongside each row so you can detect mismatches if you switch embedding models.
+
+The cascade deletes mean that when you delete a document, its chunks and embeddings are automatically cleaned up.
+
+## Recommended indexes
+
+For production workloads, add indexes to speed up common queries:
 
 ```sql
+-- Index for filtering by source_id during retrieval
 create index if not exists chunks_source_id_idx on chunks(source_id);
 create index if not exists documents_source_id_idx on documents(source_id);
 ```
 
-## Notes
+If you're running similarity searches frequently, consider adding a vector index:
 
-- **Distance function**: the adapters use pgvector’s `<=>` operator and sort by ascending score (smaller is “closer”).
-- **Embedding dimensions**: stored per-row in `embeddings.embedding_dimension` so you can introspect/verify model changes.
+```sql
+-- HNSW index for faster approximate nearest neighbor search
+create index if not exists embeddings_hnsw_idx 
+on embeddings using hnsw (embedding vector_cosine_ops);
+```
 
+The HNSW index trades some accuracy for significantly faster queries on large datasets. For small to medium datasets (under 100,000 chunks), the default sequential scan is often fast enough.
+
+## Applying migrations
+
+How you apply this schema depends on your workflow:
+
+**Raw SQL files:** Save the schema to a file and run it with `psql`:
+
+```bash
+psql $DATABASE_URL -f schema.sql
+```
+
+**Drizzle migrations:** If you're using the Drizzle adapter, you can import UnRAG's schema into your Drizzle configuration and generate migrations from there. See the Drizzle adapter documentation for details.
+
+**Prisma migrations:** Create a migration with `prisma migrate dev --create-only`, paste the SQL into the generated file, then apply it. Prisma doesn't natively support the `vector` type, but raw SQL migrations work fine.
+
+**Other migration tools:** Flyway, Liquibase, golang-migrate, and similar tools all support running raw SQL. Add the schema as a versioned migration file.
+
+## Environment configuration
+
+UnRAG reads your database connection from the `DATABASE_URL` environment variable:
+
+```bash
+# Standard Postgres connection string
+DATABASE_URL="postgresql://user:password@localhost:5432/mydb"
+
+# Neon (with SSL required)
+DATABASE_URL="postgresql://user:password@ep-xxx.us-east-1.aws.neon.tech/mydb?sslmode=require"
+
+# Supabase (connection pooler)
+DATABASE_URL="postgresql://postgres:password@db.xxx.supabase.co:5432/postgres"
+
+# AWS RDS
+DATABASE_URL="postgresql://user:password@mydb.xxx.us-east-1.rds.amazonaws.com:5432/mydb"
+```
+
+Make sure your connection string includes SSL parameters if your provider requires them. For serverless environments, use connection pooling endpoints when available (Neon and Supabase both offer these).
 

@@ -1,40 +1,243 @@
 ---
-title: Next.js
-description: Use UnRAG in Route Handlers and Server Actions (server-only).
+title: Next.js Integration
+description: Using UnRAG in Next.js with Route Handlers, Server Actions, and best practices.
 ---
 
-## Server-only usage
+Next.js is probably the most common environment for UnRAG. The framework's server-side capabilities make it easy to run database queries and embedding calls without exposing credentials to the browser. Here's how to integrate UnRAG effectively.
 
-Use UnRAG only in server code (Route Handlers / Server Actions). Your DB credentials and embedding keys must not ship to the browser.
+## The fundamental rule: server only
 
-If you used the default alias (`@unrag`), import:
+UnRAG must run on the server. Your database connection string and embedding API key are secrets that cannot appear in client bundles. Fortunately, Next.js makes this easy with Route Handlers and Server Actions.
+
+When you run `unrag init` in a Next.js project, the CLI automatically:
+
+1. Adds path aliases to your `tsconfig.json` so you can import from `@unrag/*`
+2. Maps `@unrag/config` to your root `unrag.config.ts` file
+3. Generates code that uses a singleton pattern for database connections
+
+This means imports just work:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
 ```
 
-## Route Handler example
+## Route Handler for search
+
+The most common pattern is a search API that your frontend can call:
 
 ```ts
+// app/api/search/route.ts
 import { createUnragEngine } from "@unrag/config";
+import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const q = searchParams.get("q") ?? "";
-  if (!q) return Response.json({ error: "Missing q" }, { status: 400 });
-
+  const query = searchParams.get("q")?.trim();
+  
+  if (!query || query.length < 2) {
+    return NextResponse.json(
+      { error: "Query must be at least 2 characters" }, 
+      { status: 400 }
+    );
+  }
+  
   const engine = createUnragEngine();
-  const result = await engine.retrieve({ query: q, topK: 8 });
-  return Response.json(result);
+  const result = await engine.retrieve({ 
+    query, 
+    topK: 10 
+  });
+  
+  return NextResponse.json({
+    query,
+    results: result.chunks.map((chunk) => ({
+      id: chunk.id,
+      content: chunk.content,
+      source: chunk.sourceId,
+      score: chunk.score,
+    })),
+  });
 }
 ```
 
-## Ingestion patterns
+Your frontend fetches from `/api/search?q=your+query` and displays the results. The database connection and embedding call happen entirely on the server.
 
-- Ingest during admin actions (uploads, knowledge-base edits)
-- Ingest in background jobs/cron
-- Re-ingest on change (upsert patterns)
+## Server Action for ingestion
 
-See [Ingest from the filesystem](/docs/guides/ingest-from-filesystem) and [Reindexing](/docs/guides/reindexing).
+For admin interfaces that ingest content, Server Actions provide a clean pattern:
 
+```ts
+// app/actions/ingest.ts
+"use server";
+
+import { createUnragEngine } from "@unrag/config";
+import { revalidatePath } from "next/cache";
+
+export async function ingestDocument(formData: FormData) {
+  // In production, verify user is admin
+  const sourceId = formData.get("sourceId") as string;
+  const content = formData.get("content") as string;
+  
+  if (!sourceId || !content) {
+    return { error: "Missing required fields" };
+  }
+  
+  const engine = createUnragEngine();
+  const result = await engine.ingest({
+    sourceId,
+    content,
+    metadata: {
+      ingestedBy: "admin-ui",
+      ingestedAt: new Date().toISOString(),
+    },
+  });
+  
+  revalidatePath("/admin/documents");
+  
+  return { 
+    success: true, 
+    documentId: result.documentId,
+    chunkCount: result.chunkCount 
+  };
+}
+```
+
+Use this action from a form or button:
+
+```tsx
+// app/admin/ingest/page.tsx
+import { ingestDocument } from "@/app/actions/ingest";
+
+export default function IngestPage() {
+  return (
+    <form action={ingestDocument}>
+      <input name="sourceId" placeholder="docs:my-page" required />
+      <textarea name="content" placeholder="Content to index..." required />
+      <button type="submit">Ingest</button>
+    </form>
+  );
+}
+```
+
+## Connection pooling in development
+
+Next.js with hot reloading re-executes your modules on every change. Without care, this creates a new database connection on every reload, eventually exhausting your connection limit.
+
+The generated `unrag.config.ts` handles this by storing the connection on `globalThis`:
+
+```ts
+const pool = (globalThis as any).__unragPool ?? new Pool({ connectionString });
+(globalThis as any).__unragPool = pool;
+```
+
+This ensures the same pool is reused across hot reloads. In production builds, this pattern has no cost—the module is executed once, and the singleton is set up once.
+
+## Middleware considerations
+
+UnRAG itself doesn't run in middleware (Edge runtime limitations apply), but you can use middleware to protect your UnRAG endpoints:
+
+```ts
+// middleware.ts
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+export function middleware(request: NextRequest) {
+  // Example: require auth for admin endpoints
+  if (request.nextUrl.pathname.startsWith("/api/admin")) {
+    const authHeader = request.headers.get("authorization");
+    if (!isValidAdminToken(authHeader)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  }
+  
+  return NextResponse.next();
+}
+```
+
+The actual UnRAG operations happen in Route Handlers and Server Actions, which run in the Node.js runtime where your database drivers work normally.
+
+## Caching search results
+
+For frequently-queried terms, caching can dramatically improve response times:
+
+```ts
+// app/api/search/route.ts
+import { createUnragEngine } from "@unrag/config";
+import { unstable_cache } from "next/cache";
+
+const cachedSearch = unstable_cache(
+  async (query: string) => {
+    const engine = createUnragEngine();
+    const result = await engine.retrieve({ query, topK: 10 });
+    return result.chunks.map((c) => ({
+      id: c.id,
+      content: c.content,
+      source: c.sourceId,
+      score: c.score,
+    }));
+  },
+  ["search"],
+  { revalidate: 3600 } // Cache for 1 hour
+);
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const query = searchParams.get("q")?.trim() ?? "";
+  
+  if (!query) {
+    return Response.json({ error: "Missing query" }, { status: 400 });
+  }
+  
+  const results = await cachedSearch(query);
+  return Response.json({ query, results });
+}
+```
+
+This caches the embedding call and database query for repeated queries, reducing latency from hundreds of milliseconds to single digits.
+
+## Ingesting at build time
+
+For documentation or other static content, ingest during your build process:
+
+```ts
+// scripts/ingest-docs.ts
+import { createUnragEngine } from "../unrag.config";
+import { readFile, readdir } from "fs/promises";
+import path from "path";
+
+async function ingestDocs() {
+  const engine = createUnragEngine();
+  const docsDir = path.join(process.cwd(), "content/docs");
+  const files = await readdir(docsDir, { recursive: true });
+  
+  for (const file of files) {
+    if (!file.endsWith(".mdx")) continue;
+    
+    const fullPath = path.join(docsDir, file);
+    const content = await readFile(fullPath, "utf8");
+    
+    await engine.ingest({
+      sourceId: `docs:${file.replace(".mdx", "")}`,
+      content,
+      metadata: { path: file },
+    });
+    
+    console.log(`Indexed: ${file}`);
+  }
+}
+
+ingestDocs().catch(console.error);
+```
+
+Run this script as part of your build:
+
+```json
+{
+  "scripts": {
+    "build": "npm run ingest && next build",
+    "ingest": "tsx scripts/ingest-docs.ts"
+  }
+}
+```
+
+Now your documentation is always up-to-date in the search index after every deploy.
 

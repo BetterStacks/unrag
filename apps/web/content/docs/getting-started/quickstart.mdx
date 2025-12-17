@@ -1,57 +1,174 @@
 ---
 title: Quickstart
-description: End-to-end in minutes - init → env → schema → ingest → retrieve.
+description: Get from zero to working ingest and retrieve in under 10 minutes.
 ---
 
-## 1) Initialize
+This guide walks you through the complete setup from a fresh project to your first successful retrieval. By the end, you'll have content stored in Postgres and be able to query it with semantic search.
+
+## Step 1: Initialize UnRAG
+
+Run the CLI with your preferences. For this quickstart, we'll use Drizzle as the store adapter:
 
 ```bash
-bunx unrag init --yes
+bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
 ```
 
-## 2) Set environment variables (server-side)
+This creates your configuration file, installs the vendored module code, and adds the necessary dependencies to your `package.json`. Run your package manager to install them:
 
-- `DATABASE_URL`: Postgres connection string
-- `AI_GATEWAY_API_KEY`: required by the `ai` SDK when using Vercel AI Gateway
-- Optional: `AI_GATEWAY_MODEL`: defaults to `openai/text-embedding-3-small`
+```bash
+bun install   # or: npm install / pnpm install / yarn
+```
 
-## 3) Run migrations
+## Step 2: Set environment variables
 
-Create the schema from [Database (Postgres + pgvector)](/docs/getting-started/database).
+UnRAG needs two environment variables to function. Add them to your `.env` file (or however you manage secrets):
 
-## 4) Ingest and retrieve
+```bash
+# Your Postgres connection string
+DATABASE_URL="postgresql://user:password@localhost:5432/mydb"
 
-Use UnRAG only from server code:
+# API key for embedding (required by the AI SDK)
+AI_GATEWAY_API_KEY="your-openai-api-key"
+```
+
+The `AI_GATEWAY_API_KEY` is used by the default embedding provider, which calls OpenAI's text-embedding-3-small model. If you want to use a different model, you can also set `AI_GATEWAY_MODEL`:
+
+```bash
+AI_GATEWAY_MODEL="openai/text-embedding-3-large"
+```
+
+## Step 3: Create the database schema
+
+Connect to your Postgres database and run the schema creation SQL. You can find the complete schema in `lib/unrag/unrag.md`, but here's the quick version:
+
+```sql
+-- Enable pgvector
+create extension if not exists vector;
+
+-- Create tables
+create table documents (
+  id uuid primary key,
+  source_id text not null,
+  content text not null,
+  metadata jsonb,
+  created_at timestamp default now()
+);
+
+create table chunks (
+  id uuid primary key,
+  document_id uuid not null references documents(id) on delete cascade,
+  source_id text not null,
+  idx integer not null,
+  content text not null,
+  token_count integer not null,
+  metadata jsonb,
+  created_at timestamp default now()
+);
+
+create table embeddings (
+  chunk_id uuid primary key references chunks(id) on delete cascade,
+  embedding vector,
+  embedding_dimension integer,
+  created_at timestamp default now()
+);
+
+-- Add indexes for common queries
+create index if not exists chunks_source_id_idx on chunks(source_id);
+create index if not exists documents_source_id_idx on documents(source_id);
+```
+
+## Step 4: Ingest your first content
+
+Create a simple script to test ingestion. This can be a standalone file or part of your application:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
 
-export async function demo() {
+async function ingestDemo() {
   const engine = createUnragEngine();
 
-  await engine.ingest({
+  // Ingest a piece of content
+  const result = await engine.ingest({
     sourceId: "docs:quickstart",
-    content: "UnRAG installs a tiny RAG module into your codebase.",
-    metadata: { product: "unrag" },
+    content: `
+      UnRAG is a RAG installer for TypeScript projects. It installs a small,
+      composable module into your codebase as vendored source files. Instead
+      of depending on an external SDK, you own the code and can modify it
+      to fit your needs.
+      
+      The two core operations are ingest and retrieve. Ingestion takes content,
+      splits it into chunks, generates embeddings for each chunk, and stores
+      everything in Postgres with pgvector. Retrieval takes a query, embeds it,
+      and finds the most similar chunks using vector similarity search.
+    `,
+    metadata: { 
+      section: "getting-started",
+      language: "en" 
+    },
   });
 
-  const result = await engine.retrieve({
-    query: "What does UnRAG install?",
-    topK: 5,
-    scope: { sourceId: "docs:quickstart" },
-  });
-
-  return result.chunks;
+  console.log("Ingested document:", result.documentId);
+  console.log("Created chunks:", result.chunkCount);
+  console.log("Embedding model:", result.embeddingModel);
+  console.log("Timings:", result.durations);
 }
+
+ingestDemo().catch(console.error);
 ```
 
-## 5) Where to customize things
+Run this script, and you should see output showing the document was chunked and stored. The `durations` object tells you how long each phase took—chunking, embedding, and storage—which is helpful for understanding performance characteristics.
 
-Open `unrag.config.ts`:
+## Step 5: Retrieve content
 
-- Change **chunking defaults** (`chunkSize`, `chunkOverlap`)
-- Change **retrieval defaults** (`topK`)
-- Change **embedding model** + **timeout**
-- Change how you create your **DB client** (Pool/Prisma/etc.)
+Now query the content you just ingested:
 
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+async function retrieveDemo() {
+  const engine = createUnragEngine();
+
+  const result = await engine.retrieve({
+    query: "What are the core operations in UnRAG?",
+    topK: 5,
+  });
+
+  console.log("Found", result.chunks.length, "chunks");
+  console.log("Embedding model:", result.embeddingModel);
+  console.log("Timings:", result.durations);
+  
+  for (const chunk of result.chunks) {
+    console.log("\n---");
+    console.log("Score:", chunk.score);
+    console.log("Source:", chunk.sourceId);
+    console.log("Content:", chunk.content.substring(0, 200) + "...");
+  }
+}
+
+retrieveDemo().catch(console.error);
+```
+
+The `score` field represents the distance between the query embedding and each chunk's embedding. Lower scores mean higher similarity (the chunks are "closer" to your query in the embedding space).
+
+## Understanding the results
+
+When you run retrieval, you get back an object containing:
+
+- **chunks**: An array of the most relevant chunks, each with its content, metadata, source information, and similarity score
+- **embeddingModel**: The model used to embed the query (useful for debugging if you have multiple models)
+- **durations**: Timing breakdown showing how long embedding and retrieval took
+
+The chunks are sorted by score ascending, so the first chunk is the most similar to your query. You can use these chunks to build context for an LLM prompt, populate a search results page, or power any other retrieval-based feature.
+
+## Where to customize
+
+Open `unrag.config.ts` to adjust settings. The most common customizations are:
+
+1. **Chunking parameters**: Adjust `chunkSize` and `chunkOverlap` to change how documents are split. Smaller chunks give more precise retrieval but cost more to embed.
+
+2. **Default topK**: Change how many chunks are returned by default when you don't specify `topK` in your retrieve call.
+
+3. **Embedding model**: Switch to a different model by changing the `model` field. Larger models like `text-embedding-3-large` may give better results at higher cost.
+
+4. **Database connection**: If you already have a database pool or client configured elsewhere in your app, you can modify `createUnragEngine()` to use that instead of creating a new one.
 

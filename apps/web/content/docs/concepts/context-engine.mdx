@@ -1,38 +1,140 @@
 ---
 title: ContextEngine
-description: The small class you use to ingest and retrieve.
+description: The central class that coordinates ingestion and retrieval.
 ---
 
-The main object you interact with is `ContextEngine`:
+The `ContextEngine` class is what you interact with day-to-day. It's a small coordinator that ties together your embedding provider, store adapter, and configuration options into a cohesive interface.
+
+## Creating an engine
+
+You typically don't construct `ContextEngine` directly. Instead, you use the `createUnragEngine()` function from your generated config file:
 
 ```ts
+import { createUnragEngine } from "@unrag/config";
+
 const engine = createUnragEngine();
-await engine.ingest({ sourceId: "doc-1", content: "..." });
-const result = await engine.retrieve({ query: "search", topK: 5 });
 ```
 
-## Configuration shape
+This function is generated when you run `unrag init`. It creates the embedding provider, initializes the database connection, constructs the store adapter, and assembles everything into a working engine. You can open `unrag.config.ts` to see exactly how it's built.
 
-At runtime, the engine only needs:
+If you need multiple engine instances with different configurations (for example, different embedding models for different content types), you can create them by calling `createContextEngine()` directly with your own configuration:
 
-- `embedding`: `{ name, embed(text → number[]) }`
-- `store`: `{ upsert(chunks), query({ embedding, topK, scope }) }`
-- optional `defaults` for chunking
-- optional custom `chunker` and `idGenerator`
+```ts
+import { createContextEngine, defineConfig } from "@unrag/core";
+import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+import { createDrizzleVectorStore } from "@unrag/store/drizzle";
 
-This means you can:
+const customEngine = createContextEngine(
+  defineConfig({
+    embedding: createAiEmbeddingProvider({ 
+      model: "openai/text-embedding-3-large" 
+    }),
+    store: createDrizzleVectorStore(db),
+    defaults: { chunkSize: 500, chunkOverlap: 100 },
+  })
+);
+```
 
-- keep your embedding provider simple (call a service, call an SDK, or run local models)
-- keep your store adapter explicit (SQL you can inspect)
+## Using the engine
 
-## Where config lives
+The engine exposes two methods that handle all the heavy lifting:
 
-UnRAG generates `unrag.config.ts` with:
+**`ingest()`** takes content and stores it as searchable chunks:
 
-- `unragConfig`: defaults (chunking, retrieval, embedding model/timeout)
-- `createUnragEngine()`: constructs embedding provider + store adapter + engine
-- `retrieve(query: string)`: convenience wrapper for default retrieval
+```ts
+const result = await engine.ingest({
+  sourceId: "docs:architecture",
+  content: "Your document text here...",
+  metadata: { category: "technical", author: "alice" },
+  chunking: { chunkSize: 300 }, // Optional per-call override
+});
+```
 
-See [unrag.config.ts](/docs/reference/unrag-config).
+The `sourceId` is a string identifier for the logical document. Use consistent, meaningful identifiers—like `docs:getting-started` or `article:12345`—so you can update content by re-ingesting with the same ID.
 
+The `metadata` object is stored alongside the document and its chunks. You can use it for filtering, display, or analytics. It's stored as JSON, so stick to serializable values.
+
+The optional `chunking` parameter lets you override the default chunk size and overlap for this specific document. This is useful when different content types need different chunking strategies.
+
+**`retrieve()`** searches for chunks similar to a query:
+
+```ts
+const result = await engine.retrieve({
+  query: "How do I configure authentication?",
+  topK: 10,
+  scope: { sourceId: "docs:" }, // Optional: only search docs
+});
+```
+
+The `query` is the search string. It gets embedded using the same model that embedded your chunks, then compared against stored embeddings to find the most similar matches.
+
+`topK` controls how many results you get back. The default is 8, which is usually a good starting point.
+
+The `scope` parameter filters results. When you provide `{ sourceId: "docs:" }`, only chunks whose `sourceId` starts with "docs:" are considered. This is useful for searching within specific collections or tenants.
+
+## What the methods return
+
+**Ingest returns** information about what was stored:
+
+```ts
+{
+  documentId: "550e8400-e29b-41d4-a716-446655440000",
+  chunkCount: 12,
+  embeddingModel: "ai-sdk:openai/text-embedding-3-small",
+  durations: {
+    totalMs: 1523,
+    chunkingMs: 2,
+    embeddingMs: 1456,
+    storageMs: 65
+  }
+}
+```
+
+The `documentId` is the UUID assigned to this document in the database. The `chunkCount` tells you how many chunks were created. The `durations` object helps you understand where time is being spent—usually embedding dominates.
+
+**Retrieve returns** the matching chunks and metadata:
+
+```ts
+{
+  chunks: [
+    {
+      id: "550e8400-e29b-41d4-a716-446655440001",
+      documentId: "550e8400-e29b-41d4-a716-446655440000",
+      sourceId: "docs:auth",
+      index: 2,
+      content: "To configure authentication, first...",
+      tokenCount: 47,
+      metadata: { category: "technical" },
+      score: 0.234
+    },
+    // ... more chunks
+  ],
+  embeddingModel: "ai-sdk:openai/text-embedding-3-small",
+  durations: {
+    totalMs: 234,
+    embeddingMs: 189,
+    retrievalMs: 45
+  }
+}
+```
+
+Each chunk includes its content, the document it came from, any metadata, and a `score` representing its similarity to the query. Lower scores mean higher similarity when using cosine distance.
+
+## Configuration options
+
+When constructing an engine (either through `createUnragEngine()` or directly), you can configure:
+
+1. **embedding**: The provider that turns text into vectors
+2. **store**: The adapter that handles database operations
+3. **defaults**: Default chunking parameters (`chunkSize` and `chunkOverlap`)
+4. **chunker**: A custom function for splitting documents (optional)
+5. **idGenerator**: A custom function for generating UUIDs (optional, defaults to `crypto.randomUUID()`)
+
+Most projects only customize the first three. The defaults in `unrag.config.ts` work well for general-purpose text content.
+
+## Thread safety and instance reuse
+
+The engine is designed to be created once and reused. The store adapter maintains a database connection pool, and the embedding provider is stateless. You can safely use the same engine instance across multiple concurrent requests.
+
+In Next.js or similar frameworks with hot reloading, the generated `createUnragEngine()` uses a singleton pattern (via `globalThis`) to prevent connection pool exhaustion during development. In production, the engine is created once and reused for the lifetime of the process.
 
