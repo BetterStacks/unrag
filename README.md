@@ -1,68 +1,63 @@
-# context-engine
+# Unrag
 
-A Bun-first, bring-your-own-db RAG core with ingest and retrieve primitives. It uses:
-- Bun + Drizzle ORM with Postgres + pgvector
-- Vercel AI Gateway via `ai` SDK for embeddings (`openai/text-embedding-3-small`)
-- Simple chunking + scope filters (org/project/source)
+Unrag is a **RAG installer** that adds small, auditable, **drop-in primitives** (ingest/retrieve + adapters) directly into your codebase as vendored source files.
 
-## Features
-- **Ingest**: chunk text, embed with AI Gateway, persist documents/chunks/embeddings via Drizzle + pgvector.
--,**Retrieve**: embed queries and run pgvector similarity with optional scope filters.
-- **Configurable**: defaults live in `context-engine.config.ts`; swap chunking options, timeouts, and DB.
-- **Scripts**: smoke ingest/retrieve, pgvector enable, Drizzle generate/push.
+This repository is a **Turborepo + Bun workspaces** monorepo.
 
-## Setup
-1) Install deps:
+## Repo structure
+
+- `packages/unrag`: the publishable npm package and CLI (`unrag`) plus the embedded `registry/**` templates it installs.
+- `apps/web`: Next.js + Fumadocs site (landing + documentation).
+
+## Local development
+
+Install deps:
+
 ```bash
 bun install
 ```
-2) Env (e.g. `.env`):
-```
-DATABASE_URL=postgres://...
-AI_GATEWAY_API_KEY=your-key
-# optional overrides:
-# AI_GATEWAY_URL=https://ai-gateway.vercel.sh/v1
-# AI_GATEWAY_MODEL=openai/text-embedding-3-small
-```
-3) Enable pgvector and apply schema:
+
+Run everything:
+
 ```bash
-bun run db:enable-vector   # needs extension privileges
-bun run db:generate
-bun run db:push
+bun run build
+bun run test
 ```
 
-## Usage
-Create an engine:
-```ts
-import { createContextEngineWithDrizzle } from "./context-engine.config";
-const engine = createContextEngineWithDrizzle();
+Run the docs site:
+
+```bash
+cd apps/web
+bun run dev
 ```
 
-Ingest:
-```ts
-await engine.ingest({
-  sourceId: "doc-1",
-  content: "Your text to chunk and embed...",
-  metadata: { orgId: "org-1", projectId: "proj-1" },
-});
+## Try the CLI locally (link)
+
+```bash
+cd packages/unrag
+bun run build
+bun link
 ```
 
-Retrieve:
-```ts
-const { chunks } = await engine.retrieve({
-  query: "search text",
-  topK: 5,
-  scope: { orgId: "org-1", projectId: "proj-1" },
-});
+Then in any project:
+
+```bash
+bun link unrag
+bunx unrag init
 ```
 
-## Scripts
-- `bun run smoke:ingest` — chunk/embed/store a sample doc.
-- `bun run smoke:retrieve` — run a sample retrieval.
-- `bun run db:enable-vector` — create pgvector extension.
-- `bun run db:generate` / `bun run db:push` — Drizzle migration lifecycle.
+## Releases (Changesets)
 
-## Notes
-- Embedding model fixed to `openai/text-embedding-3-small`.
-- Retrieval uses pgvector `<=>` (lower is closer). Scope filters can narrow by org/project/source.
-- Ensure network/DB access for migrations and smoke scripts.
+- Create a changeset:
+
+```bash
+bun run changeset
+```
+
+- Version packages:
+
+```bash
+bun run version-packages
+```
+
+Push to `main`. GitHub Actions will open a Version PR and publish after merge (requires `NPM_TOKEN` secret).

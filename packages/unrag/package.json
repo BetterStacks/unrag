@@ -29,7 +29,7 @@
   "files": [
     "dist/**",
     "registry/**",
-    "../../README.md"
+    "README.md"
   ],
   "publishConfig": {
     "access": "public"
