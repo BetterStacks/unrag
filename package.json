@@ -9,9 +9,15 @@
   ],
   "scripts": {
     "build": "turbo run build",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "types:check": "turbo run types:check",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.7",
     "turbo": "^2.5.6"
   }
 }

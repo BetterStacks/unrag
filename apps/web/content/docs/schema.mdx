@@ -1,0 +1,50 @@
+---
+title: Database schema
+description: Postgres + pgvector tables Unrag expects
+---
+
+You manage migrations yourself. Unrag expects Postgres with pgvector enabled and these tables.
+
+## Enable pgvector
+
+```sql
+create extension if not exists vector;
+```
+
+## Tables
+
+```sql
+create table documents (
+  id uuid primary key,
+  source_id text not null,
+  metadata jsonb,
+  created_at timestamp default now()
+);
+
+create table chunks (
+  id uuid primary key,
+  document_id uuid not null references documents(id) on delete cascade,
+  source_id text not null,
+  idx integer not null,
+  content text not null,
+  token_count integer not null,
+  metadata jsonb,
+  created_at timestamp default now()
+);
+
+create table embeddings (
+  chunk_id uuid primary key references chunks(id) on delete cascade,
+  embedding vector,
+  embedding_dimension integer,
+  created_at timestamp default now()
+);
+```
+
+## Recommended indexes
+
+```sql
+create index if not exists chunks_source_id_idx on chunks(source_id);
+create index if not exists documents_source_id_idx on documents(source_id);
+```
+
+

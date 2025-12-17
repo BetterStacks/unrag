@@ -1,0 +1,23 @@
+---
+title: Install
+description: Add Unrag to your project
+---
+
+## Install the CLI
+
+```bash
+bunx unrag init
+```
+
+Unrag will ask a couple questions and then write:
+- `unrag.config.ts` at project root
+- `lib/unrag/**` (or your chosen directory) with the vendored module code
+- `lib/unrag/unrag.md` with the minimal setup notes
+
+## Common flags
+
+```bash
+bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
+```
+
+
