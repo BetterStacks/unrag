@@ -22,6 +22,7 @@ const parseJsoncLoose = (raw: string): TsConfig => {
 export async function patchTsconfigPaths(params: {
   projectRoot: string;
   installDir: string; // posix project-relative
+  aliasBase: string; // e.g. "@unrag"
 }): Promise<{ changed: boolean; file?: string }> {
   const configFile =
     (await exists(path.join(params.projectRoot, "tsconfig.json")))
@@ -30,9 +31,10 @@ export async function patchTsconfigPaths(params: {
         ? "jsconfig.json"
         : null;
 
-  const aliasKey = "@unrag/*";
+  const aliasBase = params.aliasBase;
+  const aliasKey = `${aliasBase}/*`;
   const target = [`./${params.installDir.replace(/\\/g, "/")}/*`];
-  const configAliasKey = "@unrag/config";
+  const configAliasKey = `${aliasBase}/config`;
   const configTarget = ["./unrag.config.ts"];
 
   // If there's no tsconfig/jsconfig yet (common in fresh Next apps), create one.

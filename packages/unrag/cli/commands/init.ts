@@ -30,6 +30,7 @@ const __dirname = path.dirname(__filename);
 type ParsedInitArgs = {
   installDir?: string;
   storeAdapter?: InitConfig["storeAdapter"];
+  aliasBase?: string;
   yes?: boolean;
 };
 
@@ -58,6 +59,14 @@ const parseInitArgs = (args: string[]): ParsedInitArgs => {
       }
       continue;
     }
+    if (a === "--alias") {
+      const v = args[i + 1];
+      if (v) {
+        out.aliasBase = v;
+        i++;
+      }
+      continue;
+    }
   }
 
   return out;
@@ -82,6 +91,7 @@ export async function initCommand(args: string[]) {
   const defaults = {
     installDir: existing?.installDir ?? "lib/unrag",
     storeAdapter: existing?.storeAdapter ?? "drizzle",
+    aliasBase: existing?.aliasBase ?? "@unrag",
   } as const;
 
   const nonInteractive = parsed.yes || !process.stdin.isTTY;
@@ -123,11 +133,34 @@ export async function initCommand(args: string[]) {
     return;
   }
 
+  const aliasAnswer = parsed.aliasBase
+    ? parsed.aliasBase
+    : nonInteractive
+      ? defaults.aliasBase
+      : await text({
+          message: "Import alias base",
+          initialValue: defaults.aliasBase,
+          validate: (v) => {
+            const s = v.trim();
+            if (!s) return "Alias is required";
+            if (s.includes(" ")) return "Alias must not contain spaces";
+            if (!s.startsWith("@")) return 'Alias should start with "@" (e.g. "@unrag")';
+            if (s.endsWith("/")) return "Alias must not end with /";
+            return;
+          },
+        });
+  if (isCancel(aliasAnswer)) {
+    cancel("Cancelled.");
+    return;
+  }
+  const aliasBase = String(aliasAnswer).trim();
+
   const selection: RegistrySelection = {
     installDir,
     storeAdapter: storeAdapterAnswer as RegistrySelection["storeAdapter"],
     projectRoot: root,
     registryRoot,
+    aliasBase,
   };
 
   await copyRegistryFiles(selection);
@@ -142,6 +175,7 @@ export async function initCommand(args: string[]) {
   const config: InitConfig = {
     installDir,
     storeAdapter: storeAdapterAnswer,
+    aliasBase,
     version: CONFIG_VERSION,
   };
   await writeJsonFile(path.join(root, CONFIG_FILE), config);
@@ -157,7 +191,7 @@ export async function initCommand(args: string[]) {
     Boolean((merged.pkg.devDependencies ?? {})["next"]);
 
   const tsconfigResult = isNext
-    ? await patchTsconfigPaths({ projectRoot: root, installDir })
+    ? await patchTsconfigPaths({ projectRoot: root, installDir, aliasBase })
     : { changed: false as const };
 
   outro(
@@ -167,9 +201,10 @@ export async function initCommand(args: string[]) {
       `- Code: ${path.join(installDir)}`,
       `- Docs: ${path.join(installDir, "unrag.md")}`,
       `- Config: unrag.config.ts`,
+      `- Imports: ${aliasBase}/* and ${aliasBase}/config`,
       isNext
         ? tsconfigResult.changed
-          ? `- Next.js: updated ${tsconfigResult.file} (added @unrag/* and @unrag/config aliases)`
+          ? `- Next.js: updated ${tsconfigResult.file} (added aliases)`
           : `- Next.js: no tsconfig changes needed`
         : `- Next.js: not detected`,
       "",

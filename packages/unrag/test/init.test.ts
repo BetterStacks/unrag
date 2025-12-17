@@ -136,6 +136,40 @@ describe("context-engine init", () => {
     expect(tsconfig.compilerOptions.paths["@unrag/*"]).toEqual(["./lib/unrag/*"]);
     expect(tsconfig.compilerOptions.paths["@unrag/config"]).toEqual(["./unrag.config.ts"]);
   });
+
+  test("supports custom alias base", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "nextproj",
+      private: true,
+      type: "module",
+      dependencies: { next: "16.0.10" },
+    });
+    await writeJson(path.join(runDir, "tsconfig.json"), {
+      compilerOptions: {
+        target: "ES2017",
+        moduleResolution: "bundler",
+        paths: {
+          "@/*": ["./*"],
+        },
+      },
+      include: ["**/*.ts"],
+    });
+
+    process.chdir(runDir);
+    await initCommand([
+      "--yes",
+      "--store",
+      "drizzle",
+      "--dir",
+      "lib/unrag",
+      "--alias",
+      "@rag",
+    ]);
+
+    const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
+    expect(tsconfig.compilerOptions.paths["@rag/*"]).toEqual(["./lib/unrag/*"]);
+    expect(tsconfig.compilerOptions.paths["@rag/config"]).toEqual(["./unrag.config.ts"]);
+  });
 });
 
 

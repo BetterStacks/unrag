@@ -8,6 +8,7 @@ export type RegistrySelection = {
   registryRoot: string;
   installDir: string; // project-relative posix
   storeAdapter: "drizzle" | "prisma" | "raw-sql";
+  aliasBase: string; // e.g. "@unrag"
 };
 
 type FileMapping = {
@@ -44,11 +45,11 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
       `  const databaseUrl = process.env.DATABASE_URL;`,
       `  if (!databaseUrl) throw new Error("DATABASE_URL is required");`,
       ``,
-      `  const pool = (globalThis as any).__ragPool ?? new Pool({ connectionString: databaseUrl });`,
-      `  (globalThis as any).__ragPool = pool;`,
+      `  const pool = (globalThis as any).__unragPool ?? new Pool({ connectionString: databaseUrl });`,
+      `  (globalThis as any).__unragPool = pool;`,
       ``,
-      `  const db = (globalThis as any).__ragDrizzleDb ?? drizzle(pool);`,
-      `  (globalThis as any).__ragDrizzleDb = db;`,
+      `  const db = (globalThis as any).__unragDrizzleDb ?? drizzle(pool);`,
+      `  (globalThis as any).__unragDrizzleDb = db;`,
       ``,
       `  const store = createDrizzleVectorStore(db);`
     );
@@ -61,8 +62,8 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
       `  const databaseUrl = process.env.DATABASE_URL;`,
       `  if (!databaseUrl) throw new Error("DATABASE_URL is required");`,
       ``,
-      `  const pool = (globalThis as any).__ragPool ?? new Pool({ connectionString: databaseUrl });`,
-      `  (globalThis as any).__ragPool = pool;`,
+      `  const pool = (globalThis as any).__unragPool ?? new Pool({ connectionString: databaseUrl });`,
+      `  (globalThis as any).__unragPool = pool;`,
       ``,
       `  const store = createRawSqlVectorStore(pool);`
     );
@@ -72,8 +73,8 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
       `import { PrismaClient } from "@prisma/client";`
     );
     storeCreateLines.push(
-      `  const prisma = (globalThis as any).__ragPrisma ?? new PrismaClient();`,
-      `  (globalThis as any).__ragPrisma = prisma;`,
+      `  const prisma = (globalThis as any).__unragPrisma ?? new PrismaClient();`,
+      `  (globalThis as any).__unragPrisma = prisma;`,
       `  const store = createPrismaVectorStore(prisma);`
     );
   }
@@ -147,7 +148,10 @@ const renderDocs = (content: string, selection: RegistrySelection) => {
     );
   }
 
-  return content.replace("<!-- __UNRAG_ADAPTER_NOTES__ -->", notes.join("\n"));
+  const withNotes = content.replace("<!-- __UNRAG_ADAPTER_NOTES__ -->", notes.join("\n"));
+  return withNotes
+    .replaceAll("@unrag/config", `${selection.aliasBase}/config`)
+    .replaceAll("`@unrag/*`", `\`${selection.aliasBase}/*\``);
 };
 
 export async function copyRegistryFiles(selection: RegistrySelection) {
