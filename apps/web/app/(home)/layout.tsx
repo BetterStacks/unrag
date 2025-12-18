@@ -9,8 +9,7 @@ export default function Layout({ children }: LayoutProps<'/'>) {
       {...base}
       nav={{
         ...nav,
-        transparentMode: 'always',
-        className: 'unrag-home-nav',
+        transparentMode: 'always'
       }}
     >
       {children}
