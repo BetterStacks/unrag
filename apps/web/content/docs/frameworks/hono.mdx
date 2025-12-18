@@ -130,9 +130,14 @@ app.post(
 
 ## Edge runtime considerations
 
-UnRAG's default adapters use the `pg` driver, which relies on Node.js APIs not available in edge runtimes (Cloudflare Workers, Vercel Edge). If you're deploying to edge, you have options:
+<Callout type="warn">
+UnRAG's default adapters use the `pg` driver, which relies on Node.js APIs not available in edge runtimes (Cloudflare Workers, Vercel Edge).
+</Callout>
 
-**Option 1: Use an edge-compatible Postgres driver**
+If you're deploying to edge, you have options:
+
+<Accordions>
+<Accordion title="Option 1: Edge-compatible Postgres driver">
 
 Neon's serverless driver works in edge environments:
 
@@ -141,7 +146,8 @@ import { neon } from "@neondatabase/serverless";
 // You'll need a custom store adapter that uses neon()
 ```
 
-**Option 2: Proxy to a Node.js backend**
+</Accordion>
+<Accordion title="Option 2: Proxy to Node.js backend">
 
 Keep UnRAG operations in a Node.js service and call it from your edge function:
 
@@ -156,9 +162,13 @@ app.get("/api/search", async (c) => {
 });
 ```
 
-**Option 3: Use a different vector database**
+</Accordion>
+<Accordion title="Option 3: Different vector database">
 
-Some vector databases (like Pinecone or Upstash Vector) offer edge-compatible SDKs. Build a custom store adapter for them.
+Some vector databases (like Pinecone or Upstash Vector) offer edge-compatible SDKs. Build a custom store adapter for them. See [Custom Store](/docs/adapters/custom-store) for implementation guidance.
+
+</Accordion>
+</Accordions>
 
 ## Middleware for common patterns
 

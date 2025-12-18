@@ -31,13 +31,35 @@ bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
 
 After initialization completes, your project will have several new files:
 
-**`unrag.config.ts`** is created at your project root. This is where you configure the embedding provider, database connection, and default settings. The CLI generates this file with working code for your chosen adapter—you can use it immediately or customize it to match your existing database setup.
+<Files>
+  <File name="unrag.config.ts" />
+  <Folder name="lib/unrag" defaultOpen>
+    <Folder name="core">
+      <File name="index.ts" />
+      <File name="context-engine.ts" />
+      <File name="ingest.ts" />
+      <File name="retrieve.ts" />
+      <File name="chunking.ts" />
+      <File name="types.ts" />
+    </Folder>
+    <Folder name="store">
+      <File name="drizzle/" />
+    </Folder>
+    <Folder name="embedding">
+      <File name="ai.ts" />
+    </Folder>
+    <File name="unrag.md" />
+  </Folder>
+  <File name="unrag.json" />
+</Files>
 
-**`lib/unrag/`** (or your chosen directory) contains the vendored module code. This includes the core engine, your chosen store adapter, and the default embedding provider. These files are yours to read and modify.
+**`unrag.config.ts`** is where you configure the embedding provider, database connection, and default settings. The CLI generates this file with working code for your chosen adapter—you can use it immediately or customize it.
 
-**`lib/unrag/unrag.md`** contains setup documentation specific to your choices—the exact SQL schema you need to create, environment variables to set, and notes about your adapter.
+**`lib/unrag/`** contains the vendored module code including the core engine, your chosen store adapter, and the default embedding provider. These files are yours to read and modify.
 
-**`unrag.json`** records your installation choices. If you run `unrag init` again later, it will read this file and use your previous selections as defaults, making it easy to update the vendored code when new versions are available.
+**`lib/unrag/unrag.md`** contains setup documentation specific to your choices—the exact SQL schema, environment variables, and adapter notes.
+
+**`unrag.json`** records your installation choices for future `unrag init` runs.
 
 ## Changes to existing files
 
@@ -64,19 +86,28 @@ This lets you import UnRAG modules cleanly without relative paths threading thro
 
 After the CLI finishes, install the new dependencies:
 
+<Tabs items={['bun', 'npm', 'pnpm', 'yarn']}>
+<Tab value="bun">
 ```bash
-# With bun
 bun install
-
-# With pnpm
-pnpm install
-
-# With npm
+```
+</Tab>
+<Tab value="npm">
+```bash
 npm install
-
-# With yarn
+```
+</Tab>
+<Tab value="pnpm">
+```bash
+pnpm install
+```
+</Tab>
+<Tab value="yarn">
+```bash
 yarn
 ```
+</Tab>
+</Tabs>
 
 ## Updating UnRAG
 

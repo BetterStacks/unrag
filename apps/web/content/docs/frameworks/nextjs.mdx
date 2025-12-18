@@ -7,7 +7,11 @@ Next.js is probably the most common environment for UnRAG. The framework's serve
 
 ## The fundamental rule: server only
 
-UnRAG must run on the server. Your database connection string and embedding API key are secrets that cannot appear in client bundles. Fortunately, Next.js makes this easy with Route Handlers and Server Actions.
+<Callout type="warn" title="Server-side only">
+UnRAG must run on the server. Your database connection string and embedding API key are secrets that cannot appear in client bundles.
+</Callout>
+
+Fortunately, Next.js makes this easy with Route Handlers and Server Actions.
 
 When you run `unrag init` in a Next.js project, the CLI automatically:
 

@@ -9,7 +9,11 @@ At some point you'll need to reindex your content. Maybe you're switching embedd
 
 Several situations require full or partial reindexing:
 
-**Changing embedding models.** Different models produce vectors in different semantic spaces. You cannot meaningfully compare embeddings from model A with embeddings from model B. If you switch models, all existing content must be re-embedded with the new model.
+<Callout type="warn" title="Model migration">
+Different embedding models produce vectors in different semantic spaces. You cannot meaningfully compare embeddings from model A with embeddings from model B. If you switch models, all existing content must be re-embedded with the new model.
+</Callout>
+
+**Changing embedding models.** This is the most common reason for a full reindex.
 
 **Changing chunking parameters.** If you adjust `chunkSize` or `chunkOverlap`, existing chunks don't automatically update. Re-ingesting content applies the new chunking logic and regenerates embeddings for the new chunks.
 

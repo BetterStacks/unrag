@@ -56,7 +56,9 @@ export const unragConfig = {
 
 ## Environment variables
 
-The AI SDK reads configuration from environment variables:
+<Callout>
+The AI SDK reads configuration from environment variables. Make sure these are set before starting your application.
+</Callout>
 
 **`AI_GATEWAY_API_KEY`** (required): Your API key for the embedding service. For OpenAI, this is your OpenAI API key.
 
@@ -124,5 +126,7 @@ The AI SDK provider works well for most use cases, but you might want a custom p
 - You need custom retry logic or caching
 - You want to log or transform embeddings
 
+<Callout title="Next step">
 See [Custom Embedding Provider](/docs/embedding/custom-provider) for implementation guidance.
+</Callout>
 

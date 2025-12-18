@@ -3,7 +3,11 @@ title: Ingest from the Filesystem
 description: Index markdown files, documentation, and other static content from your project.
 ---
 
-Many projects have documentation, help articles, or other content stored as files in the repository. Ingesting this content at build time ensures your search index stays synchronized with your latest content. This guide shows how to build a robust filesystem ingestion pipeline.
+<Callout>
+Many projects have documentation, help articles, or other content stored as files in the repository. Ingesting this content at build time ensures your search index stays synchronized with your latest content.
+</Callout>
+
+This guide shows how to build a robust filesystem ingestion pipeline.
 
 ## The basic pattern
 
@@ -141,7 +145,23 @@ function generateSourceId(rootDir: string, filePath: string): string {
 }
 ```
 
-Examples of generated IDs:
+Examples of generated IDs from a file structure like:
+
+<Files>
+  <Folder name="docs" defaultOpen>
+    <File name="getting-started.md" />
+    <Folder name="guides">
+      <Folder name="auth">
+        <File name="login.md" />
+      </Folder>
+    </Folder>
+  </Folder>
+  <Folder name="content">
+    <Folder name="blog">
+      <File name="2024-post.mdx" />
+    </Folder>
+  </Folder>
+</Files>
 
 ```
 docs/getting-started.md     → docs:getting-started

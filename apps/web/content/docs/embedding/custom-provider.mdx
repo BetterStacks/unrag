@@ -28,9 +28,12 @@ export const myProvider: EmbeddingProvider = {
 
 **`embed`** is the function that does the work. It receives context about what's being embedded and returns a vector (array of numbers).
 
-## Example: Cohere embeddings
+## Provider Examples
 
-Cohere offers embedding models with different characteristics than OpenAI. Here's a provider implementation:
+<Accordions>
+<Accordion title="Cohere Embeddings">
+
+Cohere offers embedding models with different characteristics than OpenAI:
 
 ```ts
 import type { EmbeddingProvider } from "@unrag/core/types";
@@ -65,11 +68,10 @@ export const createCohereProvider = (apiKey: string): EmbeddingProvider => ({
 const embedding = createCohereProvider(process.env.COHERE_API_KEY!);
 ```
 
-The pattern is the same for any embedding API: make an HTTP call, parse the response, return the vector.
+</Accordion>
+<Accordion title="Local Model with Ollama">
 
-## Example: Local model with Ollama
-
-If you're running models locally with Ollama, the provider looks like:
+Running locally eliminates API costs and keeps your data private:
 
 ```ts
 import type { EmbeddingProvider } from "@unrag/core/types";
@@ -102,11 +104,21 @@ export const createOllamaProvider = (
 const embedding = createOllamaProvider("nomic-embed-text");
 ```
 
-Running locally eliminates API costs and keeps your data private. Make sure Ollama is running and has the model downloaded (`ollama pull nomic-embed-text`).
+<Callout>
+Make sure Ollama is running and has the model downloaded: `ollama pull nomic-embed-text`
+</Callout>
 
-## Example: Adding caching
+</Accordion>
+</Accordions>
 
-Embedding the same text twice is wasteful. Here's a provider wrapper that caches results:
+## Provider Wrappers
+
+Wrappers add capabilities without modifying the underlying provider:
+
+<Accordions>
+<Accordion title="Adding Caching">
+
+Embedding the same text twice is wasteful:
 
 ```ts
 import type { EmbeddingProvider } from "@unrag/core/types";
@@ -140,9 +152,12 @@ const baseProvider = createAiEmbeddingProvider({
 const embedding = withCache(baseProvider);
 ```
 
-For production, replace the simple `Map` with Redis or another distributed cache. The pattern remains the same.
+<Callout>
+For production, replace the simple `Map` with Redis or another distributed cache.
+</Callout>
 
-## Example: Adding logging and metrics
+</Accordion>
+<Accordion title="Adding Logging and Metrics">
 
 Track embedding calls for debugging or cost monitoring:
 
@@ -182,11 +197,12 @@ export const withLogging = (provider: EmbeddingProvider): EmbeddingProvider => (
 });
 ```
 
-This wrapper logs every embedding call with timing information. Swap `console.log` for your preferred logging or metrics system.
+Swap `console.log` for your preferred logging or metrics system.
 
-## Example: Retry logic
+</Accordion>
+<Accordion title="Retry Logic">
 
-API calls fail. Here's a provider that retries with exponential backoff:
+API calls fail. Here's exponential backoff:
 
 ```ts
 import type { EmbeddingProvider } from "@unrag/core/types";
@@ -222,7 +238,7 @@ export const withRetry = (
 });
 ```
 
-Now transient failures don't crash your ingestion job:
+Usage:
 
 ```ts
 const embedding = withRetry(
@@ -231,6 +247,9 @@ const embedding = withRetry(
   1000  // base delay (1s, 2s, 4s)
 );
 ```
+
+</Accordion>
+</Accordions>
 
 ## Wiring it into your engine
 

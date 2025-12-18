@@ -89,7 +89,10 @@ app.listen(PORT, () => {
 
 Express projects typically don't have path alias support out of the box. You have a few options:
 
-**Option 1: Update your TypeScript config and use ts-node or tsx**
+<Tabs items={['Path Aliases (tsx)', 'Relative Imports']}>
+<Tab value="Path Aliases (tsx)">
+
+Update your TypeScript config:
 
 ```json
 // tsconfig.json
@@ -104,19 +107,25 @@ Express projects typically don't have path alias support out of the box. You hav
 }
 ```
 
-Run with `tsx` or `ts-node` with path support enabled:
+Run with `tsx`:
 
 ```bash
 npx tsx src/server.ts
 ```
 
-**Option 2: Use relative imports**
+</Tab>
+<Tab value="Relative Imports">
+
+Use relative imports directly:
 
 ```ts
 import { createUnragEngine } from "../../unrag.config";
 ```
 
 Less elegant, but works without additional configuration.
+
+</Tab>
+</Tabs>
 
 ## Connection management
 

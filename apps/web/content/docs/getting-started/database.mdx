@@ -21,17 +21,26 @@ create extension if not exists vector;
 
 How you run this depends on your database provider:
 
-**Local Postgres or self-hosted:** Run the SQL directly, or add it to your migration files. You may need to install the pgvector extension first—on Ubuntu, that's `apt install postgresql-15-pgvector` (adjust for your Postgres version).
-
-**Neon:** pgvector is pre-installed. Just run `create extension if not exists vector;` and you're ready.
-
-**Supabase:** pgvector is available in the dashboard under Database → Extensions. Enable it there, or run the SQL in the SQL Editor.
-
-**AWS RDS:** pgvector is available on RDS for PostgreSQL 15.2+. You enable it with the same `create extension` command.
-
-**Azure Database for PostgreSQL:** Enable pgvector through the Azure portal under Server parameters, then run the extension command.
-
-**Google Cloud SQL:** pgvector is supported on Cloud SQL for PostgreSQL. Enable it via the Google Cloud Console or `gcloud` CLI.
+<Tabs items={['Local/Self-hosted', 'Neon', 'Supabase', 'AWS RDS', 'Azure', 'Google Cloud']}>
+<Tab value="Local/Self-hosted">
+Run the SQL directly, or add it to your migration files. You may need to install the pgvector extension first—on Ubuntu, that's `apt install postgresql-15-pgvector` (adjust for your Postgres version).
+</Tab>
+<Tab value="Neon">
+pgvector is pre-installed. Just run `create extension if not exists vector;` and you're ready.
+</Tab>
+<Tab value="Supabase">
+pgvector is available in the dashboard under **Database → Extensions**. Enable it there, or run the SQL in the SQL Editor.
+</Tab>
+<Tab value="AWS RDS">
+pgvector is available on RDS for PostgreSQL 15.2+. You enable it with the same `create extension` command.
+</Tab>
+<Tab value="Azure">
+Enable pgvector through the Azure portal under **Server parameters**, then run the extension command.
+</Tab>
+<Tab value="Google Cloud">
+pgvector is supported on Cloud SQL for PostgreSQL. Enable it via the Google Cloud Console or `gcloud` CLI.
+</Tab>
+</Tabs>
 
 ## Creating the schema
 

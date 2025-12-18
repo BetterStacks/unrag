@@ -11,19 +11,34 @@ The input to `engine.ingest()`:
 
 ```ts
 type IngestInput = {
-  sourceId: string;           // Logical document identifier
-  content: string;            // The text to chunk and embed
-  metadata?: Metadata;        // Optional JSON metadata
-  chunking?: {                // Optional per-call chunking override
-    chunkSize?: number;
-    chunkOverlap?: number;
-  };
+  sourceId: string;
+  content: string;
+  metadata?: Metadata;
+  chunking?: { chunkSize?: number; chunkOverlap?: number };
 };
 ```
 
-The `sourceId` should be stable and meaningful. When you ingest with an existing `sourceId`, the store adapter updates the existing document rather than creating a duplicate.
-
-The `metadata` object is stored as JSON and appears in retrieval results. Use it for titles, categories, timestamps, or any information you want to access later.
+<TypeTable
+  type={{
+    sourceId: {
+      description: 'Logical document identifier. When you ingest with an existing sourceId, the store adapter updates rather than duplicates.',
+      type: 'string',
+    },
+    content: {
+      description: 'The text to chunk and embed.',
+      type: 'string',
+    },
+    metadata: {
+      description: 'Optional JSON metadata stored with the document. Appears in retrieval results.',
+      type: 'Metadata',
+      default: '{}',
+    },
+    chunking: {
+      description: 'Optional per-call chunking override (chunkSize, chunkOverlap).',
+      type: 'object',
+    },
+  }}
+/>
 
 ## IngestResult
 
@@ -31,19 +46,33 @@ The output from `engine.ingest()`:
 
 ```ts
 type IngestResult = {
-  documentId: string;         // UUID of the created/updated document
-  chunkCount: number;         // How many chunks were created
-  embeddingModel: string;     // Which model was used (e.g., "ai-sdk:openai/...")
-  durations: {
-    totalMs: number;          // Total operation time
-    chunkingMs: number;       // Time spent chunking
-    embeddingMs: number;      // Time spent generating embeddings
-    storageMs: number;        // Time spent writing to database
-  };
+  documentId: string;
+  chunkCount: number;
+  embeddingModel: string;
+  durations: { totalMs: number; chunkingMs: number; embeddingMs: number; storageMs: number };
 };
 ```
 
-The timing breakdown helps identify bottlenecks. Embedding typically dominates; if storage is slow, check your database connection and indexes.
+<TypeTable
+  type={{
+    documentId: {
+      description: 'UUID of the created/updated document.',
+      type: 'string',
+    },
+    chunkCount: {
+      description: 'How many chunks were created.',
+      type: 'number',
+    },
+    embeddingModel: {
+      description: 'Which model was used (e.g., "ai-sdk:openai/...").',
+      type: 'string',
+    },
+    durations: {
+      description: 'Timing breakdown: totalMs, chunkingMs, embeddingMs, storageMs. Useful for identifying bottlenecks.',
+      type: 'object',
+    },
+  }}
+/>
 
 ## RetrieveInput
 
@@ -51,15 +80,29 @@ The input to `engine.retrieve()`:
 
 ```ts
 type RetrieveInput = {
-  query: string;              // The search query
-  topK?: number;              // How many results to return (default: 8)
-  scope?: {                   // Optional filtering
-    sourceId?: string;        // Prefix filter on sourceId
-  };
+  query: string;
+  topK?: number;
+  scope?: { sourceId?: string };
 };
 ```
 
-The `scope.sourceId` uses prefix matching. If you provide `"docs:"`, only chunks whose `sourceId` starts with `"docs:"` are considered.
+<TypeTable
+  type={{
+    query: {
+      description: 'The search query to embed and find similar chunks.',
+      type: 'string',
+    },
+    topK: {
+      description: 'How many results to return.',
+      type: 'number',
+      default: '8',
+    },
+    scope: {
+      description: 'Optional filtering. sourceId uses prefix matching (e.g., "docs:" matches all docs).',
+      type: 'object',
+    },
+  }}
+/>
 
 ## RetrieveResult
 
@@ -67,17 +110,28 @@ The output from `engine.retrieve()`:
 
 ```ts
 type RetrieveResult = {
-  chunks: Array<Chunk & { score: number }>;  // Matching chunks with scores
-  embeddingModel: string;                     // Which model embedded the query
-  durations: {
-    totalMs: number;                          // Total operation time
-    embeddingMs: number;                      // Time spent embedding the query
-    retrievalMs: number;                      // Time spent querying the database
-  };
+  chunks: Array<Chunk & { score: number }>;
+  embeddingModel: string;
+  durations: { totalMs: number; embeddingMs: number; retrievalMs: number };
 };
 ```
 
-Chunks are ordered by score ascending (lower scores mean higher similarity for cosine distance).
+<TypeTable
+  type={{
+    chunks: {
+      description: 'Matching chunks with scores, ordered by score ascending (lower = more similar).',
+      type: 'Array<Chunk & { score: number }>',
+    },
+    embeddingModel: {
+      description: 'Which model embedded the query.',
+      type: 'string',
+    },
+    durations: {
+      description: 'Timing breakdown: totalMs, embeddingMs, retrievalMs.',
+      type: 'object',
+    },
+  }}
+/>
 
 ## Chunk
 

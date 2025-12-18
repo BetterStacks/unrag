@@ -231,7 +231,11 @@ Without indexes, filtering by metadata requires scanning all rows, which gets sl
 
 ## Security considerations
 
-Tenant isolation in UnRAG happens at the query level, not the database level. A bug in your application code could expose one tenant's data to another. Consider defense in depth:
+<Callout type="warn" title="Important">
+Tenant isolation in UnRAG happens at the query level, not the database level. A bug in your application code could expose one tenant's data to another.
+</Callout>
+
+Consider defense in depth:
 
 1. **Verify tenant context early.** Extract the tenant ID from authentication tokens before any database operations.
 

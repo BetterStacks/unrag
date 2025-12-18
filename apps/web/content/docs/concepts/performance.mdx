@@ -20,7 +20,9 @@ When you call `engine.ingest()`, the timing breakdown typically looks like this:
 
 **Chunking** is nearly instant—splitting text is cheap. Unless you're processing enormous documents with complex custom chunkers, this will never be your bottleneck.
 
-**Embedding** is where the time goes. Each chunk requires an API call to your embedding provider, and those calls have network latency. UnRAG embeds chunks concurrently, which helps, but you're still bound by your embedding provider's throughput.
+<Callout type="info" title="Performance tip">
+Embedding is where the time goes. Each chunk requires an API call to your embedding provider. UnRAG embeds chunks concurrently to minimize total latency.
+</Callout>
 
 For OpenAI's embedding API, expect roughly 100-200ms per chunk when running sequentially. With concurrency, you can process a 10-chunk document in about 300-500ms total, depending on your rate limits and network conditions.
 
@@ -71,7 +73,9 @@ async function embedWithCache(query: string): Promise<number[]> {
 }
 ```
 
-**Add a vector index.** For datasets with more than 50,000 chunks, add an HNSW index to speed up similarity search:
+<Callout title="Add a vector index">
+For datasets with more than 50,000 chunks, add an HNSW index to speed up similarity search:
+</Callout>
 
 ```sql
 create index embeddings_hnsw_idx 

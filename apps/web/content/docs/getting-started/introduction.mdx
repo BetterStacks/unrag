@@ -11,15 +11,35 @@ When you install UnRAG, you're not adding a dependency that phones home or hides
 
 After running `bunx unrag init`, your project will contain:
 
-**`unrag.config.ts`** at your project root. This is your configuration hub—the single file where you wire together your database client, embedding provider, and default settings. When you need to change how UnRAG connects to your database or which embedding model it uses, this is where you do it.
+<Files>
+  <File name="unrag.config.ts" />
+  <Folder name="lib/unrag" defaultOpen>
+    <Folder name="core" defaultOpen>
+      <File name="index.ts" />
+      <File name="context-engine.ts" />
+      <File name="ingest.ts" />
+      <File name="retrieve.ts" />
+      <File name="chunking.ts" />
+      <File name="types.ts" />
+    </Folder>
+    <Folder name="store">
+      <File name="drizzle/" />
+    </Folder>
+    <Folder name="embedding">
+      <File name="ai.ts" />
+    </Folder>
+    <File name="unrag.md" />
+  </Folder>
+  <File name="unrag.json" />
+</Files>
 
-**`lib/unrag/`** (or your chosen directory) containing the actual implementation:
+**`unrag.config.ts`** at your project root is your configuration hub—the single file where you wire together your database client, embedding provider, and default settings.
 
-The `core/` subdirectory has the heart of the system. The `ContextEngine` class orchestrates ingestion and retrieval. The `ingest.ts` file handles chunking documents, generating embeddings for each chunk, and storing everything in your database. The `retrieve.ts` file embeds your query and runs a similarity search. The types are explicit and documented.
+**`lib/unrag/core/`** has the heart of the system. The `ContextEngine` class orchestrates ingestion and retrieval. The `ingest.ts` file handles chunking documents, generating embeddings for each chunk, and storing everything in your database. The `retrieve.ts` file embeds your query and runs a similarity search.
 
-The `store/` subdirectory contains your chosen database adapter—whether that's Drizzle, Prisma, or raw SQL. Each adapter implements the same interface: `upsert()` to write documents and their chunks, and `query()` to find the most similar chunks for a given embedding.
+**`lib/unrag/store/`** contains your chosen database adapter—whether that's Drizzle, Prisma, or raw SQL. Each adapter implements the same interface: `upsert()` to write documents and their chunks, and `query()` to find the most similar chunks.
 
-The `embedding/` subdirectory contains your embedding provider, which by default uses the Vercel AI SDK to call OpenAI's embedding models. You can swap this out for any embedding service or even local models.
+**`lib/unrag/embedding/`** contains your embedding provider, which by default uses the Vercel AI SDK to call OpenAI's embedding models. You can swap this out for any embedding service or even local models.
 
 **`lib/unrag/unrag.md`** is a generated README with setup notes specific to your configuration—the database schema you need to create, environment variables to set, and adapter-specific tips.
 
@@ -35,15 +55,16 @@ UnRAG is opinionated in a few ways that keep it simple:
 
 ## What UnRAG is not
 
-UnRAG focuses narrowly on the storage and retrieval layer. It intentionally doesn't include:
+<Callout>
+UnRAG focuses narrowly on the storage and retrieval layer. It's intentionally minimal.
+</Callout>
 
-**A hosted vector database.** Your vectors live in your Postgres instance.
+It doesn't include:
 
-**A chat framework.** UnRAG returns chunks; you decide how to build prompts, stream responses, or integrate with chat interfaces.
-
-**A crawler or ETL pipeline.** You bring content to UnRAG. Whether that content comes from uploaded files, scraped web pages, database records, or API responses is outside UnRAG's scope.
-
-**Permission or authentication logic.** UnRAG provides basic scoping by `sourceId`, but anything more sophisticated (row-level security, tenant isolation, access control lists) is something you implement in your application code.
+- **A hosted vector database.** Your vectors live in your Postgres instance.
+- **A chat framework.** UnRAG returns chunks; you decide how to build prompts, stream responses, or integrate with chat interfaces.
+- **A crawler or ETL pipeline.** You bring content to UnRAG. Whether that content comes from uploaded files, scraped web pages, database records, or API responses is outside UnRAG's scope.
+- **Permission or authentication logic.** UnRAG provides basic scoping by `sourceId`, but anything more sophisticated (row-level security, tenant isolation, access control lists) is something you implement in your application code.
 
 ## The mental model
 

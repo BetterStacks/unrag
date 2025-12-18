@@ -9,11 +9,43 @@ UnRAG handles the "retrieval" in RAG. The "augmented generation" part—using re
 
 A RAG-powered chat follows this sequence:
 
-1. User asks a question
-2. Your app calls UnRAG to retrieve relevant chunks
-3. Your app builds a prompt with the chunks as context
-4. Your app calls an LLM with the prompt
-5. The LLM response is streamed back to the user
+<Steps>
+<Step>
+
+### User asks a question
+
+The user submits a query through your chat interface.
+
+</Step>
+<Step>
+
+### Retrieve relevant chunks
+
+Your app calls UnRAG to retrieve relevant chunks based on the question.
+
+</Step>
+<Step>
+
+### Build the prompt
+
+Your app formats the chunks as context and builds a system prompt.
+
+</Step>
+<Step>
+
+### Call the LLM
+
+Your app sends the prompt and question to an LLM.
+
+</Step>
+<Step>
+
+### Stream the response
+
+The LLM response is streamed back to the user for a better experience.
+
+</Step>
+</Steps>
 
 Here's a minimal implementation:
 

@@ -21,15 +21,30 @@ These components are assembled in your `unrag.config.ts` file to create a `Conte
 
 When you call `engine.ingest({ sourceId, content, metadata })`, here's what happens:
 
-**Step 1: Chunking.** The content string is passed to the chunker function along with your configured chunk size and overlap. The chunker returns an array of chunk objects, each containing the text, its position index, and an approximate token count.
+<Steps>
+<Step>
+
+### Chunking
+
+The content string is passed to the chunker function along with your configured chunk size and overlap. The chunker returns an array of chunk objects, each containing the text, its position index, and an approximate token count.
 
 For example, with a chunk size of 200 words and 40-word overlap, a 500-word document becomes roughly 3-4 chunks. Each chunk shares some text with its neighbors, which helps preserve context across chunk boundaries.
 
-**Step 2: Embedding.** Each chunk is sent to the embedding provider. This happens concurrently to minimize total latency. The provider returns a vector (array of floats) for each chunk. These vectors encode the semantic meaning of the chunk text.
+</Step>
+<Step>
+
+### Embedding
+
+Each chunk is sent to the embedding provider. This happens concurrently to minimize total latency. The provider returns a vector (array of floats) for each chunk. These vectors encode the semantic meaning of the chunk text.
 
 If you're using OpenAI's text-embedding-3-small model, each vector has 1,536 dimensions. Larger models produce higher-dimensional vectors (text-embedding-3-large uses 3,072 dimensions).
 
-**Step 3: Storage.** The store adapter receives the chunks with their embeddings and writes them to your database. This happens in a transaction:
+</Step>
+<Step>
+
+### Storage
+
+The store adapter receives the chunks with their embeddings and writes them to your database in a transaction:
 
 1. Insert (or update) a row in the `documents` table with the full content and metadata
 2. Insert rows in the `chunks` table for each chunk
@@ -37,7 +52,12 @@ If you're using OpenAI's text-embedding-3-small model, each vector has 1,536 dim
 
 If you ingest with a `sourceId` that already exists, the adapter updates the existing document. The old chunks and embeddings are replaced with new ones.
 
-**Timing data.** The ingest method returns detailed timing information showing how long each phase took. This helps you identify bottlenecks—embedding is typically the slowest step due to API latency.
+</Step>
+</Steps>
+
+<Callout>
+The ingest method returns detailed timing information. Embedding is typically the slowest step due to API latency.
+</Callout>
 
 ```ts
 const result = await engine.ingest({ sourceId: "doc-1", content: "..." });
@@ -49,21 +69,41 @@ console.log(result.durations);
 
 When you call `engine.retrieve({ query, topK, scope })`, the flow is simpler:
 
-**Step 1: Query embedding.** Your query string is passed to the same embedding provider used during ingestion. This produces a vector representing the query's semantic meaning.
+<Steps>
+<Step>
 
+### Query embedding
+
+Your query string is passed to the same embedding provider used during ingestion. This produces a vector representing the query's semantic meaning.
+
+<Callout type="warn">
 Using the same embedding model for queries and documents is essential. Different models produce vectors in different semantic spaces that aren't directly comparable.
+</Callout>
 
-**Step 2: Similarity search.** The store adapter receives the query embedding, the desired number of results (`topK`), and any scope filters. It runs a SQL query that computes the distance between the query vector and every stored chunk embedding, then returns the closest matches.
+</Step>
+<Step>
+
+### Similarity search
+
+The store adapter receives the query embedding, the desired number of results (`topK`), and any scope filters. It runs a SQL query that computes the distance between the query vector and every stored chunk embedding, then returns the closest matches.
 
 With pgvector, this uses the `<=>` operator for cosine distance. Lower distances mean higher similarity. The adapter sorts ascending and limits to `topK` results.
 
-**Step 3: Response assembly.** The engine packages the chunks, their scores, timing information, and metadata into a response object and returns it.
+</Step>
+<Step>
+
+### Response assembly
+
+The engine packages the chunks, their scores, timing information, and metadata into a response object and returns it.
 
 ```ts
 const result = await engine.retrieve({ query: "how does auth work?", topK: 5 });
 console.log(result.durations);
 // { totalMs: 234, embeddingMs: 189, retrievalMs: 45 }
 ```
+
+</Step>
+</Steps>
 
 ## Where RAG happens
 

@@ -5,7 +5,10 @@ description: Get from zero to working ingest and retrieve in under 10 minutes.
 
 This guide walks you through the complete setup from a fresh project to your first successful retrieval. By the end, you'll have content stored in Postgres and be able to query it with semantic search.
 
-## Step 1: Initialize UnRAG
+<Steps>
+<Step>
+
+### Initialize UnRAG
 
 Run the CLI with your preferences. For this quickstart, we'll use Drizzle as the store adapter:
 
@@ -15,11 +18,33 @@ bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
 
 This creates your configuration file, installs the vendored module code, and adds the necessary dependencies to your `package.json`. Run your package manager to install them:
 
+<Tabs items={['bun', 'npm', 'pnpm', 'yarn']}>
+<Tab value="bun">
 ```bash
-bun install   # or: npm install / pnpm install / yarn
+bun install
 ```
+</Tab>
+<Tab value="npm">
+```bash
+npm install
+```
+</Tab>
+<Tab value="pnpm">
+```bash
+pnpm install
+```
+</Tab>
+<Tab value="yarn">
+```bash
+yarn
+```
+</Tab>
+</Tabs>
 
-## Step 2: Set environment variables
+</Step>
+<Step>
+
+### Set environment variables
 
 UnRAG needs two environment variables to function. Add them to your `.env` file (or however you manage secrets):
 
@@ -37,7 +62,10 @@ The `AI_GATEWAY_API_KEY` is used by the default embedding provider, which calls 
 AI_GATEWAY_MODEL="openai/text-embedding-3-large"
 ```
 
-## Step 3: Create the database schema
+</Step>
+<Step>
+
+### Create the database schema
 
 Connect to your Postgres database and run the schema creation SQL. You can find the complete schema in `lib/unrag/unrag.md`, but here's the quick version:
 
@@ -77,7 +105,10 @@ create index if not exists chunks_source_id_idx on chunks(source_id);
 create index if not exists documents_source_id_idx on documents(source_id);
 ```
 
-## Step 4: Ingest your first content
+</Step>
+<Step>
+
+### Ingest your first content
 
 Create a simple script to test ingestion. This can be a standalone file or part of your application:
 
@@ -118,7 +149,10 @@ ingestDemo().catch(console.error);
 
 Run this script, and you should see output showing the document was chunked and stored. The `durations` object tells you how long each phase took—chunking, embedding, and storage—which is helpful for understanding performance characteristics.
 
-## Step 5: Retrieve content
+</Step>
+<Step>
+
+### Retrieve content
 
 Now query the content you just ingested:
 
@@ -159,6 +193,9 @@ When you run retrieval, you get back an object containing:
 - **durations**: Timing breakdown showing how long embedding and retrieval took
 
 The chunks are sorted by score ascending, so the first chunk is the most similar to your query. You can use these chunks to build context for an LLM prompt, populate a search results page, or power any other retrieval-based feature.
+
+</Step>
+</Steps>
 
 ## Where to customize
 

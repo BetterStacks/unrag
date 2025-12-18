@@ -15,7 +15,10 @@ The embedding model you choose affects retrieval quality, latency, and cost. The
 
 ## Recommended starting points
 
-For general-purpose text (documentation, articles, support content):
+<Tabs items={['General Purpose', 'High Quality / Multilingual', 'Local / Private']}>
+<Tab value="General Purpose">
+
+For documentation, articles, and support content:
 
 ```ts
 export const unragConfig = {
@@ -28,7 +31,10 @@ export const unragConfig = {
 
 This model is fast, cheap, and produces good results for most English text. It's the default for a reason.
 
-For multilingual content or when quality is paramount:
+</Tab>
+<Tab value="High Quality / Multilingual">
+
+When quality is paramount or you have multilingual content:
 
 ```ts
 export const unragConfig = {
@@ -39,11 +45,37 @@ export const unragConfig = {
 } as const;
 ```
 
-The larger model handles multiple languages better and captures finer semantic distinctions. Use it when retrieval quality directly impacts user experience.
+The larger model handles multiple languages better and captures finer semantic distinctions.
+
+</Tab>
+<Tab value="Local / Private">
+
+For cost control or privacy requirements:
+
+```ts
+const localEmbedding: EmbeddingProvider = {
+  name: "local:all-MiniLM-L6-v2",
+  dimensions: 384,
+  embed: async ({ text }) => {
+    const res = await fetch("http://localhost:8080/embed", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+    return (await res.json()).embedding;
+  },
+};
+```
+
+Eliminates API costs, reduces latency, and keeps data private.
+
+</Tab>
+</Tabs>
 
 ## Keeping embeddings consistent
 
-Here's a critical point that catches many teams: all vectors in your database must come from the same embedding model. You cannot mix embeddings from different models and expect similarity search to work correctly.
+<Callout type="error" title="Critical">
+All vectors in your database must come from the same embedding model. You cannot mix embeddings from different models and expect similarity search to work correctly.
+</Callout>
 
 Different models produce vectors in different semantic spaces. A query embedded with model A cannot meaningfully compare to chunks embedded with model B. The math produces numbers, but those numbers are meaningless.
 
@@ -53,7 +85,7 @@ This means:
 
 2. **If you change models, re-embed everything.** There's no shortcut. Delete your existing embeddings and regenerate them with the new model.
 
-3. **Store which model was used.** UnRAG records `embedding_dimension` in the database, and the `embeddingModel` field in responses tells you which model was active. Use this to detect mismatches.
+3. **Store which model was used.** UnRAG records `embedding_dimension` in the database, and the `embeddingModel` field in responses tells you which model was active.
 
 ## Detecting model changes
 
