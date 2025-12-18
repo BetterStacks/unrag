@@ -64,7 +64,7 @@ export default function HomePage() {
     <div className="flex flex-col min-h-screen bg-[var(--color-fd-background)]">
 
       {/* Landscape background */}
-      <Image src={bannerImg} alt="Nigh-time view of a windy amber road through the mountains" className="absolute inset-0 z-[1] w-screen h-screen opacity-30" />
+      <Image src={bannerImg} alt="Nigh-time view of a windy amber road through the mountains" className="absolute inset-0 z-[1] w-screen h-screen opacity-30 hidden md:block" />
 
       <section className="relative min-h-screen flex flex-col items-center justify-center px-6 py-24 overflow-hidden bg-[hsl(0,0%,2%)]">
         {/* Glowing stars background */}
