@@ -60,6 +60,9 @@ export const metadata: Metadata = {
 export default function HomePage() {
   const LICENSE_URL = `${GITHUB_REPO}/blob/main/LICENSE`;
 
+  const reveal = (delayMs: number) =>
+    ({ ['--unrag-reveal-delay' as any]: `${delayMs}ms` }) as React.CSSProperties;
+
   return (
     <div className="flex flex-col min-h-screen bg-[var(--color-fd-background)]">
 
@@ -80,17 +83,20 @@ export default function HomePage() {
 
         <div className="relative z-10 max-w-4xl mx-auto text-center translate-y-[-10%]">
           {/* Headline */}
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight bg-gradient-to-b from-white to-white/55 bg-clip-text text-transparent mb-6 leading-[1]">
+          <h1
+            className="unrag-reveal text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight bg-gradient-to-b from-white to-white/55 bg-clip-text text-transparent mb-6 leading-[1]"
+            style={reveal(0)}
+          >
             Composable & extendable primitives to build rag systems
           </h1>
 
           {/* Description */}
-          <p className="text-lg text-white/55 max-w-2xl mx-auto leading-snug">
+          <p className="unrag-reveal text-lg text-white/55 max-w-2xl mx-auto leading-snug" style={reveal(140)}>
             A simple system of ergonomically designed primitive that you can customize, extend, and build on to create versatile, robust and extendable RAG systems.
           </p>
 
           {/* Main command */}
-          <div className="my-6 flex justify-center">
+          <div className="unrag-reveal my-6 flex justify-center" style={reveal(280)}>
             <div className="inline-flex items-center gap-3 px-5 py-3 rounded-lg bg-white/5 border border-white/10 backdrop-blur font-mono text-sm">
               <span className="text-white/55">$</span>
               <span className="text-white">bunx unrag init</span>
@@ -99,7 +105,7 @@ export default function HomePage() {
           </div>
 
           {/* Terminal Demo */}
-          <section className="relative px-6 mb-12">
+          <section className="unrag-reveal relative px-6 mb-12" style={reveal(420)}>
             <div className="max-w-lg mx-auto">
             <TerminalWindow title="~/your-project">
               <AnimatedInstall />
@@ -108,7 +114,7 @@ export default function HomePage() {
           </section>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <div className="unrag-reveal flex flex-col sm:flex-row gap-4 justify-center items-center" style={reveal(560)}>
             <Link
               href="/docs"
               className="group relative inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-[hsl(0,0%,8%)] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
