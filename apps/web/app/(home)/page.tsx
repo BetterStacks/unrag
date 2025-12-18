@@ -92,7 +92,7 @@ export default function HomePage() {
 
           {/* Description */}
           <p className="unrag-reveal text-lg text-white/55 max-w-2xl mx-auto leading-snug" style={reveal(140)}>
-            A simple system of ergonomically designed primitive that you can customize, extend, and build on to create versatile, robust and extendable RAG systems.
+            A simple system of ergonomically designed primitives that you can customize, extend, and build on to create versatile, robust and extendable RAG systems.
           </p>
 
           {/* Main command */}
