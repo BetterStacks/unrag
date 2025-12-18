@@ -3,7 +3,7 @@ title: Performance
 description: Understanding and optimizing ingest and retrieve performance.
 ---
 
-UnRAG is designed to be fast by default, but understanding where time goes helps you optimize for your specific workload. Let's look at the performance characteristics of both operations and the knobs you can turn.
+Unrag is designed to be fast by default, but understanding where time goes helps you optimize for your specific workload. Let's look at the performance characteristics of both operations and the knobs you can turn.
 
 ## Where time goes during ingestion
 
@@ -21,7 +21,7 @@ When you call `engine.ingest()`, the timing breakdown typically looks like this:
 **Chunking** is nearly instant—splitting text is cheap. Unless you're processing enormous documents with complex custom chunkers, this will never be your bottleneck.
 
 <Callout type="info" title="Performance tip">
-Embedding is where the time goes. Each chunk requires an API call to your embedding provider. UnRAG embeds chunks concurrently to minimize total latency.
+Embedding is where the time goes. Each chunk requires an API call to your embedding provider. Unrag embeds chunks concurrently to minimize total latency.
 </Callout>
 
 For OpenAI's embedding API, expect roughly 100-200ms per chunk when running sequentially. With concurrency, you can process a 10-chunk document in about 300-500ms total, depending on your rate limits and network conditions.

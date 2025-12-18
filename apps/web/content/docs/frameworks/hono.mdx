@@ -1,13 +1,13 @@
 ---
 title: Hono Integration
-description: Using UnRAG with Hono for lightweight, fast APIs on Node.js or edge runtimes.
+description: Using Unrag with Hono for lightweight, fast APIs on Node.js or edge runtimes.
 ---
 
-Hono is a lightweight web framework that works across Node.js, Bun, Deno, and Cloudflare Workers. When running on Node.js or Bun with standard Postgres drivers, UnRAG integrates seamlessly. For edge runtimes, you'll need compatible database drivers.
+Hono is a lightweight web framework that works across Node.js, Bun, Deno, and Cloudflare Workers. When running on Node.js or Bun with standard Postgres drivers, Unrag integrates seamlessly. For edge runtimes, you'll need compatible database drivers.
 
 ## Basic setup on Node.js
 
-On Node.js or Bun, UnRAG's default adapters work out of the box:
+On Node.js or Bun, Unrag's default adapters work out of the box:
 
 ```ts
 import { Hono } from "hono";
@@ -131,7 +131,7 @@ app.post(
 ## Edge runtime considerations
 
 <Callout type="warn">
-UnRAG's default adapters use the `pg` driver, which relies on Node.js APIs not available in edge runtimes (Cloudflare Workers, Vercel Edge).
+Unrag's default adapters use the `pg` driver, which relies on Node.js APIs not available in edge runtimes (Cloudflare Workers, Vercel Edge).
 </Callout>
 
 If you're deploying to edge, you have options:
@@ -149,7 +149,7 @@ import { neon } from "@neondatabase/serverless";
 </Accordion>
 <Accordion title="Option 2: Proxy to Node.js backend">
 
-Keep UnRAG operations in a Node.js service and call it from your edge function:
+Keep Unrag operations in a Node.js service and call it from your edge function:
 
 ```ts
 // Edge function
@@ -240,5 +240,5 @@ Hono apps can deploy to many platforms:
 - **Cloudflare Workers**: Use `wrangler deploy` (edge-compatible driver needed)
 - **AWS Lambda**: Use `@hono/aws-lambda` adapter
 
-For Node.js deployments where UnRAG works best, the integration is straightforward. For edge deployments, plan for the driver compatibility issues ahead of time.
+For Node.js deployments where Unrag works best, the integration is straightforward. For edge deployments, plan for the driver compatibility issues ahead of time.
 

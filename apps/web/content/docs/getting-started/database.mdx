@@ -1,9 +1,9 @@
 ---
 title: Database Setup
-description: Set up Postgres with pgvector and create the tables UnRAG needs.
+description: Set up Postgres with pgvector and create the tables Unrag needs.
 ---
 
-UnRAG stores everything in Postgres using the pgvector extension. This means you can run vector similarity search alongside your regular application data, use your existing backup and replication setup, and avoid adding another system to your infrastructure.
+Unrag stores everything in Postgres using the pgvector extension. This means you can run vector similarity search alongside your regular application data, use your existing backup and replication setup, and avoid adding another system to your infrastructure.
 
 ## Why Postgres with pgvector?
 
@@ -44,7 +44,7 @@ pgvector is supported on Cloud SQL for PostgreSQL. Enable it via the Google Clou
 
 ## Creating the schema
 
-UnRAG expects three tables. Here's the schema with explanations:
+Unrag expects three tables. Here's the schema with explanations:
 
 ```sql
 create table documents (
@@ -56,7 +56,7 @@ create table documents (
 );
 ```
 
-The `documents` table represents logical documents you've ingested. The `source_id` is your identifier for the document—something like `docs:getting-started` or `kb:article-123`. When you re-ingest content with the same `source_id`, UnRAG updates the existing document. The `content` column stores the full original text (useful for debugging and re-chunking), and `metadata` holds any JSON you passed during ingestion.
+The `documents` table represents logical documents you've ingested. The `source_id` is your identifier for the document—something like `docs:getting-started` or `kb:article-123`. When you re-ingest content with the same `source_id`, Unrag updates the existing document. The `content` column stores the full original text (useful for debugging and re-chunking), and `metadata` holds any JSON you passed during ingestion.
 
 ```sql
 create table chunks (
@@ -116,7 +116,7 @@ How you apply this schema depends on your workflow:
 psql $DATABASE_URL -f schema.sql
 ```
 
-**Drizzle migrations:** If you're using the Drizzle adapter, you can import UnRAG's schema into your Drizzle configuration and generate migrations from there. See the Drizzle adapter documentation for details.
+**Drizzle migrations:** If you're using the Drizzle adapter, you can import Unrag's schema into your Drizzle configuration and generate migrations from there. See the Drizzle adapter documentation for details.
 
 **Prisma migrations:** Create a migration with `prisma migrate dev --create-only`, paste the SQL into the generated file, then apply it. Prisma doesn't natively support the `vector` type, but raw SQL migrations work fine.
 
@@ -124,7 +124,7 @@ psql $DATABASE_URL -f schema.sql
 
 ## Environment configuration
 
-UnRAG reads your database connection from the `DATABASE_URL` environment variable:
+Unrag reads your database connection from the `DATABASE_URL` environment variable:
 
 ```bash
 # Standard Postgres connection string

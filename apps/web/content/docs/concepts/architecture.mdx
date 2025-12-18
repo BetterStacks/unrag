@@ -3,15 +3,15 @@ title: Architecture
 description: How the ingest and retrieve pipelines work from end to end.
 ---
 
-Understanding how UnRAG processes your content helps you make good decisions about chunking parameters, embedding models, and performance optimization. Let's walk through both pipelines in detail.
+Understanding how Unrag processes your content helps you make good decisions about chunking parameters, embedding models, and performance optimization. Let's walk through both pipelines in detail.
 
 ## The components
 
-Every UnRAG instance is built from three pluggable pieces:
+Every Unrag instance is built from three pluggable pieces:
 
 **The embedding provider** turns text into vectors. It has one job: take a string, call an embedding model (local or remote), and return an array of numbers representing that text's position in semantic space. The default provider uses the Vercel AI SDK to call OpenAI models, but you can implement the interface for any embedding service.
 
-**The store adapter** handles persistence. It knows how to write documents, chunks, and their embeddings to your database, and how to query for similar vectors. UnRAG ships adapters for Drizzle, Prisma, and raw SQL—all targeting Postgres with pgvector.
+**The store adapter** handles persistence. It knows how to write documents, chunks, and their embeddings to your database, and how to query for similar vectors. Unrag ships adapters for Drizzle, Prisma, and raw SQL—all targeting Postgres with pgvector.
 
 **The chunker** splits documents into smaller pieces. The default implementation does simple word-based chunking with configurable size and overlap. If you need sentence-aware chunking, markdown-specific splitting, or token-based boundaries, you can provide your own chunker function.
 
@@ -107,9 +107,9 @@ console.log(result.durations);
 
 ## Where RAG happens
 
-It's worth noting what UnRAG doesn't do: it doesn't call an LLM, build prompts, or generate answers. The "retrieval" in RAG is what UnRAG handles. The "augmented generation" part—taking retrieved chunks and using them as context for an LLM—is your application's responsibility.
+It's worth noting what Unrag doesn't do: it doesn't call an LLM, build prompts, or generate answers. The "retrieval" in RAG is what Unrag handles. The "augmented generation" part—taking retrieved chunks and using them as context for an LLM—is your application's responsibility.
 
-This separation is intentional. Prompt engineering, context window management, streaming responses, and model selection vary dramatically by use case. UnRAG gives you the retrieval primitive and trusts you to build the right generation layer for your application.
+This separation is intentional. Prompt engineering, context window management, streaming responses, and model selection vary dramatically by use case. Unrag gives you the retrieval primitive and trusts you to build the right generation layer for your application.
 
 A typical RAG flow looks like:
 
@@ -119,5 +119,5 @@ A typical RAG flow looks like:
 4. Build a prompt with system instructions, context, and the user's question
 5. Call your LLM and stream the response
 
-UnRAG handles step 2. Everything else is your code, using whatever patterns and libraries you prefer.
+Unrag handles step 2. Everything else is your code, using whatever patterns and libraries you prefer.
 

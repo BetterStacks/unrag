@@ -21,7 +21,7 @@ export async function GET(
     <DefaultImage
       title={page.data.title}
       description={page.data.description}
-      site="UnRAG"
+      site="Unrag"
       icon={<img src={logoSrc} width={120} height={30} alt="" />}
     />,
     {

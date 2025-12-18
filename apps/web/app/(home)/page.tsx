@@ -28,30 +28,30 @@ const result = await engine.retrieve({
 console.log(result.chunks);`;
 
 export const metadata: Metadata = {
-  title: 'UnRAG | Install RAG as source files, not dependencies',
+  title: 'Unrag | Install RAG as source files, not dependencies',
   description:
-    'UnRAG vendors small, auditable ingest/retrieve primitives into your codebase as source you own. Two methods: ingest() and retrieve(). Built for Postgres + pgvector.',
+    'Unrag vendors small, auditable ingest/retrieve primitives into your codebase as source you own. Two methods: ingest() and retrieve(). Built for Postgres + pgvector.',
   openGraph: {
-    title: 'UnRAG | Install RAG as source files, not dependencies',
+    title: 'Unrag | Install RAG as source files, not dependencies',
     description:
-      'UnRAG vendors small, auditable ingest/retrieve primitives into your codebase as source you own. Two methods: ingest() and retrieve(). Built for Postgres + pgvector.',
+      'Unrag vendors small, auditable ingest/retrieve primitives into your codebase as source you own. Two methods: ingest() and retrieve(). Built for Postgres + pgvector.',
     url: '/',
-    siteName: 'UnRAG',
+    siteName: 'Unrag',
     type: 'website',
     images: [
       {
         url: '/opengraph-image.png',
         width: 1200,
         height: 630,
-        alt: 'UnRAG',
+        alt: 'Unrag',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'UnRAG | Install RAG as source files, not dependencies',
+    title: 'Unrag | Install RAG as source files, not dependencies',
     description:
-      'UnRAG vendors small, auditable ingest/retrieve primitives into your codebase as source you own. Two methods: ingest() and retrieve(). Built for Postgres + pgvector.',
+      'Unrag vendors small, auditable ingest/retrieve primitives into your codebase as source you own. Two methods: ingest() and retrieve(). Built for Postgres + pgvector.',
     images: ['/twitter-image.png'],
   },
   keywords: ['RAG', 'retrieval augmented generation', 'pgvector', 'Postgres', 'TypeScript', 'ingest', 'retrieve'],

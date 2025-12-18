@@ -1,9 +1,9 @@
 ---
 title: AI SDK Embedding Provider
-description: The default embedding provider that ships with UnRAG, built on Vercel's AI SDK.
+description: The default embedding provider that ships with Unrag, built on Vercel's AI SDK.
 ---
 
-UnRAG ships with an embedding provider built on Vercel's AI SDK. This provider handles the communication with OpenAI's embedding API (or compatible endpoints) and returns the vectors your store adapter needs.
+Unrag ships with an embedding provider built on Vercel's AI SDK. This provider handles the communication with OpenAI's embedding API (or compatible endpoints) and returns the vectors your store adapter needs.
 
 ## How it works
 
@@ -99,7 +99,7 @@ Common failures include:
 - **Invalid API key**: Check your `AI_GATEWAY_API_KEY` environment variable
 - **Model not found**: Verify the model string is correct
 
-For production systems, wrap your UnRAG calls in error handling:
+For production systems, wrap your Unrag calls in error handling:
 
 ```ts
 try {

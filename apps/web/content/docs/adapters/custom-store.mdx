@@ -24,7 +24,7 @@ export const myStore: VectorStore = {
 };
 ```
 
-That's the entire contract. UnRAG calls `upsert()` during ingestion and `query()` during retrieval. Everything else—how you connect to your database, how you structure your tables, what distance function you use—is up to you.
+That's the entire contract. Unrag calls `upsert()` during ingestion and `query()` during retrieval. Everything else—how you connect to your database, how you structure your tables, what distance function you use—is up to you.
 
 ## Understanding the Chunk type
 
@@ -271,7 +271,7 @@ This loses the precision benefits of chunking but simplifies the schema signific
 
 ## Example: Non-Postgres vector stores
 
-You can adapt UnRAG to work with other vector databases. Here's a sketch for Pinecone:
+You can adapt Unrag to work with other vector databases. Here's a sketch for Pinecone:
 
 ```ts
 import { Pinecone } from "@pinecone-database/pinecone";
@@ -322,7 +322,7 @@ export const pineconeStore: VectorStore = {
 };
 ```
 
-The exact implementation depends on your chosen database's API, but the pattern is the same: map UnRAG's simple interface to whatever your storage requires.
+The exact implementation depends on your chosen database's API, but the pattern is the same: map Unrag's simple interface to whatever your storage requires.
 
 ## Testing your adapter
 

@@ -85,11 +85,11 @@ This means:
 
 2. **If you change models, re-embed everything.** There's no shortcut. Delete your existing embeddings and regenerate them with the new model.
 
-3. **Store which model was used.** UnRAG records `embedding_dimension` in the database, and the `embeddingModel` field in responses tells you which model was active.
+3. **Store which model was used.** Unrag records `embedding_dimension` in the database, and the `embeddingModel` field in responses tells you which model was active.
 
 ## Detecting model changes
 
-UnRAG tracks the embedding model name in every response:
+Unrag tracks the embedding model name in every response:
 
 ```ts
 const result = await engine.ingest({ sourceId: "doc-1", content: "..." });

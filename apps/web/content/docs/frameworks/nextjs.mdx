@@ -1,14 +1,14 @@
 ---
 title: Next.js Integration
-description: Using UnRAG in Next.js with Route Handlers, Server Actions, and best practices.
+description: Using Unrag in Next.js with Route Handlers, Server Actions, and best practices.
 ---
 
-Next.js is probably the most common environment for UnRAG. The framework's server-side capabilities make it easy to run database queries and embedding calls without exposing credentials to the browser. Here's how to integrate UnRAG effectively.
+Next.js is probably the most common environment for Unrag. The framework's server-side capabilities make it easy to run database queries and embedding calls without exposing credentials to the browser. Here's how to integrate Unrag effectively.
 
 ## The fundamental rule: server only
 
 <Callout type="warn" title="Server-side only">
-UnRAG must run on the server. Your database connection string and embedding API key are secrets that cannot appear in client bundles.
+Unrag must run on the server. Your database connection string and embedding API key are secrets that cannot appear in client bundles.
 </Callout>
 
 Fortunately, Next.js makes this easy with Route Handlers and Server Actions.
@@ -137,7 +137,7 @@ This ensures the same pool is reused across hot reloads. In production builds, t
 
 ## Middleware considerations
 
-UnRAG itself doesn't run in middleware (Edge runtime limitations apply), but you can use middleware to protect your UnRAG endpoints:
+Unrag itself doesn't run in middleware (Edge runtime limitations apply), but you can use middleware to protect your Unrag endpoints:
 
 ```ts
 // middleware.ts
@@ -157,7 +157,7 @@ export function middleware(request: NextRequest) {
 }
 ```
 
-The actual UnRAG operations happen in Route Handlers and Server Actions, which run in the Node.js runtime where your database drivers work normally.
+The actual Unrag operations happen in Route Handlers and Server Actions, which run in the Node.js runtime where your database drivers work normally.
 
 ## Caching search results
 

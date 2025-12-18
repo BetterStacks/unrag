@@ -89,7 +89,7 @@ console.log(`Found ${files.length} files to index`);
 
 ## Handling frontmatter
 
-Most markdown files have YAML frontmatter with metadata. Extract it and pass it to UnRAG:
+Most markdown files have YAML frontmatter with metadata. Extract it and pass it to Unrag:
 
 ```ts
 import matter from "gray-matter";
@@ -169,7 +169,7 @@ docs/guides/auth/login.md   → docs:guides/auth/login
 content/blog/2024-post.mdx  → docs:content/blog/2024-post
 ```
 
-When you re-run ingestion, files with the same path get the same `sourceId`, so UnRAG updates them rather than creating duplicates.
+When you re-run ingestion, files with the same path get the same `sourceId`, so Unrag updates them rather than creating duplicates.
 
 ## Progress tracking and error handling
 

@@ -1,9 +1,9 @@
 ---
 title: Installation
-description: Run the CLI to install UnRAG into your project and understand what gets created.
+description: Run the CLI to install Unrag into your project and understand what gets created.
 ---
 
-Installing UnRAG is a one-command operation. You run the initializer, answer a few questions (or skip them with flags), and the CLI writes the necessary files into your project.
+Installing Unrag is a one-command operation. You run the initializer, answer a few questions (or skip them with flags), and the CLI writes the necessary files into your project.
 
 ## Running the initializer
 
@@ -19,7 +19,7 @@ This will prompt you for:
 
 2. **Store adapter** — which database adapter to use. Your options are Drizzle (a typed schema with Drizzle ORM), Prisma (using raw SQL through Prisma's client), or Raw SQL (using the `pg` driver directly).
 
-3. **Import alias base** — the TypeScript path alias for importing UnRAG. The default is `@unrag`, which means you'll import from `@unrag/core`, `@unrag/config`, etc. If you already have an `@unrag` alias or prefer something else, you can change it.
+3. **Import alias base** — the TypeScript path alias for importing Unrag. The default is `@unrag`, which means you'll import from `@unrag/core`, `@unrag/config`, etc. If you already have an `@unrag` alias or prefer something else, you can change it.
 
 If you want to skip the prompts—useful in CI or when scripting—pass the `--yes` flag along with your choices:
 
@@ -65,9 +65,9 @@ After initialization completes, your project will have several new files:
 
 The CLI may also modify your existing configuration:
 
-**Dependencies.** UnRAG adds the packages needed for your chosen adapter to your `package.json`. For Drizzle, that includes `drizzle-orm` and `pg`. For Prisma, it adds `@prisma/client`. For Raw SQL, just `pg`. All adapters need the `ai` package for embedding. If these dependencies already exist, UnRAG won't overwrite their versions.
+**Dependencies.** Unrag adds the packages needed for your chosen adapter to your `package.json`. For Drizzle, that includes `drizzle-orm` and `pg`. For Prisma, it adds `@prisma/client`. For Raw SQL, just `pg`. All adapters need the `ai` package for embedding. If these dependencies already exist, Unrag won't overwrite their versions.
 
-**TypeScript paths.** If UnRAG detects you're in a Next.js project, it patches your `tsconfig.json` (or `jsconfig.json`) to add path aliases:
+**TypeScript paths.** If Unrag detects you're in a Next.js project, it patches your `tsconfig.json` (or `jsconfig.json`) to add path aliases:
 
 ```json
 {
@@ -80,7 +80,7 @@ The CLI may also modify your existing configuration:
 }
 ```
 
-This lets you import UnRAG modules cleanly without relative paths threading through your codebase.
+This lets you import Unrag modules cleanly without relative paths threading through your codebase.
 
 ## Installing dependencies
 
@@ -109,9 +109,9 @@ yarn
 </Tab>
 </Tabs>
 
-## Updating UnRAG
+## Updating Unrag
 
-Because UnRAG vendors code into your project, "updating" means re-running the initializer. The CLI will ask before overwriting any existing files, so you can review changes before accepting them. A typical update workflow:
+Because Unrag vendors code into your project, "updating" means re-running the initializer. The CLI will ask before overwriting any existing files, so you can review changes before accepting them. A typical update workflow:
 
 1. Run `bunx unrag init` (it reads your previous choices from `unrag.json`)
 2. Review the diff for any files the CLI wants to overwrite

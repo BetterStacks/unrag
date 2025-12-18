@@ -3,7 +3,7 @@ title: Multi-Tenant Search
 description: Isolate search results by tenant using sourceId scoping and custom filters.
 ---
 
-Multi-tenant applications need to ensure one customer's data never appears in another customer's search results. UnRAG provides built-in scoping through `sourceId` prefixes, and you can extend this with custom filters for more complex requirements.
+Multi-tenant applications need to ensure one customer's data never appears in another customer's search results. Unrag provides built-in scoping through `sourceId` prefixes, and you can extend this with custom filters for more complex requirements.
 
 ## The sourceId scoping pattern
 
@@ -232,7 +232,7 @@ Without indexes, filtering by metadata requires scanning all rows, which gets sl
 ## Security considerations
 
 <Callout type="warn" title="Important">
-Tenant isolation in UnRAG happens at the query level, not the database level. A bug in your application code could expose one tenant's data to another.
+Tenant isolation in Unrag happens at the query level, not the database level. A bug in your application code could expose one tenant's data to another.
 </Callout>
 
 Consider defense in depth:

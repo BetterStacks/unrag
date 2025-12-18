@@ -24,7 +24,7 @@ export const myProvider: EmbeddingProvider = {
 
 **`name`** identifies this provider. It appears in ingest and retrieve responses, helping you debug and verify which model was used. Use a format like `vendor:model-name` or `local:model-id`.
 
-**`dimensions`** optionally declares the expected embedding size. UnRAG stores the actual dimension alongside each embedding in the database, so this is mainly for documentation and validation.
+**`dimensions`** optionally declares the expected embedding size. Unrag stores the actual dimension alongside each embedding in the database, so this is mainly for documentation and validation.
 
 **`embed`** is the function that does the work. It receives context about what's being embedded and returns a vector (array of numbers).
 

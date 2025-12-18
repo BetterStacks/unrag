@@ -8,7 +8,7 @@ This guide walks you through the complete setup from a fresh project to your fir
 <Steps>
 <Step>
 
-### Initialize UnRAG
+### Initialize Unrag
 
 Run the CLI with your preferences. For this quickstart, we'll use Drizzle as the store adapter:
 
@@ -46,7 +46,7 @@ yarn
 
 ### Set environment variables
 
-UnRAG needs two environment variables to function. Add them to your `.env` file (or however you manage secrets):
+Unrag needs two environment variables to function. Add them to your `.env` file (or however you manage secrets):
 
 ```bash
 # Your Postgres connection string
@@ -122,7 +122,7 @@ async function ingestDemo() {
   const result = await engine.ingest({
     sourceId: "docs:quickstart",
     content: `
-      UnRAG is a RAG installer for TypeScript projects. It installs a small,
+      Unrag is a RAG installer for TypeScript projects. It installs a small,
       composable module into your codebase as vendored source files. Instead
       of depending on an external SDK, you own the code and can modify it
       to fit your needs.
@@ -163,7 +163,7 @@ async function retrieveDemo() {
   const engine = createUnragEngine();
 
   const result = await engine.retrieve({
-    query: "What are the core operations in UnRAG?",
+    query: "What are the core operations in Unrag?",
     topK: 5,
   });
 

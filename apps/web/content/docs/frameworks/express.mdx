@@ -1,9 +1,9 @@
 ---
 title: Express Integration
-description: Using UnRAG with Express.js for traditional Node.js server applications.
+description: Using Unrag with Express.js for traditional Node.js server applications.
 ---
 
-Express remains one of the most straightforward ways to build a Node.js API. UnRAG integrates cleanly—you import the engine, call its methods in your route handlers, and return JSON responses. No special setup required beyond what UnRAG already generates.
+Express remains one of the most straightforward ways to build a Node.js API. Unrag integrates cleanly—you import the engine, call its methods in your route handlers, and return JSON responses. No special setup required beyond what Unrag already generates.
 
 ## Basic search endpoint
 
@@ -145,7 +145,7 @@ const pool = new Pool({
 
 ## Adding authentication
 
-UnRAG doesn't handle auth—that's your application's responsibility. Here's a simple pattern:
+Unrag doesn't handle auth—that's your application's responsibility. Here's a simple pattern:
 
 ```ts
 import type { Request, Response, NextFunction } from "express";
@@ -173,7 +173,7 @@ app.get("/api/search", async (req, res) => {
 
 ## Error handling
 
-Wrap UnRAG operations in try-catch blocks and return appropriate HTTP status codes. The engine throws on failures (network errors, database issues, invalid configuration), and you should handle these gracefully:
+Wrap Unrag operations in try-catch blocks and return appropriate HTTP status codes. The engine throws on failures (network errors, database issues, invalid configuration), and you should handle these gracefully:
 
 ```ts
 app.get("/api/search", async (req, res) => {

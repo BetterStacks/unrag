@@ -3,7 +3,7 @@ title: Chunking
 description: How documents are split into chunks and why it matters for retrieval quality.
 ---
 
-Chunking is how UnRAG splits your documents into smaller pieces before embedding them. The quality of your retrieval depends significantly on how well your chunking strategy matches your content type and use case.
+Chunking is how Unrag splits your documents into smaller pieces before embedding them. The quality of your retrieval depends significantly on how well your chunking strategy matches your content type and use case.
 
 ## Why chunk at all?
 
@@ -15,7 +15,7 @@ The tradeoff is that chunking can split information across boundaries. If an imp
 
 ## The default chunker
 
-UnRAG ships with a simple word-based chunker. It splits text on whitespace, groups words into chunks of the configured size, and creates overlap by starting each new chunk some words back from where the previous one ended.
+Unrag ships with a simple word-based chunker. It splits text on whitespace, groups words into chunks of the configured size, and creates overlap by starting each new chunk some words back from where the previous one ended.
 
 Default settings:
 - **chunkSize**: 200 words

@@ -3,7 +3,7 @@ title: Prisma Adapter
 description: Use the Prisma adapter with examples for different providers and existing Prisma setups.
 ---
 
-The Prisma adapter integrates UnRAG with projects using Prisma ORM. Since Prisma doesn't have native support for pgvector types, the adapter uses raw SQL queries through `$executeRaw` and `$queryRaw`. This gives you Prisma's connection management and transaction handling while working around its schema limitations for vector operations.
+The Prisma adapter integrates Unrag with projects using Prisma ORM. Since Prisma doesn't have native support for pgvector types, the adapter uses raw SQL queries through `$executeRaw` and `$queryRaw`. This gives you Prisma's connection management and transaction handling while working around its schema limitations for vector operations.
 
 ## Basic setup
 
@@ -21,7 +21,7 @@ The adapter uses your Prisma client for all database operations, executing raw S
 
 ## Using your existing Prisma client
 
-If your project already has a Prisma client configured (which most Prisma projects do), pass it directly to UnRAG:
+If your project already has a Prisma client configured (which most Prisma projects do), pass it directly to Unrag:
 
 ```ts
 // Your existing Prisma setup (maybe in lib/prisma.ts)
@@ -60,7 +60,7 @@ export function createUnragEngine() {
 }
 ```
 
-This keeps UnRAG on the same connection pool as your application, avoiding the overhead of multiple Prisma clients.
+This keeps Unrag on the same connection pool as your application, avoiding the overhead of multiple Prisma clients.
 
 ## Connecting to Neon with Prisma
 
@@ -145,7 +145,7 @@ DATABASE_URL="postgresql://user:password@myproxy.proxy-xxx.us-east-1.rds.amazona
 
 ## Managing the schema
 
-Prisma doesn't natively understand pgvector types, but you can still manage the schema through Prisma migrations by using raw SQL. Create a migration and add the UnRAG tables manually:
+Prisma doesn't natively understand pgvector types, but you can still manage the schema through Prisma migrations by using raw SQL. Create a migration and add the Unrag tables manually:
 
 ```bash
 npx prisma migrate dev --create-only --name add_unrag_tables
@@ -157,7 +157,7 @@ Then edit the generated migration file to include the schema:
 -- Enable pgvector
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- Create UnRAG tables
+-- Create Unrag tables
 CREATE TABLE documents (
   id UUID PRIMARY KEY,
   source_id TEXT NOT NULL,
@@ -199,7 +199,7 @@ You don't need to define Prisma models for these tables since the adapter uses r
 
 ## Optional: Adding Prisma models
 
-If you want to query UnRAG tables through Prisma for other purposes (admin UIs, analytics), you can add models that ignore the vector column:
+If you want to query Unrag tables through Prisma for other purposes (admin UIs, analytics), you can add models that ignore the vector column:
 
 ```prisma
 model Document {
@@ -228,10 +228,10 @@ model Chunk {
 }
 
 // Note: We skip the embeddings model since Prisma can't handle the vector type
-// The UnRAG adapter handles embeddings through raw SQL
+// The Unrag adapter handles embeddings through raw SQL
 ```
 
-With these models, you can use Prisma to query documents and chunks while UnRAG handles the vector operations through its adapter.
+With these models, you can use Prisma to query documents and chunks while Unrag handles the vector operations through its adapter.
 
 ## How the adapter handles vectors
 
@@ -265,7 +265,7 @@ The `<=>` operator computes cosine distance, with lower scores indicating higher
 
 ## Transactions with application data
 
-You can coordinate UnRAG operations with your application's Prisma transactions:
+You can coordinate Unrag operations with your application's Prisma transactions:
 
 ```ts
 import { prisma } from "@/lib/prisma";

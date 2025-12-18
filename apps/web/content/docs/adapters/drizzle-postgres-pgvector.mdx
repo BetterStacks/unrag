@@ -3,7 +3,7 @@ title: Drizzle Adapter
 description: Use the Drizzle ORM adapter with examples for Neon, Supabase, AWS RDS, and existing Drizzle setups.
 ---
 
-The Drizzle adapter gives you type-safe database access and integrates cleanly with Drizzle's migration system. If you're already using Drizzle in your project, this is the natural choice—you can import UnRAG's schema into your existing configuration and manage everything together.
+The Drizzle adapter gives you type-safe database access and integrates cleanly with Drizzle's migration system. If you're already using Drizzle in your project, this is the natural choice—you can import Unrag's schema into your existing configuration and manage everything together.
 
 ## Basic setup
 
@@ -24,7 +24,7 @@ This creates a store adapter that uses your Drizzle instance for all database op
 
 ## Connecting to Neon
 
-Neon is a serverless Postgres provider that works well with UnRAG. For serverless environments, use Neon's HTTP driver for lower latency on cold starts:
+Neon is a serverless Postgres provider that works well with Unrag. For serverless environments, use Neon's HTTP driver for lower latency on cold starts:
 
 ```ts
 import { neon } from "@neondatabase/serverless";
@@ -129,7 +129,7 @@ export const store = createDrizzleVectorStore(db);
 
 ## Using your existing Drizzle instance
 
-If your project already has Drizzle configured, you don't need to create a separate connection for UnRAG. Pass your existing Drizzle instance directly:
+If your project already has Drizzle configured, you don't need to create a separate connection for Unrag. Pass your existing Drizzle instance directly:
 
 ```ts
 // Your existing db setup (maybe in lib/db.ts)
@@ -162,11 +162,11 @@ export function createUnragEngine() {
 }
 ```
 
-This approach means UnRAG shares the same connection pool as the rest of your application, which is more efficient and simpler to manage.
+This approach means Unrag shares the same connection pool as the rest of your application, which is more efficient and simpler to manage.
 
-## Integrating UnRAG's schema with your Drizzle migrations
+## Integrating Unrag's schema with your Drizzle migrations
 
-UnRAG's Drizzle adapter comes with a schema definition you can import into your project's Drizzle configuration. This lets you manage UnRAG tables alongside your application tables in a single migration workflow.
+Unrag's Drizzle adapter comes with a schema definition you can import into your project's Drizzle configuration. This lets you manage Unrag tables alongside your application tables in a single migration workflow.
 
 ```ts
 // In your drizzle schema file (e.g., lib/db/schema.ts)
@@ -187,7 +187,7 @@ export const posts = pgTable("posts", {
   // ...
 });
 
-// Re-export UnRAG tables so migrations pick them up
+// Re-export Unrag tables so migrations pick them up
 export const { documents, chunks, embeddings } = unrag;
 
 // Or export everything together
@@ -198,11 +198,11 @@ export const schema = {
 };
 ```
 
-Now when you run `drizzle-kit generate` or `drizzle-kit push`, Drizzle will manage both your application tables and UnRAG's tables together.
+Now when you run `drizzle-kit generate` or `drizzle-kit push`, Drizzle will manage both your application tables and Unrag's tables together.
 
 ## Transaction example
 
-Because the adapter uses your Drizzle instance, you can wrap operations in transactions that span both UnRAG and your application data:
+Because the adapter uses your Drizzle instance, you can wrap operations in transactions that span both Unrag and your application data:
 
 ```ts
 import { db } from "@/lib/db";

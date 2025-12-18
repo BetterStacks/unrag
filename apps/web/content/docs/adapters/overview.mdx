@@ -1,13 +1,13 @@
 ---
 title: Store Adapters Overview
-description: How UnRAG stores vectors in Postgres and which adapter to choose.
+description: How Unrag stores vectors in Postgres and which adapter to choose.
 ---
 
-UnRAG stores everything in Postgres using the pgvector extension. The store adapter is the piece that handles the database operations—creating records, building queries, managing transactions. UnRAG ships three adapters, each suited to different project setups.
+Unrag stores everything in Postgres using the pgvector extension. The store adapter is the piece that handles the database operations—creating records, building queries, managing transactions. Unrag ships three adapters, each suited to different project setups.
 
 ## The three adapters
 
-**Drizzle** is the best choice if you're already using Drizzle ORM or want type-safe database access. The adapter uses Drizzle's query builder and provides a typed schema you can import into your own Drizzle configuration. This means UnRAG's tables become first-class citizens in your migration workflow.
+**Drizzle** is the best choice if you're already using Drizzle ORM or want type-safe database access. The adapter uses Drizzle's query builder and provides a typed schema you can import into your own Drizzle configuration. This means Unrag's tables become first-class citizens in your migration workflow.
 
 **Prisma** works well if Prisma is your project's ORM. Since Prisma doesn't natively support pgvector types, this adapter uses raw SQL queries through `$executeRaw` and `$queryRaw`. You get Prisma's connection management and transaction handling while bypassing its schema limitations for vector operations.
 

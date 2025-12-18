@@ -7,7 +7,7 @@ Once you have content ingested, the next step is exposing retrieval through an A
 
 ## The basic pattern
 
-A retrieval endpoint receives a query from the client, passes it to UnRAG, and returns the relevant chunks. Here's a minimal implementation as a Next.js Route Handler:
+A retrieval endpoint receives a query from the client, passes it to Unrag, and returns the relevant chunks. Here's a minimal implementation as a Next.js Route Handler:
 
 ```ts
 // app/api/search/route.ts
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 }
 ```
 
-Your frontend can now call `/api/search?q=how+do+I+install` and get back relevant chunks. The response includes everything UnRAG returns: the chunks themselves, similarity scores, timing information, and which embedding model was used.
+Your frontend can now call `/api/search?q=how+do+I+install` and get back relevant chunks. The response includes everything Unrag returns: the chunks themselves, similarity scores, timing information, and which embedding model was used.
 
 ## Adding scoped search
 
@@ -66,7 +66,7 @@ Now `/api/search?q=deployment&collection=docs:` searches only chunks whose `sour
 
 ## Shaping the response
 
-The raw UnRAG response includes everything, but you might want to return a simpler structure to your frontend. Here's a version that transforms the response into a cleaner format:
+The raw Unrag response includes everything, but you might want to return a simpler structure to your frontend. Here's a version that transforms the response into a cleaner format:
 
 ```ts
 // app/api/search/route.ts

@@ -71,7 +71,7 @@ The maximum length prevents abuse—embedding extremely long queries wastes API 
 
 ## Shaping the response
 
-The raw UnRAG response includes internal details (document IDs, indices) that your frontend probably doesn't need. Create a cleaner response shape:
+The raw Unrag response includes internal details (document IDs, indices) that your frontend probably doesn't need. Create a cleaner response shape:
 
 ```ts
 export async function GET(request: Request) {
