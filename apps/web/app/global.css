@@ -82,3 +82,10 @@
   background-color: var(--color-fd-background);
   --color-fd-muted-foreground: var(--unrag-fg-muted);
 }
+
+/* Home layout: make navbar truly transparent (no tint / blur / border). */
+.unrag-home-nav > div {
+  background-color: transparent !important;
+  border-bottom-color: transparent !important;
+  backdrop-filter: none !important;
+}

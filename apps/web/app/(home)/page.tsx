@@ -7,6 +7,7 @@ import { CodeBlock } from './components/code-block';
 import { CopyButton } from './components/copy-button';
 import { GITHUB_REPO } from '@/constants';
 import { GlowingStarsBackground } from './components/glowing-stars-background';
+import bannerImg from '@/public/banner.png'
 
 const CODE_EXAMPLE = `import { createUnragEngine } from "@unrag/config";
 
@@ -61,17 +62,23 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--color-fd-background)]">
-      {/* Hero - forced dark for circuit visibility */}
-      <section className="relative min-h-[90vh] flex flex-col items-center justify-center px-6 py-24 overflow-hidden bg-[hsl(0,0%,2%)]">
+
+      {/* Landscape background */}
+      <Image src={bannerImg} alt="Nigh-time view of a windy amber road through the mountains" className="absolute inset-0 z-[1] w-screen h-screen opacity-30" />
+
+      <section className="relative min-h-screen flex flex-col items-center justify-center px-6 py-24 overflow-hidden bg-[hsl(0,0%,2%)]">
         {/* Glowing stars background */}
         <GlowingStarsBackground className="z-[1]" />
+
+        {/* Blender to match the bottom section */}
+        <div className="absolute bottom-0 z-[2] w-screen h-1/2 bg-linear-to-b from-transparent to-[#050505]" />
 
         {/* Gradient overlays for depth */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsla(0,0%,100%,0.05),transparent_55%)] pointer-events-none" />
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[hsl(0,0%,2%)] opacity-60 pointer-events-none" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,hsl(0,0%,2%)_70%)] opacity-45 pointer-events-none" />
 
-        <div className="relative z-10 max-w-4xl mx-auto text-center">
+        <div className="relative z-10 max-w-4xl mx-auto text-center translate-y-[-10%]">
           {/* Headline */}
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight bg-gradient-to-b from-white to-white/55 bg-clip-text text-transparent mb-6 leading-[1]">
             Composable & extendable primitives to build rag systems
