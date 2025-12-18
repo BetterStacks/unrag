@@ -32,6 +32,21 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Verify npm token present
+        run: |
+          if [ -z "${NPM_TOKEN}" ]; then
+            echo "Missing NPM_TOKEN. Add it as a GitHub *Repository Secret* at Settings -> Secrets and variables -> Actions -> Repository secrets."
+            exit 1
+          fi
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Configure npm auth
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Create Release Pull Request or Publish
         uses: changesets/action@v1
         with:
