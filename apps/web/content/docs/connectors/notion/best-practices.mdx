@@ -1,0 +1,49 @@
+---
+title: Best practices
+description: Practical guidance for running the Notion connector safely and predictably.
+---
+
+## Keep tokens server-side
+
+The Notion token is a credential. Only run the connector in server environments—route handlers, server actions, jobs, scripts. Never call it from the browser, and never expose the token to client-side code.
+
+## Use a namespace prefix for multi-tenant apps
+
+If your app has multiple tenants or users, always set `sourceIdPrefix` to avoid cross-tenant retrieval and to enable safe namespace wipes:
+
+```ts
+await syncNotionPages({
+  engine,
+  token: process.env.NOTION_TOKEN!,
+  pageIds: [...],
+  sourceIdPrefix: `tenant:${tenantId}:`,
+});
+```
+
+This yields source IDs like `tenant:acme:notion:page:<pageId>`. When retrieving, scope with `{ sourceId: "tenant:acme:" }` to search only that tenant's content. When a tenant churns, you can wipe their namespace with `engine.delete({ sourceIdPrefix: "tenant:acme:" })`.
+
+## Treat sync as idempotent
+
+Re-running sync with the same page IDs is safe. The connector uses stable `sourceId` values, and Unrag's store adapters replace by `sourceId` under the hood. You don't need to delete before re-syncing.
+
+## Be explicit about what you ingest
+
+The v1 connector is intentionally conservative: pages-only, with a curated list of page IDs you control. Keep that list somewhere predictable—a config file, a database table, or an admin UI—and sync only those pages. This makes debugging straightforward and prevents runaway ingestion.
+
+## Expect rendering gaps
+
+The v1 renderer supports common block types, but Notion has many. Unsupported blocks (embeds, synced blocks, databases) are skipped. If your team depends on specific blocks, you can extend the renderer since the connector is vendored. Open `lib/unrag/connectors/notion/render.ts` and add cases for the blocks you need.
+
+## Limit deep nesting
+
+Notion pages can contain deeply nested blocks. The `loadNotionPageDocument` helper accepts a `maxDepth` parameter, which defaults to a conservative value. If you increase depth, expect slower syncs and larger API call counts.
+
+If you need full-depth rendering for complex pages, consider caching the Notion API responses or implementing incremental updates on top of the vendored code.
+
+## Rate limits and batching
+
+The Notion API enforces rate limits. For larger page lists, batch your page IDs, add pauses between batches, and use the `onProgress` callback to instrument failures and retries. If you need aggressive retrying, wrap calls to `syncNotionPages` or fork the vendored code to add exponential backoff.
+
+## Avoid leaking sensitive content
+
+Notion pages often contain internal information that shouldn't end up in a public search index. Store embeddings in a secured database, scope retrieval per tenant or role, and consider redacting sensitive content before ingestion. The vendored code makes custom pre-processing easy—just modify the content before calling `engine.ingest`.

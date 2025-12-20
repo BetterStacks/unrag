@@ -1,7 +1,7 @@
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { confirm, isCancel, cancel } from "@clack/prompts";
-import { ensureDir, exists } from "./fs";
+import { ensureDir, exists, listFilesRecursive } from "./fs";
 
 export type RegistrySelection = {
   projectRoot: string;
@@ -294,6 +294,72 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
     const raw = await readText(mapping.src);
     const content = mapping.transform ? mapping.transform(raw) : raw;
     await writeText(mapping.dest, content);
+  }
+}
+
+export type ConnectorSelection = {
+  projectRoot: string;
+  registryRoot: string;
+  installDir: string; // project-relative posix
+  connector: string; // e.g. "notion"
+  yes?: boolean; // non-interactive skip-overwrite
+};
+
+export async function copyConnectorFiles(selection: ConnectorSelection) {
+  const toAbs = (projectRelative: string) =>
+    path.join(selection.projectRoot, projectRelative);
+
+  const installBaseAbs = toAbs(selection.installDir);
+  const connectorRegistryAbs = path.join(
+    selection.registryRoot,
+    "connectors",
+    selection.connector
+  );
+
+  if (!(await exists(connectorRegistryAbs))) {
+    throw new Error(
+      `Unknown connector registry: ${path.relative(selection.registryRoot, connectorRegistryAbs)}`
+    );
+  }
+
+  const files = await listFilesRecursive(connectorRegistryAbs);
+
+  const destRootAbs = path.join(
+    installBaseAbs,
+    "connectors",
+    selection.connector
+  );
+
+  const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY;
+
+  for (const src of files) {
+    if (!(await exists(src))) {
+      throw new Error(`Registry file missing: ${src}`);
+    }
+
+    const rel = path.relative(connectorRegistryAbs, src);
+    const dest = path.join(destRootAbs, rel);
+
+    if (await exists(dest)) {
+      if (nonInteractive) {
+        continue;
+      }
+
+      const answer = await confirm({
+        message: `Overwrite ${path.relative(selection.projectRoot, dest)}?`,
+        initialValue: false,
+      });
+      if (isCancel(answer)) {
+        cancel("Cancelled.");
+        return;
+      }
+      if (!answer) {
+        continue;
+      }
+    }
+
+    const raw = await readText(src);
+    await writeText(dest, raw);
   }
 }
 

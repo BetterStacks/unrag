@@ -1,0 +1,395 @@
+---
+title: API
+description: Method reference for the vendored Notion connector module.
+---
+
+The connector ships as vendored code inside your Unrag install directory at `<installDir>/connectors/notion/**`. In application code you typically import from your alias base:
+
+```ts
+import { syncNotionPages } from "@unrag/connectors/notion";
+```
+
+## Primary API
+
+### `syncNotionPages(input)`
+
+This is the "happy path" entry point. It fetches each page, renders a text representation, and ingests the result into your Unrag store using a stable `sourceId` per page.
+
+At a high level, you pass an engine, a token, and the pages you care about:
+
+```ts
+await syncNotionPages({
+  engine,
+  token: process.env.NOTION_TOKEN!,
+  pageIds: ["b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab"],
+});
+```
+
+The function returns a small summary so you can log results or surface them in an admin UI: `pageCount`, `succeeded`, `failed`, `deleted`, and `errors`.
+
+#### Required parameters
+
+`engine` is a `ContextEngine` from `createUnragEngine()`. This is where the connector ingests content.
+
+`token` is your Notion integration token, usually read from an environment variable.
+
+`pageIds` is an array of page IDs or page URLs. The connector accepts both formats and normalizes them internally.
+
+#### Optional parameters
+
+`sourceIdPrefix` prepends a namespace to every `sourceId`. This is useful for multi-tenant apps where you want to partition content by tenant:
+
+```ts
+await syncNotionPages({
+  engine,
+  token: process.env.NOTION_TOKEN!,
+  pageIds: ["b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab"],
+  sourceIdPrefix: `tenant:${tenantId}:`,
+});
+```
+
+With a prefix, the resulting source IDs look like `tenant:acme:notion:page:<pageId>`. You can then retrieve with `scope: { sourceId: "tenant:acme:" }` to search only that tenant's content.
+
+`deleteOnNotFound` tells the connector to delete the previously ingested document if a page is not found or inaccessible. This is useful when you keep a static list of page IDs and want your index to reflect reality after permissions change or a page is deleted:
+
+```ts
+await syncNotionPages({
+  engine,
+  token: process.env.NOTION_TOKEN!,
+  pageIds: ["b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab"],
+  deleteOnNotFound: true,
+});
+```
+
+`onProgress` is a callback that receives events as each page is processed. Use it for logging, progress bars, or retry instrumentation.
+
+### `loadNotionPageDocument(args)`
+
+This lower-level helper loads a single page and returns a normalized document shape with `sourceId`, `content`, and `metadata`. Use it when you want to add custom metadata, control chunking, or decide exactly how ingestion happens (batching, retries, conditional writes).
+
+Here's an example that adds custom metadata before ingesting:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { createNotionClient, loadNotionPageDocument } from "@unrag/connectors/notion";
+
+export async function ingestWithCustomMetadata() {
+  const engine = createUnragEngine();
+  const notion = createNotionClient({ token: process.env.NOTION_TOKEN! });
+
+  const doc = await loadNotionPageDocument({
+    notion,
+    pageIdOrUrl: "b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab",
+    maxDepth: 6,
+    sourceIdPrefix: "docs:",
+  });
+
+  await engine.ingest({
+    sourceId: doc.sourceId,
+    content: doc.content,
+    metadata: {
+      ...doc.metadata,
+      importedBy: "notion-sync",
+      visibility: "internal",
+    },
+    chunking: { chunkSize: 300, chunkOverlap: 50 },
+  });
+}
+```
+
+The `maxDepth` parameter controls how deeply the connector recurses into nested blocks. The default is conservative to keep sync fast; increase it if your pages have heavily nested content.
+
+## Utilities
+
+### `createNotionClient({ token, timeoutMs? })`
+
+Creates a Notion API client. Most users don't need this unless they want to build custom fetch logic on top of the connector.
+
+### ID helpers
+
+The connector accepts both raw page IDs and URLs. If you want to normalize IDs yourself, two helpers are available:
+
+`normalizeNotionPageId32(pageIdOrUrl)` extracts and normalizes a page ID to 32-hex form.
+
+`toUuidHyphenated(id32)` converts the 32-hex form to hyphenated UUID format, which is what the Notion API expects.
+
+### Rendering
+
+`renderNotionBlocksToText(nodes)` converts a Notion block tree into the text representation used for ingestion. The v1 renderer supports common block types (paragraphs, headings, lists, todos, quotes, callouts, code, dividers). Unsupported blocks are skipped.
+
+Because the connector is vendored, you can extend the renderer if your team depends on specific block types. Open `lib/unrag/connectors/notion/render.ts` and add cases for the blocks you need.
+
+## Stable source IDs
+
+The connector uses a stable scheme for `sourceId` values:
+
+- Without a prefix: `notion:page:<pageId>`
+- With `sourceIdPrefix`: `<prefix>notion:page:<pageId>` (prefix is normalized to include a trailing `:`)
+
+This enables safe re-runs (idempotent ingest), scoped retrieval via `scope.sourceId` prefixes, and deletion per page or per tenant namespace.
+
+---
+
+## Examples
+
+The examples below cover common integration patterns. They assume you've already set up your Notion integration and have `NOTION_TOKEN` available as an environment variable.
+
+### Logging progress with `onProgress`
+
+The `onProgress` callback fires for each page as it's processed. This is useful for logging, progress indicators, or instrumenting failures:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { syncNotionPages } from "@unrag/connectors/notion";
+
+const result = await syncNotionPages({
+  engine: createUnragEngine(),
+  token: process.env.NOTION_TOKEN!,
+  pageIds: [
+    "b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab",
+    "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+    "11112222333344445555666677778888",
+  ],
+  onProgress: (event) => {
+    if (event.status === "success") {
+      console.log(`✓ Synced "${event.title}" (${event.pageId})`);
+    } else if (event.status === "not_found") {
+      console.warn(`⊘ Page not found: ${event.pageId}`);
+    } else if (event.status === "error") {
+      console.error(`✗ Failed ${event.pageId}:`, event.error);
+    }
+  },
+});
+
+console.log(`Done: ${result.succeeded}/${result.pageCount} succeeded`);
+```
+
+### Inspecting results and handling errors
+
+The sync function returns a summary object. Use it to detect partial failures and decide whether to retry or alert:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { syncNotionPages } from "@unrag/connectors/notion";
+
+const result = await syncNotionPages({
+  engine: createUnragEngine(),
+  token: process.env.NOTION_TOKEN!,
+  pageIds: getPageIdsFromConfig(),
+});
+
+if (result.failed > 0) {
+  console.error(`Sync completed with ${result.failed} failures:`);
+  for (const err of result.errors) {
+    console.error(`  - ${err.pageId}: ${err.message}`);
+  }
+  // Optionally: send to error tracking, schedule retry, etc.
+}
+
+if (result.deleted > 0) {
+  console.log(`Cleaned up ${result.deleted} stale documents`);
+}
+```
+
+### End-to-end: sync, retrieve, and use in a prompt
+
+Here's a complete flow that syncs Notion content, then uses it to answer a question:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { syncNotionPages } from "@unrag/connectors/notion";
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+// 1. Sync your knowledge base pages
+const engine = createUnragEngine();
+
+await syncNotionPages({
+  engine,
+  token: process.env.NOTION_TOKEN!,
+  pageIds: [
+    "b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab", // Product FAQ
+    "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", // Pricing docs
+  ],
+});
+
+// 2. Retrieve relevant chunks for a user question
+const question = "What's the pricing for the Pro plan?";
+
+const { chunks } = await engine.retrieve({
+  query: question,
+  topK: 5,
+});
+
+// 3. Build context and generate an answer
+const context = chunks.map((c) => c.content).join("\n\n---\n\n");
+
+const { text } = await generateText({
+  model: openai("gpt-4o"),
+  system: `Answer questions using only the provided context. If the answer isn't in the context, say so.`,
+  prompt: `Context:\n${context}\n\nQuestion: ${question}`,
+});
+
+console.log(text);
+```
+
+### Next.js server action
+
+In a Next.js app, run sync from a server action. This keeps the token server-side and lets you trigger sync from an admin UI:
+
+```ts
+// app/actions/sync-notion.ts
+"use server";
+
+import { createUnragEngine } from "@/lib/unrag/config";
+import { syncNotionPages } from "@/lib/unrag/connectors/notion";
+
+export async function syncNotionAction(pageIds: string[]) {
+  const engine = createUnragEngine();
+
+  const result = await syncNotionPages({
+    engine,
+    token: process.env.NOTION_TOKEN!,
+    pageIds,
+  });
+
+  return {
+    succeeded: result.succeeded,
+    failed: result.failed,
+    errors: result.errors.map((e) => ({ pageId: e.pageId, message: e.message })),
+  };
+}
+```
+
+Then call it from a client component:
+
+```tsx
+// app/admin/sync-button.tsx
+"use client";
+
+import { syncNotionAction } from "@/app/actions/sync-notion";
+
+export function SyncButton() {
+  const handleSync = async () => {
+    const result = await syncNotionAction([
+      "b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab",
+    ]);
+    
+    if (result.failed > 0) {
+      alert(`Sync had ${result.failed} failures`);
+    } else {
+      alert(`Synced ${result.succeeded} pages`);
+    }
+  };
+
+  return <button onClick={handleSync}>Sync Notion</button>;
+}
+```
+
+### Batch syncing with rate limit pauses
+
+For larger page lists, batch your calls and add pauses to stay within Notion's rate limits:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { syncNotionPages } from "@unrag/connectors/notion";
+
+const allPageIds = getPageIdsFromDatabase(); // e.g., 200 pages
+const BATCH_SIZE = 20;
+const PAUSE_MS = 2000;
+
+const engine = createUnragEngine();
+let totalSucceeded = 0;
+let totalFailed = 0;
+
+for (let i = 0; i < allPageIds.length; i += BATCH_SIZE) {
+  const batch = allPageIds.slice(i, i + BATCH_SIZE);
+
+  const result = await syncNotionPages({
+    engine,
+    token: process.env.NOTION_TOKEN!,
+    pageIds: batch,
+  });
+
+  totalSucceeded += result.succeeded;
+  totalFailed += result.failed;
+
+  console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${result.succeeded} ok, ${result.failed} failed`);
+
+  // Pause before next batch (skip on last batch)
+  if (i + BATCH_SIZE < allPageIds.length) {
+    await new Promise((r) => setTimeout(r, PAUSE_MS));
+  }
+}
+
+console.log(`Total: ${totalSucceeded} succeeded, ${totalFailed} failed`);
+```
+
+### Wiping a namespace before re-sync
+
+If you want a clean slate—ensuring that pages no longer in your list are removed from the index—wipe the namespace first:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { syncNotionPages } from "@unrag/connectors/notion";
+
+const engine = createUnragEngine();
+const tenantId = "acme";
+const prefix = `tenant:${tenantId}:`;
+
+// 1. Wipe all existing content for this tenant
+await engine.delete({ sourceIdPrefix: prefix });
+
+// 2. Re-sync the current set of pages
+await syncNotionPages({
+  engine,
+  token: process.env.NOTION_TOKEN!,
+  pageIds: getCurrentPageIdsForTenant(tenantId),
+  sourceIdPrefix: prefix,
+});
+```
+
+This pattern is useful when tenants can remove pages from their list—without the wipe, those old pages would remain in the index.
+
+### Scheduled sync with a cron job
+
+For content that changes over time, run sync on a schedule. Here's a simple Node script you can trigger with cron or a job runner:
+
+```ts
+// scripts/sync-notion-cron.ts
+import { createUnragEngine } from "../lib/unrag/config";
+import { syncNotionPages } from "../lib/unrag/connectors/notion";
+
+async function main() {
+  console.log(`[${new Date().toISOString()}] Starting Notion sync...`);
+
+  const engine = createUnragEngine();
+  const pageIds = await fetchPageIdsFromConfig();
+
+  const result = await syncNotionPages({
+    engine,
+    token: process.env.NOTION_TOKEN!,
+    pageIds,
+    deleteOnNotFound: true, // Clean up pages that were removed
+  });
+
+  console.log(`Completed: ${result.succeeded} synced, ${result.deleted} deleted, ${result.failed} failed`);
+
+  if (result.failed > 0) {
+    process.exitCode = 1; // Signal failure to cron/scheduler
+  }
+}
+
+main().catch((err) => {
+  console.error("Sync failed:", err);
+  process.exitCode = 1;
+});
+```
+
+Run it with cron (e.g., every night at 2 AM):
+
+```bash
+0 2 * * * cd /path/to/project && npx tsx scripts/sync-notion-cron.ts >> /var/log/notion-sync.log 2>&1
+```
+
+Or use a job runner like BullMQ, Inngest, or Trigger.dev for more sophisticated scheduling and retry logic.

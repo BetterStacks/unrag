@@ -1,0 +1,94 @@
+---
+title: Notion Connector
+description: Ingest specific Notion pages into Unrag by page ID (pages-only v1).
+---
+
+The Notion connector installs a small, vendored module into your project that fetches Notion page content and ingests it into your Unrag store.
+
+This connector is intentionally **pages-only** in v1. You decide exactly which pages matter, pass their page IDs (or page URLs), and Unrag ingests those pages into your existing vector tables. The goal is to make this feel predictable and safe to run repeatedly.
+
+## Setting up Notion access
+
+Before using the connector, you need a Notion integration token and permission on the pages you want to ingest.
+
+### Creating an integration
+
+To let your app read content from Notion, you need an internal integration. In Notion, go to **Settings & members** → **Connections** (or **Integrations**, depending on your workspace UI), create a new integration, and copy the token it generates.
+
+Store this token as an environment variable on your server:
+
+```bash
+NOTION_TOKEN="secret_..."
+```
+
+### Granting page access
+
+Notion integrations can only access pages that are explicitly shared with them. This is the most common reason a page "exists" but the API still returns "not found".
+
+For each page you want to ingest, open the page in Notion, click **Share**, and invite your integration (the connection you created earlier). If you skip this step, the connector will fail with permission errors even if the page exists and the token is valid.
+
+### Choosing which pages to ingest
+
+You can pass either raw page IDs or full Notion URLs. The connector accepts a few formats:
+
+- `b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab` (32 hex chars)
+- `b5f3e3e9-c6ea-4ce5-a1c3-e0d6a9d2f1ab` (hyphenated UUID)
+- `https://www.notion.so/acme/My-Doc-b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab`
+
+The connector normalizes these internally, so you can use whichever form is convenient.
+
+## Installing the connector
+
+From your project root (where `unrag.json` exists), run:
+
+```bash
+bunx unrag add notion
+```
+
+This installs the connector source files into your Unrag install directory—so you can read and change them like any other code:
+
+- `lib/unrag/connectors/notion/**` (or your chosen `--dir`)
+
+It also adds the `@notionhq/client` dependency to your project.
+
+## Quickstart
+
+Once set up, syncing pages is straightforward:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { syncNotionPages } from "@unrag/connectors/notion";
+
+export async function syncNotion() {
+  const engine = createUnragEngine();
+
+  return await syncNotionPages({
+    engine,
+    token: process.env.NOTION_TOKEN!,
+    pageIds: [
+      "b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab",
+      "https://www.notion.so/acme/My-Doc-b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab",
+    ],
+  });
+}
+```
+
+This fetches each page, renders the blocks to text, and ingests the result into your store using a stable `sourceId` per page.
+
+## Server-only usage
+
+The Notion token is a credential and must never run in the browser. Treat Notion sync as a backend concern: run it from a route handler, server action, cron/worker job, or a Node script.
+
+## What it ingests
+
+Each page becomes one logical document in your store. The content consists of the page title followed by the rendered block text. The connector attaches metadata including the `connector` name, `kind`, `pageId`, `url`, `title`, and `lastEditedTime`.
+
+The `sourceId` is stable by page ID, so repeated runs update the same logical document rather than creating duplicates.
+
+## Where to go next
+
+If you want to understand the surface area and copy-paste patterns, start with the [API](/docs/connectors/notion/api) page.
+
+After that, the [Best practices](/docs/connectors/notion/best-practices) page is a good read before you run this on a schedule in production.
+
+If you hit permission or token issues, the [Troubleshooting](/docs/connectors/notion/troubleshooting) page covers the common failure modes.

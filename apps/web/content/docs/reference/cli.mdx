@@ -13,6 +13,16 @@ bunx unrag init
 
 Running without arguments starts an interactive prompt that asks for your preferences. For CI/CD or scripted setups, pass flags to skip the prompts.
 
+## Adding a connector
+
+Install a connector into an existing Unrag installation:
+
+```bash
+bunx unrag add notion
+```
+
+This installs vendored connector source files under your Unrag install directory (e.g. `lib/unrag/connectors/notion`) and adds connector-specific dependencies to your project.
+
 ## Command flags
 
 **`--yes` or `-y`**

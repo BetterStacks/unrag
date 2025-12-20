@@ -1,5 +1,13 @@
 # unrag
 
+## 0.2.1
+
+### Patch Changes
+
+- - Added `unrag add notion` to install the Notion connector into an existing Unrag installation.
+  - Shipped a vendored Notion connector (pages-only v1) that can ingest specific Notion pages by ID/URL and optionally delete on not-found.
+  - Added docs at `/docs/connectors/notion`.
+
 ## 0.2.0
 
 ### Minor Changes

@@ -19,6 +19,7 @@ type InitConfig = {
   storeAdapter: "drizzle" | "prisma" | "raw-sql";
   aliasBase?: string;
   version: number;
+  connectors?: string[];
 };
 
 const CONFIG_FILE = "unrag.json";
@@ -177,6 +178,7 @@ export async function initCommand(args: string[]) {
     storeAdapter: storeAdapterAnswer,
     aliasBase,
     version: CONFIG_VERSION,
+    connectors: existing?.connectors ?? [],
   };
   await writeJsonFile(path.join(root, CONFIG_FILE), config);
 

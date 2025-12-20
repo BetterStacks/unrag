@@ -1,0 +1,42 @@
+---
+title: Troubleshooting
+description: Common issues when syncing Notion pages and how to fix them.
+---
+
+## "Not found" or "Could not find …"
+
+This is almost always a permission issue rather than a missing page. Notion integrations can only access pages that are explicitly shared with them.
+
+To fix it, open the page in Notion, click **Share**, and invite the integration (connection) you created. If you've already shared the page, verify that the page ID or URL you're passing is correct—typos happen.
+
+## "Unauthorized" or token errors
+
+These errors mean the Notion API rejected your token. A few things to check:
+
+Make sure `NOTION_TOKEN` is set in the environment where sync runs. If you're using a `.env` file, confirm that your server or script actually loads it.
+
+Verify the token is for the correct workspace. If you have multiple Notion workspaces, each has its own integrations and tokens.
+
+Confirm you are not running this code in the browser. The Notion token must stay server-side.
+
+## Sync runs but content seems incomplete
+
+The v1 renderer supports a limited set of common block types. If your pages contain blocks that aren't supported (like embeds, synced blocks, or databases), those blocks are skipped.
+
+You can extend the vendored renderer at `lib/unrag/connectors/notion/render.ts` to add support for the block types you need.
+
+If content is deeply nested and getting cut off, increase `maxDepth` in `loadNotionPageDocument(...)`. Be aware that higher depth means more API calls and slower syncs.
+
+## Duplicates in the index
+
+If you're using the built-in store adapters and keeping stable source IDs (`notion:page:<id>` or prefixed), re-sync should replace prior content automatically.
+
+If you see duplicates, check whether you customized your store adapter. It needs to follow the replace-by-`sourceId` semantics in its `upsert()` method—delete existing rows with the same `sourceId` before inserting new ones.
+
+## Large pages are slow
+
+Notion pages can be large and deeply nested, which means many API calls and significant processing time.
+
+Keep `maxDepth` conservative. Sync fewer pages per run. Run sync off the request path—use a background job or cron rather than blocking an HTTP request.
+
+For very large knowledge bases, consider pre-processing content before ingestion, or implementing incremental sync that only re-fetches pages whose `lastEditedTime` has changed.

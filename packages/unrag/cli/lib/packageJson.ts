@@ -89,6 +89,19 @@ export function depsForAdapter(adapter: "drizzle" | "prisma" | "raw-sql") {
   return { deps, devDeps };
 }
 
+export type ConnectorName = "notion";
+
+export function depsForConnector(connector: ConnectorName) {
+  const deps: Record<string, string> = {};
+  const devDeps: Record<string, string> = {};
+
+  if (connector === "notion") {
+    deps["@notionhq/client"] = "^2.2.16";
+  }
+
+  return { deps, devDeps };
+}
+
 export function installCmd(pm: PackageManager) {
   if (pm === "bun") return "bun install";
   if (pm === "pnpm") return "pnpm install";
