@@ -1,6 +1,6 @@
 import { documents, chunks, embeddings } from "./schema";
 import type { Chunk, VectorStore } from "../../core/types";
-import { sql, type SQL } from "drizzle-orm";
+import { eq, like, sql, type SQL } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core";
 
 type DrizzleDb = PgDatabase<any, any, any>;
@@ -43,6 +43,10 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
     await db.transaction(async (tx) => {
       const head = chunkItems[0]!;
       const documentRow = toDocumentRow(head);
+
+      // Replace-by-sourceId: delete any previously stored document(s) for this logical id.
+      // Cascades to chunks and embeddings.
+      await tx.delete(documents).where(eq(documents.sourceId, head.sourceId));
 
       await tx
         .insert(documents)
@@ -139,6 +143,17 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
       metadata: (row.metadata ?? {}) as Chunk["metadata"],
       score: Number(row.score),
     }));
+  },
+
+  delete: async (input) => {
+    if ("sourceId" in input) {
+      await db.delete(documents).where(eq(documents.sourceId, input.sourceId));
+      return;
+    }
+
+    await db
+      .delete(documents)
+      .where(like(documents.sourceId, input.sourceIdPrefix + "%"));
   },
 });
 

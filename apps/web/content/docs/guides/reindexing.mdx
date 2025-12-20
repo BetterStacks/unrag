@@ -138,6 +138,10 @@ Sometimes you only need to reindex a subset of documents:
 async function reindexScope(scopePrefix: string) {
   const engine = createUnragEngine();
   
+  // Optional: wipe the scope first. This ensures documents that no longer exist
+  // in your source are removed from the index.
+  await engine.delete({ sourceIdPrefix: scopePrefix });
+
   const { rows } = await pool.query(`
     SELECT source_id, content, metadata
     FROM documents

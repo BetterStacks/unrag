@@ -8,7 +8,7 @@ The `VectorStore` interface is how Unrag interacts with your database. The built
 ## The interface
 
 ```ts
-import type { Chunk } from "@unrag/core/types";
+import type { Chunk, DeleteInput } from "@unrag/core/types";
 
 type VectorStore = {
   upsert: (chunks: Chunk[]) => Promise<void>;
@@ -17,10 +17,11 @@ type VectorStore = {
     topK: number;
     scope?: { sourceId?: string };
   }) => Promise<Array<Chunk & { score: number }>>;
+  delete: (input: DeleteInput) => Promise<void>;
 };
 ```
 
-Just two methods. The simplicity is intentional—it keeps adapters small and easy to understand.
+Three methods. The simplicity is intentional—it keeps adapters small and easy to understand.
 
 ## The upsert method
 
@@ -45,12 +46,20 @@ upsert: async (chunks: Chunk[]) => {
 
 Your implementation should:
 
-1. Insert or update a document record (using `documentId` as the key)
-2. Insert or update chunk records for each chunk
-3. Insert or update embedding records with the vectors
-4. Handle the case where the document already exists (update rather than duplicate)
+1. Treat `chunks[0].sourceId` as the **logical document identifier**
+2. Replace any previously stored content for that exact `sourceId` (delete-then-insert inside a transaction)
+3. Insert the document row, chunk rows, and embedding rows for the new representation
 
 The standard schema uses three tables, but you can structure storage however makes sense for your use case.
+
+## The delete method
+
+`delete` removes stored content by logical identity:
+
+- `delete({ sourceId })` deletes one logical document (exact match)
+- `delete({ sourceIdPrefix })` deletes all documents in a namespace (prefix match)
+
+Built-in adapters implement deletion by deleting from `documents` and relying on `on delete cascade` to remove dependent `chunks` and `embeddings`.
 
 ## The query method
 
@@ -94,7 +103,7 @@ Here's a stripped-down implementation showing the essential structure:
 
 ```ts
 import type { Pool } from "pg";
-import type { Chunk, VectorStore } from "@unrag/core/types";
+import type { Chunk, DeleteInput, VectorStore } from "@unrag/core/types";
 
 export const createSimpleStore = (pool: Pool): VectorStore => ({
   upsert: async (chunks) => {
@@ -104,22 +113,22 @@ export const createSimpleStore = (pool: Pool): VectorStore => ({
     try {
       await client.query("BEGIN");
       
-      // Upsert document
+      // Replace-by-sourceId (idempotent ingest):
+      // delete any existing document(s) for this logical identifier first.
       const doc = chunks[0];
+      await client.query(`DELETE FROM documents WHERE source_id = $1`, [doc.sourceId]);
+
+      // Insert the new document row
       await client.query(`
         INSERT INTO documents (id, source_id, content, metadata)
         VALUES ($1, $2, $3, $4)
-        ON CONFLICT (id) DO UPDATE SET 
-          source_id = $2, content = $3, metadata = $4
       `, [doc.documentId, doc.sourceId, doc.documentContent, JSON.stringify(doc.metadata)]);
       
-      // Upsert chunks and embeddings
+      // Insert chunks and embeddings
       for (const chunk of chunks) {
         await client.query(`
           INSERT INTO chunks (id, document_id, source_id, idx, content, token_count, metadata)
           VALUES ($1, $2, $3, $4, $5, $6, $7)
-          ON CONFLICT (id) DO UPDATE SET 
-            content = $5, token_count = $6, metadata = $7
         `, [chunk.id, chunk.documentId, chunk.sourceId, chunk.index, 
             chunk.content, chunk.tokenCount, JSON.stringify(chunk.metadata)]);
         
@@ -127,7 +136,6 @@ export const createSimpleStore = (pool: Pool): VectorStore => ({
           await client.query(`
             INSERT INTO embeddings (chunk_id, embedding)
             VALUES ($1, $2::vector)
-            ON CONFLICT (chunk_id) DO UPDATE SET embedding = $2::vector
           `, [chunk.id, `[${chunk.embedding.join(",")}]`]);
         }
       }
@@ -139,6 +147,14 @@ export const createSimpleStore = (pool: Pool): VectorStore => ({
     } finally {
       client.release();
     }
+  },
+  
+  delete: async (input: DeleteInput) => {
+    if ("sourceId" in input) {
+      await pool.query(`DELETE FROM documents WHERE source_id = $1`, [input.sourceId]);
+      return;
+    }
+    await pool.query(`DELETE FROM documents WHERE source_id LIKE $1`, [input.sourceIdPrefix + "%"]);
   },
   
   query: async ({ embedding, topK, scope }) => {

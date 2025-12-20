@@ -21,7 +21,8 @@ type IngestInput = {
 <TypeTable
   type={{
     sourceId: {
-      description: 'Logical document identifier. When you ingest with an existing sourceId, the store adapter updates rather than duplicates.',
+      description:
+        "Logical document identifier. Re-ingesting with the same sourceId replaces the previously stored content for that document (idempotent ingest).",
       type: 'string',
     },
     content: {
@@ -202,12 +203,25 @@ type VectorStore = {
     topK: number;
     scope?: { sourceId?: string };
   }) => Promise<Array<Chunk & { score: number }>>;
+  delete: (input: DeleteInput) => Promise<void>;
 };
 ```
 
-The `upsert` method handles both inserts and updates. If a document with the same ID exists, it should be replaced.
+The `upsert` method replaces stored content for the logical document identified by `chunks[0].sourceId` (exact match).
 
 The `query` method finds the most similar chunks and returns them with similarity scores.
+
+The `delete` method removes stored content by logical identity (either an exact `sourceId` or a namespace `sourceIdPrefix`).
+
+## DeleteInput
+
+The input to `engine.delete()` and `store.delete()`:
+
+```ts
+type DeleteInput =
+  | { sourceId: string }
+  | { sourceIdPrefix: string };
+```
 
 ## ContextEngineConfig
 

@@ -93,6 +93,20 @@ The scope filter uses prefix matching on `sourceId`. Any chunk whose `sourceId` 
 
 This happens in the database query, so it's efficient even with large datasets. The SQL includes a `WHERE source_id LIKE 'tenant:acme:%'` clause (or equivalent) that uses the index on `source_id`.
 
+## Deleting by sourceId or namespace
+
+The same namespace scheme is used for deletion:
+
+```ts
+// Delete one document
+await engine.delete({ sourceId: "tenant:acme:kb:article-123" });
+
+// Wipe a whole namespace
+await engine.delete({ sourceIdPrefix: "tenant:acme:" });
+```
+
+This is useful for connector sync resets (wipe a connector namespace) and for targeted reindexing workflows.
+
 ## What if you need exact matching?
 
 Unrag's built-in scoping is **prefix-based**. If you need **exact** `sourceId` matching, you have two practical options:

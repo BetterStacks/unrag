@@ -44,7 +44,29 @@ export type EmbeddingProvider = {
   embed: (input: EmbeddingInput) => Promise<number[]>;
 };
 
+export type DeleteInput =
+  | {
+      /** Delete a single logical document by exact `sourceId`. */
+      sourceId: string;
+      sourceIdPrefix?: never;
+    }
+  | {
+      /**
+       * Delete all logical documents whose `sourceId` starts with the prefix.
+       * This matches Unrag's prefix scoping behavior in retrieval.
+       */
+      sourceId?: never;
+      sourceIdPrefix: string;
+    };
+
 export type VectorStore = {
+  /**
+   * Persist (replace) a single document's chunks.
+   *
+   * The store treats `chunks[0].sourceId` as the logical identifier for the document.
+   * Calling `upsert()` multiple times with the same `sourceId` replaces the previously
+   * stored content for that document (including when the chunk count changes).
+   */
   upsert: (chunks: Chunk[]) => Promise<void>;
   query: (params: {
     embedding: number[];
@@ -53,6 +75,7 @@ export type VectorStore = {
       sourceId?: string;
     };
   }) => Promise<Array<Chunk & { score: number }>>;
+  delete: (input: DeleteInput) => Promise<void>;
 };
 
 export type IngestInput = {

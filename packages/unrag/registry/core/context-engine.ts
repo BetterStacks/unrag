@@ -1,8 +1,10 @@
+import { deleteDocuments } from "./delete";
 import { ingest } from "./ingest";
 import { retrieve } from "./retrieve";
 import { defineConfig, resolveConfig } from "./config";
 import type {
   ContextEngineConfig,
+  DeleteInput,
   IngestInput,
   IngestResult,
   ResolvedContextEngineConfig,
@@ -23,6 +25,10 @@ export class ContextEngine {
 
   async retrieve(input: RetrieveInput): Promise<RetrieveResult> {
     return retrieve(this.config, input);
+  }
+
+  async delete(input: DeleteInput): Promise<void> {
+    return deleteDocuments(this.config, input);
   }
 }
 

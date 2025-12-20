@@ -21,6 +21,10 @@ export const createPrismaVectorStore = (prisma: PrismaClient): VectorStore => ({
     const documentMetadata = sanitizeMetadata(head.metadata);
 
     await prisma.$transaction(async (tx: { $executeRaw: (query: unknown) => Promise<unknown> }) => {
+      // Replace-by-sourceId: delete any previously stored document(s) for this logical id.
+      // Cascade removes chunks and embeddings.
+      await tx.$executeRaw(sql`delete from documents where source_id = ${head.sourceId}`);
+
       await tx.$executeRaw(
         sql`
           insert into documents (id, source_id, content, metadata)
@@ -127,6 +131,19 @@ export const createPrismaVectorStore = (prisma: PrismaClient): VectorStore => ({
       metadata: (row.metadata ?? {}) as Chunk["metadata"],
       score: Number(row.score),
     }));
+  },
+
+  delete: async (input) => {
+    if ("sourceId" in input) {
+      await prisma.$executeRaw(
+        sql`delete from documents where source_id = ${input.sourceId}`
+      );
+      return;
+    }
+
+    await prisma.$executeRaw(
+      sql`delete from documents where source_id like ${input.sourceIdPrefix + "%"}`
+    );
   },
 });
 

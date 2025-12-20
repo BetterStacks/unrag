@@ -42,6 +42,12 @@ export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
       const head = chunkItems[0]!;
       const documentMetadata = sanitizeMetadata(head.metadata);
 
+      // Replace-by-sourceId: delete any previously stored document(s) for this logical id.
+      // Cascades to chunks and embeddings.
+      await client.query(`delete from documents where source_id = $1`, [
+        head.sourceId,
+      ]);
+
       await client.query(
         `
         insert into documents (id, source_id, content, metadata)
@@ -148,6 +154,21 @@ export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
       metadata: (row.metadata ?? {}) as Chunk["metadata"],
       score: Number(row.score),
     }));
+  },
+
+  delete: async (input) => {
+    await withTx(pool, async (client) => {
+      if ("sourceId" in input) {
+        await client.query(`delete from documents where source_id = $1`, [
+          input.sourceId,
+        ]);
+        return;
+      }
+
+      await client.query(`delete from documents where source_id like $1`, [
+        input.sourceIdPrefix + "%",
+      ]);
+    });
   },
 });
 

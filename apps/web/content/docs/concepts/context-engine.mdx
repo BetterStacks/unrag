@@ -37,7 +37,7 @@ const customEngine = createContextEngine(
 
 ## Using the engine
 
-The engine exposes two methods that handle all the heavy lifting:
+The engine exposes three methods that handle all the heavy lifting:
 
 **`ingest()`** takes content and stores it as searchable chunks:
 
@@ -71,6 +71,18 @@ The `query` is the search string. It gets embedded using the same model that emb
 `topK` controls how many results you get back. The default is 8, which is usually a good starting point.
 
 The `scope` parameter filters results. When you provide `{ sourceId: "docs:" }`, only chunks whose `sourceId` starts with "docs:" are considered. This is useful for searching within specific collections or tenants.
+
+**`delete()`** removes stored content by logical identity:
+
+```ts
+// Delete one logical document (exact match)
+await engine.delete({ sourceId: "docs:architecture" });
+
+// Delete an entire namespace (prefix match)
+await engine.delete({ sourceIdPrefix: "tenant:acme:" });
+```
+
+Deletion works by deleting document rows and relying on cascading deletes to remove dependent chunks and embeddings.
 
 ## What the methods return
 

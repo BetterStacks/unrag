@@ -1,5 +1,14 @@
 # unrag
 
+## 0.2.0
+
+### Minor Changes
+
+- - `VectorStore` now includes a required `delete({ sourceId } | { sourceIdPrefix })` method.
+
+  - Ingestion is idempotent by default: built-in Postgres adapters treat `upsert()` as **replace-by-`sourceId`** (delete-by-exact-`sourceId` inside the transaction, then insert the new document/chunks/embeddings).
+  - `ContextEngine` exposes `delete(...)` to delete a single logical document or wipe a namespace prefix.
+
 ## 0.1.1
 
 ### Patch Changes
