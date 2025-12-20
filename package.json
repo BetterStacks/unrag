@@ -2,6 +2,7 @@
   "name": "unrag",
   "private": true,
   "type": "module",
+  "repository": "https://github.com/BetterStacks/unrag",
   "packageManager": "bun@1.2.22",
   "workspaces": [
     "apps/*",

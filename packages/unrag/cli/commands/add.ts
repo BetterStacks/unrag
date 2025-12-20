@@ -11,6 +11,7 @@ import {
   writePackageJson,
   type ConnectorName,
 } from "../lib/packageJson";
+import { docsUrl } from "../lib/constants";
 
 type InitConfig = {
   installDir: string;
@@ -39,7 +40,7 @@ const parseAddArgs = (args: string[]): ParsedAddArgs => {
       out.yes = true;
       continue;
     }
-    if (!out.connector && !a.startsWith("-")) {
+    if (!out.connector && a && !a.startsWith("-")) {
       out.connector = a;
       continue;
     }
@@ -107,7 +108,7 @@ export async function addCommand(args: string[]) {
       `Installed connector: ${connector}.`,
       "",
       `- Code: ${path.join(config.installDir, "connectors", connector)}`,
-      `- Docs: /docs/connectors/${connector}`,
+      `- Docs: ${docsUrl(`/docs/connectors/${connector}`)}`,
       "",
       merged.changes.length > 0
         ? `Added deps: ${merged.changes.map((c) => c.name).join(", ")}`

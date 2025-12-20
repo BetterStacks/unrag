@@ -1,5 +1,14 @@
 # unrag
 
+## 0.2.2
+
+### Patch Changes
+
+- - Expanded help text from a minimal usage hint to a richer “mini manpage” including commands, global flags, `init` options, examples, and quick links to docs + repo.
+  - Updated unknown-command handling to include the help text so users can recover quickly.
+  - `unrag add notion` now prints a **full documentation URL** (instead of a relative `/docs/...` path) by constructing it from a shared base URL constant via `docsUrl(...)`.
+  - Added/used a central constants module (e.g. `cli/lib/constants.ts`) to hold the public base URL + repo URL and a small `docsUrl()` helper for consistent link formatting across commands.
+
 ## 0.2.1
 
 ### Patch Changes
