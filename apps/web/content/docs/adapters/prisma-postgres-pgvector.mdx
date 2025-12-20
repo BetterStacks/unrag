@@ -197,6 +197,39 @@ npx prisma migrate dev
 
 You don't need to define Prisma models for these tables since the adapter uses raw SQL. This actually simplifies things—you avoid fighting with Prisma's type system around the `vector` type.
 
+## Multiple “indexes” (recommended)
+
+If you have **two different sets of documents** (e.g. `kb` vs `support`, or per-tenant corpora), you usually **do not need separate embedding tables**.
+
+Instead, namespace your content using a `sourceId` prefix on ingest, then scope retrieval to that prefix:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+
+// Ingest into two different sets (same physical tables)
+await engine.ingest({ sourceId: "kb:doc:123", content: "..." });
+await engine.ingest({ sourceId: "support:ticket:456", content: "..." });
+
+// Retrieve from only one set by scoping to a prefix
+const kb = await engine.retrieve({ query: "reset password", scope: { sourceId: "kb:" } });
+const support = await engine.retrieve({ query: "reset password", scope: { sourceId: "support:" } });
+```
+
+## Renaming tables (advanced)
+
+If you rename tables (e.g. `embeddings` → `kb_embeddings`), you must update:
+
+- Your migration SQL
+- The adapter SQL in your installed `lib/unrag/store/prisma/store.ts` (or build a custom store)
+
+## Separate embedding tables (advanced)
+
+If you truly need **physically separate tables**, the current tool does **not** let you pass a table to `ingest()` / `retrieve()` dynamically.
+
+The recommended pattern is to create **two stores + two engines**, each executing raw SQL against a different table set (often easiest by duplicating the adapter into two folders and renaming the table names in each).
+
 ## Optional: Adding Prisma models
 
 If you want to query Unrag tables through Prisma for other purposes (admin UIs, analytics), you can add models that ignore the vector column:

@@ -72,6 +72,27 @@ describe("unrag init", () => {
     expect(pkg.devDependencies?.["@types/pg"]).toBeTruthy();
   });
 
+  test("installs prisma adapter and merges deps", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "proj",
+      private: true,
+      type: "module",
+      dependencies: {},
+    });
+
+    process.chdir(runDir);
+    await initCommand(["--yes", "--store", "prisma", "--dir", "lib/unrag"]);
+
+    const pkg = await readJson<{
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    }>(path.join(runDir, "package.json"));
+
+    expect(pkg.dependencies?.ai).toBeTruthy();
+    expect(pkg.dependencies?.["@prisma/client"]).toBeTruthy();
+    expect(pkg.devDependencies?.prisma).toBeTruthy();
+  });
+
   test("detects Next and patches tsconfig paths", async () => {
     await writeJson(path.join(runDir, "package.json"), {
       name: "nextproj",

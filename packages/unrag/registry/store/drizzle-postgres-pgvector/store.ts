@@ -99,7 +99,9 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
     const filters: SQL[] = [];
 
     if (scope.sourceId) {
-      filters.push(sql`c.source_id = ${scope.sourceId}`);
+      // Interpret scope.sourceId as a prefix so callers can namespace content
+      // (e.g. `tenant:acme:`) without needing separate tables.
+      filters.push(sql`c.source_id like ${scope.sourceId + "%"}`);
     }
 
     const whereClause =

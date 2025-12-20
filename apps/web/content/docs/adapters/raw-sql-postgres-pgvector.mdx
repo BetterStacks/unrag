@@ -176,6 +176,39 @@ export function createUnragEngine() {
 
 Sharing the pool means Unrag and your application compete for the same connections, which is usually what you want—it prevents total connection count from exceeding your database limits.
 
+## Multiple “indexes” (recommended)
+
+If you have **two different sets of documents** (e.g. `kb` vs `support`, or per-tenant corpora), you usually **do not need separate embedding tables**.
+
+Instead, namespace your content using a `sourceId` prefix on ingest, then scope retrieval to that prefix:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+
+// Ingest into two different sets (same physical tables)
+await engine.ingest({ sourceId: "kb:doc:123", content: "..." });
+await engine.ingest({ sourceId: "support:ticket:456", content: "..." });
+
+// Retrieve from only one set by scoping to a prefix
+const kb = await engine.retrieve({ query: "reset password", scope: { sourceId: "kb:" } });
+const support = await engine.retrieve({ query: "reset password", scope: { sourceId: "support:" } });
+```
+
+## Renaming tables (advanced)
+
+The raw SQL adapter is just SQL strings. If you want to rename tables (e.g. `embeddings` → `kb_embeddings`), update:
+
+- Your migration SQL (table names / indexes)
+- The adapter SQL in your installed `lib/unrag/store/raw-sql/store.ts` (or build a custom store)
+
+## Separate embedding tables (advanced)
+
+If you truly need **physically separate tables** (different retention policies, different index strategies, hard isolation, etc.), the current tool does **not** let you pass a table to `ingest()` / `retrieve()` dynamically.
+
+The recommended pattern is to create **two stores + two engines**, each executing SQL against a different table set (often easiest by duplicating the adapter into two folders and renaming the table names in each).
+
 ## Pool configuration for different environments
 
 The `pg` Pool accepts configuration for connection limits, timeouts, and behavior. Here are recommendations for different scenarios:

@@ -65,7 +65,6 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-[var(--color-fd-background)]">
-
       {/* Landscape background */}
       <Image src={bannerImg} alt="Nigh-time view of a windy amber road through the mountains" className="absolute inset-0 z-[1] w-screen h-screen opacity-30 hidden md:block" />
 
@@ -74,7 +73,7 @@ export default function HomePage() {
         <GlowingStarsBackground className="z-[1]" />
 
         {/* Blender to match the bottom section */}
-        <div className="absolute bottom-0 z-[2] w-screen h-1/2 bg-linear-to-b from-transparent to-[#050505]" />
+        <div className="absolute bottom-0 z-[2] w-screen h-1/2 bg-linear-to-b from-transparent to-[#050505] to-80%" />
 
         {/* Gradient overlays for depth */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,hsla(0,0%,100%,0.05),transparent_55%)] pointer-events-none" />

@@ -200,6 +200,41 @@ export const schema = {
 
 Now when you run `drizzle-kit generate` or `drizzle-kit push`, Drizzle will manage both your application tables and Unrag's tables together.
 
+## Multiple “indexes” (recommended)
+
+If you have **two different sets of documents** (e.g. `kb` vs `support`, or per-tenant corpora), you usually **do not need separate embedding tables**.
+
+Instead, namespace your content using a `sourceId` prefix on ingest, then scope retrieval to that prefix:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+
+// Ingest into two different sets (same physical tables)
+await engine.ingest({ sourceId: "kb:doc:123", content: "..." });
+await engine.ingest({ sourceId: "support:ticket:456", content: "..." });
+
+// Retrieve from only one set by scoping to a prefix
+const kb = await engine.retrieve({ query: "reset password", scope: { sourceId: "kb:" } });
+const support = await engine.retrieve({ query: "reset password", scope: { sourceId: "support:" } });
+```
+
+This keeps migrations simple, and it also lets you safely mix different corpora (and even different embedding models) as long as you always scope retrieval to the right `sourceId` prefix.
+
+## Renaming tables (advanced)
+
+Unrag installs source files you own. If you want to rename tables (e.g. `embeddings` → `kb_embeddings`), update the installed schema file and run your migrations accordingly:
+
+- Change the `pgTable("...")` names in `lib/unrag/store/drizzle/schema.ts`
+- Keep the exported identifiers (`documents`, `chunks`, `embeddings`) the same if you don’t want to touch the adapter code
+
+## Separate embedding tables (advanced)
+
+If you truly need **physically separate tables** (different retention policies, different index strategies, hard isolation, etc.), the current tool does **not** let you pass a table to `ingest()` / `retrieve()` dynamically.
+
+The recommended pattern is to create **two stores + two engines**, each pointing at a different schema/table set (typically by duplicating `lib/unrag/store/drizzle/` into two folders and renaming the `pgTable(...)` names inside each).
+
 ## Transaction example
 
 Because the adapter uses your Drizzle instance, you can wrap operations in transactions that span both Unrag and your application data:

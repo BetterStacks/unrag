@@ -1,6 +1,6 @@
 import type { Chunk, VectorStore } from "../../core/types";
-import { Prisma } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
+import { empty, sqltag as sql } from "@prisma/client/runtime/library";
 
 const sanitizeMetadata = (metadata: unknown) => {
   if (metadata === undefined) return null;
@@ -17,12 +17,12 @@ export const createPrismaVectorStore = (prisma: PrismaClient): VectorStore => ({
   upsert: async (chunkItems) => {
     if (chunkItems.length === 0) return;
 
-    const head = chunkItems[0];
+    const head = chunkItems[0]!;
     const documentMetadata = sanitizeMetadata(head.metadata);
 
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: { $executeRaw: (query: unknown) => Promise<unknown> }) => {
       await tx.$executeRaw(
-        Prisma.sql`
+        sql`
           insert into documents (id, source_id, content, metadata)
           values (${head.documentId}::uuid, ${head.sourceId}, ${head.documentContent ?? ""}, ${
             JSON.stringify(documentMetadata)
@@ -38,7 +38,7 @@ export const createPrismaVectorStore = (prisma: PrismaClient): VectorStore => ({
         const chunkMetadata = sanitizeMetadata(chunk.metadata);
 
         await tx.$executeRaw(
-          Prisma.sql`
+          sql`
             insert into chunks (id, document_id, source_id, idx, content, token_count, metadata)
             values (
               ${chunk.id}::uuid,
@@ -63,7 +63,7 @@ export const createPrismaVectorStore = (prisma: PrismaClient): VectorStore => ({
         const embeddingLiteral = toVectorLiteral(chunk.embedding);
 
         await tx.$executeRaw(
-          Prisma.sql`
+          sql`
             insert into embeddings (chunk_id, embedding, embedding_dimension)
             values (${chunk.id}::uuid, ${embeddingLiteral}::vector, ${
             chunk.embedding.length
@@ -78,31 +78,27 @@ export const createPrismaVectorStore = (prisma: PrismaClient): VectorStore => ({
   },
 
   query: async ({ embedding, topK, scope = {} }) => {
+    type QueryRow = {
+      id: string;
+      document_id: string;
+      source_id: string;
+      idx: number;
+      content: string;
+      token_count: number;
+      metadata: unknown;
+      score: number;
+    };
+
     const vectorLiteral = toVectorLiteral(embedding);
 
-    const conditions = [];
-    if (scope.sourceId) {
-      conditions.push(Prisma.sql`c.source_id = ${scope.sourceId}`);
-    }
+    const whereSql = scope.sourceId
+      ? // Interpret scope.sourceId as a prefix so callers can namespace content
+        // (e.g. `tenant:acme:`) without needing separate tables.
+        sql`where c.source_id like ${scope.sourceId + "%"}`
+      : empty;
 
-    const whereSql =
-      conditions.length > 0
-        ? Prisma.sql`where ${Prisma.join(conditions, Prisma.sql` and `)}`
-        : Prisma.empty;
-
-    const rows = await prisma.$queryRaw<
-      Array<{
-        id: string;
-        document_id: string;
-        source_id: string;
-        idx: number;
-        content: string;
-        token_count: number;
-        metadata: unknown;
-        score: number;
-      }>
-    >(
-      Prisma.sql`
+    const rows = (await prisma.$queryRaw(
+      sql`
         select
           c.id,
           c.document_id,
@@ -119,9 +115,9 @@ export const createPrismaVectorStore = (prisma: PrismaClient): VectorStore => ({
         order by score asc
         limit ${topK}
       `
-    );
+    )) as QueryRow[];
 
-    return rows.map((row) => ({
+    return rows.map((row: QueryRow) => ({
       id: String(row.id),
       documentId: String(row.document_id),
       sourceId: String(row.source_id),

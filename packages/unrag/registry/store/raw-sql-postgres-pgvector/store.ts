@@ -39,7 +39,7 @@ export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
     if (chunkItems.length === 0) return;
 
     await withTx(pool, async (client) => {
-      const head = chunkItems[0];
+      const head = chunkItems[0]!;
       const documentMetadata = sanitizeMetadata(head.metadata);
 
       await client.query(
@@ -51,7 +51,12 @@ export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
           content = excluded.content,
           metadata = excluded.metadata
         `,
-        [head.documentId, head.sourceId, head.documentContent ?? "", JSON.stringify(documentMetadata)]
+        [
+          head.documentId,
+          head.sourceId,
+          head.documentContent ?? "",
+          JSON.stringify(documentMetadata),
+        ]
       );
 
       for (const chunk of chunkItems) {
@@ -104,8 +109,10 @@ export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
     const where: string[] = [];
 
     if (scope.sourceId) {
-      values.push(scope.sourceId);
-      where.push(`c.source_id = $${values.length}`);
+      // Interpret scope.sourceId as a prefix so callers can namespace content
+      // (e.g. `tenant:acme:`) without needing separate tables.
+      values.push(scope.sourceId + "%");
+      where.push(`c.source_id like $${values.length}`);
     }
 
     const whereSql = where.length ? `where ${where.join(" and ")}` : "";

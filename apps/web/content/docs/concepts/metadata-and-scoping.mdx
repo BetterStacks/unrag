@@ -93,6 +93,13 @@ The scope filter uses prefix matching on `sourceId`. Any chunk whose `sourceId` 
 
 This happens in the database query, so it's efficient even with large datasets. The SQL includes a `WHERE source_id LIKE 'tenant:acme:%'` clause (or equivalent) that uses the index on `source_id`.
 
+## What if you need exact matching?
+
+Unrag's built-in scoping is **prefix-based**. If you need **exact** `sourceId` matching, you have two practical options:
+
+- **Use an ID scheme that avoids accidental prefix collisions**: Prefer unambiguous IDs (UUIDs, ULIDs) for leaf segments, and when scoping always include a delimiter boundary (for example, scope to `"tenant:acme:kb:"` rather than `"tenant:acme:kb"`).
+- **Change the vendored store adapter**: Replace the prefix filter with equality (`source_id = $1`) in your installed store's `query()` method, or add a second scope field (for example `scope.sourceIdExact`) and handle both.
+
 ## Building a multi-tenant search
 
 Here's how these pieces come together for a typical SaaS application:

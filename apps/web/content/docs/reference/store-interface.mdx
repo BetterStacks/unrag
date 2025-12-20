@@ -74,6 +74,10 @@ Your implementation should:
 3. Return the top K most similar chunks with their scores
 4. Include all chunk fields plus the `score`
 
+### Exact matching note
+
+The built-in adapters treat `scope.sourceId` as a **prefix** (typically `WHERE source_id LIKE '${scope.sourceId}%'`). If you need **exact** matching, implement it in your adapter (for example `WHERE source_id = $1`) or introduce an explicit `scope.sourceIdExact` field in your project’s vendored store code.
+
 ## Score semantics
 
 The default adapters use pgvector's `<=>` operator for cosine distance, where:
