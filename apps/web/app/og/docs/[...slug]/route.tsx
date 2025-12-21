@@ -107,7 +107,7 @@ export async function GET(
           {page.data.description && (
             <div
               style={{
-                fontSize: 22,
+                fontSize: 24,
                 color: 'rgba(255, 255, 255, 0.8)',
                 lineHeight: 1.4,
                 maxWidth: '600px',
