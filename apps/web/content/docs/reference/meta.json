@@ -4,6 +4,7 @@
     "cli",
     "unrag-config",
     "core-types",
+    "asset-processing",
     "store-interface"
   ]
 }

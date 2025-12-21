@@ -3,7 +3,9 @@
   "pages": [
     "docs-search",
     "tenant-scoped-search",
-    "admin-reingest"
+    "admin-reingest",
+    "notion-rich-media",
+    "pdf-knowledge-base"
   ]
 }
 

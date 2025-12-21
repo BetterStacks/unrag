@@ -1,0 +1,189 @@
+---
+title: Multimodal Embeddings
+description: Embed images directly alongside text in the same vector space.
+---
+
+By default, Unrag's embedding provider handles text only. But some embedding models can embed both text and images into the same vector space—meaning a text query can semantically match image content.
+
+This page explains how to enable and use multimodal embeddings.
+
+## What multimodal means
+
+In a multimodal embedding space:
+
+- **Text** is embedded as usual (query strings, document chunks)
+- **Images** are embedded directly from their pixels
+- Both live in the **same vector space** with the same dimensions
+
+This means a query like "architecture diagram" can retrieve an actual architecture diagram image, not just text that mentions one. The embedding model understands the semantic content of images.
+
+## Enabling multimodal mode
+
+Set `type: 'multimodal'` when creating your embedding provider:
+
+```ts
+import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+
+const embedding = createAiEmbeddingProvider({
+  type: "multimodal",
+  model: "voyage/voyage-multimodal-3", // Example multimodal model
+  timeoutMs: 30_000,
+});
+```
+
+With multimodal enabled, the provider exposes an `embedImage` function that the ingest pipeline uses for image assets.
+
+## Which models support multimodal
+
+Not all embedding models support images. Check your provider's documentation. Some examples:
+
+| Provider | Model | Multimodal |
+|----------|-------|------------|
+| Voyage | voyage-multimodal-3 | Yes |
+| OpenAI | text-embedding-3-small | No |
+| OpenAI | text-embedding-3-large | No |
+| Cohere | embed-v3 | Images supported |
+
+<Callout type="warn">
+The embedding model must embed both text and images into the same space. Using different models for text and images would create incompatible embedding spaces—retrieval wouldn't work correctly.
+</Callout>
+
+## How image embedding works
+
+When you ingest an image asset with multimodal enabled:
+
+1. The image data (URL or bytes) is passed to the embedding provider
+2. The provider calls the multimodal model's image embedding endpoint
+3. A vector is returned representing the image's semantic content
+4. This vector is stored alongside text chunk vectors
+
+During retrieval, your text query is embedded and compared against all vectors—both text chunks and image embeddings.
+
+## The image embedding interface
+
+The multimodal provider adds an `embedImage` function:
+
+```ts
+type ImageEmbeddingInput = {
+  data: Uint8Array | string;  // Image bytes or URL
+  mediaType?: string;         // e.g., "image/jpeg"
+  metadata: Metadata;
+  assetId?: string;
+  sourceId: string;
+  documentId: string;
+};
+
+type EmbeddingProvider = {
+  name: string;
+  dimensions?: number;
+  embed: (input: EmbeddingInput) => Promise<number[]>;
+  embedImage?: (input: ImageEmbeddingInput) => Promise<number[]>;
+};
+```
+
+The ingest pipeline checks for `embedImage` and uses it when processing image assets.
+
+## Customizing image embedding
+
+For advanced use cases, you can customize how image values are formatted for the AI SDK:
+
+```ts
+const embedding = createAiEmbeddingProvider({
+  type: "multimodal",
+  model: "voyage/voyage-multimodal-3",
+  
+  // Custom formatter for image embedding values
+  toImageEmbedValue: (input) => ({
+    image: [input.data], // Some models expect arrays
+  }),
+});
+```
+
+The default behavior works for most providers, but this escape hatch lets you adapt to provider-specific formats.
+
+## Fallback behavior
+
+If your embedding provider doesn't support multimodal (no `embedImage` function), images fall back to caption embedding:
+
+1. Unrag checks if the image has a `text` field (caption/alt text)
+2. If present, the caption is chunked and embedded as text
+3. If not, the image is skipped
+
+This means you can use a text-only embedding model and still get some value from images—as long as they have descriptive captions.
+
+## When to use text-only vs multimodal
+
+**Use text-only (`type: 'text'`)** when:
+- Your content is primarily text
+- You don't need semantic image search
+- You want to minimize embedding costs
+- Your chosen text model produces better results for your domain
+
+**Use multimodal (`type: 'multimodal'`)** when:
+- Your content includes diagrams, charts, or photos
+- You want "show me the architecture diagram" to actually find diagrams
+- Image captions aren't descriptive enough for text search
+- Visual content is as important as text content
+
+## Cost considerations
+
+Multimodal embedding models often cost more per embedding than text-only models. Consider:
+
+- **Image frequency**: How many images are you ingesting?
+- **Query volume**: Every retrieval still embeds the query as text (cheap)
+- **Caption quality**: Could good captions give you 80% of the value at lower cost?
+
+For many use cases, high-quality captions with a text-only model work well. Multimodal is most valuable when images contain information that captions can't capture.
+
+## Complete example
+
+Here's a config that enables multimodal embedding:
+
+```ts
+// unrag.config.ts
+import { createContextEngine, defineConfig } from "./lib/unrag/core";
+import { createAiEmbeddingProvider } from "./lib/unrag/embedding/ai";
+import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
+
+export const unragConfig = {
+  embedding: {
+    type: "multimodal",
+    model: "voyage/voyage-multimodal-3",
+    timeoutMs: 30_000,
+  },
+  // ... other config
+} as const;
+
+export function createUnragEngine() {
+  const embedding = createAiEmbeddingProvider({
+    type: unragConfig.embedding.type,
+    model: unragConfig.embedding.model,
+    timeoutMs: unragConfig.embedding.timeoutMs,
+  });
+
+  // ... rest of engine setup
+}
+```
+
+Now when you ingest images, they're embedded directly:
+
+```ts
+await engine.ingest({
+  sourceId: "product:widget-x",
+  content: "The Widget X is our flagship product...",
+  assets: [
+    {
+      assetId: "hero-image",
+      kind: "image",
+      data: { kind: "url", url: "https://..." },
+      // Caption is optional with multimodal—the image itself is embedded
+    },
+  ],
+});
+
+// Later, this query can find the image:
+const result = await engine.retrieve({
+  query: "widget product photo",
+});
+```
+

@@ -3,6 +3,7 @@
   "pages": [
     "philosophy",
     "architecture",
+    "multimodal",
     "context-engine",
     "chunking",
     "metadata-and-scoping",
