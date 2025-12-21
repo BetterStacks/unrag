@@ -33,6 +33,21 @@ await engine.ingest({
 
 Unrag processes both the text and the assets, creating chunks from each. The resulting chunks all live in the same embedding space, so a text query can retrieve content from the PDF.
 
+## Don’t miss skipped assets (warnings)
+
+If an asset is skipped (unsupported kind, extraction disabled, or best-effort error with `onError: "skip"`), Unrag emits **structured warnings** in the ingest result.
+
+```ts
+const result = await engine.ingest({ sourceId, content, assets });
+
+if (result.warnings.length > 0) {
+  console.warn("unrag ingest warnings", result.warnings);
+  // In production: forward to your logger/metrics/alerts
+}
+```
+
+If you prefer ingestion to fail instead of skipping, set `assetProcessing.onUnsupportedAsset: "fail"` and/or `assetProcessing.onError: "fail"`.
+
 ## Ingesting PDFs
 
 PDFs are processed through LLM extraction: Unrag sends the PDF to an LLM (Gemini by default) and asks it to extract all readable text. This extracted text is then chunked and embedded like any other content.

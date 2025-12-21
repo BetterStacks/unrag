@@ -247,10 +247,60 @@ export type IngestInput = {
   assetProcessing?: DeepPartial<AssetProcessingConfig>;
 };
 
+type IngestWarningBase<K extends AssetKind> = {
+  message: string;
+  assetId: string;
+  assetKind: K;
+  assetUri?: string;
+  assetMediaType?: string;
+};
+
+export type IngestWarning =
+  | (IngestWarningBase<AssetKind> & {
+      /**
+       * A rich media asset was encountered but no extractor exists for its kind.
+       * (Example: audio/video in v1.)
+       */
+      code: "asset_skipped_unsupported_kind";
+    })
+  | (IngestWarningBase<"pdf"> & {
+      /**
+       * A PDF was encountered but PDF LLM extraction is disabled.
+       * Enable `assetProcessing.pdf.llmExtraction.enabled` to process PDFs.
+       */
+      code: "asset_skipped_pdf_llm_extraction_disabled";
+    })
+  | (IngestWarningBase<"image"> & {
+      /**
+       * An image was encountered but the embedding provider does not support image embedding
+       * AND the asset did not include a non-empty caption/alt text (`assets[].text`).
+       */
+      code: "asset_skipped_image_no_multimodal_and_no_caption";
+    })
+  | (IngestWarningBase<"pdf"> & {
+      /**
+       * PDF LLM extraction ran but produced no usable text.
+       * This is typically due to empty/scanned PDFs or model limitations.
+       */
+      code: "asset_skipped_pdf_empty_extraction";
+    })
+  | (IngestWarningBase<AssetKind> & {
+      /**
+       * Asset processing failed, but policy allowed continuing (`assetProcessing.onError: "skip"`).
+       */
+      code: "asset_processing_error";
+      stage: "fetch" | "extract" | "embed" | "unknown";
+    });
+
 export type IngestResult = {
   documentId: string;
   chunkCount: number;
   embeddingModel: string;
+  /**
+   * Structured warnings emitted during ingestion.
+   * Use this to detect skipped rich media (unsupported kinds, disabled extraction, best-effort failures).
+   */
+  warnings: IngestWarning[];
   durations: {
     totalMs: number;
     chunkingMs: number;

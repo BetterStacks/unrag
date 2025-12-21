@@ -5,6 +5,28 @@ description: Complete reference for the AssetProcessingConfig type and related i
 
 This page documents the types and configuration options for Unrag's asset processing system—how PDFs, images, and other media are handled during ingestion.
 
+## Skips and warnings (don’t miss content silently)
+
+When `assetProcessing.onUnsupportedAsset` or `assetProcessing.onError` are set to `"skip"` (the defaults), Unrag will continue ingestion even if some assets cannot be processed.
+
+To ensure you don’t silently miss content, `engine.ingest()` returns **structured warnings**:
+
+```ts
+const result = await engine.ingest(input);
+if (result.warnings.length) {
+  console.warn("unrag ingest warnings", result.warnings);
+}
+```
+
+Common warning causes:
+
+- Unsupported kinds (audio/video/file in v1)
+- PDFs skipped because `pdf.llmExtraction.enabled` is `false`
+- Image skipped because no multimodal embedding provider is configured and there’s no caption text
+- Best-effort failures when `onError: "skip"` is set
+
+For the full warning type, see [IngestWarning](/docs/reference/core-types#ingestwarning).
+
 ## AssetProcessingConfig
 
 The main configuration type for asset processing. Set this on your engine config or override per-ingest.
