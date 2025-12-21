@@ -197,8 +197,16 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       dest: path.join(installBaseAbs, "core/context-engine.ts"),
     },
     {
+      src: path.join(selection.registryRoot, "core/delete.ts"),
+      dest: path.join(installBaseAbs, "core/delete.ts"),
+    },
+    {
       src: path.join(selection.registryRoot, "core/ingest.ts"),
       dest: path.join(installBaseAbs, "core/ingest.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "core/pdf-llm.ts"),
+      dest: path.join(installBaseAbs, "core/pdf-llm.ts"),
     },
     {
       src: path.join(selection.registryRoot, "core/retrieve.ts"),
