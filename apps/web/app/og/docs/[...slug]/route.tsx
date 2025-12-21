@@ -103,7 +103,7 @@ export async function GET(
           {/* Title */}
           <div
             style={{
-              fontSize: 64,
+              fontSize: 72,
               fontWeight: 700,
               color: '#ffffff',
               lineHeight: 1.2,
@@ -116,7 +116,7 @@ export async function GET(
           {page.data.description && (
             <div
               style={{
-                fontSize: 28,
+                fontSize: 33,
                 color: 'rgba(255, 255, 255, 0.8)',
                 lineHeight: 1.4,
                 maxWidth: '700px',
