@@ -13,6 +13,7 @@ When you call `engine.ingest()` or `engine.retrieve()`, the embedding provider t
 import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
 
 const embedding = createAiEmbeddingProvider({
+  type: "text",
   model: "openai/text-embedding-3-small",
   timeoutMs: 15_000,
 });
@@ -32,7 +33,12 @@ The provider is stateless—each call is independent. The engine calls it once p
 
 ## Configuration
 
-The provider accepts two options:
+The provider accepts these options:
+
+**`type`** controls capabilities:
+
+- `text` (default): text embeddings only
+- `multimodal`: additionally exposes `embedImage()` for image assets (when the selected model/provider supports it)
 
 **`model`** specifies which embedding model to use. The format is `provider/model-name`, matching the AI SDK's model string format. Common choices include:
 
@@ -47,6 +53,7 @@ These options are typically set in `unrag.config.ts`:
 ```ts
 export const unragConfig = {
   embedding: {
+    type: "text",
     model: "openai/text-embedding-3-small",
     timeoutMs: 15_000,
   },
@@ -80,7 +87,9 @@ The provider object has three properties:
 {
   name: "ai-sdk:openai/text-embedding-3-small",  // For logging/debugging
   dimensions: undefined,  // Not always known ahead of time
-  embed: async ({ text }) => number[]
+  embed: async ({ text }) => number[],
+  embedMany: async (inputs) => number[][],
+  // embedImage: async (input) => number[] // only when type: "multimodal"
 }
 ```
 

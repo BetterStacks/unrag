@@ -25,13 +25,30 @@ export const unragConfig = {
     topK: 8,
   },
   embedding: {
+    type: "text",
     model: "openai/text-embedding-3-small",
     timeoutMs: 15_000,
+  },
+  assetProcessing: {
+    onUnsupportedAsset: "skip",
+    onError: "skip",
+    fetch: { enabled: true, maxBytes: 15 * 1024 * 1024, timeoutMs: 20_000 },
+    pdf: {
+      llmExtraction: {
+        enabled: true, // template default (library default is false)
+        model: "google/gemini-2.0-flash",
+        prompt: "Extract all readable text from this PDF as faithfully as possible...",
+        timeoutMs: 60_000,
+        maxBytes: 15 * 1024 * 1024,
+        maxOutputChars: 200_000,
+      },
+    },
   },
 } as const;
 
 export function createUnragEngine() {
   const embedding = createAiEmbeddingProvider({
+    type: unragConfig.embedding.type,
     model: unragConfig.embedding.model,
     timeoutMs: unragConfig.embedding.timeoutMs,
   });
@@ -51,6 +68,7 @@ export function createUnragEngine() {
     defineConfig({
       embedding,
       store,
+      assetProcessing: unragConfig.assetProcessing,
       defaults: unragConfig.chunking,
     })
   );
@@ -72,9 +90,13 @@ This object holds your default settings. Changing values here affects all operat
 
 **`retrieval.topK`** — Default number of results returned by `retrieve()`. Can be overridden per-call. Default: 8.
 
+**`embedding.type`** — `text` (default) or `multimodal`. Use `multimodal` if you want to embed images directly (and your model supports it).
+
 **`embedding.model`** — The embedding model identifier. Format is `provider/model-name` for the AI SDK. Default: `openai/text-embedding-3-small`.
 
 **`embedding.timeoutMs`** — How long to wait for embedding API responses before timing out. Default: 15000 (15 seconds).
+
+**`assetProcessing`** — Controls rich media ingestion. In particular, `assetProcessing.pdf.llmExtraction.enabled` enables PDF → LLM text extraction (default template: on, library default: off). In production, consider setting `assetProcessing.fetch.allowedHosts` to mitigate SSRF when ingesting URL-based assets.
 
 ## The createUnragEngine function
 

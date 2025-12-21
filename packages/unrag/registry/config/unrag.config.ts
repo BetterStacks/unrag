@@ -22,8 +22,38 @@ export const unragConfig = {
     topK: 8,
   },
   embedding: {
+    type: "text",
     model: "openai/text-embedding-3-small",
     timeoutMs: 15_000,
+  },
+  /**
+   * Rich media processing controls.
+   *
+   * Notes:
+   * - The library defaults are cost-safe (PDF LLM extraction is off).
+   * - This generated config opts you into PDF extraction for convenience.
+   * - Tighten fetch allowlists/limits in production if you ingest URL-based assets.
+   */
+  assetProcessing: {
+    onUnsupportedAsset: "skip",
+    onError: "skip",
+    fetch: {
+      enabled: true,
+      maxBytes: 15 * 1024 * 1024,
+      timeoutMs: 20_000,
+      // allowedHosts: ["..."], // recommended to mitigate SSRF
+    },
+    pdf: {
+      llmExtraction: {
+        enabled: true,
+        model: "google/gemini-2.0-flash",
+        prompt:
+          "Extract all readable text from this PDF as faithfully as possible. Preserve structure with headings and lists when obvious. Output plain text or markdown only. Do not add commentary.",
+        timeoutMs: 60_000,
+        maxBytes: 15 * 1024 * 1024,
+        maxOutputChars: 200_000,
+      },
+    },
   },
 } as const;
 

@@ -65,7 +65,7 @@ await syncNotionPages({
 
 ### `loadNotionPageDocument(args)`
 
-This lower-level helper loads a single page and returns a normalized document shape with `sourceId`, `content`, and `metadata`. Use it when you want to add custom metadata, control chunking, or decide exactly how ingestion happens (batching, retries, conditional writes).
+This lower-level helper loads a single page and returns a normalized document shape with `sourceId`, `content`, `metadata`, and `assets`. Use it when you want to add custom metadata, control chunking, or decide exactly how ingestion happens (batching, retries, conditional writes).
 
 Here's an example that adds custom metadata before ingesting:
 
@@ -87,6 +87,7 @@ export async function ingestWithCustomMetadata() {
   await engine.ingest({
     sourceId: doc.sourceId,
     content: doc.content,
+    assets: doc.assets,
     metadata: {
       ...doc.metadata,
       importedBy: "notion-sync",

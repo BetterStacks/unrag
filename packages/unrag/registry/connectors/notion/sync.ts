@@ -1,8 +1,12 @@
-import type { ContextEngine } from "../../core";
-import type { IngestResult } from "../../core/types";
+import type { IngestResult } from "../../core";
 import { createNotionClient, type NotionClient } from "./client";
 import { normalizeNotionPageId32, toUuidHyphenated } from "./ids";
-import { renderNotionBlocksToText, type NotionBlock, type NotionBlockNode } from "./render";
+import {
+  extractNotionAssets,
+  renderNotionBlocksToText,
+  type NotionBlock,
+  type NotionBlockNode,
+} from "./render";
 import type {
   BuildNotionPageIngestInputArgs,
   NotionPageDocument,
@@ -29,6 +33,7 @@ export function buildNotionPageIngestInput(
     sourceId,
     content: args.content,
     metadata: args.metadata ?? {},
+    assets: args.assets ?? [],
   };
 }
 
@@ -108,6 +113,7 @@ export async function loadNotionPageDocument(args: {
   const tree = await buildBlockTree(args.notion, apiId, 0, args.maxDepth ?? 4);
   const body = renderNotionBlocksToText(tree);
   const content = [title.trim(), body.trim()].filter(Boolean).join("\n\n");
+  const assets = extractNotionAssets(tree);
 
   const metadata = {
     connector: "notion",
@@ -121,6 +127,7 @@ export async function loadNotionPageDocument(args: {
   const ingest = buildNotionPageIngestInput({
     pageId,
     content,
+    assets,
     metadata: metadata as any,
     sourceIdPrefix: args.sourceIdPrefix,
   });
@@ -129,6 +136,7 @@ export async function loadNotionPageDocument(args: {
     sourceId: ingest.sourceId,
     content: ingest.content,
     metadata: ingest.metadata ?? {},
+    assets: ingest.assets ?? [],
   };
 }
 
@@ -178,6 +186,7 @@ export async function syncNotionPages(
       const result: IngestResult = await input.engine.ingest({
         sourceId: doc.sourceId,
         content: doc.content,
+        assets: doc.assets,
         metadata: doc.metadata as any,
       });
 

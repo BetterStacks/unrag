@@ -15,6 +15,8 @@ type IngestInput = {
   content: string;
   metadata?: Metadata;
   chunking?: { chunkSize?: number; chunkOverlap?: number };
+  assets?: AssetInput[];
+  assetProcessing?: DeepPartial<AssetProcessingConfig>;
 };
 ```
 
@@ -38,8 +40,36 @@ type IngestInput = {
       description: 'Optional per-call chunking override (chunkSize, chunkOverlap).',
       type: 'object',
     },
+    assets: {
+      description:
+        'Optional rich media inputs (images, PDFs, audio, etc.) that can be processed into chunks. Connectors like Notion populate this for you.',
+      type: 'AssetInput[]',
+      default: '[]',
+    },
+    assetProcessing: {
+      description:
+        'Optional per-call override for asset processing behavior (e.g., enable/disable PDF LLM extraction, adjust fetch limits, strict vs skip).',
+      type: 'DeepPartial<AssetProcessingConfig>',
+    },
   }}
 />
+
+## AssetInput
+
+Assets are non-text inputs attached to a document (e.g., a PDF embed in Notion). They can be turned into text chunks (via extraction) or embedded directly (for images when using a multimodal embedding provider).
+
+```ts
+type AssetInput = {
+  assetId: string;
+  kind: "image" | "pdf" | "audio" | "video" | "file";
+  data:
+    | { kind: "url"; url: string; headers?: Record<string, string>; mediaType?: string; filename?: string }
+    | { kind: "bytes"; bytes: Uint8Array; mediaType: string; filename?: string };
+  uri?: string;
+  text?: string; // caption / alt text
+  metadata?: Metadata;
+};
+```
 
 ## IngestResult
 
