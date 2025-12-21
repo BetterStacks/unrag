@@ -5,6 +5,22 @@ import { readFile } from 'node:fs/promises';
 
 export const revalidate = false;
 
+const geistRegularPromise = readFile(
+  new URL('./fonts/Geist-Regular.ttf', import.meta.url),
+);
+
+const geistBoldPromise = readFile(
+  new URL('./fonts/Geist-Bold.ttf', import.meta.url),
+);
+
+const logoPromise = readFile(
+  new URL('../../../../public/logo.svg', import.meta.url),
+);
+
+const bannerPromise = readFile(
+  new URL('../../../../public/banner-og.png', import.meta.url),
+);
+
 export async function GET(
   _req: Request,
   { params }: RouteContext<'/og/docs/[...slug]'>,
@@ -13,21 +29,15 @@ export async function GET(
   const page = source.getPage(slug.slice(0, -1));
   if (!page) notFound();
 
-  const geistRegular = await readFile(
-    new URL('./fonts/Geist-Regular.ttf', import.meta.url),
-  );
-  const geistBold = await readFile(
-    new URL('./fonts/Geist-Bold.ttf', import.meta.url),
-  );
+  const [geistRegular, geistBold, logo, banner] = await Promise.all([
+    geistRegularPromise,
+    geistBoldPromise,
+    logoPromise,
+    bannerPromise,
+  ]);
 
-  const logo = await readFile(
-    new URL('../../../../public/logo.svg', import.meta.url),
-  );
   const logoSrc = `data:image/svg+xml;base64,${logo.toString('base64')}`;
 
-  const banner = await readFile(
-    new URL('../../../../public/banner.png', import.meta.url),
-  );
   const bannerSrc = `data:image/png;base64,${banner.toString('base64')}`;
 
   return new ImageResponse(
@@ -63,7 +73,7 @@ export async function GET(
             left: 0,
             width: '100%',
             height: '100%',
-            background: 'linear-gradient(to right, rgba(0, 0, 0, 0.8) -30%, transparent, 130%)',
+            background: 'linear-gradient(to right, rgba(0, 0, 0, 0.8) -30%, transparent 130%)',
           }}
         />
         {/* Content */}
