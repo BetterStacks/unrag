@@ -209,3 +209,21 @@ Open `unrag.config.ts` to adjust settings. The most common customizations are:
 
 4. **Database connection**: If you already have a database pool or client configured elsewhere in your app, you can modify `createUnragEngine()` to use that instead of creating a new one.
 
+## Going beyond text
+
+Your quickstart used plain text content, but Unrag can handle more. The generated `unrag.config.ts` includes `assetProcessing` settings that enable:
+
+- **PDF extraction**: Send PDFs to an LLM to extract their text content
+- **Image embedding**: Embed images directly (with multimodal models) or use their captions
+
+When you're ready to ingest content with embedded PDFs or images, check out:
+
+<Cards>
+  <Card title="Multimodal Ingestion" href="/docs/concepts/multimodal">
+    How PDFs and images are processed
+  </Card>
+  <Card title="Ingest Rich Media" href="/docs/guides/ingest-rich-media">
+    Practical guide to ingesting assets
+  </Card>
+</Cards>
+

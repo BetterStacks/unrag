@@ -1,0 +1,313 @@
+---
+title: Configure Asset Processing
+description: Control how Unrag handles PDFs, images, and other media during ingestion.
+---
+
+Unrag's asset processing system is fully configurable. You can control which assets get processed, how extraction works, safety limits, and error handling behavior.
+
+## Configuration levels
+
+Asset processing can be configured at two levels:
+
+1. **Engine-level**: In your `unrag.config.ts`, applying to all ingest calls
+2. **Per-ingest**: Override any setting for a specific `engine.ingest()` call
+
+Per-ingest overrides are deep-merged with engine defaults, so you only need to specify what you're changing.
+
+## Engine-level configuration
+
+Add `assetProcessing` to your config:
+
+```ts
+// unrag.config.ts
+export const unragConfig = {
+  assetProcessing: {
+    // Error handling
+    onUnsupportedAsset: "skip",  // or "fail"
+    onError: "skip",             // or "fail"
+
+    // URL fetching settings
+    fetch: {
+      enabled: true,
+      maxBytes: 15 * 1024 * 1024, // 15 MB
+      timeoutMs: 20_000,
+      allowedHosts: [
+        "*.notion.so",
+        "*.amazonaws.com",
+        "storage.googleapis.com",
+      ],
+    },
+
+    // PDF extraction
+    pdf: {
+      llmExtraction: {
+        enabled: true,
+        model: "google/gemini-2.0-flash",
+        timeoutMs: 60_000,
+        maxBytes: 15 * 1024 * 1024,
+        maxOutputChars: 200_000,
+      },
+    },
+  },
+  // ... other config
+};
+```
+
+## Per-ingest overrides
+
+Override any setting for a specific ingest:
+
+```ts
+// Disable PDF extraction for this bulk import
+await engine.ingest({
+  sourceId: "archive:batch-1",
+  content: "...",
+  assets: [...],
+  assetProcessing: {
+    pdf: { llmExtraction: { enabled: false } },
+  },
+});
+
+// Enable strict mode for this important document
+await engine.ingest({
+  sourceId: "contracts:master-agreement",
+  content: "...",
+  assets: [...],
+  assetProcessing: {
+    onUnsupportedAsset: "fail",
+    onError: "fail",
+  },
+});
+```
+
+Only the specified fields are overridden—everything else uses engine defaults.
+
+## Error handling policies
+
+Two policies control how Unrag reacts to asset processing issues:
+
+### onUnsupportedAsset
+
+What happens when an asset's `kind` has no configured extractor (e.g., audio files in v1):
+
+```ts
+assetProcessing: {
+  onUnsupportedAsset: "skip",  // Continue without this asset (default)
+  // or
+  onUnsupportedAsset: "fail",  // Throw error, fail the ingest
+}
+```
+
+Use `"fail"` when you need to guarantee all content is processed. Use `"skip"` for graceful degradation.
+
+### onError
+
+What happens when asset processing throws an error (network failure, extraction timeout, etc.):
+
+```ts
+assetProcessing: {
+  onError: "skip",  // Log and continue without this asset (default)
+  // or
+  onError: "fail",  // Propagate the error, fail the ingest
+}
+```
+
+Use `"fail"` for critical content where you need to know about failures. Use `"skip"` for best-effort processing.
+
+## Fetch configuration
+
+Control how Unrag fetches URL-based assets:
+
+```ts
+assetProcessing: {
+  fetch: {
+    enabled: true,              // Set to false to skip all URL fetches
+    maxBytes: 15 * 1024 * 1024, // Skip files larger than this
+    timeoutMs: 20_000,          // Fetch timeout
+
+    // Security: only fetch from trusted hosts
+    allowedHosts: [
+      "prod-files-secure.s3.us-west-2.amazonaws.com",
+      "*.notion.so",
+    ],
+  },
+}
+```
+
+<Callout type="warn">
+**Security**: Always configure `allowedHosts` in production to prevent SSRF attacks. Only allow hosts you trust.
+</Callout>
+
+### Why allowedHosts matters
+
+Without `allowedHosts`, any URL in your assets could be fetched by your server. If an attacker can inject a malicious URL (e.g., pointing to internal services), your server would make that request.
+
+Restrict to known-good hosts:
+
+```ts
+allowedHosts: [
+  // Notion's asset CDN
+  "prod-files-secure.s3.us-west-2.amazonaws.com",
+  
+  // Your own CDN
+  "cdn.yourcompany.com",
+  
+  // Google Cloud Storage
+  "storage.googleapis.com",
+]
+```
+
+## PDF extraction configuration
+
+Control how PDFs are processed:
+
+```ts
+assetProcessing: {
+  pdf: {
+    llmExtraction: {
+      enabled: true,                 // Enable LLM extraction
+      model: "google/gemini-2.0-flash", // Model to use
+      timeoutMs: 60_000,             // Extraction timeout
+      maxBytes: 15 * 1024 * 1024,    // Skip PDFs larger than this
+      maxOutputChars: 200_000,       // Truncate very long extractions
+      
+      // Custom extraction prompt (optional)
+      prompt: "Extract all text from this PDF, preserving structure...",
+    },
+  },
+}
+```
+
+### Extraction costs
+
+PDF extraction calls an LLM, which has API costs. Consider:
+
+- **Disable for bulk imports**: Set `enabled: false` per-ingest for large batches
+- **Set maxBytes**: Skip very large PDFs that might be expensive
+- **Use a cheaper model**: Adjust `model` for cost/quality tradeoff
+
+### Custom prompts
+
+The default prompt asks for faithful text extraction. Customize it for domain-specific needs:
+
+```ts
+prompt: `
+Extract all text from this PDF. This is a legal contract, so:
+- Preserve section numbering exactly
+- Keep all defined terms in their original form
+- Include table of contents if present
+`.trim(),
+```
+
+## Common configurations
+
+### Development: Maximum visibility
+
+See everything that happens, fail on issues:
+
+```ts
+assetProcessing: {
+  onUnsupportedAsset: "fail",
+  onError: "fail",
+  pdf: { llmExtraction: { enabled: true } },
+}
+```
+
+### Production: Graceful degradation
+
+Best-effort processing, don't break on edge cases:
+
+```ts
+assetProcessing: {
+  onUnsupportedAsset: "skip",
+  onError: "skip",
+  fetch: {
+    allowedHosts: ["your-trusted-hosts.com"],
+  },
+  pdf: { llmExtraction: { enabled: true } },
+}
+```
+
+### Cost-conscious: Minimal extraction
+
+Skip expensive operations:
+
+```ts
+assetProcessing: {
+  pdf: { llmExtraction: { enabled: false } },
+  fetch: { maxBytes: 5 * 1024 * 1024 }, // Smaller limit
+}
+```
+
+### Strict mode: Everything or nothing
+
+Ensure all content is processed:
+
+```ts
+assetProcessing: {
+  onUnsupportedAsset: "fail",
+  onError: "fail",
+  pdf: {
+    llmExtraction: {
+      enabled: true,
+      maxBytes: 50 * 1024 * 1024, // Allow larger files
+    },
+  },
+}
+```
+
+## Conditional configuration
+
+Use per-ingest overrides for conditional processing:
+
+```ts
+async function ingestDocument(doc: Document, priority: "high" | "normal") {
+  const baseAssetProcessing = priority === "high"
+    ? { onError: "fail", pdf: { llmExtraction: { enabled: true } } }
+    : { pdf: { llmExtraction: { enabled: false } } };
+
+  await engine.ingest({
+    sourceId: doc.id,
+    content: doc.content,
+    assets: doc.assets,
+    assetProcessing: baseAssetProcessing,
+  });
+}
+```
+
+Or based on content type:
+
+```ts
+// Enable extraction for contracts, disable for newsletters
+const assetProcessing = sourceId.startsWith("contracts:")
+  ? { pdf: { llmExtraction: { enabled: true } }, onError: "fail" }
+  : { pdf: { llmExtraction: { enabled: false } } };
+```
+
+## Debugging asset processing
+
+Check what happened during ingestion by examining chunk metadata:
+
+```ts
+const result = await engine.retrieve({ query: "...", topK: 10 });
+
+for (const chunk of result.chunks) {
+  if (chunk.metadata.assetId) {
+    console.log(`Asset chunk:`, {
+      assetId: chunk.metadata.assetId,
+      kind: chunk.metadata.assetKind,
+      extractor: chunk.metadata.extractor,
+    });
+  }
+}
+```
+
+Common `extractor` values:
+
+| Extractor | Meaning |
+|-----------|---------|
+| `pdf:llm` | Text extracted from PDF via LLM |
+| `image:embed` | Image embedded directly (multimodal) |
+| `image:caption` | Image caption embedded as text |
+| *(none)* | Regular text chunk |
+

@@ -3,6 +3,8 @@
   "pages": [
     "build-a-search-endpoint",
     "ingest-from-filesystem",
+    "ingest-rich-media",
+    "configure-asset-processing",
     "reindexing",
     "multi-tenant",
     "use-with-chat"

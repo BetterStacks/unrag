@@ -1,0 +1,244 @@
+---
+title: Notion with Rich Media
+description: Sync Notion pages that include PDFs, images, and other embeds.
+---
+
+Notion pages often include more than just text—embedded PDFs, images, file attachments, audio clips. This example shows how to sync Notion content with full rich media support.
+
+## What you'll build
+
+A sync script that:
+
+1. Connects to your Notion workspace
+2. Syncs pages with all their embedded media
+3. Extracts text from PDFs using LLM
+4. Embeds images (or their captions)
+5. Makes everything searchable
+
+## Prerequisites
+
+- A Notion integration with access to your pages
+- Unrag set up with the Notion connector (`npx unrag add connector notion`)
+- A database adapter configured
+
+## Configuration
+
+First, ensure your config enables PDF extraction:
+
+```ts
+// unrag.config.ts
+import { createContextEngine } from "./lib/unrag/core";
+import { createAiEmbeddingProvider } from "./lib/unrag/embedding/ai";
+import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
+
+export const unragConfig = {
+  embedding: {
+    type: "text", // or "multimodal" for direct image embedding
+    model: "openai/text-embedding-3-small",
+  },
+  assetProcessing: {
+    onUnsupportedAsset: "skip", // Skip audio/video for now
+    onError: "skip",           // Don't fail on individual asset errors
+    pdf: {
+      llmExtraction: {
+        enabled: true,
+        model: "google/gemini-2.0-flash",
+      },
+    },
+    fetch: {
+      allowedHosts: [
+        // Notion's asset CDN
+        "prod-files-secure.s3.us-west-2.amazonaws.com",
+      ],
+    },
+  },
+} as const;
+
+// ... createUnragEngine setup
+```
+
+## The sync script
+
+```ts
+// scripts/sync-notion.ts
+import { syncNotionPages } from "./lib/unrag/connectors/notion";
+import { createUnragEngine } from "../unrag.config";
+
+async function main() {
+  const engine = createUnragEngine();
+
+  console.log("Syncing Notion pages with rich media...\n");
+
+  const result = await syncNotionPages({
+    engine,
+    token: process.env.NOTION_TOKEN!,
+    pageIds: [
+      // Your page IDs
+      "abc123...",
+      "def456...",
+    ],
+    // Or sync a whole database:
+    // databaseId: "your-database-id",
+  });
+
+  console.log(`\n✓ Synced ${result.pageCount} pages`);
+  console.log(`  - ${result.chunkCount} total chunks created`);
+}
+
+main().catch(console.error);
+```
+
+## What gets extracted
+
+The Notion connector automatically extracts these block types as assets:
+
+| Notion Block | Asset Kind | Handling |
+|--------------|------------|----------|
+| Image | `image` | Direct embedding or caption |
+| PDF | `pdf` | LLM extraction |
+| File | `file` | Skipped in v1 |
+| Audio | `audio` | Skipped in v1 |
+| Video | `video` | Skipped in v1 |
+
+For each asset, the connector captures:
+
+- **URL**: The Notion CDN URL for the file
+- **Caption**: Any caption text below the block
+- **Block ID**: Used as the stable `assetId`
+- **Media type**: Inferred from the block or URL
+
+## Enabling multimodal for images
+
+If you want images embedded directly (not just captions), switch to a multimodal embedding model:
+
+```ts
+export const unragConfig = {
+  embedding: {
+    type: "multimodal",
+    model: "voyage/voyage-multimodal-3",
+  },
+  // ... rest of config
+};
+```
+
+Now a query like "architecture diagram" can find actual diagrams, not just pages that mention them.
+
+## Handling sync errors
+
+The Notion API can be flaky, and asset fetching can fail. Handle this gracefully:
+
+```ts
+try {
+  await syncNotionPages({ engine, token, pageIds });
+} catch (error) {
+  if (error.code === "object_not_found") {
+    console.error("Page not found—check your integration access");
+  } else if (error.message.includes("fetch failed")) {
+    console.error("Network error—retrying may help");
+  } else {
+    throw error;
+  }
+}
+```
+
+With `onError: "skip"`, individual asset failures won't stop the sync. Check your logs for skipped assets.
+
+## Querying the results
+
+After syncing, query across all content types:
+
+```ts
+const engine = createUnragEngine();
+
+// This finds content from text, PDFs, and images
+const result = await engine.retrieve({
+  query: "quarterly revenue projections",
+  topK: 10,
+});
+
+for (const chunk of result.chunks) {
+  const source = chunk.metadata.extractor || "text";
+  console.log(`[${source}] ${chunk.content.slice(0, 100)}...`);
+}
+```
+
+## Incremental sync
+
+For production, sync incrementally based on Notion's `last_edited_time`:
+
+```ts
+import { getNotionPagesUpdatedSince, syncNotionPages } from "./lib/unrag/connectors/notion";
+
+async function incrementalSync(since: Date) {
+  const engine = createUnragEngine();
+  
+  // Get pages updated since last sync
+  const updatedPages = await getNotionPagesUpdatedSince({
+    token: process.env.NOTION_TOKEN!,
+    databaseId: "your-database-id",
+    since,
+  });
+
+  if (updatedPages.length === 0) {
+    console.log("No pages updated since last sync");
+    return;
+  }
+
+  console.log(`Found ${updatedPages.length} updated pages`);
+
+  await syncNotionPages({
+    engine,
+    token: process.env.NOTION_TOKEN!,
+    pageIds: updatedPages.map((p) => p.id),
+  });
+}
+```
+
+## Cost optimization
+
+PDF extraction uses LLM API calls. For large workspaces:
+
+1. **Sync text first**: Disable PDF extraction initially, then enable for important pages
+2. **Filter by page properties**: Only extract from "Published" or "Important" pages
+3. **Set size limits**: Skip very large PDFs with `maxBytes`
+
+```ts
+// Selective extraction based on page properties
+const importantPages = pages.filter((p) => p.properties.Status === "Published");
+
+await syncNotionPages({
+  engine,
+  token,
+  pageIds: importantPages.map((p) => p.id),
+  // PDF extraction enabled in config
+});
+
+// Bulk sync for other pages without PDF extraction
+const otherPages = pages.filter((p) => p.properties.Status !== "Published");
+
+for (const page of otherPages) {
+  await engine.ingest({
+    sourceId: `notion:${page.id}`,
+    content: page.content,
+    assets: page.assets,
+    assetProcessing: {
+      pdf: { llmExtraction: { enabled: false } },
+    },
+  });
+}
+```
+
+## Next steps
+
+<Cards>
+  <Card title="Notion Connector Reference" href="/docs/connectors/notion/api">
+    Full API reference for the Notion connector
+  </Card>
+  <Card title="Asset Processing" href="/docs/reference/asset-processing">
+    Configure extraction behavior and limits
+  </Card>
+  <Card title="Build a Search Endpoint" href="/docs/guides/build-a-search-endpoint">
+    Create an API to search your synced content
+  </Card>
+</Cards>
+

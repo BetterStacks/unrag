@@ -1,0 +1,304 @@
+---
+title: Asset Processing Reference
+description: Complete reference for the AssetProcessingConfig type and related interfaces.
+---
+
+This page documents the types and configuration options for Unrag's asset processing system—how PDFs, images, and other media are handled during ingestion.
+
+## AssetProcessingConfig
+
+The main configuration type for asset processing. Set this on your engine config or override per-ingest.
+
+```ts
+type AssetProcessingConfig = {
+  /** What to do when an asset kind has no configured extractor. */
+  onUnsupportedAsset: "skip" | "fail";
+
+  /** What to do when asset processing throws an error. */
+  onError: "skip" | "fail";
+
+  /** Settings for fetching URL-based assets. */
+  fetch: FetchConfig;
+
+  /** PDF-specific extraction settings. */
+  pdf: {
+    llmExtraction: PdfLlmExtractionConfig;
+  };
+};
+```
+
+<TypeTable
+  type={{
+    onUnsupportedAsset: {
+      description: 'What happens when Unrag encounters an asset kind it cannot process (e.g., audio in v1). "skip" continues without that asset; "fail" throws an error.',
+      type: '"skip" | "fail"',
+      default: '"skip"',
+    },
+    onError: {
+      description: 'What happens when asset processing throws an error (network failure, extraction timeout, etc.). "skip" continues without that asset; "fail" propagates the error.',
+      type: '"skip" | "fail"',
+      default: '"skip"',
+    },
+    fetch: {
+      description: 'Settings for fetching assets from URLs.',
+      type: 'FetchConfig',
+    },
+    pdf: {
+      description: 'PDF-specific settings, including LLM extraction configuration.',
+      type: '{ llmExtraction: PdfLlmExtractionConfig }',
+    },
+  }}
+/>
+
+## FetchConfig
+
+Controls how Unrag fetches assets when they're provided as URLs.
+
+```ts
+type FetchConfig = {
+  enabled: boolean;
+  maxBytes: number;
+  timeoutMs: number;
+  allowedHosts?: string[];
+  blockedHosts?: string[];
+};
+```
+
+<TypeTable
+  type={{
+    enabled: {
+      description: 'Whether to fetch URL-based assets. If false, assets with URL data are skipped.',
+      type: 'boolean',
+      default: 'true',
+    },
+    maxBytes: {
+      description: 'Maximum response size in bytes. Larger responses are rejected.',
+      type: 'number',
+      default: '15 * 1024 * 1024 (15 MB)',
+    },
+    timeoutMs: {
+      description: 'Fetch timeout in milliseconds.',
+      type: 'number',
+      default: '20000 (20 seconds)',
+    },
+    allowedHosts: {
+      description: 'If provided, only URLs with these hostnames are fetched. Recommended for production to prevent SSRF.',
+      type: 'string[]',
+      default: 'undefined (all hosts allowed)',
+    },
+    blockedHosts: {
+      description: 'Hostnames to block. Applied after allowedHosts check.',
+      type: 'string[]',
+      default: 'undefined',
+    },
+  }}
+/>
+
+<Callout type="warn">
+For production deployments, always configure `allowedHosts` to prevent server-side request forgery (SSRF). Only allow hosts you trust, such as your CDN or Notion's asset domains.
+</Callout>
+
+## PdfLlmExtractionConfig
+
+Settings for extracting text from PDFs using an LLM.
+
+```ts
+type PdfLlmExtractionConfig = {
+  enabled: boolean;
+  model: string;
+  prompt: string;
+  timeoutMs: number;
+  maxBytes: number;
+  maxOutputChars: number;
+};
+```
+
+<TypeTable
+  type={{
+    enabled: {
+      description: 'Whether to extract text from PDFs using an LLM. The library defaults to false (cost-safe); the generated config template sets this to true.',
+      type: 'boolean',
+      default: 'false (library), true (generated config)',
+    },
+    model: {
+      description: 'The AI Gateway model string to use for extraction.',
+      type: 'string',
+      default: '"google/gemini-2.0-flash"',
+    },
+    prompt: {
+      description: 'The prompt sent to the LLM along with the PDF. Customize this for domain-specific extraction needs.',
+      type: 'string',
+      default: '"Extract all readable text from this PDF as faithfully as possible..."',
+    },
+    timeoutMs: {
+      description: 'Timeout for the LLM extraction call.',
+      type: 'number',
+      default: '60000 (60 seconds)',
+    },
+    maxBytes: {
+      description: 'Maximum PDF size to process. Larger PDFs are skipped.',
+      type: 'number',
+      default: '15 * 1024 * 1024 (15 MB)',
+    },
+    maxOutputChars: {
+      description: 'Maximum characters of extracted text to return. Longer extractions are truncated.',
+      type: 'number',
+      default: '200000',
+    },
+  }}
+/>
+
+## AssetInput
+
+The type for individual assets passed to `engine.ingest()`.
+
+```ts
+type AssetInput = {
+  /** Stable identifier for this asset within the document. */
+  assetId: string;
+
+  /** The kind of asset. Determines how it's processed. */
+  kind: AssetKind;
+
+  /** The asset data—either a URL to fetch or raw bytes. */
+  data: AssetData;
+
+  /** Optional stable URI for display/debugging (not necessarily fetchable). */
+  uri?: string;
+
+  /** Caption, alt text, or other text representation of the asset. */
+  text?: string;
+
+  /** Additional metadata to attach to chunks created from this asset. */
+  metadata?: Metadata;
+};
+```
+
+<TypeTable
+  type={{
+    assetId: {
+      description: 'A stable identifier for this asset within the document. For Notion, this is typically the block ID.',
+      type: 'string',
+    },
+    kind: {
+      description: 'The type of asset: "image", "pdf", "audio", "video", or "file".',
+      type: 'AssetKind',
+    },
+    data: {
+      description: 'Either a URL to fetch ({ kind: "url", url, ... }) or raw bytes ({ kind: "bytes", bytes, mediaType }).',
+      type: 'AssetData',
+    },
+    uri: {
+      description: 'Optional display URI. Useful for debugging or linking back to the original asset.',
+      type: 'string',
+    },
+    text: {
+      description: 'Caption or alt text. For images without multimodal embedding, this text is embedded instead.',
+      type: 'string',
+    },
+    metadata: {
+      description: 'Additional metadata merged into chunks created from this asset.',
+      type: 'Metadata',
+    },
+  }}
+/>
+
+## AssetData
+
+The data payload for an asset—either a URL or raw bytes.
+
+```ts
+type AssetData =
+  | {
+      kind: "url";
+      url: string;
+      headers?: Record<string, string>;
+      mediaType?: string;
+      filename?: string;
+    }
+  | {
+      kind: "bytes";
+      bytes: Uint8Array;
+      mediaType: string;
+      filename?: string;
+    };
+```
+
+**URL-based data** is fetched during ingestion (subject to `fetch` config). This is common for connectors like Notion where assets are hosted externally.
+
+**Bytes-based data** is used directly without fetching. Use this when you already have the file contents in memory.
+
+## AssetKind
+
+The supported asset types:
+
+```ts
+type AssetKind = "image" | "pdf" | "audio" | "video" | "file";
+```
+
+| Kind | v1 Support | Notes |
+|------|------------|-------|
+| `image` | Supported | Direct embedding (multimodal) or caption fallback |
+| `pdf` | Supported | LLM extraction when enabled |
+| `audio` | Skipped | No built-in extraction |
+| `video` | Skipped | No built-in extraction |
+| `file` | Skipped | No built-in extraction |
+
+## Per-ingest overrides
+
+You can override asset processing settings per-ingest using `DeepPartial<AssetProcessingConfig>`:
+
+```ts
+await engine.ingest({
+  sourceId: "important-doc",
+  content: "...",
+  assets: [...],
+  assetProcessing: {
+    // Only override what you need—everything else uses engine defaults
+    pdf: {
+      llmExtraction: {
+        enabled: true,
+        maxBytes: 50 * 1024 * 1024, // Allow larger PDFs for this doc
+      },
+    },
+    onError: "fail", // Fail this ingest if any asset errors
+  },
+});
+```
+
+This is useful for:
+
+- Enabling extraction for specific high-value documents
+- Disabling extraction during bulk imports to save cost
+- Switching to strict mode (`onError: "fail"`) for critical content
+
+## Default configuration
+
+The library defaults (cost-safe, conservative):
+
+```ts
+const DEFAULT_ASSET_PROCESSING: AssetProcessingConfig = {
+  onUnsupportedAsset: "skip",
+  onError: "skip",
+  fetch: {
+    enabled: true,
+    maxBytes: 15 * 1024 * 1024,
+    timeoutMs: 20_000,
+    allowedHosts: undefined,
+    blockedHosts: undefined,
+  },
+  pdf: {
+    llmExtraction: {
+      enabled: false, // Off by default in library
+      model: "google/gemini-2.0-flash",
+      prompt: "Extract all readable text from this PDF...",
+      timeoutMs: 60_000,
+      maxBytes: 15 * 1024 * 1024,
+      maxOutputChars: 200_000,
+    },
+  },
+};
+```
+
+The generated `unrag.config.ts` overrides `pdf.llmExtraction.enabled` to `true` so new installs work with PDF content out of the box.
+

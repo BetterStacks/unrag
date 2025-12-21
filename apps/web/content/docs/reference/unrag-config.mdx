@@ -84,19 +84,95 @@ export async function retrieve(query: string) {
 
 This object holds your default settings. Changing values here affects all operations that use these defaults.
 
-**`chunking.chunkSize`** — How many words (approximately) per chunk. Smaller chunks give more precise retrieval but cost more to embed. Default: 200.
+### chunking
 
-**`chunking.chunkOverlap`** — How many words overlap between adjacent chunks. Overlap preserves context across boundaries. Default: 40.
+Controls how documents are split into chunks. See [Chunking](/docs/concepts/chunking) for details on strategies.
 
-**`retrieval.topK`** — Default number of results returned by `retrieve()`. Can be overridden per-call. Default: 8.
+<TypeTable
+  type={{
+    chunkSize: {
+      description: 'Approximate words per chunk. Smaller = more precise retrieval, higher embedding cost.',
+      type: 'number',
+      default: '200',
+    },
+    chunkOverlap: {
+      description: 'Words that overlap between adjacent chunks. Preserves context across boundaries.',
+      type: 'number',
+      default: '40',
+    },
+  }}
+/>
 
-**`embedding.type`** — `text` (default) or `multimodal`. Use `multimodal` if you want to embed images directly (and your model supports it).
+### retrieval
 
-**`embedding.model`** — The embedding model identifier. Format is `provider/model-name` for the AI SDK. Default: `openai/text-embedding-3-small`.
+Default settings for `engine.retrieve()` calls.
 
-**`embedding.timeoutMs`** — How long to wait for embedding API responses before timing out. Default: 15000 (15 seconds).
+<TypeTable
+  type={{
+    topK: {
+      description: 'Default number of chunks returned. Can be overridden per-call.',
+      type: 'number',
+      default: '8',
+    },
+  }}
+/>
 
-**`assetProcessing`** — Controls rich media ingestion. In particular, `assetProcessing.pdf.llmExtraction.enabled` enables PDF → LLM text extraction (default template: on, library default: off). In production, consider setting `assetProcessing.fetch.allowedHosts` to mitigate SSRF when ingesting URL-based assets.
+### embedding
+
+Configuration for the embedding provider. See [AI SDK Embeddings](/docs/embedding/ai-sdk) and [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) for more.
+
+<TypeTable
+  type={{
+    type: {
+      description: 'Embedding mode. Use "multimodal" to embed images directly (requires compatible model).',
+      type: '"text" | "multimodal"',
+      default: '"text"',
+    },
+    model: {
+      description: 'The embedding model identifier. Format: provider/model-name.',
+      type: 'string',
+      default: '"openai/text-embedding-3-small"',
+    },
+    timeoutMs: {
+      description: 'Timeout for embedding API responses.',
+      type: 'number',
+      default: '15000',
+    },
+  }}
+/>
+
+### assetProcessing
+
+Controls how PDFs, images, and other rich media are processed during ingestion. For complete type definitions, see [Asset Processing Reference](/docs/reference/asset-processing).
+
+<TypeTable
+  type={{
+    onUnsupportedAsset: {
+      description: 'What to do when an asset kind has no extractor (e.g., audio).',
+      type: '"skip" | "fail"',
+      default: '"skip"',
+    },
+    onError: {
+      description: 'What to do when asset processing throws an error.',
+      type: '"skip" | "fail"',
+      default: '"skip"',
+    },
+    fetch: {
+      description: 'URL fetching settings: enabled, maxBytes, timeoutMs, allowedHosts.',
+      type: 'FetchConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#fetchconfig',
+    },
+    "pdf.llmExtraction": {
+      description: 'PDF text extraction via LLM. Key setting: enabled (template: true, library: false).',
+      type: 'PdfLlmExtractionConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#pdfllmextractionconfig',
+    },
+  }}
+/>
+
+<Callout>
+The generated template sets `pdf.llmExtraction.enabled: true` so new projects work with PDFs out of the box. Set it to `false` if you want text-only ingestion or need to control costs.
+</Callout>
 
 ## The createUnragEngine function
 
@@ -190,11 +266,25 @@ export async function ingestDocument(
 
 The config file expects these environment variables:
 
-**`DATABASE_URL`** — Your Postgres connection string. Required.
-
-**`AI_GATEWAY_API_KEY`** — API key for the embedding provider (typically OpenAI). Required by the AI SDK.
-
-**`AI_GATEWAY_MODEL`** — Optional override for the embedding model. If set, it takes precedence over the config file setting.
+<TypeTable
+  type={{
+    DATABASE_URL: {
+      description: 'Your Postgres connection string.',
+      type: 'string',
+      default: 'Required',
+    },
+    AI_GATEWAY_API_KEY: {
+      description: 'API key for the embedding provider (typically OpenAI). Used by the AI SDK.',
+      type: 'string',
+      default: 'Required',
+    },
+    AI_GATEWAY_MODEL: {
+      description: 'Override for the embedding model. Takes precedence over config file setting.',
+      type: 'string',
+      default: 'Optional',
+    },
+  }}
+/>
 
 ## Server-only
 
