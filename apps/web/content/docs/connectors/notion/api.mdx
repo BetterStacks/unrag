@@ -99,11 +99,122 @@ export async function ingestWithCustomMetadata() {
 
 The `maxDepth` parameter controls how deeply the connector recurses into nested blocks. The default is conservative to keep sync fast; increase it if your pages have heavily nested content.
 
+## Listing accessible pages
+
+The connector doesn't include a built-in "list all pages" helper because Notion integrations can only access pages that have been explicitly shared with them. However, you can use the underlying Notion client's [Search API](https://developers.notion.com/reference/post-search) to discover all accessible pages.
+
+### Listing all pages shared with your integration
+
+Use `createNotionClient()` and call the Notion SDK's [`search`](https://developers.notion.com/reference/post-search) method with pagination:
+
+```ts
+import { createNotionClient } from "@unrag/connectors/notion";
+
+export async function listAccessiblePages() {
+  const notion = createNotionClient({ token: process.env.NOTION_TOKEN! });
+
+  const pages: any[] = [];
+  let cursor: string | undefined;
+
+  while (true) {
+    const res = await notion.search({
+      start_cursor: cursor,
+      page_size: 100,
+      filter: { property: "object", value: "page" },
+    });
+
+    pages.push(...res.results);
+    if (!res.has_more) break;
+    cursor = res.next_cursor ?? undefined;
+  }
+
+  return pages;
+}
+```
+
+Each result includes `id`, `url`, `properties`, `last_edited_time`, and other Notion metadata. See the [Page object reference](https://developers.notion.com/reference/page) for the full schema.
+
+### Syncing all accessible pages
+
+Combine the listing with `syncNotionPages` to ingest everything your integration can see:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { createNotionClient, syncNotionPages } from "@unrag/connectors/notion";
+
+export async function syncAllAccessiblePages() {
+  const engine = createUnragEngine();
+  const notion = createNotionClient({ token: process.env.NOTION_TOKEN! });
+
+  // 1. Discover all accessible pages
+  const pages: any[] = [];
+  let cursor: string | undefined;
+
+  while (true) {
+    const res = await notion.search({
+      start_cursor: cursor,
+      page_size: 100,
+      filter: { property: "object", value: "page" },
+    });
+
+    pages.push(...res.results);
+    if (!res.has_more) break;
+    cursor = res.next_cursor ?? undefined;
+  }
+
+  const pageIds = pages.map((p) => p.id);
+  console.log(`Found ${pageIds.length} accessible pages`);
+
+  // 2. Sync them all
+  return await syncNotionPages({
+    engine,
+    token: process.env.NOTION_TOKEN!,
+    pageIds,
+    onProgress: (event) => {
+      if (event.type === "page:success") {
+        console.log(`✓ Synced ${event.sourceId}`);
+      }
+    },
+  });
+}
+```
+
+### Listing pages from a specific data source
+
+If you want pages from a particular Notion data source rather than all accessible pages, use [`dataSources.query`](https://developers.notion.com/reference/query-a-data-source):
+
+```ts
+import { createNotionClient } from "@unrag/connectors/notion";
+
+export async function listPagesFromDataSource(dataSourceId: string) {
+  const notion = createNotionClient({ token: process.env.NOTION_TOKEN! });
+
+  const pages: any[] = [];
+  let cursor: string | undefined;
+
+  while (true) {
+    const res = await notion.dataSources.query({
+      data_source_id: dataSourceId,
+      start_cursor: cursor,
+      page_size: 100,
+    });
+
+    pages.push(...res.results);
+    if (!res.has_more) break;
+    cursor = res.next_cursor ?? undefined;
+  }
+
+  return pages;
+}
+```
+
+This is useful when your content lives in a structured database (e.g., a "Docs" or "Knowledge Base" database) and you want to sync only those entries.
+
 ## Utilities
 
 ### `createNotionClient({ token, timeoutMs? })`
 
-Creates a Notion API client. Most users don't need this unless they want to build custom fetch logic on top of the connector.
+Creates a Notion API client using the official [`@notionhq/client`](https://github.com/makenotion/notion-sdk-js) SDK. The returned client exposes the full [Notion API](https://developers.notion.com/reference/intro), so you can call any endpoint directly (e.g., `notion.pages.retrieve()`, `notion.blocks.children.list()`). Most users don't need this unless they want to build custom fetch logic on top of the connector.
 
 ### ID helpers
 
