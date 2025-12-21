@@ -4,6 +4,7 @@ import type {
   Chunk,
   IngestInput,
   IngestResult,
+  IngestWarning,
   ResolvedContextEngineConfig,
 } from "./types";
 import { extractPdfTextWithLlm } from "./pdf-llm";
@@ -36,8 +37,13 @@ const mergeDeep = <T extends Record<string, any>>(
   return out as T;
 };
 
-const assetError = (policy: AssetProcessingConfig["onError"], err: unknown) => {
-  if (policy === "fail") throw err;
+const asMessage = (err: unknown) => {
+  if (err instanceof Error) return err.message;
+  try {
+    return typeof err === "string" ? err : JSON.stringify(err);
+  } catch {
+    return String(err);
+  }
 };
 
 export const ingest = async (
@@ -68,6 +74,7 @@ export const ingest = async (
   };
 
   const prepared: PreparedChunk[] = [];
+  const warnings: IngestWarning[] = [];
 
   const baseTextChunks = config.chunker(input.content, chunkingOptions);
   for (const c of baseTextChunks) {
@@ -111,6 +118,15 @@ export const ingest = async (
             "PDF encountered but pdf.llmExtraction is disabled (enable assetProcessing.pdf.llmExtraction.enabled)"
           );
         }
+        warnings.push({
+          code: "asset_skipped_pdf_llm_extraction_disabled",
+          message:
+            "PDF skipped because assetProcessing.pdf.llmExtraction.enabled is false. Enable it to extract and embed PDF text.",
+          assetId: asset.assetId,
+          assetKind: "pdf",
+          ...(assetUri ? { assetUri } : {}),
+          ...(assetMediaType ? { assetMediaType } : {}),
+        });
         continue;
       }
 
@@ -122,7 +138,18 @@ export const ingest = async (
           llm: assetProcessing.pdf.llmExtraction,
         });
 
-        if (!extracted.trim()) continue;
+        if (!extracted.trim()) {
+          warnings.push({
+            code: "asset_skipped_pdf_empty_extraction",
+            message:
+              "PDF extraction returned empty text. The PDF may be scanned/image-only or the model failed to extract readable content.",
+            assetId: asset.assetId,
+            assetKind: "pdf",
+            ...(assetUri ? { assetUri } : {}),
+            ...(assetMediaType ? { assetMediaType } : {}),
+          });
+          continue;
+        }
 
         const pdfChunks = config.chunker(extracted, chunkingOptions);
         for (const c of pdfChunks) {
@@ -142,7 +169,16 @@ export const ingest = async (
         }
         nextIndex += pdfChunks.length;
       } catch (err) {
-        assetError(assetProcessing.onError, err);
+        if (assetProcessing.onError === "fail") throw err;
+        warnings.push({
+          code: "asset_processing_error",
+          message: `PDF processing failed but was skipped due to onError="skip": ${asMessage(err)}`,
+          assetId: asset.assetId,
+          assetKind: "pdf",
+          stage: "extract",
+          ...(assetUri ? { assetUri } : {}),
+          ...(assetMediaType ? { assetMediaType } : {}),
+        });
       }
 
       continue;
@@ -195,6 +231,16 @@ export const ingest = async (
           });
         }
         nextIndex += captionChunks.length;
+      } else {
+        warnings.push({
+          code: "asset_skipped_image_no_multimodal_and_no_caption",
+          message:
+            "Image skipped because embedding provider does not support embedImage() and assets[].text (caption/alt) is empty.",
+          assetId: asset.assetId,
+          assetKind: "image",
+          ...(assetUri ? { assetUri } : {}),
+          ...(assetMediaType ? { assetMediaType } : {}),
+        });
       }
 
       continue;
@@ -204,6 +250,14 @@ export const ingest = async (
     if (assetProcessing.onUnsupportedAsset === "fail") {
       throw new Error(`Unsupported asset kind: ${asset.kind}`);
     }
+    warnings.push({
+      code: "asset_skipped_unsupported_kind",
+      message: `Asset skipped because kind "${asset.kind}" is not supported by the built-in pipeline.`,
+      assetId: asset.assetId,
+      assetKind: asset.kind,
+      ...(assetUri ? { assetUri } : {}),
+      ...(assetMediaType ? { assetMediaType } : {}),
+    });
   }
 
   const chunkingMs = now() - chunkingStart;
@@ -252,6 +306,7 @@ export const ingest = async (
     documentId,
     chunkCount: embeddedChunks.length,
     embeddingModel: config.embedding.name,
+    warnings,
     durations: {
       totalMs,
       chunkingMs,

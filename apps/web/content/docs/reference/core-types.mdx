@@ -80,6 +80,7 @@ type IngestResult = {
   documentId: string;
   chunkCount: number;
   embeddingModel: string;
+  warnings: IngestWarning[];
   durations: { totalMs: number; chunkingMs: number; embeddingMs: number; storageMs: number };
 };
 ```
@@ -98,12 +99,79 @@ type IngestResult = {
       description: 'Which model was used (e.g., "ai-sdk:openai/...").',
       type: 'string',
     },
+    warnings: {
+      description:
+        'Structured warnings emitted during ingestion. This is how you detect skipped rich media (unsupported assets, disabled extraction) without silently missing content.',
+      type: 'IngestWarning[]',
+      default: '[]',
+    },
     durations: {
       description: 'Timing breakdown: totalMs, chunkingMs, embeddingMs, storageMs. Useful for identifying bottlenecks.',
       type: 'object',
     },
   }}
 />
+
+## IngestWarning
+
+Warnings emitted by `engine.ingest()` when rich media assets are skipped or best-effort processing fails (while continuing).
+
+```ts
+type IngestWarning =
+  | {
+      code: "asset_skipped_unsupported_kind";
+      message: string;
+      assetId: string;
+      assetKind: AssetKind;
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
+      code: "asset_skipped_pdf_llm_extraction_disabled";
+      message: string;
+      assetId: string;
+      assetKind: "pdf";
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
+      code: "asset_skipped_image_no_multimodal_and_no_caption";
+      message: string;
+      assetId: string;
+      assetKind: "image";
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
+      code: "asset_skipped_pdf_empty_extraction";
+      message: string;
+      assetId: string;
+      assetKind: "pdf";
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
+      code: "asset_processing_error";
+      message: string;
+      assetId: string;
+      assetKind: AssetKind;
+      stage: "fetch" | "extract" | "embed" | "unknown";
+      assetUri?: string;
+      assetMediaType?: string;
+    };
+```
+
+**Recommended practice**: treat warnings as observability signals.
+
+```ts
+const result = await engine.ingest(input);
+if (result.warnings.length > 0) {
+  // Send to logs/metrics/alerts in production
+  console.warn("unrag ingest warnings", result.warnings);
+}
+```
+
+For configuration knobs that control when assets are skipped vs failed, see [Asset Processing Reference](/docs/reference/asset-processing).
 
 ## RetrieveInput
 

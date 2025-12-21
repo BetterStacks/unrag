@@ -84,7 +84,7 @@ export async function ingestWithCustomMetadata() {
     sourceIdPrefix: "docs:",
   });
 
-  await engine.ingest({
+  const result = await engine.ingest({
     sourceId: doc.sourceId,
     content: doc.content,
     assets: doc.assets,
@@ -95,6 +95,12 @@ export async function ingestWithCustomMetadata() {
     },
     chunking: { chunkSize: 300, chunkOverlap: 50 },
   });
+
+  // If assets are skipped (unsupported kinds, PDF extraction disabled, etc.),
+  // Unrag emits structured warnings so you don’t silently miss content.
+  if (result.warnings.length > 0) {
+    console.warn("unrag ingest warnings", result.warnings);
+  }
 }
 ```
 
