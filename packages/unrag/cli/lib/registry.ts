@@ -84,6 +84,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
   const createEngineBlock = [
     `export function createUnragEngine() {`,
     `  const embedding = createAiEmbeddingProvider({`,
+    `    type: unragConfig.embedding.type,`,
     `    model: unragConfig.embedding.model,`,
     `    timeoutMs: unragConfig.embedding.timeoutMs,`,
     `  });`,
@@ -93,6 +94,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
     `    defineConfig({`,
     `      embedding,`,
     `      store,`,
+    `      assetProcessing: unragConfig.assetProcessing,`,
     `      defaults: unragConfig.chunking,`,
     `    })`,
     `  );`,

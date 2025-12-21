@@ -83,6 +83,8 @@ The Notion token is a credential and must never run in the browser. Treat Notion
 
 Each page becomes one logical document in your store. The content consists of the page title followed by the rendered block text. The connector attaches metadata including the `connector` name, `kind`, `pageId`, `url`, `title`, and `lastEditedTime`.
 
+If the page contains rich media, the connector also emits `assets` (for example: images, PDF embeds, audio/video/file blocks). Whether those assets become searchable content depends on your engine `assetProcessing` config—PDF extraction via LLM is opt-in/costful, and unsupported asset kinds are skipped by default.
+
 The `sourceId` is stable by page ID, so repeated runs update the same logical document rather than creating duplicates.
 
 ## Where to go next

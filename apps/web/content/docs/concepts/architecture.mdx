@@ -19,7 +19,7 @@ These components are assembled in your `unrag.config.ts` file to create a `Conte
 
 ## The ingest pipeline
 
-When you call `engine.ingest({ sourceId, content, metadata })`, here's what happens:
+When you call `engine.ingest({ sourceId, content, metadata, assets })`, here's what happens:
 
 <Steps>
 <Step>
@@ -29,6 +29,17 @@ When you call `engine.ingest({ sourceId, content, metadata })`, here's what happ
 The content string is passed to the chunker function along with your configured chunk size and overlap. The chunker returns an array of chunk objects, each containing the text, its position index, and an approximate token count.
 
 For example, with a chunk size of 200 words and 40-word overlap, a 500-word document becomes roughly 3-4 chunks. Each chunk shares some text with its neighbors, which helps preserve context across chunk boundaries.
+
+</Step>
+<Step>
+
+### Asset processing (optional)
+
+If you provide `assets` (or a connector like Notion does), Unrag can also turn rich media into chunks:
+
+- **PDFs**: if enabled via `assetProcessing.pdf.llmExtraction.enabled`, Unrag sends the PDF to an LLM (default: Gemini via AI Gateway) to extract text, then chunks and embeds that extracted text like any other content.
+- **Images**: if your embedding provider supports image embeddings (`embedImage`), Unrag can embed the image directly in the same vector space as text queries. If not, it falls back to embedding captions when available.
+- **Other asset kinds** (audio/video/files): in v1 they are skipped (or can be configured to fail ingest) unless you implement additional extraction.
 
 </Step>
 <Step>
