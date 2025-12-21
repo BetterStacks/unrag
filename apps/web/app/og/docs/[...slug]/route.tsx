@@ -103,12 +103,11 @@ export async function GET(
           {/* Title */}
           <div
             style={{
-              fontSize: 56,
+              fontSize: 64,
               fontWeight: 700,
               color: '#ffffff',
               lineHeight: 1.2,
-              marginBottom: 36,
-              // maxWidth: '900px',
+              marginBottom: 36
             }}
           >
             {page.data.title}
@@ -117,10 +116,10 @@ export async function GET(
           {page.data.description && (
             <div
               style={{
-                fontSize: 24,
+                fontSize: 28,
                 color: 'rgba(255, 255, 255, 0.8)',
                 lineHeight: 1.4,
-                maxWidth: '600px',
+                maxWidth: '700px',
               }}
             >
               {page.data.description}
