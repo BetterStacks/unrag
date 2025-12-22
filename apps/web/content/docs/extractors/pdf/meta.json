@@ -2,7 +2,9 @@
   "title": "PDF",
   "pages": [
     "index",
-    "llm"
+    "text-layer",
+    "llm",
+    "ocr"
   ]
 }
 

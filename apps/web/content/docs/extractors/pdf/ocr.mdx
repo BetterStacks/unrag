@@ -1,0 +1,244 @@
+---
+title: "pdf:ocr Extractor"
+description: OCR PDFs by rasterizing pages and running OCR (worker-only).
+---
+
+The `pdf:ocr` extractor handles scanned PDFs the traditional way: render each page to an image, then run OCR (optical character recognition) to extract text. This gives you scanned document support without the per-document cost of LLM extraction.
+
+The catch? It requires native binaries (`pdftoppm` for rendering and `tesseract` for OCR) and can be resource-intensive. This isn't suitable for serverless environments—you'll need a worker runtime with these tools installed.
+
+## When to use this
+
+**Choose `pdf:ocr` when:**
+- You process many scanned documents and want to avoid LLM costs
+- You have a worker environment with native dependency support
+- Quality is important but LLM-level analysis isn't necessary
+
+**Skip `pdf:ocr` when:**
+- You're running on serverless (Vercel, Lambda, etc.)
+- Documents have complex layouts requiring intelligent extraction
+- You don't want to manage native dependencies
+
+For serverless environments, `pdf:llm` is usually the better choice for scanned documents.
+
+## Installation
+
+```bash
+bunx unrag add extractor pdf-ocr
+```
+
+This extractor requires external binaries. Make sure these are installed in your runtime environment:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install poppler-utils tesseract-ocr
+
+# macOS (Homebrew)
+brew install poppler tesseract
+
+# Alpine (Docker)
+apk add poppler-utils tesseract-ocr
+```
+
+Register in your config:
+
+```ts
+import { createPdfOcrExtractor } from "./lib/unrag/extractors/pdf-ocr";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createPdfOcrExtractor()],
+  },
+} as const);
+```
+
+## Configuration
+
+Enable and configure via `assetProcessing.pdf.ocr`:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      pdf: {
+        ocr: {
+          enabled: true,
+          maxBytes: 15 * 1024 * 1024,   // Skip files over 15MB
+          maxOutputChars: 200_000,       // Truncate very long output
+          minChars: 200,                 // Skip if too little text extracted
+          dpi: 200,                      // Render resolution
+          lang: "eng",                   // Tesseract language code
+          pdftoppmPath: "/usr/bin/pdftoppm",
+          tesseractPath: "/usr/bin/tesseract",
+        },
+      },
+    },
+  },
+} as const);
+```
+
+### Configuration options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `false` | Whether to use OCR extraction |
+| `maxBytes` | `15MB` | Maximum PDF file size |
+| `maxOutputChars` | `200000` | Truncate output beyond this |
+| `minChars` | `200` | Minimum chars for successful extraction |
+| `dpi` | `200` | Resolution for page rendering |
+| `lang` | `"eng"` | Tesseract language code |
+| `pdftoppmPath` | auto-detect | Path to pdftoppm binary |
+| `tesseractPath` | auto-detect | Path to tesseract binary |
+
+### DPI and quality
+
+The `dpi` setting controls the resolution of rendered page images. Higher DPI means better OCR accuracy but slower processing and more memory usage:
+
+- **150 dpi**: Fast, good for clean scans
+- **200 dpi**: Balanced (default)
+- **300 dpi**: High quality, needed for poor scans
+
+### Language support
+
+Tesseract supports many languages. Install the language data and configure:
+
+```bash
+# Install additional languages
+sudo apt-get install tesseract-ocr-deu tesseract-ocr-fra
+```
+
+```ts
+assetProcessing: {
+  pdf: {
+    ocr: {
+      enabled: true,
+      lang: "deu",  // German
+      // Or multiple: "eng+deu+fra"
+    },
+  },
+},
+```
+
+## How it works
+
+The extraction pipeline:
+
+1. **Render**: pdftoppm converts each PDF page to a PNG image at configured DPI
+2. **OCR**: Tesseract processes each image to extract text
+3. **Combine**: Text from all pages is combined with page separators
+4. **Chunk**: The combined text is chunked and embedded like any other content
+
+This is inherently slower than text layer extraction but produces good results for scanned documents.
+
+## Worker environment setup
+
+Since this extractor requires native binaries, you'll need a proper runtime environment.
+
+### Docker
+
+```dockerfile
+FROM node:20-slim
+
+# Install PDF and OCR tools
+RUN apt-get update && apt-get install -y \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . .
+RUN npm install
+
+CMD ["node", "worker.js"]
+```
+
+### Background jobs
+
+For production, run OCR extraction in a background job system:
+
+```ts
+// worker.ts
+import { engine } from "./lib/unrag";
+
+export async function processScannedPdf(pdfUrl: string, sourceId: string) {
+  const response = await fetch(pdfUrl);
+  const pdfBytes = new Uint8Array(await response.arrayBuffer());
+  
+  const result = await engine.ingest({
+    sourceId,
+    content: "",
+    assets: [
+      {
+        assetId: `${sourceId}-pdf`,
+        kind: "pdf",
+        data: {
+          kind: "bytes",
+          bytes: pdfBytes,
+          mediaType: "application/pdf",
+        },
+      },
+    ],
+  });
+  
+  return result;
+}
+```
+
+See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) for detailed examples of running extractors in background jobs.
+
+## Fallback chains
+
+You can use `pdf:ocr` as a fallback for `pdf:text-layer`:
+
+```ts
+extractors: [
+  createPdfTextLayerExtractor(),  // Try text layer first
+  createPdfOcrExtractor(),        // Fall back to OCR for scanned docs
+],
+```
+
+This gives you:
+- Instant extraction for digital PDFs (text layer)
+- Scanned document support (OCR) without LLM costs
+
+## Chunk metadata
+
+| Field | Value |
+|-------|-------|
+| `metadata.assetKind` | `"pdf"` |
+| `metadata.assetId` | Your provided ID |
+| `metadata.extractor` | `"pdf:ocr"` |
+
+## Troubleshooting
+
+### "pdftoppm not found" or "tesseract not found"
+
+The binaries aren't installed or aren't in PATH. Either:
+- Install the required packages
+- Provide explicit paths in config (`pdftoppmPath`, `tesseractPath`)
+
+### Poor OCR quality
+
+- **Increase DPI**: Try `dpi: 300` for clearer images
+- **Check language**: Make sure the correct language pack is installed
+- **Source quality**: Very poor scans may need pre-processing (not supported in this extractor)
+
+### Out of memory
+
+Large PDFs with high DPI can consume significant memory. Consider:
+- Lowering DPI
+- Setting `maxBytes` to skip very large files
+- Processing in smaller batches
+
+### Slow extraction
+
+OCR is inherently slow. For production:
+- Use background jobs, not request-time processing
+- Consider `pdf:llm` as an alternative (faster for most documents)
+- Pre-filter which documents actually need OCR
+

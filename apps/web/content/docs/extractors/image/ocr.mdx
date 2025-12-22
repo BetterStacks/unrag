@@ -1,0 +1,221 @@
+---
+title: "image:ocr Extractor"
+description: OCR images into searchable text chunks using a vision-capable model.
+---
+
+The `image:ocr` extractor reads text from images using a vision-capable LLM (like Gemini). Unlike traditional OCR, it can handle complex layouts, handwriting, and even understand context—a chart legend, a form field label, or text overlaid on a photo.
+
+This is especially valuable for screenshots, charts, UI captures, and any image where the important information is text that you want to be searchable.
+
+## When to use this
+
+**Use `image:ocr` when:**
+- Images contain important text (error messages, labels, numbers)
+- You want "find me that error screenshot" queries to work
+- Screenshots and UI captures are common in your content
+- Charts and diagrams have text labels you want searchable
+
+**Skip it when:**
+- Images are purely visual (photos, artwork)
+- You already have good captions describing the content
+- Cost per image is a concern and volume is high
+
+## Installation
+
+```bash
+bunx unrag add extractor image-ocr
+```
+
+Register in your config:
+
+```ts
+import { createImageOcrExtractor } from "./lib/unrag/extractors/image-ocr";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createImageOcrExtractor()],
+  },
+} as const);
+```
+
+## Configuration
+
+Enable and configure via `assetProcessing.image.ocr`:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      image: {
+        ocr: {
+          enabled: true,
+          model: "google/gemini-2.0-flash",
+          prompt: "Extract all readable text from this image as faithfully as possible. Output plain text only. Do not add commentary.",
+          timeoutMs: 60_000,
+          maxBytes: 10 * 1024 * 1024,
+          maxOutputChars: 50_000,
+          minChars: 10,
+        },
+      },
+    },
+  },
+} as const);
+```
+
+### Configuration options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `false` | Whether to OCR images |
+| `model` | `"google/gemini-2.0-flash"` | Vision-capable model to use |
+| `prompt` | (extraction prompt) | Instructions for the model |
+| `timeoutMs` | `60000` | API call timeout |
+| `maxBytes` | `10MB` | Maximum image file size |
+| `maxOutputChars` | `50000` | Truncate extracted text beyond this |
+| `minChars` | `10` | Skip if less text extracted than this |
+
+## How it differs from traditional OCR
+
+Traditional OCR (Tesseract, etc.) looks at image pixels and tries to recognize character shapes. It works best on clean, high-contrast text.
+
+LLM-based OCR is fundamentally different:
+- **Understands context** — knows "Password:" is a label, not random text
+- **Handles layouts** — can extract text from multi-column designs correctly
+- **Reads handwriting** — varying quality, but usually better than pixel OCR
+- **Works on photos** — text on signs, screens, whiteboards
+
+The tradeoff is cost (API calls vs. local processing) and speed (network round-trip vs. local).
+
+## Usage example
+
+### Ingesting a screenshot
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const screenshotBytes = await readFile("./images/error-dialog.png");
+
+const result = await engine.ingest({
+  sourceId: "support:ticket-123",
+  content: "User reported login failure",
+  assets: [
+    {
+      assetId: "error-screenshot",
+      kind: "image",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(screenshotBytes),
+        mediaType: "image/png",
+      },
+    },
+  ],
+});
+
+// The OCR text is now searchable
+// Queries for "Connection timeout" will find this image
+```
+
+### From URL
+
+```ts
+await engine.ingest({
+  sourceId: "docs:ui-guide",
+  content: "Settings panel walkthrough",
+  assets: [
+    {
+      assetId: "settings-screenshot",
+      kind: "image",
+      data: {
+        kind: "url",
+        url: "https://storage.example.com/docs/settings-panel.png",
+        mediaType: "image/png",
+      },
+    },
+  ],
+});
+```
+
+## What gets stored
+
+For each image:
+
+| Field | Content |
+|-------|---------|
+| `chunk.content` | The extracted text |
+| `chunk.metadata.assetKind` | `"image"` |
+| `chunk.metadata.assetId` | Your provided ID |
+| `chunk.metadata.extractor` | `"image:ocr"` |
+| `embedding` | Vector from your text embedding model |
+
+You can filter for OCR chunks in retrieval:
+
+```ts
+const results = await engine.retrieve({ query: "timeout error" });
+
+for (const chunk of results.chunks) {
+  if (chunk.metadata?.extractor === "image:ocr") {
+    console.log("Found in image OCR:", chunk.content);
+  }
+}
+```
+
+## Combining with image embedding
+
+If you're using a multimodal embedding model, images can produce both:
+- A direct image embedding (visual search)
+- An OCR text chunk (text search)
+
+This gives you comprehensive coverage:
+
+```ts
+const result = await engine.retrieve({ query: "error message" });
+
+// Might return:
+// - Image embedding match (visually looks like an error dialog)
+// - OCR chunk match (contains the text "error")
+```
+
+## Customizing the prompt
+
+The default prompt does faithful text extraction. Customize for specific use cases:
+
+```ts
+// For charts/graphs
+prompt: "Extract all text from this chart including: title, axis labels, legend entries, and any data values shown. Format as structured text."
+
+// For forms
+prompt: "Extract all text from this form image as field: value pairs where possible."
+
+// For code screenshots
+prompt: "Extract the code shown in this screenshot. Preserve formatting and indentation. Output as plain text."
+```
+
+<Callout>
+Keep prompts deterministic. Avoid "summarize" or "describe" which produce inconsistent output.
+</Callout>
+
+## Troubleshooting
+
+### No text extracted
+
+- Check if the image actually has readable text
+- Image might be too low resolution—try a higher quality version
+- Text might be in a non-Latin script—check if the model supports it
+
+### OCR quality is poor
+
+- Increase image resolution if possible
+- Simplify the prompt to focus on extraction only
+- For poor scans, consider pre-processing (not built into this extractor)
+
+### Slow extraction
+
+LLM-based OCR involves network calls. For high-volume scenarios:
+- Process images in background jobs
+- Use a faster model (Gemini Flash over Pro)
+- Consider if all images need OCR or just some
+

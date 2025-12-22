@@ -1,0 +1,161 @@
+---
+title: "file:docx Extractor"
+description: Extract text content from Microsoft Word documents.
+---
+
+The `file:docx` extractor pulls text from Word documents (`.docx` format). It parses the XML structure inside the document and extracts readable text from paragraphs, tables, lists, and other content blocks.
+
+Headers, footers, and text boxes are included. Images and charts are skipped—if you need those, consider pairing with an image captioning extractor.
+
+## Installation
+
+```bash
+bunx unrag add extractor file-docx
+```
+
+Then register the extractor:
+
+```ts
+import { createFileDocxExtractor } from "./lib/unrag/extractors/file-docx";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createFileDocxExtractor()],
+  },
+} as const);
+```
+
+## What gets extracted
+
+The extractor walks through the document structure and extracts:
+
+- **Paragraphs** — Body text, headings, quotes
+- **Tables** — Cell content, row by row
+- **Lists** — Bullet points and numbered lists
+- **Text boxes** — Floating text elements
+- **Headers / footers** — Page header and footer text
+
+The output is plain text with natural paragraph breaks. Document formatting (bold, italic, fonts) is stripped—we're after the content, not the styling.
+
+## Configuration
+
+Enable in your engine config:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      file: {
+        docx: {
+          enabled: true,
+          maxBytes: 50 * 1024 * 1024, // Skip files over 50MB
+          maxOutputChars: 500_000,     // Truncate very long documents
+        },
+      },
+    },
+  },
+} as const);
+```
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `false` | Whether to process Word documents |
+| `maxBytes` | `50MB` | Maximum file size to process |
+| `maxOutputChars` | `500000` | Truncate extracted text beyond this |
+
+## Usage example
+
+### Ingesting a Word document
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const docBuffer = await readFile("./uploads/quarterly-report.docx");
+
+await engine.ingest({
+  sourceId: "reports:q3-2024",
+  content: "Q3 2024 Quarterly Report",
+  assets: [
+    {
+      assetId: "report-docx",
+      kind: "file",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(docBuffer),
+        mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename: "quarterly-report.docx",
+      },
+    },
+  ],
+});
+```
+
+### From a URL
+
+```ts
+await engine.ingest({
+  sourceId: "docs:proposal",
+  content: "Project Proposal",
+  assets: [
+    {
+      assetId: "proposal-doc",
+      kind: "file",
+      data: {
+        kind: "url",
+        url: "https://storage.example.com/documents/proposal.docx",
+        mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      },
+    },
+  ],
+});
+```
+
+## What about `.doc` files?
+
+The old binary `.doc` format (Word 97-2003) isn't supported. If you need to process `.doc` files:
+
+1. **Convert first** — Use a tool like LibreOffice headless to convert to `.docx`
+2. **Use an LLM** — Upload to a document analysis model that handles legacy formats
+
+Modern Word documents (2007+) use `.docx`, which is what this extractor handles.
+
+## Chunk metadata
+
+Each extracted chunk includes:
+
+| Field | Value |
+|-------|-------|
+| `chunk.metadata.assetKind` | `"file"` |
+| `chunk.metadata.assetId` | Your provided ID |
+| `chunk.metadata.extractor` | `"file:docx"` |
+
+## Limitations
+
+- **Images not extracted** — Charts, diagrams, and photos are skipped
+- **No track changes** — Only the current document state is extracted
+- **Formatting lost** — Bold, italic, fonts are stripped
+- **No comments** — Reviewer comments aren't included
+
+For documents where images carry important information, consider using the LLM-based PDF extractor on a PDF export of the document—that gives you full page analysis.
+
+## Troubleshooting
+
+### Empty or garbled output
+
+- Make sure the file is actually `.docx` format (not `.doc`)
+- Check if the document is password-protected (not supported)
+- Verify the file isn't corrupted by opening in Word
+
+### Missing content
+
+Content in these locations might not extract:
+- Embedded objects (Excel charts, diagrams)
+- Comments and tracked changes
+- Hidden text
+

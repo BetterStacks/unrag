@@ -150,6 +150,144 @@ export type PdfLlmExtractionConfig = {
   maxOutputChars: number;
 };
 
+export type PdfTextLayerConfig = {
+  /**
+   * When enabled, PDFs are processed by extracting the built-in text layer (when present).
+   * This is fast/cheap but won't work well for scanned/image-only PDFs.
+   */
+  enabled: boolean;
+  /** Max PDF bytes to attempt text-layer extraction on. */
+  maxBytes: number;
+  /** Hard cap on extracted text length (characters). */
+  maxOutputChars: number;
+  /**
+   * Minimum extracted characters required to accept the result. If fewer chars are extracted,
+   * the extractor should return empty output so the pipeline can fall back to another extractor.
+   */
+  minChars: number;
+  /**
+   * Optional cap on pages to read (defense-in-depth for huge PDFs).
+   * Extractors may ignore this when they can't reliably compute page count.
+   */
+  maxPages?: number;
+};
+
+export type PdfOcrConfig = {
+  /**
+   * When enabled, PDFs are rendered to images and OCR'd.
+   * This is typically worker-only (needs binaries like poppler/tesseract or external services).
+   */
+  enabled: boolean;
+  /** Max PDF bytes to attempt OCR on. */
+  maxBytes: number;
+  /** Hard cap on extracted text length (characters). */
+  maxOutputChars: number;
+  /** Minimum extracted characters required to accept the OCR output. */
+  minChars: number;
+  /** Optional max pages to OCR (defense-in-depth). */
+  maxPages?: number;
+  /** Optional path to `pdftoppm` (Poppler). */
+  pdftoppmPath?: string;
+  /** Optional path to `tesseract`. */
+  tesseractPath?: string;
+  /** DPI for rasterization (higher = better OCR, slower/larger). */
+  dpi?: number;
+  /** Tesseract language code (e.g. "eng"). */
+  lang?: string;
+};
+
+export type ImageOcrConfig = {
+  /** When enabled, images can be OCR'd into text chunks. */
+  enabled: boolean;
+  /** Model id (AI Gateway) for vision OCR. */
+  model: string;
+  /** Prompt used for deterministic OCR extraction. */
+  prompt: string;
+  timeoutMs: number;
+  /** Hard cap on input bytes (enforced by fetch + extractor). */
+  maxBytes: number;
+  /** Hard cap on extracted text length (characters). */
+  maxOutputChars: number;
+};
+
+export type ImageCaptionLlmConfig = {
+  /** When enabled, images can have captions generated via a vision-capable LLM. */
+  enabled: boolean;
+  model: string;
+  prompt: string;
+  timeoutMs: number;
+  maxBytes: number;
+  maxOutputChars: number;
+};
+
+export type AudioTranscriptionConfig = {
+  /** When enabled, audio assets can be transcribed into text chunks. */
+  enabled: boolean;
+  /** Provider/model id (AI Gateway) for transcription. */
+  model: string;
+  timeoutMs: number;
+  maxBytes: number;
+};
+
+export type VideoTranscriptionConfig = {
+  /** When enabled, video assets can be transcribed (audio track) into text chunks. */
+  enabled: boolean;
+  model: string;
+  timeoutMs: number;
+  maxBytes: number;
+};
+
+export type VideoFramesConfig = {
+  /**
+   * When enabled, video frames can be sampled and processed (OCR/caption).
+   * This is typically worker-only (requires ffmpeg and significant runtime).
+   */
+  enabled: boolean;
+  sampleFps: number;
+  maxFrames: number;
+  /** Optional path to ffmpeg binary (worker environments). */
+  ffmpegPath?: string;
+  /** Hard cap on video bytes for frame sampling. */
+  maxBytes: number;
+  /** Vision-capable model id (AI Gateway) for per-frame processing. */
+  model: string;
+  /** Prompt to apply to each sampled frame. */
+  prompt: string;
+  /** Timeout per frame analysis call. */
+  timeoutMs: number;
+  /** Hard cap on total extracted text length (characters). */
+  maxOutputChars: number;
+};
+
+export type FileTextConfig = {
+  /** When enabled, text-ish files (txt/md/html) can be extracted into chunks. */
+  enabled: boolean;
+  maxBytes: number;
+  maxOutputChars: number;
+  minChars: number;
+};
+
+export type FileDocxConfig = {
+  enabled: boolean;
+  maxBytes: number;
+  maxOutputChars: number;
+  minChars: number;
+};
+
+export type FilePptxConfig = {
+  enabled: boolean;
+  maxBytes: number;
+  maxOutputChars: number;
+  minChars: number;
+};
+
+export type FileXlsxConfig = {
+  enabled: boolean;
+  maxBytes: number;
+  maxOutputChars: number;
+  minChars: number;
+};
+
 export type AssetProcessingConfig = {
   /**
    * What to do when an asset kind is present but unsupported (e.g. audio in v1).
@@ -173,7 +311,26 @@ export type AssetProcessingConfig = {
   /** Network fetch settings for URL-based assets. */
   fetch: AssetFetchConfig;
   pdf: {
+    textLayer: PdfTextLayerConfig;
     llmExtraction: PdfLlmExtractionConfig;
+    ocr: PdfOcrConfig;
+  };
+  image: {
+    ocr: ImageOcrConfig;
+    captionLlm: ImageCaptionLlmConfig;
+  };
+  audio: {
+    transcription: AudioTranscriptionConfig;
+  };
+  video: {
+    transcription: VideoTranscriptionConfig;
+    frames: VideoFramesConfig;
+  };
+  file: {
+    text: FileTextConfig;
+    docx: FileDocxConfig;
+    pptx: FilePptxConfig;
+    xlsx: FileXlsxConfig;
   };
 };
 
@@ -240,6 +397,15 @@ export type ExtractedTextItem = {
 
 export type AssetExtractorResult = {
   texts: ExtractedTextItem[];
+  /**
+   * Optional structured skip reason. Prefer returning `texts: []` + `skipped` when the
+   * extractor is configured off or cannot operate under current limits, without treating
+   * it as an error (so the pipeline can fall back to other extractors).
+   */
+  skipped?: {
+    code: string;
+    message: string;
+  };
   /**
    * Extractor-produced metadata merged into chunk metadata.
    * Useful for things like detected language, page count, etc.
@@ -401,6 +567,13 @@ export type IngestWarning =
        */
       code: "asset_skipped_unsupported_kind";
     })
+  | (IngestWarningBase<AssetKind> & {
+      /**
+       * An asset kind was encountered, but extraction for that kind is disabled by config.
+       * (Example: audio transcription disabled.)
+       */
+      code: "asset_skipped_extraction_disabled";
+    })
   | (IngestWarningBase<"pdf"> & {
       /**
        * A PDF was encountered but PDF LLM extraction is disabled.
@@ -421,6 +594,13 @@ export type IngestWarning =
        * This is typically due to empty/scanned PDFs or model limitations.
        */
       code: "asset_skipped_pdf_empty_extraction";
+    })
+  | (IngestWarningBase<AssetKind> & {
+      /**
+       * Extraction ran but produced no usable text for the asset (non-PDF kinds).
+       * For PDFs, use `asset_skipped_pdf_empty_extraction`.
+       */
+      code: "asset_skipped_extraction_empty";
     })
   | (IngestWarningBase<AssetKind> & {
       /**

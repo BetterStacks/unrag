@@ -3,7 +3,9 @@
   "pages": [
     "index",
     "embed",
-    "caption"
+    "caption",
+    "ocr",
+    "caption-llm"
   ]
 }
 

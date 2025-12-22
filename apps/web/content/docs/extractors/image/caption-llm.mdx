@@ -1,0 +1,231 @@
+---
+title: "image:caption-llm Extractor"
+description: Generate captions for images using a vision-capable LLM.
+---
+
+The `image:caption-llm` extractor generates descriptive captions for images that don't have them. When your source system doesn't provide alt text or descriptions, this extractor asks an LLM to describe what the image shows, then embeds that caption for search.
+
+This fills the gap between "no captions" and "manually writing captions for every image." An LLM can describe a photo, explain a diagram, or summarize what a chart shows—all automatically during ingestion.
+
+## When to use this
+
+**Use `image:caption-llm` when:**
+- Your source data lacks good image descriptions
+- You want text-based image search without a multimodal embedding model
+- Describing images manually isn't practical at your scale
+- Visual content needs to be discoverable via text search
+
+**Consider alternatives when:**
+- You already have good captions (use the existing `text` field)
+- You're using multimodal embedding (direct image embedding may be enough)
+- Cost per image is a concern and volume is very high
+
+## Installation
+
+```bash
+bunx unrag add extractor image-caption-llm
+```
+
+Register in your config:
+
+```ts
+import { createImageCaptionLlmExtractor } from "./lib/unrag/extractors/image-caption-llm";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createImageCaptionLlmExtractor()],
+  },
+} as const);
+```
+
+## Configuration
+
+Enable and configure via `assetProcessing.image.captionLlm`:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      image: {
+        captionLlm: {
+          enabled: true,
+          model: "google/gemini-2.0-flash",
+          prompt: "Write a concise, information-dense caption for this image. Include names, numbers, and labels if visible. Output plain text only.",
+          timeoutMs: 60_000,
+          maxBytes: 10 * 1024 * 1024,
+          maxOutputChars: 10_000,
+        },
+      },
+    },
+  },
+} as const);
+```
+
+### Configuration options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `false` | Whether to generate captions |
+| `model` | `"google/gemini-2.0-flash"` | Vision-capable model to use |
+| `prompt` | (captioning prompt) | Instructions for the model |
+| `timeoutMs` | `60000` | API call timeout |
+| `maxBytes` | `10MB` | Maximum image file size |
+| `maxOutputChars` | `10000` | Truncate captions beyond this length |
+
+## How it works
+
+1. Image bytes/URL are sent to the vision model
+2. Model generates a text description based on your prompt
+3. The caption is chunked and embedded like regular text
+4. Chunks include `metadata.extractor: "image:caption-llm"`
+
+The generated caption becomes fully searchable. Queries like "people in a meeting room" can surface photos that the model described as showing a meeting.
+
+## Usage example
+
+### Processing images without captions
+
+```ts
+await engine.ingest({
+  sourceId: "events:all-hands-2024",
+  content: "Photos from the 2024 all-hands meeting",
+  assets: [
+    {
+      assetId: "photo-001",
+      kind: "image",
+      data: {
+        kind: "url",
+        url: "https://storage.example.com/events/ah-2024/001.jpg",
+        mediaType: "image/jpeg",
+      },
+      // No text field - caption will be generated
+    },
+    {
+      assetId: "photo-002",
+      kind: "image",
+      data: {
+        kind: "url",
+        url: "https://storage.example.com/events/ah-2024/002.jpg",
+        mediaType: "image/jpeg",
+      },
+    },
+  ],
+});
+```
+
+The LLM might generate captions like:
+- "Group of people in business casual attire gathered in a conference room with a presentation screen showing quarterly results"
+- "CEO speaking at podium with company logo banner, audience seated in rows"
+
+These captions are now searchable.
+
+### Mixing with provided captions
+
+If an image has a `text` field, the LLM caption provides additional coverage:
+
+```ts
+{
+  assetId: "hero-image",
+  kind: "image",
+  data: { kind: "url", url: "https://..." },
+  text: "Product X launch event",  // Provided caption
+}
+```
+
+With `image:caption-llm` enabled, you get both:
+- A chunk with your provided caption
+- A chunk with the LLM-generated description
+
+The LLM might describe visual details ("silver metallic product on white pedestal, audience applauding") that complement your brief caption.
+
+## Customizing the prompt
+
+The default prompt aims for information-dense descriptions. Customize for your use case:
+
+```ts
+// For product photos
+prompt: "Describe this product image for an e-commerce catalog. Include: product type, color, material, key features visible, and styling/context."
+
+// For technical diagrams
+prompt: "Describe this diagram in detail. Explain what it represents, the relationships shown, and key labels or components."
+
+// For event photos
+prompt: "Describe this event photo. Who/what is shown, the setting, any visible signage or branding, and the apparent activity."
+```
+
+<Callout>
+The prompt heavily influences search quality. Information-dense captions with specific details (colors, text, objects) make for better retrieval.
+</Callout>
+
+## What gets stored
+
+| Field | Content |
+|-------|---------|
+| `chunk.content` | The generated caption |
+| `chunk.metadata.assetKind` | `"image"` |
+| `chunk.metadata.assetId` | Your provided ID |
+| `chunk.metadata.extractor` | `"image:caption-llm"` |
+| `embedding` | Vector from your text embedding model |
+
+## Caption quality
+
+LLM-generated captions vary in quality. They're usually good at:
+- Describing scenes, objects, and people
+- Reading visible text (signs, labels)
+- Identifying common objects and settings
+
+They can struggle with:
+- Domain-specific content (identifying a particular software UI)
+- Abstract or artistic images
+- Images requiring specialized knowledge
+
+Review some generated captions early in your project to assess quality for your content types.
+
+## Cost considerations
+
+Each image requires an LLM API call. At scale:
+- **Filter first** — only caption images that matter for search
+- **Use efficient models** — Gemini Flash is faster and cheaper than Pro
+- **Set size limits** — skip very large images with `maxBytes`
+- **Batch processing** — run captioning in background jobs during off-peak hours
+
+## Combining with image embedding
+
+If you're using multimodal embedding, you might have both:
+- Direct image embeddings (visual search)
+- LLM-generated caption chunks (text search)
+
+This can be valuable—visual similarity and text queries hit different aspects:
+
+```ts
+// Visual query (finds images that look like meetings)
+await engine.retrieve({ query: "meeting" });
+
+// Text query (finds images described as having "quarterly results" visible)
+await engine.retrieve({ query: "quarterly results presentation" });
+```
+
+## Troubleshooting
+
+### Captions are too generic
+
+Try a more specific prompt that asks for details relevant to your domain.
+
+### Captions contain hallucinations
+
+LLMs sometimes invent details. If accuracy is critical:
+- Review generated captions periodically
+- Use a higher-quality model
+- Adjust the prompt to be more conservative ("only describe what you clearly see")
+
+### Processing is slow
+
+LLM captioning involves network calls. For large batches:
+- Process in background jobs
+- Use parallel processing (configure `assetProcessing.concurrency`)
+- Consider whether all images need captions
+

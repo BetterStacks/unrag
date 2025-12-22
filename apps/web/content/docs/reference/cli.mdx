@@ -18,7 +18,7 @@ Running without arguments starts an interactive prompt that asks for your prefer
 Install a connector into an existing Unrag installation:
 
 ```bash
-bunx unrag add connector notion
+bunx unrag add notion
 ```
 
 This installs vendored connector source files under your Unrag install directory (e.g. `lib/unrag/connectors/notion`) and adds connector-specific dependencies to your project.
@@ -37,7 +37,18 @@ This installs the extractor source files under `lib/unrag/extractors/<name>` and
 
 | Name | Description | Dependencies |
 |------|-------------|--------------|
-| `pdf-llm` | Extract text from PDFs using an LLM (Gemini by default) | `ai`, `@ai-sdk/google` |
+| `pdf-text-layer` | Extract built-in PDF text layer | `pdfjs-dist` |
+| `pdf-llm` | Extract text from PDFs using an LLM (Gemini by default) | `ai` |
+| `pdf-ocr` | OCR PDFs by rasterizing pages (worker-only) | none (requires external binaries) |
+| `image-ocr` | OCR images into searchable text | `ai` |
+| `image-caption-llm` | Generate image captions via LLM | `ai` |
+| `audio-transcribe` | Transcribe audio into text chunks | `ai` |
+| `video-transcribe` | Transcribe video into text chunks | `ai` |
+| `video-frames` | Sample video frames + extract text per frame (worker-only) | `ai` + `ffmpeg` |
+| `file-text` | Decode text-ish files (txt/md/html/json/csv) | none |
+| `file-docx` | Extract raw text from `.docx` | `mammoth` |
+| `file-pptx` | Extract slide text from `.pptx` | `jszip` |
+| `file-xlsx` | Extract sheet content from `.xlsx` | `xlsx` |
 
 ### Registering extractors
 

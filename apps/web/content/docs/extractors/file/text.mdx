@@ -1,0 +1,179 @@
+---
+title: "file:text Extractor"
+description: Extract text from plain text files, markdown, HTML, JSON, and CSV.
+---
+
+The `file:text` extractor handles "text-ish" files—anything that's fundamentally plain text under the hood. This includes markdown files, HTML pages, JSON documents, CSV files, and plain `.txt` files.
+
+For HTML, the extractor strips markup and extracts just the readable text. For everything else, it decodes the bytes as UTF-8 and passes the content through.
+
+## Installation
+
+```bash
+bunx unrag add extractor file-text
+```
+
+Register it in your config:
+
+```ts
+import { createFileTextExtractor } from "./lib/unrag/extractors/file-text";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createFileTextExtractor()],
+  },
+} as const);
+```
+
+## Supported file types
+
+The extractor matches files by media type and filename extension:
+
+| Extension | Media types |
+|-----------|-------------|
+| `.txt` | `text/plain` |
+| `.md` | `text/markdown`, `text/x-markdown` |
+| `.html`, `.htm` | `text/html` |
+| `.json` | `application/json` |
+| `.csv` | `text/csv` |
+| `.xml` | `text/xml`, `application/xml` |
+| `.yaml`, `.yml` | `text/yaml`, `application/x-yaml` |
+
+Files with unknown media types but recognized extensions will also match.
+
+## Configuration
+
+Enable and configure in your engine config:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      file: {
+        text: {
+          enabled: true,
+          maxBytes: 5 * 1024 * 1024,  // Skip files larger than 5MB
+          maxOutputChars: 200_000,     // Truncate very long files
+          minChars: 50,                // Skip files with less than 50 chars
+        },
+      },
+    },
+  },
+} as const);
+```
+
+### Configuration options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `false` | Whether to extract text from matching files |
+| `maxBytes` | `5MB` | Maximum file size to process |
+| `maxOutputChars` | `200000` | Truncate extracted text beyond this length |
+| `minChars` | `50` | Skip files with fewer characters than this |
+
+## Usage example
+
+### Ingesting a markdown file
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const markdownContent = await readFile("./docs/getting-started.md");
+
+await engine.ingest({
+  sourceId: "docs:getting-started",
+  content: "Getting started guide",
+  assets: [
+    {
+      assetId: "guide-md",
+      kind: "file",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(markdownContent),
+        mediaType: "text/markdown",
+        filename: "getting-started.md",
+      },
+    },
+  ],
+});
+```
+
+### Ingesting from a URL
+
+```ts
+await engine.ingest({
+  sourceId: "config:app-settings",
+  content: "Application configuration",
+  assets: [
+    {
+      assetId: "settings-json",
+      kind: "file",
+      data: {
+        kind: "url",
+        url: "https://storage.example.com/configs/settings.json",
+        mediaType: "application/json",
+      },
+    },
+  ],
+});
+```
+
+## What gets stored
+
+For each text file:
+
+| Field | Content |
+|-------|---------|
+| `chunk.content` | The extracted text (HTML stripped if applicable) |
+| `chunk.metadata.assetKind` | `"file"` |
+| `chunk.metadata.assetId` | Your provided asset ID |
+| `chunk.metadata.extractor` | `"file:text"` |
+| `embedding` | Vector from your text embedding model |
+
+## When to use this vs. plain content
+
+You might wonder: why use `file:text` instead of just reading the file and passing it as `content`?
+
+**Use `file:text` when:**
+- You want consistent asset handling across file types
+- You're processing files from a connector that provides them as assets
+- You want the `assetKind` and `extractor` metadata for traceability
+
+**Use plain `content` when:**
+- You're building a simple script that reads files directly
+- You don't need asset-level metadata
+- The file content is your primary content, not an attachment
+
+Both approaches produce the same searchable chunks—it's a matter of how you want to organize your ingestion.
+
+## Troubleshooting
+
+### Files being skipped
+
+Check warnings for the cause:
+
+```ts
+for (const w of result.warnings) {
+  if (w.assetKind === "file") {
+    console.log(`File skipped: ${w.code} - ${w.message}`);
+  }
+}
+```
+
+Common causes:
+- `file.text.enabled` is `false`
+- File exceeds `maxBytes`
+- Extracted text is shorter than `minChars`
+- Media type / extension doesn't match supported types
+
+### Garbled text
+
+If extracted text looks wrong:
+- Check the file encoding—the extractor assumes UTF-8
+- Very old files might be in a different encoding
+- Binary files accidentally matched as text will produce garbage
+
