@@ -33,11 +33,12 @@ upsert: async (chunks: Chunk[]) => {
   // chunks[0].documentId is the document UUID
   // chunks[0].sourceId is the logical identifier
   // chunks[0].documentContent has the full original text
+  // (may be empty if storage.storeDocumentContent is false)
   
   // Each chunk has:
   // - id: UUID for this chunk
   // - index: position in document (0, 1, 2, ...)
-  // - content: the chunk's text
+  // - content: the chunk's text (may be empty if storage.storeChunkContent is false)
   // - tokenCount: approximate token count
   // - metadata: JSON from ingestion
   // - embedding: number[] (the vector)

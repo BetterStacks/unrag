@@ -17,6 +17,20 @@ export type Chunk = {
   documentContent?: string;
 };
 
+/**
+ * Controls what text Unrag persists to the backing store.
+ *
+ * - `storeChunkContent`: whether to persist `chunks.content` (what you get back as `chunk.content` in retrieval).
+ * - `storeDocumentContent`: whether to persist the full original document text (`documents.content`).
+ *
+ * Disabling these can be useful for privacy/compliance or when you have an external
+ * content store and want Unrag to keep only embeddings + identifiers/metadata.
+ */
+export type ContentStorageConfig = {
+  storeChunkContent: boolean;
+  storeDocumentContent: boolean;
+};
+
 export type ChunkText = {
   index: number;
   content: string;
@@ -334,6 +348,11 @@ export type ContextEngineConfig = {
   chunker?: Chunker;
   idGenerator?: () => string;
   /**
+   * Controls whether Unrag persists chunk/document text into the database.
+   * Defaults to storing both.
+   */
+  storage?: Partial<ContentStorageConfig>;
+  /**
    * Asset processing defaults. If omitted, rich media is ignored (except image
    * captions, which can still be ingested via `assets[].text` if you choose).
    */
@@ -346,6 +365,7 @@ export type ResolvedContextEngineConfig = {
   defaults: ChunkingOptions;
   chunker: Chunker;
   idGenerator: () => string;
+  storage: ContentStorageConfig;
   assetProcessing: AssetProcessingConfig;
 };
 

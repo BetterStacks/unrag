@@ -94,6 +94,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
     `    defineConfig({`,
     `      embedding,`,
     `      store,`,
+    `      storage: unragConfig.storage,`,
     `      assetProcessing: unragConfig.assetProcessing,`,
     `      defaults: unragConfig.chunking,`,
     `    })`,
@@ -179,6 +180,10 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
     {
       src: path.join(selection.registryRoot, "core/index.ts"),
       dest: path.join(installBaseAbs, "core/index.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "core/assets.ts"),
+      dest: path.join(installBaseAbs, "core/assets.ts"),
     },
     {
       src: path.join(selection.registryRoot, "core/types.ts"),

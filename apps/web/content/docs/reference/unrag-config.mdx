@@ -24,6 +24,10 @@ export const unragConfig = {
   retrieval: {
     topK: 8,
   },
+  storage: {
+    storeChunkContent: true,
+    storeDocumentContent: true,
+  },
   embedding: {
     type: "text",
     model: "openai/text-embedding-3-small",
@@ -68,6 +72,7 @@ export function createUnragEngine() {
     defineConfig({
       embedding,
       store,
+      storage: unragConfig.storage,
       assetProcessing: unragConfig.assetProcessing,
       defaults: unragConfig.chunking,
     })
@@ -113,6 +118,27 @@ Default settings for `engine.retrieve()` calls.
       description: 'Default number of chunks returned. Can be overridden per-call.',
       type: 'number',
       default: '8',
+    },
+  }}
+/>
+
+### storage
+
+Controls what Unrag persists to your database.
+
+<TypeTable
+  type={{
+    storeChunkContent: {
+      description:
+        'Whether to persist chunk text in `chunks.content` (and therefore return it as `chunk.content` in retrieval). If false, Unrag stores empty strings and you should resolve the original content from your source system using ids/metadata.',
+      type: 'boolean',
+      default: 'true',
+    },
+    storeDocumentContent: {
+      description:
+        'Whether to persist the full original document text in `documents.content`. Useful for debugging/re-chunking; can be disabled for privacy/compliance.',
+      type: 'boolean',
+      default: 'true',
     },
   }}
 />
