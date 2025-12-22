@@ -146,7 +146,7 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
   },
 
   delete: async (input) => {
-    if ("sourceId" in input) {
+    if (input.sourceId !== undefined) {
       await db.delete(documents).where(eq(documents.sourceId, input.sourceId));
       return;
     }

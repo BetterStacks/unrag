@@ -3,11 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
+    "build": "node scripts/generate-changelog.mjs && fumadocs-mdx && next build",
+    "dev": "node scripts/generate-changelog.mjs && next dev",
     "start": "next start",
-    "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
-    "postinstall": "fumadocs-mdx",
+    "types:check": "node scripts/generate-changelog.mjs && fumadocs-mdx && next typegen && tsc --noEmit",
+    "postinstall": "node scripts/generate-changelog.mjs && fumadocs-mdx",
     "lint": "eslint"
   },
   "dependencies": {
