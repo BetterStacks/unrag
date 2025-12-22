@@ -18,7 +18,7 @@ Running without arguments starts an interactive prompt that asks for your prefer
 Install a connector into an existing Unrag installation:
 
 ```bash
-bunx unrag add notion
+bunx unrag@latest add notion
 ```
 
 This installs vendored connector source files under your Unrag install directory (e.g. `lib/unrag/connectors/notion`) and adds connector-specific dependencies to your project.
@@ -28,7 +28,7 @@ This installs vendored connector source files under your Unrag install directory
 Install an extractor module for processing rich media assets:
 
 ```bash
-bunx unrag add extractor pdf-llm
+bunx unrag@latest add extractor pdf-llm
 ```
 
 This installs the extractor source files under `lib/unrag/extractors/<name>` and adds any required dependencies.

@@ -14,27 +14,6 @@ When you ingest content with assets, Unrag's ingest pipeline routes each asset t
 
 The extractor used is recorded in `chunk.metadata.extractor` so you can identify the source during retrieval.
 
-## Available extractors
-
-### PDF
-
-| Extractor | Output | Requirements |
-|-----------|--------|--------------|
-| [pdf:llm](/docs/extractors/pdf/llm) | Text chunks | LLM with file input support (e.g., Gemini) |
-
-PDFs are processed by sending them to an LLM that extracts readable text. The extracted text is then chunked and embedded like normal documents.
-
-### Image
-
-| Extractor | Output | Requirements |
-|-----------|--------|--------------|
-| [image:embed](/docs/extractors/image/embed) | Direct embedding | Multimodal embedding model |
-| [image:caption](/docs/extractors/image/caption) | Text chunks | Caption/alt text provided at ingest |
-
-Images can be embedded directly using multimodal models, or their captions can be embedded as text.
-
-Unrag currently supports extractors for PDFs and images.
-
 ## Extractor metadata
 
 Every chunk produced by an extractor includes metadata fields you can use during retrieval:
@@ -83,7 +62,7 @@ Extractors are installed as vendored modules via the CLI and registered in your 
 ### Step 1: Install via CLI
 
 ```bash
-bunx unrag add extractor pdf-llm
+bunx unrag@latest add extractor pdf-llm
 ```
 
 This copies the extractor source files to `lib/unrag/extractors/pdf-llm/` and adds any required dependencies to your `package.json`.
@@ -144,18 +123,18 @@ This is intentional—extraction has cost and complexity implications, so you ex
 
 | Module | Install command | Extractor name | Description |
 |--------|-----------------|----------------|-------------|
-| `pdf-text-layer` | `unrag add extractor pdf-text-layer` | `pdf:text-layer` | Extract built-in PDF text layer (fast/cheap) |
-| `pdf-llm` | `unrag add extractor pdf-llm` | `pdf:llm` | Extract text from PDFs using an LLM |
-| `pdf-ocr` | `unrag add extractor pdf-ocr` | `pdf:ocr` | OCR PDFs by rasterizing pages (worker-only) |
-| `image-ocr` | `unrag add extractor image-ocr` | `image:ocr` | OCR images into searchable text |
-| `image-caption-llm` | `unrag add extractor image-caption-llm` | `image:caption-llm` | Generate image captions via LLM |
-| `audio-transcribe` | `unrag add extractor audio-transcribe` | `audio:transcribe` | Transcribe audio into text chunks |
-| `video-transcribe` | `unrag add extractor video-transcribe` | `video:transcribe` | Transcribe video audio track into text chunks |
-| `video-frames` | `unrag add extractor video-frames` | `video:frames` | Sample frames + extract text per frame (worker-only) |
-| `file-text` | `unrag add extractor file-text` | `file:text` | Decode text-ish files (txt/md/html/json/csv) |
-| `file-docx` | `unrag add extractor file-docx` | `file:docx` | Extract raw text from `.docx` |
-| `file-pptx` | `unrag add extractor file-pptx` | `file:pptx` | Extract slide text from `.pptx` |
-| `file-xlsx` | `unrag add extractor file-xlsx` | `file:xlsx` | Extract sheet content from `.xlsx` |
+| `pdf-text-layer` | `unrag@latest add extractor pdf-text-layer` | `pdf:text-layer` | Extract built-in PDF text layer (fast/cheap) |
+| `pdf-llm` | `unrag@latest add extractor pdf-llm` | `pdf:llm` | Extract text from PDFs using an LLM |
+| `pdf-ocr` | `unrag@latest add extractor pdf-ocr` | `pdf:ocr` | OCR PDFs by rasterizing pages (worker-only) |
+| `image-ocr` | `unrag@latest add extractor image-ocr` | `image:ocr` | OCR images into searchable text |
+| `image-caption-llm` | `unrag@latest add extractor image-caption-llm` | `image:caption-llm` | Generate image captions via LLM |
+| `audio-transcribe` | `unrag@latest add extractor audio-transcribe` | `audio:transcribe` | Transcribe audio into text chunks |
+| `video-transcribe` | `unrag@latest add extractor video-transcribe` | `video:transcribe` | Transcribe video audio track into text chunks |
+| `video-frames` | `unrag@latest add extractor video-frames` | `video:frames` | Sample frames + extract text per frame (worker-only) |
+| `file-text` | `unrag@latest add extractor file-text` | `file:text` | Decode text-ish files (txt/md/html/json/csv) |
+| `file-docx` | `unrag@latest add extractor file-docx` | `file:docx` | Extract raw text from `.docx` |
+| `file-pptx` | `unrag@latest add extractor file-pptx` | `file:pptx` | Extract slide text from `.pptx` |
+| `file-xlsx` | `unrag@latest add extractor file-xlsx` | `file:xlsx` | Extract sheet content from `.xlsx` |
 
 <Callout>
 Image handling (`image:embed` and `image:caption`) is built into the core engine and doesn't require an extractor module. It's controlled by your embedding provider configuration (`type: "multimodal"` vs `type: "text"`). Additional installable image extractors (`image:ocr`, `image:caption-llm`) can produce extra text chunks when enabled.
