@@ -1,19 +1,19 @@
 ---
 title: "video:transcribe Extractor"
-description: Transcribe videos by converting the audio track into searchable text.
+description: Extract and transcribe video audio tracks for searchable content.
 ---
 
-The `video:transcribe` extractor sends video files to a transcription service, extracts the spoken content, and stores it as searchable text chunks. It's the fastest way to make video content discoverable.
+The `video:transcribe` extractor pulls the audio track from video files and transcribes it using Whisper. The resulting text flows through your normal chunking and embedding pipeline, making spoken content in videos searchable.
+
+This is the most practical approach to video search for content where speech carries the information—lectures, interviews, meetings, tutorials. You don't need to analyze every frame when the speaker is explaining what's happening.
 
 ## Installation
-
-First, install the extractor:
 
 ```bash
 bunx unrag add extractor video-transcribe
 ```
 
-Then register it in your config:
+Register in your config:
 
 ```ts
 import { createVideoTranscribeExtractor } from "./lib/unrag/extractors/video-transcribe";
@@ -29,17 +29,13 @@ export const unrag = defineUnragConfig({
 
 ## How it works
 
-1. Unrag fetches the video bytes (or uses the bytes you provided)
-2. The video is sent to the transcription API
-3. The service extracts the audio track and transcribes it
-4. The transcript is chunked and embedded
-5. Chunks are stored with `metadata.extractor: "video:transcribe"`
+The extraction pipeline has two stages. First, `ffmpeg` extracts the audio track from the video file. This produces an audio stream that's passed to the Whisper transcription API. Whisper returns text, which then becomes chunks and embeddings like any other content.
 
-Most transcription services accept video files directly and handle audio extraction internally. If yours doesn't, you'll need to extract audio first (see troubleshooting below).
+This approach handles any video format that `ffmpeg` understands—mp4, webm, mov, avi, and many others. The audio track doesn't need to be a specific format; `ffmpeg` handles the conversion.
 
 ## Configuration
 
-Enable transcription in your config:
+Configure via `assetProcessing.video.transcription`:
 
 ```ts
 export const unrag = defineUnragConfig({
@@ -50,9 +46,11 @@ export const unrag = defineUnragConfig({
       video: {
         transcription: {
           enabled: true,
-          model: "openai/whisper-1",
-          timeoutMs: 180_000,         // 3 minutes for longer videos
-          maxBytes: 100 * 1024 * 1024, // 100MB limit
+          model: "whisper-1",
+          maxDurationSec: 3600,
+          maxBytes: 100 * 1024 * 1024,
+          language: "en",
+          ffmpegPath: "/usr/bin/ffmpeg",
         },
       },
     },
@@ -60,166 +58,93 @@ export const unrag = defineUnragConfig({
 } as const);
 ```
 
-### Configuration options
+**`maxDurationSec`** limits how long a video can be. An hour (3600 seconds) is a reasonable default. Longer videos are skipped with a warning rather than processed partially.
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `enabled` | `false` | Whether to transcribe video audio tracks |
-| `model` | `"openai/whisper-1"` | The transcription model to use |
-| `timeoutMs` | `120000` | Timeout for transcription (increase for long videos) |
-| `maxBytes` | `50 * 1024 * 1024` | Maximum video file size (50MB) |
+**`maxBytes`** caps file size. Video files can be very large, and you may want to limit what your system attempts to process. 100MB allows most short-to-medium videos while avoiding multi-gigabyte files.
+
+**`ffmpegPath`** specifies where to find `ffmpeg`. If not set, the extractor looks for it in your system PATH. For containerized environments, you might need to provide an explicit path.
 
 ## Usage example
 
-### Ingesting a product demo
-
 ```ts
-import { createUnragEngine } from "@unrag/config";
+import { readFile } from "node:fs/promises";
 
-const engine = createUnragEngine();
+const videoBytes = await readFile("./videos/product-demo.mp4");
 
-await engine.ingest({
-  sourceId: "demos:feature-walkthrough-v2",
-  content: "Feature Walkthrough v2 - New dashboard and reporting",
+const result = await engine.ingest({
+  sourceId: "demos:product-launch",
+  content: "Product launch demo video",
   assets: [
     {
       assetId: "demo-video",
       kind: "video",
       data: {
-        kind: "url",
-        url: "https://storage.example.com/demos/feature-walkthrough-v2.mp4",
+        kind: "bytes",
+        bytes: new Uint8Array(videoBytes),
         mediaType: "video/mp4",
       },
-      metadata: {
-        presenter: "alice",
-        duration: "00:12:45",
-        recordedAt: "2024-01-10",
-      },
     },
   ],
 });
 ```
 
-### Ingesting from bytes
+For large videos, prefer URLs over loading bytes into memory:
 
 ```ts
-const videoFile = formData.get("video") as File;
-
 await engine.ingest({
-  sourceId: `uploads:${videoFile.name}`,
-  content: "Uploaded video",
+  sourceId: "training:orientation",
+  content: "New hire orientation session",
   assets: [
     {
-      assetId: videoFile.name,
+      assetId: "orientation-recording",
       kind: "video",
       data: {
-        kind: "bytes",
-        bytes: new Uint8Array(await videoFile.arrayBuffer()),
-        mediaType: videoFile.type,
-        filename: videoFile.name,
+        kind: "url",
+        url: "https://storage.example.com/hr/orientation.mp4",
+        mediaType: "video/mp4",
       },
     },
   ],
 });
-```
-
-## Retrieving transcribed content
-
-Search finds relevant moments in videos:
-
-```ts
-import { getChunkAssetRef } from "@unrag/core";
-
-const result = await engine.retrieve({
-  query: "how to configure the new dashboard",
-  topK: 10,
-});
-
-for (const chunk of result.chunks) {
-  const ref = getChunkAssetRef(chunk);
-  
-  if (ref?.assetKind === "video" && ref.extractor === "video:transcribe") {
-    console.log("Found in video transcript:");
-    console.log(`  ${chunk.content}`);
-    console.log(`  Source: ${chunk.sourceId}`);
-    
-    // Timestamps help users jump to the right moment
-    const timeRange = chunk.metadata?.extractorTimeRangeSec;
-    if (timeRange) {
-      const startMin = Math.floor(timeRange[0] / 60);
-      const startSec = Math.floor(timeRange[0] % 60);
-      console.log(`  Timestamp: ${startMin}:${startSec.toString().padStart(2, "0")}`);
-    }
-  }
-}
 ```
 
 ## What gets stored
 
-For each transcript chunk:
+Transcribed chunks carry metadata identifying their source:
 
 | Field | Content |
 |-------|---------|
-| `chunk.content` | The transcribed text |
+| `chunk.content` | Portion of the transcript |
 | `chunk.metadata.assetKind` | `"video"` |
-| `chunk.metadata.assetId` | Your provided asset ID |
+| `chunk.metadata.assetId` | Your provided ID |
 | `chunk.metadata.extractor` | `"video:transcribe"` |
-| `chunk.metadata.extractorTimeRangeSec` | `[startSec, endSec]` when available |
-| `embedding` | Vector from your text embedding model |
 
-Video bytes are not stored. If you need to play back videos, store them in your own storage and use `assetUri` or `assetId` to resolve them after retrieval.
+## Runtime requirements
 
-## Production considerations
-
-Video transcription is slow. A 10-minute video might take 30-60 seconds to transcribe. For production:
-
-- **Queue the work**: Don't block HTTP requests on transcription
-- **Set generous timeouts**: Long videos need more time
-- **Handle large files**: Set `maxBytes` to prevent memory issues
-
-<Callout>
-For Next.js on Vercel, transcription doesn't fit in a single request. See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) for background job patterns.
-</Callout>
-
-## Troubleshooting
-
-### Provider doesn't accept video files
-
-Some transcription APIs only accept audio. If you get format errors:
-
-1. **Extract audio first**: Use `ffmpeg` to convert video to audio before ingestion
-2. **Ingest as audio**: Change `kind: "audio"` and use the `audio:transcribe` extractor
-3. **Use a pipeline**: In a worker, extract audio → transcribe → ingest result
+This extractor requires `ffmpeg` to be installed. In standard Node.js environments and Docker containers, install it through your package manager:
 
 ```bash
-# Extract audio from video
-ffmpeg -i video.mp4 -vn -acodec mp3 audio.mp3
+# Ubuntu/Debian
+sudo apt-get install ffmpeg
+
+# macOS
+brew install ffmpeg
+
+# Alpine (Docker)
+apk add ffmpeg
 ```
 
-### Videos being skipped
+Most serverless runtimes don't include `ffmpeg`, so video transcription typically runs in workers or containers. See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) for background job patterns.
 
-Check warnings for the cause:
+## Processing time
 
-```ts
-for (const w of result.warnings) {
-  if (w.assetKind === "video") {
-    console.log(`Video skipped: ${w.code}`);
-  }
-}
-```
+Video transcription takes meaningful time. The `ffmpeg` step to extract audio is fast, but Whisper transcription scales with duration. A 30-minute video might take a minute or more to transcribe, depending on API load.
 
-Common causes:
-- `video.transcription.enabled` is `false`
-- File exceeds `maxBytes`
-- Timeout exceeded
+For production systems processing video on-demand, use background jobs. Queue the ingestion work, let it complete asynchronously, and notify users when their video is searchable. Trying to do this in a request handler leads to timeouts and poor user experience.
 
-### Poor transcript quality
+## Handling videos without audio
 
-Video transcription quality depends on the audio track:
+Some videos have no audio track or have only silence. The extractor handles these gracefully—when `ffmpeg` produces no audio or Whisper returns an empty transcript, a warning is emitted but ingestion continues. The video just won't have transcription-based chunks.
 
-- Clear speech transcribes well
-- Music, sound effects, and background noise reduce accuracy
-- Multiple simultaneous speakers can confuse the model
-
-Consider pre-processing video audio (noise reduction, volume normalization) before ingestion if quality is an issue.
+If you're ingesting videos that might be silent (screen recordings without narration, for example), consider pairing with the `video:frames` extractor to capture visual content instead.
 

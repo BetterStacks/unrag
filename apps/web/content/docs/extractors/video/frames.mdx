@@ -1,23 +1,25 @@
 ---
 title: "video:frames Extractor"
-description: Sample video frames and extract on-screen text for searchable content.
+description: Extract frames from videos and analyze them with a vision LLM.
 ---
 
-The `video:frames` extractor samples frames from a video at regular intervals and uses a vision-capable LLM to extract visible text from each frame. This catches content that transcription misses: slide text, UI elements, code on screen, captions, and any other text visible in the video.
+The `video:frames` extractor samples frames from video files and sends them to a vision-capable LLM for analysis. Each frame produces a text description, and those descriptions become searchable chunks. This captures visual content that speech doesn't convey—slides in presentations, code on screen, diagrams in tutorials.
 
-<Callout type="warn">
-This extractor requires `ffmpeg` and is not suitable for serverless environments like Vercel. Run it in a worker environment (dedicated server, BullMQ worker, Inngest function with container runtime).
-</Callout>
+This is a worker-only extractor. It requires `ffmpeg` for frame extraction and makes LLM calls for each frame, which takes time and costs money. Use it when visual content genuinely matters for search.
+
+## When frame analysis helps
+
+Frame extraction shines for videos where important information appears visually. A coding tutorial where the presenter says "now let's add the function" benefits from frame analysis that captures what function is actually shown. A slide presentation where the speaker summarizes verbally but the detail is on slides benefits from capturing slide content.
+
+For talking-head videos, interviews, or podcasts with static imagery, frame analysis adds cost without value. The transcription extractor captures the spoken content, which is what matters.
 
 ## Installation
-
-First, install the extractor:
 
 ```bash
 bunx unrag add extractor video-frames
 ```
 
-Then register it in your config:
+Register in your config:
 
 ```ts
 import { createVideoFramesExtractor } from "./lib/unrag/extractors/video-frames";
@@ -31,19 +33,19 @@ export const unrag = defineUnragConfig({
 } as const);
 ```
 
+<Callout type="warn">
+This extractor requires `ffmpeg` and makes vision LLM calls for each extracted frame. It's not suitable for serverless runtimes. Run it in a worker environment with native dependency support.
+</Callout>
+
 ## How it works
 
-1. Unrag calls `ffmpeg` to extract frames at the configured sample rate
-2. Each frame is sent to a vision-capable LLM (Gemini by default)
-3. The LLM extracts all visible text from the frame
-4. Extracted text is chunked and embedded
-5. Chunks include timestamp metadata for linking back to the source moment
+The extraction process has three stages. First, `ffmpeg` extracts frames from the video at configured intervals—say, one frame every 30 seconds. Each frame is saved as a temporary image file. Then, each frame is sent to a vision-capable LLM (Gemini by default) with a prompt asking for a description of what's shown. Finally, those descriptions become text chunks that flow through your normal embedding pipeline.
 
-For a 10-minute video at 0.2 FPS (one frame every 5 seconds), you'll get ~120 frames. Each frame becomes one or more chunks depending on how much text is visible.
+The result is a set of chunks that describe the visual content at regular intervals through the video. A search for "error message on screen" can find the moment when an error was visible, even if the speaker didn't mention it.
 
 ## Configuration
 
-Enable frame sampling in your config:
+Configure via `assetProcessing.video.frames`:
 
 ```ts
 export const unrag = defineUnragConfig({
@@ -54,14 +56,12 @@ export const unrag = defineUnragConfig({
       video: {
         frames: {
           enabled: true,
-          sampleFps: 0.2,              // One frame every 5 seconds
-          maxFrames: 50,               // Cap total frames to limit cost
-          maxBytes: 50 * 1024 * 1024,  // Skip videos larger than 50MB
           model: "google/gemini-2.0-flash",
-          prompt: "Extract all readable text from this video frame. Output plain text only.",
-          timeoutMs: 60_000,
-          maxOutputChars: 50_000,
-          // ffmpegPath: "/usr/bin/ffmpeg",  // Uncomment if ffmpeg isn't in PATH
+          intervalSec: 30,
+          maxFrames: 60,
+          maxBytes: 500 * 1024 * 1024,
+          prompt: "Describe what is shown in this video frame. Focus on text, UI elements, diagrams, and any visible information. Be specific and factual.",
+          ffmpegPath: "/usr/bin/ffmpeg",
         },
       },
     },
@@ -69,182 +69,80 @@ export const unrag = defineUnragConfig({
 } as const);
 ```
 
-### Configuration options
+**`intervalSec`** controls how frequently to sample frames. Every 30 seconds works well for presentations and tutorials. For fast-paced content, you might sample more frequently. For slow content, less often.
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `enabled` | `false` | Whether to sample and process video frames |
-| `sampleFps` | `0.2` | Frames per second to sample (0.2 = 1 frame every 5 seconds) |
-| `maxFrames` | `50` | Maximum frames to process per video |
-| `maxBytes` | `50MB` | Maximum video file size |
-| `model` | `"google/gemini-2.0-flash"` | Vision model for text extraction |
-| `prompt` | `"Extract all readable text..."` | Prompt sent with each frame |
-| `timeoutMs` | `60000` | Timeout per frame extraction |
-| `maxOutputChars` | `50000` | Max characters of extracted text per frame |
-| `ffmpegPath` | `undefined` | Path to ffmpeg binary (uses PATH if not set) |
+**`maxFrames`** caps the total frames analyzed per video. At one frame per 30 seconds, a 60-frame limit covers 30 minutes of video. Beyond that limit, the extractor stops sampling early rather than skipping frames throughout.
 
-### Choosing a sample rate
-
-The `sampleFps` setting balances coverage against cost:
-
-- **0.1 FPS** (1 frame every 10 seconds): Low cost, might miss fast-changing content
-- **0.2 FPS** (1 frame every 5 seconds): Good balance for most videos
-- **0.5 FPS** (1 frame every 2 seconds): Higher coverage, more expensive
-- **1.0 FPS**: Every second—only for short, text-heavy content
-
-For slide presentations where slides stay on screen for 30+ seconds, 0.1 FPS is plenty. For screen recordings with frequent changes, consider 0.5 FPS.
+**`prompt`** tells the LLM what to look for. The default prompt focuses on factual descriptions of visible content. Customize it for your content type—if you're processing code tutorials, ask specifically about code. If you're processing slide decks, focus on slide titles and bullet points.
 
 ## Usage example
 
-### Ingesting a screen recording
-
 ```ts
 await engine.ingest({
-  sourceId: "tutorials:setup-guide",
-  content: "How to set up your development environment",
+  sourceId: "tutorials:react-basics",
+  content: "Introduction to React Hooks",
   assets: [
     {
-      assetId: "setup-screencast",
+      assetId: "tutorial-video",
       kind: "video",
       data: {
         kind: "url",
-        url: "https://storage.example.com/tutorials/setup-guide.mp4",
+        url: "https://storage.example.com/tutorials/react-hooks.mp4",
         mediaType: "video/mp4",
-      },
-      metadata: {
-        type: "screencast",
-        duration: "00:08:30",
       },
     },
   ],
 });
 ```
 
-### Combining with transcription
+After processing, searches like "useEffect dependency array" might surface frames where that code pattern is visible, even if the instructor didn't use those exact words.
 
-For maximum coverage, use both extractors:
+## What gets stored
+
+Each analyzed frame produces a chunk:
+
+| Field | Content |
+|-------|---------|
+| `chunk.content` | LLM's description of the frame |
+| `chunk.metadata.assetKind` | `"video"` |
+| `chunk.metadata.assetId` | Your provided ID |
+| `chunk.metadata.extractor` | `"video:frames"` |
+| `chunk.metadata.frameIndex` | Which frame (0, 1, 2, ...) |
+
+## Combining with transcription
+
+For comprehensive video search, use both extractors:
 
 ```ts
-import { createVideoTranscribeExtractor } from "./lib/unrag/extractors/video-transcribe";
-import { createVideoFramesExtractor } from "./lib/unrag/extractors/video-frames";
-
 extractors: [
   createVideoTranscribeExtractor(),
   createVideoFramesExtractor(),
 ],
 ```
 
-A search for "npm install error" might find:
-- A transcript chunk where the presenter says "if you see an npm install error..."
-- A frame chunk showing the actual error message on screen
+With both enabled, a video produces chunks from the spoken transcript and chunks describing the visual content. A search query might match either—finding a video because the presenter said something or because something appeared on screen.
 
-## Retrieving frame-extracted content
+## Cost and latency
 
-```ts
-import { getChunkAssetRef } from "@unrag/core";
+Frame extraction is expensive. Each frame requires an LLM vision call, and a 30-minute video at 30-second intervals produces 60 frames. That's 60 LLM calls per video, plus the time to process them.
 
-const result = await engine.retrieve({
-  query: "EACCES permission denied",
-  topK: 10,
-});
+For high-volume video processing, be thoughtful about which videos need frame analysis. Batch processing during off-hours helps manage costs. Using a faster, cheaper model (Gemini Flash over Pro) reduces per-call cost.
 
-for (const chunk of result.chunks) {
-  const ref = getChunkAssetRef(chunk);
-  
-  if (ref?.assetKind === "video" && ref.extractor === "video:frames") {
-    console.log("Found in video frame:");
-    console.log(`  Text: ${chunk.content}`);
-    
-    const timeRange = chunk.metadata?.extractorTimeRangeSec;
-    if (timeRange) {
-      const timestamp = Math.floor(timeRange[0]);
-      console.log(`  At: ${Math.floor(timestamp / 60)}:${(timestamp % 60).toString().padStart(2, "0")}`);
-    }
-  }
-}
-```
+## Worker setup
 
-## What gets stored
-
-For each frame's extracted text:
-
-| Field | Content |
-|-------|---------|
-| `chunk.content` | Text extracted from the frame |
-| `chunk.metadata.assetKind` | `"video"` |
-| `chunk.metadata.assetId` | Your provided asset ID |
-| `chunk.metadata.extractor` | `"video:frames"` |
-| `chunk.metadata.extractorTimeRangeSec` | `[frameSec, frameSec]` |
-| `embedding` | Vector from your text embedding model |
-
-Neither the video nor the individual frame images are stored. Store originals in your own storage if you need to display them.
-
-## Worker environment setup
-
-This extractor requires `ffmpeg`. In your worker environment:
-
-### Ubuntu/Debian
-
-```bash
-apt-get update && apt-get install -y ffmpeg
-```
-
-### Alpine
-
-```bash
-apk add --no-cache ffmpeg
-```
-
-### Docker
+This extractor needs a worker environment with `ffmpeg` installed. A typical Docker setup:
 
 ```dockerfile
-FROM node:20
-RUN apt-get update && apt-get install -y ffmpeg
-# ... rest of your Dockerfile
+FROM node:20-slim
+
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . .
+RUN npm install
+
+CMD ["node", "worker.js"]
 ```
 
-### Verifying ffmpeg is available
-
-```bash
-ffmpeg -version
-```
-
-If `ffmpeg` isn't in your PATH, set `ffmpegPath` in the config to the full path.
-
-## Cost considerations
-
-Frame extraction involves:
-- **ffmpeg processing**: CPU-bound, no external cost
-- **LLM calls**: One call per frame (this is the main cost)
-
-For a 10-minute video at 0.2 FPS with `maxFrames: 50`:
-- 50 frames × LLM cost per image = your per-video cost
-
-To reduce costs:
-- Lower `sampleFps` for longer videos
-- Set `maxFrames` to cap total frames
-- Skip videos unlikely to have valuable on-screen text
-
-## Troubleshooting
-
-### "ffmpeg not found"
-
-The extractor can't locate ffmpeg:
-1. Install ffmpeg in your environment
-2. Ensure it's in PATH, or set `ffmpegPath` explicitly
-3. Verify with `ffmpeg -version`
-
-### Extraction is slow
-
-Frame extraction is inherently slow (video decoding + LLM calls). To speed things up:
-- Reduce `maxFrames`
-- Lower `sampleFps`
-- Use a faster model (trade quality for speed)
-
-### Empty or poor extractions
-
-If frames produce little text:
-- The video might not have much on-screen text
-- Try adjusting the prompt for your content type
-- Check frame quality—very compressed video produces blurry frames
+The worker processes video extraction jobs from a queue, running outside your main application's request/response cycle. See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) for queue-based patterns.
 

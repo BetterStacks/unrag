@@ -3,9 +3,9 @@ title: "file:xlsx Extractor"
 description: Extract text and data from Excel spreadsheets.
 ---
 
-The `file:xlsx` extractor reads Excel spreadsheets and converts them to text. It walks through each sheet, capturing cell values, formulas (as their computed results), and sheet names.
+The `file:xlsx` extractor reads Excel spreadsheets and converts their contents to searchable text. Spreadsheets are tricky for semantic search—a grid of numbers doesn't inherently match text queries. The extractor focuses on extracting meaningful text: column headers, row labels, text cells, and optionally numeric data formatted for readability.
 
-Spreadsheets are tricky for semantic search—a grid of numbers isn't inherently searchable. The extractor focuses on extracting meaningful text: headers, labels, text cells, and optionally tabular data in a readable format.
+Spreadsheets often serve as lightweight databases in organizations—employee lists, inventory tracking, project schedules. Making them searchable lets queries like "who works in marketing?" or "what's in stock for the Denver warehouse?" surface the relevant data.
 
 ## Installation
 
@@ -29,17 +29,11 @@ export const unrag = defineUnragConfig({
 
 ## What gets extracted
 
-For each sheet in the workbook:
+The extractor walks through each sheet in the workbook and extracts cell values. String cells extract directly. Formula cells extract their computed result, not the formula itself. Date cells format as readable dates.
 
-- **Sheet name** — Used as a section header
-- **Text cells** — String values from cells
-- **Numbers** — Numeric values (when `includeNumbers: true`)
-- **Formula results** — Computed values, not the formula itself
-- **Headers** — First row treated as headers when `treatFirstRowAsHeader: true`
+By default, numeric-only cells are skipped. A spreadsheet full of numbers without labels doesn't search well—what would "1,234.56" match? Enabling `includeNumbers` adds them back in, useful when numbers have context from headers or labels.
 
 ## Configuration
-
-Enable and configure:
 
 ```ts
 export const unrag = defineUnragConfig({
@@ -50,13 +44,13 @@ export const unrag = defineUnragConfig({
       file: {
         xlsx: {
           enabled: true,
-          maxBytes: 50 * 1024 * 1024,    // 50MB limit
-          maxOutputChars: 500_000,        // Truncate very large sheets
-          maxSheets: 20,                  // Process up to 20 sheets
-          maxRowsPerSheet: 10_000,        // Process up to 10k rows per sheet
-          treatFirstRowAsHeader: true,    // Use first row as column headers
-          includeNumbers: false,          // Skip purely numeric data
-          format: "text",                 // Output format: "text" | "csv" | "markdown"
+          maxBytes: 50 * 1024 * 1024,
+          maxOutputChars: 500_000,
+          maxSheets: 20,
+          maxRowsPerSheet: 10_000,
+          treatFirstRowAsHeader: true,
+          includeNumbers: false,
+          format: "text",
         },
       },
     },
@@ -64,157 +58,79 @@ export const unrag = defineUnragConfig({
 } as const);
 ```
 
-### Options
+**`treatFirstRowAsHeader`** tells the extractor to use the first row as column headers, associating subsequent cell values with their header. This produces output like "Name: Alice Johnson" rather than just "Alice Johnson."
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `enabled` | `false` | Whether to process Excel files |
-| `maxBytes` | `50MB` | Maximum file size |
-| `maxOutputChars` | `500000` | Truncate output beyond this |
-| `maxSheets` | `20` | Maximum sheets to process |
-| `maxRowsPerSheet` | `10000` | Maximum rows per sheet |
-| `treatFirstRowAsHeader` | `true` | Use first row as column headers |
-| `includeNumbers` | `false` | Include numeric-only cells |
-| `format` | `"text"` | Output format for the extracted data |
+**`includeNumbers`** controls whether numeric-only cells appear in the output. Without it, you get just the text content. With it, numbers are included with their column context.
 
-### Output formats
+**`format`** controls how the data is formatted. Options are `"text"` for readable prose-like output, `"csv"` for comma-separated values, or `"markdown"` for markdown tables.
 
-- **`text`** — Natural prose-like format with key-value pairs
-- **`csv`** — Comma-separated values (good for structured data)
-- **`markdown`** — Markdown tables (good for tabular presentation)
+## Output formats
 
-## Usage example
+The format setting changes how extracted data looks:
 
-### Ingesting a spreadsheet
-
-```ts
-import { readFile } from "node:fs/promises";
-
-const xlsxBuffer = await readFile("./data/inventory.xlsx");
-
-await engine.ingest({
-  sourceId: "inventory:2024-q3",
-  content: "Q3 2024 Inventory Report",
-  assets: [
-    {
-      assetId: "inventory-xlsx",
-      kind: "file",
-      data: {
-        kind: "bytes",
-        bytes: new Uint8Array(xlsxBuffer),
-        mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename: "inventory.xlsx",
-      },
-    },
-  ],
-});
-```
-
-### From a URL
-
-```ts
-await engine.ingest({
-  sourceId: "finance:budget",
-  content: "2024 Department Budget",
-  assets: [
-    {
-      assetId: "budget-xlsx",
-      kind: "file",
-      data: {
-        kind: "url",
-        url: "https://storage.example.com/finance/budget-2024.xlsx",
-        mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      },
-    },
-  ],
-});
-```
-
-## Example outputs
-
-### Text format
-
-With `format: "text"`, the output reads like:
+With `format: "text"` (default), the output reads like key-value pairs:
 
 ```
 Sheet: Employees
 
 Name: Alice Johnson
 Department: Engineering
-Start Date: 2021-03-15
 Role: Senior Developer
 
 Name: Bob Smith
 Department: Design
-Start Date: 2022-07-01
 Role: UX Designer
-
-...
 ```
 
-### Markdown format
-
-With `format: "markdown"`:
+With `format: "markdown"`, the output is a markdown table:
 
 ```markdown
 ## Sheet: Employees
 
-| Name | Department | Start Date | Role |
-|------|------------|------------|------|
-| Alice Johnson | Engineering | 2021-03-15 | Senior Developer |
-| Bob Smith | Design | 2022-07-01 | UX Designer |
+| Name | Department | Role |
+|------|------------|------|
+| Alice Johnson | Engineering | Senior Developer |
+| Bob Smith | Design | UX Designer |
 ```
 
-## Chunk metadata
+The text format tends to chunk more naturally into meaningful segments. The markdown format preserves tabular structure better. Choose based on your content and how you want search results to look.
 
-| Field | Value |
-|-------|-------|
-| `chunk.metadata.assetKind` | `"file"` |
-| `chunk.metadata.assetId` | Your provided ID |
-| `chunk.metadata.extractor` | `"file:xlsx"` |
+## Usage example
 
-## Tips for spreadsheet search
+```ts
+import { readFile } from "node:fs/promises";
 
-### Focus on text-heavy sheets
+const xlsxBytes = await readFile("./data/employees.xlsx");
 
-Spreadsheets full of numbers without context don't search well. The extractor works best on sheets that have:
+await engine.ingest({
+  sourceId: "hr:employee-directory",
+  content: "Employee Directory",
+  assets: [
+    {
+      assetId: "employees-xlsx",
+      kind: "file",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(xlsxBytes),
+        mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename: "employees.xlsx",
+      },
+    },
+  ],
+});
+```
 
-- Text headers that describe columns
-- Label columns (product names, employee names, etc.)
-- Notes or comment columns
+## Spreadsheet search considerations
 
-### Consider excluding numeric-only data
+Spreadsheets often contain dense structured data that doesn't always search intuitively. A query for "Alice's department" might not match if the chunk containing Alice doesn't include enough context about her row being about an employee with a department.
 
-Set `includeNumbers: false` to skip cells that are purely numeric. This reduces noise in your search index while keeping meaningful text.
+The `treatFirstRowAsHeader` setting helps by associating values with their headers. But very wide spreadsheets (many columns) or very long ones (many rows) may still produce chunks that lack sufficient context.
 
-### Large spreadsheets
+For spreadsheets that are really databases, consider whether a proper database with SQL queries might serve your use case better than semantic search.
 
-For very large workbooks:
+## Large spreadsheets
 
-- Use `maxSheets` to limit which sheets get processed
-- Use `maxRowsPerSheet` to cap row extraction
-- Consider splitting large sheets into multiple sources
+The `maxSheets` and `maxRowsPerSheet` settings protect against processing enormous workbooks. A 50-sheet workbook with 100,000 rows per sheet would produce an overwhelming amount of chunks. The limits ensure processing stays reasonable while still capturing the bulk of typical business spreadsheets.
 
-## Limitations
-
-- **Charts not extracted** — Chart titles and data aren't captured
-- **Images skipped** — Embedded images aren't processed
-- **Macros ignored** — VBA code isn't extracted
-- **Pivot tables** — Only the visible values, not the underlying data
-
-## Troubleshooting
-
-### Empty output
-
-- Check if sheets contain only numbers (use `includeNumbers: true`)
-- Verify data starts in row 1 or adjust `treatFirstRowAsHeader`
-- Make sure sheets aren't hidden
-
-### Missing sheets
-
-Check `maxSheets` limit—sheets beyond that count are skipped.
-
-### Garbled formatting
-
-Try a different `format` option. Markdown works well for tabular data; text works better for label-heavy sheets.
+If you're hitting these limits frequently, consider whether all that data needs to be searchable. Often, a spreadsheet's first few rows contain the important information, with detail rows below that matter less for search discovery.
 

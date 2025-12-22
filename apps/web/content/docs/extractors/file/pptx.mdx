@@ -3,9 +3,9 @@ title: "file:pptx Extractor"
 description: Extract text from PowerPoint presentations.
 ---
 
-The `file:pptx` extractor pulls text content from PowerPoint presentations. It walks through each slide, extracting text from titles, body text, speaker notes, and table cells.
+The `file:pptx` extractor reads PowerPoint presentations and extracts their text content. It walks through each slide, pulling text from titles, body content, tables, and text boxes. Speaker notes can be included or excluded depending on your needs. The extracted text becomes searchable content.
 
-Slide by slide, the extractor builds a text representation of your presentation that can be chunked and embedded for semantic search.
+Presentations often contain concentrated information—the key points of a project, the summary of a quarter's results, the steps of a process. Making them searchable helps surface this content when it matters.
 
 ## Installation
 
@@ -29,19 +29,13 @@ export const unrag = defineUnragConfig({
 
 ## What gets extracted
 
-For each slide, the extractor captures:
+The extractor processes slides in order, extracting text from each content element: titles, subtitles, bullet points, paragraphs, table cells, and text boxes. The output preserves slide boundaries, so chunking tends to produce segments aligned with individual slides.
 
-- **Titles and subtitles** — Slide headings
-- **Body text** — Bullet points, paragraphs
-- **Tables** — Cell content from embedded tables
-- **Speaker notes** — Notes attached to slides
-- **Text boxes** — Any additional text shapes
+Speaker notes are extracted by default. Notes often contain valuable context that the presenter planned to say but isn't on the slide itself. If your organization's notes contain internal commentary you don't want searchable, you can disable note extraction.
 
-The output preserves slide structure with clear separators, so chunking produces meaningful segments.
+What doesn't extract: images, charts, diagrams, and animations. Presentations often rely heavily on visual content, which this extractor doesn't capture. For slide decks where diagrams and charts carry the information, consider exporting to PDF and using the `pdf:llm` extractor for visual analysis.
 
 ## Configuration
-
-Enable in your engine config:
 
 ```ts
 export const unrag = defineUnragConfig({
@@ -52,9 +46,9 @@ export const unrag = defineUnragConfig({
       file: {
         pptx: {
           enabled: true,
-          maxBytes: 100 * 1024 * 1024, // Skip files over 100MB
-          maxOutputChars: 500_000,      // Truncate very long presentations
-          includeNotes: true,           // Include speaker notes
+          maxBytes: 100 * 1024 * 1024,
+          maxOutputChars: 500_000,
+          includeNotes: true,
         },
       },
     },
@@ -62,65 +56,40 @@ export const unrag = defineUnragConfig({
 } as const);
 ```
 
-### Options
+**`maxBytes`** limits file size. Presentations with embedded videos or many high-resolution images can grow large.
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `enabled` | `false` | Whether to process PowerPoint files |
-| `maxBytes` | `100MB` | Maximum file size |
-| `maxOutputChars` | `500000` | Truncate beyond this length |
-| `includeNotes` | `true` | Include speaker notes in extraction |
+**`maxOutputChars`** truncates very long presentations. Most slide decks stay well under this limit.
+
+**`includeNotes`** controls whether speaker notes are extracted. Set to `false` if notes contain content that shouldn't be searchable.
 
 ## Usage example
-
-### Ingesting a presentation
 
 ```ts
 import { readFile } from "node:fs/promises";
 
-const pptxBuffer = await readFile("./uploads/team-roadmap.pptx");
+const pptxBytes = await readFile("./presentations/roadmap.pptx");
 
 await engine.ingest({
-  sourceId: "presentations:roadmap-2024",
+  sourceId: "planning:roadmap-2024",
   content: "2024 Product Roadmap",
   assets: [
     {
-      assetId: "roadmap-pptx",
+      assetId: "roadmap-slides",
       kind: "file",
       data: {
         kind: "bytes",
-        bytes: new Uint8Array(pptxBuffer),
+        bytes: new Uint8Array(pptxBytes),
         mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        filename: "team-roadmap.pptx",
+        filename: "roadmap.pptx",
       },
     },
   ],
 });
 ```
 
-### From cloud storage
+## The output structure
 
-```ts
-await engine.ingest({
-  sourceId: "training:onboarding",
-  content: "Employee Onboarding Deck",
-  assets: [
-    {
-      assetId: "onboarding-slides",
-      kind: "file",
-      data: {
-        kind: "url",
-        url: "https://storage.example.com/hr/onboarding.pptx",
-        mediaType: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      },
-    },
-  ],
-});
-```
-
-## Example output
-
-A slide deck might produce text like:
+The extracted text maintains slide organization. A typical extraction looks like:
 
 ```
 --- Slide 1 ---
@@ -129,63 +98,24 @@ Engineering Roadmap 2024
 
 --- Slide 2 ---
 Key Priorities
-• Launch v2.0 API
-• Mobile app beta
-• Performance improvements
+Launch v2.0 API
+Mobile app beta
+Performance improvements
 
-Notes: Remember to mention the timeline shift for mobile
-
---- Slide 3 ---
-...
+Notes: Remember to discuss the timeline shift
 ```
 
-This structure helps the chunker create meaningful segments aligned with individual slides.
-
-## Chunk metadata
-
-| Field | Value |
-|-------|-------|
-| `chunk.metadata.assetKind` | `"file"` |
-| `chunk.metadata.assetId` | Your provided ID |
-| `chunk.metadata.extractor` | `"file:pptx"` |
-
-## Limitations
-
-- **Images not extracted** — Charts, diagrams, and photos are skipped
-- **Animations ignored** — Build-up animations don't affect output
-- **Videos skipped** — Embedded video content isn't processed
-- **No `.ppt` support** — Only modern `.pptx` format works
-
-For presentations heavy on diagrams or charts, you might get better results by:
-1. Exporting to PDF
-2. Using the `pdf:llm` extractor for full visual analysis
+This structure helps the chunker create meaningful segments. A search result from a presentation points to specific slides, not just somewhere in the deck.
 
 ## Speaker notes
 
-Speaker notes often contain valuable context that's not on the slides themselves. By default, `includeNotes: true` extracts them alongside slide content.
+Speaker notes often contain the "why" behind the slides—explanations the presenter planned to give, context that didn't fit on the slide, reminders about points to emphasize. Including them in extraction makes this context searchable.
 
-Disable if notes contain internal commentary you don't want in your search index:
+But notes can also contain things you don't want searchable: private reminders, draft ideas, commentary about the audience. Review a sample of your organization's presentations before deciding on the `includeNotes` setting.
 
-```ts
-assetProcessing: {
-  file: {
-    pptx: {
-      enabled: true,
-      includeNotes: false, // Exclude speaker notes
-    },
-  },
-},
-```
+## Visual content limitations
 
-## Troubleshooting
+Presentations lean heavily on visual communication. Diagrams, charts, photos, and icons carry meaning that text extraction misses entirely. A slide showing a process flowchart extracts as just the text labels, losing the relationships between steps.
 
-### Slides appearing empty
-
-- Check for image-only slides (text in images isn't extracted)
-- Verify text isn't in SmartArt or diagram shapes (limited support)
-- Make sure the file is `.pptx`, not the old `.ppt` format
-
-### Notes missing
-
-Make sure `includeNotes` isn't set to `false` in your config.
+For presentations where visual content matters, consider a multi-pronged approach: extract text for the searchable content that's there, and separately process a PDF export through the `pdf:llm` extractor to capture visual information.
 
