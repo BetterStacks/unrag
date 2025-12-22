@@ -1,6 +1,7 @@
 {
   "pages": [
     "index",
+    "changelog",
     "getting-started",
     "concepts",
     "adapters",
