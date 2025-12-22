@@ -7,6 +7,7 @@ import { CodeBlock } from './components/code-block';
 import { CopyButton } from './components/copy-button';
 import { GITHUB_REPO } from '@/constants';
 import { GlowingStarsBackground } from './components/glowing-stars-background';
+import { RegistrySection } from './components/registry-section';
 import bannerImg from '@/public/banner.png'
 
 const CODE_EXAMPLE = `import { createUnragEngine } from "@unrag/config";
@@ -164,8 +165,11 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Registry Section */}
+      <RegistrySection />
+
       {/* Final CTA */}
-      <section className="relative px-6 py-24 border-t border-[var(--color-fd-border)] text-center">
+      <section className="relative px-6 py-24 text-center">
         <div className="max-w-2xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-[var(--color-fd-foreground)] mb-4">
             Ready to own your RAG?
