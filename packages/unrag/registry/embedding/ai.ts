@@ -30,7 +30,7 @@ export type AiEmbeddingConfig =
     });
 
 const DEFAULT_TEXT_MODEL = "openai/text-embedding-3-small";
-const DEFAULT_MULTIMODAL_MODEL = "voyage/voyage-multimodal-3";
+const DEFAULT_MULTIMODAL_MODEL = "cohere/embed-v4.0";
 
 const bytesToDataUrl = (bytes: Uint8Array, mediaType: string) => {
   const base64 = Buffer.from(bytes).toString("base64");
@@ -42,7 +42,7 @@ const defaultImageValue = (input: ImageEmbeddingInput) => {
     typeof input.data === "string"
       ? input.data
       : bytesToDataUrl(input.data, input.mediaType ?? "image/jpeg");
-  // This matches common multimodal embedding providers (e.g. Voyage) where
+  // This matches common AI Gateway multimodal embedding inputs where
   // the embedding value is an object containing one or more images.
   return { image: [v] };
 };
