@@ -1,0 +1,182 @@
+---
+title: "image:caption Extractor"
+description: Make images searchable by embedding their captions or alt text.
+---
+
+The `image:caption` extractor takes the text description provided for an image and embeds it as a regular text chunk. This is the fallback when multimodal embedding isn't available, but it's also a valid strategy when you have high-quality captions.
+
+## How it works
+
+1. You provide a caption via `assets[].text` at ingest time
+2. The caption is chunked (if long) like normal text content
+3. Each chunk is embedded with your text embedding model
+4. Chunks are stored with `metadata.extractor: "image:caption"`
+
+## When this is used
+
+Unrag uses `image:caption` when:
+
+1. Your embedding provider doesn't support `embedImage()` (text-only mode), **AND**
+2. The image asset has a non-empty `text` field
+
+If neither condition is met, the image is skipped.
+
+## Configuration
+
+No special configuration needed. Just use a text embedding model:
+
+```ts
+import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+
+const embedding = createAiEmbeddingProvider({
+  type: "text",  // No multimodal support
+  model: "openai/text-embedding-3-small",
+});
+```
+
+## Usage example
+
+### Ingesting images with captions
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+
+await engine.ingest({
+  sourceId: "docs:architecture",
+  content: "# System Architecture\n\nOur system consists of three main components...",
+  assets: [
+    {
+      assetId: "arch-diagram",
+      kind: "image",
+      data: {
+        kind: "url",
+        url: "https://docs.example.com/images/architecture.png",
+      },
+      uri: "https://docs.example.com/images/architecture.png",
+      // This caption becomes the searchable content
+      text: "System architecture diagram showing the API gateway connecting to three microservices: auth-service, user-service, and billing-service. Each service has its own PostgreSQL database. Redis is used for session caching between all services.",
+    },
+  ],
+});
+```
+
+### Writing effective captions
+
+Good captions include:
+
+```ts
+// ❌ Too vague
+text: "Architecture diagram"
+
+// ✅ Descriptive
+text: "System architecture diagram showing the API gateway, three microservices (auth, user, billing), their PostgreSQL databases, and Redis session cache"
+
+// ✅ Include context not visible in the image
+text: "Figure 3: Production deployment architecture. Shows how traffic flows from CloudFront CDN through the load balancer to ECS containers running our Node.js API."
+
+// ✅ Describe what makes the image useful
+text: "Screenshot of the user settings page showing how to enable two-factor authentication. The 'Security' tab is highlighted and the 2FA toggle is circled."
+```
+
+## Retrieving caption-based chunks
+
+Caption chunks are retrieved like any text:
+
+```ts
+import { getChunkAssetRef } from "@unrag/core";
+
+const result = await engine.retrieve({
+  query: "how microservices communicate",
+  topK: 10,
+});
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  
+  if (ref?.assetKind === "image" && ref.extractor === "image:caption") {
+    console.log("Found image via caption:");
+    console.log(`  Caption: ${chunk.content}`);
+    console.log(`  Asset ID: ${ref.assetId}`);
+    console.log(`  URL: ${ref.assetUri}`);
+  }
+}
+```
+
+## Resolving the original image
+
+Same as with `image:embed`—the chunk contains references, not bytes:
+
+```ts
+const ref = getChunkAssetRef(chunk);
+if (ref?.assetKind === "image" && ref.assetUri) {
+  // Fetch from URL
+  const res = await fetch(ref.assetUri);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+}
+
+// Or look up by assetId in your storage
+const bytes = await myStorage.getImage(ref.assetId);
+```
+
+## What gets stored
+
+For each caption chunk:
+
+| Field | Content |
+|-------|---------|
+| `chunk.content` | The caption text |
+| `chunk.metadata.assetKind` | `"image"` |
+| `chunk.metadata.assetId` | Your provided asset ID |
+| `chunk.metadata.assetUri` | URL (if provided) |
+| `chunk.metadata.assetMediaType` | MIME type (if provided) |
+| `chunk.metadata.extractor` | `"image:caption"` |
+| `embedding` | Vector from text embedding model |
+
+## Comparison with image:embed
+
+| Aspect | image:caption | image:embed |
+|--------|---------------|-------------|
+| Model requirement | Any text model | Multimodal model |
+| What's embedded | Caption text | Image pixels |
+| Query matching | Text similarity to caption | Visual similarity to image |
+| Cost | Lower (text embedding) | Higher (multimodal) |
+| Works without captions | No | Yes |
+| Finds images by visual content | Only if described in caption | Yes |
+
+## When to prefer captions
+
+Use `image:caption` when:
+
+1. You have high-quality, detailed captions
+2. You want to minimize embedding costs
+3. Your text embedding model is better for your domain than available multimodal models
+4. Captions include context the image doesn't show (dates, names, relationships)
+
+## Troubleshooting
+
+### Images being skipped
+
+Check warnings for skipped images:
+
+```ts
+const result = await engine.ingest({ ... });
+for (const w of result.warnings) {
+  if (w.code === "asset_skipped_image_no_multimodal_and_no_caption") {
+    console.log(`Image ${w.assetId}: no caption provided and no multimodal model`);
+  }
+}
+```
+
+**Fix**: Add `text` (caption) to the asset, or switch to a multimodal embedding model.
+
+### Poor retrieval quality
+
+If queries aren't finding the right images:
+
+1. Review your captions—are they descriptive enough?
+2. Include keywords users might search for
+3. Describe what the image shows AND why it matters
+4. Consider switching to multimodal if visual similarity is important
+

@@ -1,0 +1,217 @@
+---
+title: "pdf:llm Extractor"
+description: Extract text from PDFs using a vision-capable LLM.
+---
+
+The `pdf:llm` extractor sends PDF files to a vision-capable LLM (like Google's Gemini) to extract readable text. The LLM "reads" the PDF visually and outputs plain text or markdown, which Unrag then chunks and embeds like normal text content.
+
+## How it works
+
+1. PDF bytes are sent to the configured LLM as a file attachment
+2. The LLM processes the document and extracts text content
+3. Extracted text is chunked using your configured chunking settings
+4. Each chunk is embedded and stored with `metadata.extractor: "pdf:llm"`
+
+## Configuration
+
+Enable and configure the extractor in your `unrag.config.ts`:
+
+```ts
+export const unragConfig = {
+  assetProcessing: {
+    pdf: {
+      llmExtraction: {
+        enabled: true,
+        model: "google/gemini-2.0-flash",
+        prompt:
+          "Extract all readable text from this PDF as faithfully as possible. Preserve structure with headings and lists when obvious. Output plain text or markdown only. Do not add commentary.",
+        timeoutMs: 60_000,
+        maxBytes: 15 * 1024 * 1024,
+        maxOutputChars: 200_000,
+      },
+    },
+  },
+};
+```
+
+### Configuration options
+
+<TypeTable
+  type={{
+    enabled: {
+      description: 'Whether to process PDFs with LLM extraction.',
+      type: 'boolean',
+      default: 'false (library) / true (generated template)',
+    },
+    model: {
+      description: 'AI Gateway model ID. Must support file inputs.',
+      type: 'string',
+      default: '"google/gemini-2.0-flash"',
+    },
+    prompt: {
+      description: 'System prompt for extraction. Keep it deterministic.',
+      type: 'string',
+    },
+    timeoutMs: {
+      description: 'Timeout for the LLM call.',
+      type: 'number',
+      default: '60000',
+    },
+    maxBytes: {
+      description: 'Maximum PDF file size to process.',
+      type: 'number',
+      default: '15728640 (15MB)',
+    },
+    maxOutputChars: {
+      description: 'Maximum characters of extracted text to accept.',
+      type: 'number',
+      default: '200000',
+    },
+  }}
+/>
+
+## Supported models
+
+The extractor uses the Vercel AI SDK and works with any model that supports file inputs:
+
+| Provider | Model | Notes |
+|----------|-------|-------|
+| Google | gemini-2.0-flash | Recommended. Fast, good quality, handles large PDFs |
+| Google | gemini-1.5-pro | Higher quality, slower, more expensive |
+| Anthropic | claude-3-5-sonnet | Excellent quality, supports PDF attachments |
+
+<Callout type="warn">
+OpenAI models (GPT-4o, etc.) don't currently support direct PDF file inputs in the AI SDK. Use Google or Anthropic models for PDF extraction.
+</Callout>
+
+## Usage example
+
+### Ingesting a PDF from disk
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { readFile } from "node:fs/promises";
+
+const engine = createUnragEngine();
+
+const pdfBytes = await readFile("./documents/contract.pdf");
+
+const result = await engine.ingest({
+  sourceId: "contracts:2024-001",
+  content: "", // No text content, just the PDF
+  assets: [
+    {
+      assetId: "contract-pdf",
+      kind: "pdf",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(pdfBytes),
+        mediaType: "application/pdf",
+        filename: "contract.pdf",
+      },
+    },
+  ],
+});
+
+console.log(`Extracted ${result.chunkCount} chunks from PDF`);
+
+// Check for warnings (e.g., empty extraction)
+if (result.warnings.length > 0) {
+  console.warn("Warnings:", result.warnings);
+}
+```
+
+### Ingesting a PDF from URL
+
+```ts
+const result = await engine.ingest({
+  sourceId: "reports:quarterly-q4",
+  content: "Q4 2024 Financial Report", // Optional text summary
+  assets: [
+    {
+      assetId: "q4-report",
+      kind: "pdf",
+      data: {
+        kind: "url",
+        url: "https://example.com/reports/q4-2024.pdf",
+        mediaType: "application/pdf",
+      },
+      uri: "https://example.com/reports/q4-2024.pdf", // Stored in metadata
+    },
+  ],
+});
+```
+
+## Retrieving PDF content
+
+PDF chunks are retrieved like any other content:
+
+```ts
+const result = await engine.retrieve({
+  query: "What are the payment terms?",
+  topK: 10,
+});
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  
+  if (ref?.extractor === "pdf:llm") {
+    console.log("From PDF:", chunk.content);
+    console.log("Asset ID:", ref.assetId);
+  }
+}
+```
+
+## Handling extraction failures
+
+When extraction fails or produces empty output, Unrag emits warnings:
+
+```ts
+const result = await engine.ingest({ ... });
+
+for (const warning of result.warnings) {
+  if (warning.code === "asset_skipped_pdf_empty_extraction") {
+    console.warn(`PDF ${warning.assetId} produced no text (scanned/empty?)`);
+  }
+  if (warning.code === "asset_processing_error") {
+    console.error(`PDF ${warning.assetId} failed: ${warning.message}`);
+  }
+}
+```
+
+### Common issues
+
+| Warning code | Cause | Solution |
+|--------------|-------|----------|
+| `asset_skipped_pdf_llm_extraction_disabled` | `enabled: false` | Set `enabled: true` in config |
+| `asset_skipped_pdf_empty_extraction` | LLM returned no text | PDF may be image-only or corrupted |
+| `asset_processing_error` | LLM call failed | Check API key, model availability, file size |
+
+## Cost considerations
+
+LLM extraction incurs API costs for each PDF processed. To control costs:
+
+1. **Pre-filter PDFs**: Only ingest PDFs you actually need searchable
+2. **Use efficient models**: Gemini Flash is faster and cheaper than Pro
+3. **Set size limits**: Use `maxBytes` to skip oversized files
+4. **Batch during off-peak**: Run bulk ingestion when you can monitor costs
+
+## Customizing the prompt
+
+The default prompt is designed for faithful text extraction. You can customize it for specific use cases:
+
+```ts
+// Extract structured data
+prompt: "Extract all text from this PDF. For tables, output as markdown tables. For forms, output as key: value pairs."
+
+// Focus on specific content
+prompt: "Extract only the terms and conditions section from this contract PDF."
+
+// Include metadata
+prompt: "Extract the text and identify: document title, date, author (if visible). Format as YAML frontmatter followed by content."
+```
+
+<Callout>
+Keep prompts deterministic. Avoid instructions like "summarize" or "explain" which produce inconsistent output across runs.
+</Callout>
+
