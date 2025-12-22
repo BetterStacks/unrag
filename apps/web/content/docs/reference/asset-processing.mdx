@@ -20,8 +20,8 @@ if (result.warnings.length) {
 
 Common warning causes:
 
-- Unsupported kinds (audio/video/file in v1)
-- PDFs skipped because `pdf.llmExtraction.enabled` is `false`
+- Assets skipped because extraction is disabled by config (e.g. `audio.transcription.enabled: false`)
+- PDFs skipped because all PDF strategies are disabled (e.g. `pdf.llmExtraction.enabled: false` and no other PDF extractor enabled)
 - Image skipped because no multimodal embedding provider is configured and there’s no caption text
 - Best-effort failures when `onError: "skip"` is set
 
@@ -56,7 +56,34 @@ type AssetProcessingConfig = {
 
   /** PDF-specific extraction settings. */
   pdf: {
+    textLayer: PdfTextLayerConfig;
     llmExtraction: PdfLlmExtractionConfig;
+    ocr: PdfOcrConfig;
+  };
+
+  /** Image-specific extraction settings (optional installable extractors). */
+  image: {
+    ocr: ImageOcrConfig;
+    captionLlm: ImageCaptionLlmConfig;
+  };
+
+  /** Audio-specific extraction settings. */
+  audio: {
+    transcription: AudioTranscriptionConfig;
+  };
+
+  /** Video-specific extraction settings. */
+  video: {
+    transcription: VideoTranscriptionConfig;
+    frames: VideoFramesConfig;
+  };
+
+  /** Generic file (attachment) extraction settings. */
+  file: {
+    text: FileTextConfig;
+    docx: FileDocxConfig;
+    pptx: FilePptxConfig;
+    xlsx: FileXlsxConfig;
   };
 };
 ```
@@ -90,8 +117,24 @@ type AssetProcessingConfig = {
       type: 'FetchConfig',
     },
     pdf: {
-      description: 'PDF-specific settings, including LLM extraction configuration.',
-      type: '{ llmExtraction: PdfLlmExtractionConfig }',
+      description: 'PDF-specific settings (text-layer, LLM, OCR).',
+      type: '{ textLayer: PdfTextLayerConfig; llmExtraction: PdfLlmExtractionConfig; ocr: PdfOcrConfig }',
+    },
+    image: {
+      description: 'Image-specific settings (OCR, caption generation).',
+      type: '{ ocr: ImageOcrConfig; captionLlm: ImageCaptionLlmConfig }',
+    },
+    audio: {
+      description: 'Audio transcription settings.',
+      type: '{ transcription: AudioTranscriptionConfig }',
+    },
+    video: {
+      description: 'Video settings (transcription, frame sampling).',
+      type: '{ transcription: VideoTranscriptionConfig; frames: VideoFramesConfig }',
+    },
+    file: {
+      description: 'Generic file attachment extractors (text/docx/pptx/xlsx).',
+      type: '{ text: FileTextConfig; docx: FileDocxConfig; pptx: FilePptxConfig; xlsx: FileXlsxConfig }',
     },
   }}
 />
@@ -106,7 +149,7 @@ type FetchConfig = {
   maxBytes: number;
   timeoutMs: number;
   allowedHosts?: string[];
-  blockedHosts?: string[];
+  headers?: Record<string, string>;
 };
 ```
 
@@ -132,9 +175,9 @@ type FetchConfig = {
       type: 'string[]',
       default: 'undefined (all hosts allowed)',
     },
-    blockedHosts: {
-      description: 'Hostnames to block. Applied after allowedHosts check.',
-      type: 'string[]',
+    headers: {
+      description: 'Optional headers applied to all asset fetches (merged with per-asset headers).',
+      type: 'Record<string, string>',
       default: 'undefined',
     },
   }}
@@ -193,6 +236,139 @@ type PdfLlmExtractionConfig = {
     },
   }}
 />
+
+## PdfTextLayerConfig
+
+Settings for extracting embedded text from PDFs (fast/cheap).
+
+See [pdf:text-layer](/docs/extractors/pdf/text-layer).
+
+```ts
+type PdfTextLayerConfig = {
+  enabled: boolean;
+  maxBytes: number;
+  maxOutputChars: number;
+  minChars: number;
+  maxPages?: number;
+};
+```
+
+## PdfOcrConfig
+
+Settings for OCR-based PDF extraction (worker-only).
+
+See [pdf:ocr](/docs/extractors/pdf/ocr).
+
+```ts
+type PdfOcrConfig = {
+  enabled: boolean;
+  maxBytes: number;
+  maxOutputChars: number;
+  minChars: number;
+  maxPages?: number;
+  pdftoppmPath?: string;
+  tesseractPath?: string;
+  dpi?: number;
+  lang?: string;
+};
+```
+
+## ImageOcrConfig
+
+Settings for OCR-ing images into text chunks.
+
+See [image:ocr](/docs/extractors/image/ocr).
+
+```ts
+type ImageOcrConfig = {
+  enabled: boolean;
+  model: string;
+  prompt: string;
+  timeoutMs: number;
+  maxBytes: number;
+  maxOutputChars: number;
+};
+```
+
+## ImageCaptionLlmConfig
+
+Settings for generating captions for images.
+
+See [image:caption-llm](/docs/extractors/image/caption-llm).
+
+```ts
+type ImageCaptionLlmConfig = {
+  enabled: boolean;
+  model: string;
+  prompt: string;
+  timeoutMs: number;
+  maxBytes: number;
+  maxOutputChars: number;
+};
+```
+
+## AudioTranscriptionConfig
+
+Settings for transcribing audio.
+
+See [audio:transcribe](/docs/extractors/audio/transcribe).
+
+```ts
+type AudioTranscriptionConfig = {
+  enabled: boolean;
+  model: string;
+  timeoutMs: number;
+  maxBytes: number;
+};
+```
+
+## VideoTranscriptionConfig
+
+Settings for transcribing video (audio track).
+
+See [video:transcribe](/docs/extractors/video/transcribe).
+
+```ts
+type VideoTranscriptionConfig = {
+  enabled: boolean;
+  model: string;
+  timeoutMs: number;
+  maxBytes: number;
+};
+```
+
+## VideoFramesConfig
+
+Settings for sampling video frames and extracting text per frame (worker-only).
+
+See [video:frames](/docs/extractors/video/frames).
+
+```ts
+type VideoFramesConfig = {
+  enabled: boolean;
+  sampleFps: number;
+  maxFrames: number;
+  ffmpegPath?: string;
+  maxBytes: number;
+  model: string;
+  prompt: string;
+  timeoutMs: number;
+  maxOutputChars: number;
+};
+```
+
+## File*Config
+
+Settings for extracting text from generic file attachments.
+
+See [File Extractors](/docs/extractors/file) for format-specific behavior.
+
+```ts
+type FileTextConfig = { enabled: boolean; maxBytes: number; maxOutputChars: number; minChars: number };
+type FileDocxConfig = { enabled: boolean; maxBytes: number; maxOutputChars: number; minChars: number };
+type FilePptxConfig = { enabled: boolean; maxBytes: number; maxOutputChars: number; minChars: number };
+type FileXlsxConfig = { enabled: boolean; maxBytes: number; maxOutputChars: number; minChars: number };
+```
 
 ## AssetInput
 
@@ -285,10 +461,10 @@ type AssetKind = "image" | "pdf" | "audio" | "video" | "file";
 | Kind | v1 Support | Notes |
 |------|------------|-------|
 | `image` | Supported | Direct embedding (multimodal) or caption fallback |
-| `pdf` | Supported | LLM extraction when enabled |
-| `audio` | Skipped | No built-in extraction |
-| `video` | Skipped | No built-in extraction |
-| `file` | Skipped | No built-in extraction |
+| `pdf` | Supported | Requires at least one enabled PDF extractor (`pdf:text-layer`, `pdf:llm`, or `pdf:ocr`) |
+| `audio` | Supported | Requires installing `audio-transcribe` and enabling `audio.transcription.enabled` |
+| `video` | Supported | Requires installing `video-transcribe` and/or `video-frames` and enabling config |
+| `file` | Supported | Requires installing file extractors and enabling config (text/docx/pptx/xlsx) |
 
 ## Per-ingest overrides
 
@@ -302,9 +478,17 @@ await engine.ingest({
   assetProcessing: {
     // Only override what you need—everything else uses engine defaults
     pdf: {
+      textLayer: {
+        enabled: true,
+      },
       llmExtraction: {
         enabled: true,
         maxBytes: 50 * 1024 * 1024, // Allow larger PDFs for this doc
+      },
+    },
+    audio: {
+      transcription: {
+        enabled: true,
       },
     },
     onError: "fail", // Fail this ingest if any asset errors
@@ -326,14 +510,23 @@ The library defaults (cost-safe, conservative):
 const DEFAULT_ASSET_PROCESSING: AssetProcessingConfig = {
   onUnsupportedAsset: "skip",
   onError: "skip",
+  concurrency: 4,
+  hooks: { onEvent: undefined },
   fetch: {
     enabled: true,
     maxBytes: 15 * 1024 * 1024,
     timeoutMs: 20_000,
     allowedHosts: undefined,
-    blockedHosts: undefined,
+    headers: undefined,
   },
   pdf: {
+    textLayer: {
+      enabled: false,
+      maxBytes: 15 * 1024 * 1024,
+      maxOutputChars: 200_000,
+      minChars: 200,
+      maxPages: undefined,
+    },
     llmExtraction: {
       enabled: false, // Off by default in library
       model: "google/gemini-2.0-flash",
@@ -342,9 +535,71 @@ const DEFAULT_ASSET_PROCESSING: AssetProcessingConfig = {
       maxBytes: 15 * 1024 * 1024,
       maxOutputChars: 200_000,
     },
+    ocr: {
+      enabled: false,
+      maxBytes: 15 * 1024 * 1024,
+      maxOutputChars: 200_000,
+      minChars: 200,
+      maxPages: undefined,
+      pdftoppmPath: undefined,
+      tesseractPath: undefined,
+      dpi: 200,
+      lang: "eng",
+    },
+  },
+  image: {
+    ocr: {
+      enabled: false,
+      model: "google/gemini-2.0-flash",
+      prompt: "Extract all readable text from this image...",
+      timeoutMs: 60_000,
+      maxBytes: 10 * 1024 * 1024,
+      maxOutputChars: 50_000,
+    },
+    captionLlm: {
+      enabled: false,
+      model: "google/gemini-2.0-flash",
+      prompt: "Write a concise, information-dense caption for this image...",
+      timeoutMs: 60_000,
+      maxBytes: 10 * 1024 * 1024,
+      maxOutputChars: 10_000,
+    },
+  },
+  audio: {
+    transcription: {
+      enabled: false,
+      model: "openai/whisper-1",
+      timeoutMs: 120_000,
+      maxBytes: 25 * 1024 * 1024,
+    },
+  },
+  video: {
+    transcription: {
+      enabled: false,
+      model: "openai/whisper-1",
+      timeoutMs: 120_000,
+      maxBytes: 50 * 1024 * 1024,
+    },
+    frames: {
+      enabled: false,
+      sampleFps: 0.2,
+      maxFrames: 50,
+      ffmpegPath: undefined,
+      maxBytes: 50 * 1024 * 1024,
+      model: "google/gemini-2.0-flash",
+      prompt: "Extract all readable text from this video frame...",
+      timeoutMs: 60_000,
+      maxOutputChars: 50_000,
+    },
+  },
+  file: {
+    text: { enabled: false, maxBytes: 5 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
+    docx: { enabled: false, maxBytes: 15 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
+    pptx: { enabled: false, maxBytes: 30 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
+    xlsx: { enabled: false, maxBytes: 30 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
   },
 };
 ```
 
-The generated `unrag.config.ts` overrides `pdf.llmExtraction.enabled` to `true` so new installs work with PDF content out of the box.
+The generated `unrag.config.ts` enables `pdf.llmExtraction.enabled` by default, but you still need to install and register a PDF extractor module (like `pdf-llm`) to actually process PDFs.
 

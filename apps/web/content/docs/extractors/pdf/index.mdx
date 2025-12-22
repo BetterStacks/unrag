@@ -3,52 +3,198 @@ title: PDF Extractors
 description: Extract searchable text from PDF documents.
 ---
 
-PDF extraction converts document files into searchable text chunks. Since PDFs can contain complex layouts, tables, images, and scanned content, extraction quality depends heavily on the method used.
+PDFs are everywhere—contracts, reports, research papers, invoices—and making them searchable is one of the most common extraction tasks. But PDFs are deceptively complex. A single document might mix digital text, scanned pages, tables, multi-column layouts, and embedded images.
+
+There's no one-size-fits-all solution. That's why Unrag provides multiple PDF extractors, each optimized for different scenarios. The right choice depends on your documents and your constraints around cost, speed, and quality.
 
 ## Available PDF extractors
 
 | Extractor | How it works | Best for |
 |-----------|--------------|----------|
-| [pdf:llm](/docs/extractors/pdf/llm) | Sends PDF to an LLM for text extraction | Complex layouts, scanned docs, mixed content |
+| [pdf:text-layer](/docs/extractors/pdf/text-layer) | Extracts the built-in text layer | Digital PDFs, fast and free |
+| [pdf:llm](/docs/extractors/pdf/llm) | Sends PDF to a vision-capable LLM | Complex layouts, scanned docs, mixed content |
+| [pdf:ocr](/docs/extractors/pdf/ocr) | Renders pages and runs OCR (worker-only) | Scanned PDFs without LLM costs |
 
-## Choosing an extractor
+## How to choose
 
-Currently, Unrag provides one PDF extractor: **pdf:llm**. This sends the entire PDF to a vision-capable LLM (like Gemini) which reads and transcribes the content.
+Most teams should start with a **fallback chain**:
 
-**Pros:**
-- Handles complex layouts, tables, and multi-column text
-- Can read scanned/image-based PDFs (OCR built into the model)
-- Preserves semantic structure (headings, lists)
+1. Try `pdf:text-layer` first—it's fast, free, and works great for born-digital PDFs
+2. Fall back to `pdf:llm` when text extraction produces insufficient content
 
-**Cons:**
-- Requires LLM API calls (cost per page)
-- Subject to model token limits
-- Slower than local text extraction
+This gives you the best of both worlds: fast extraction when possible, LLM quality when needed.
+
+```ts
+extractors: [
+  createPdfTextLayerExtractor(),  // Try text layer first
+  createPdfLlmExtractor(),        // Fall back to LLM
+],
+```
+
+### When to use each extractor
+
+**Use `pdf:text-layer` when:**
+- Documents are born-digital (created in Word, exported to PDF)
+- You're processing many documents and want to minimize costs
+- Speed is critical
+
+**Use `pdf:llm` when:**
+- Documents contain scanned pages or complex layouts
+- You need the highest quality extraction
+- PDFs mix text, tables, and images
+
+**Use `pdf:ocr` when:**
+- You're running in a worker environment with native dependencies
+- You want scanned PDF support without LLM costs
+- You have Tesseract installed and configured
+
+## Installation
+
+PDF extractors are installable modules. Install the ones you need:
+
+```bash
+# Install text layer extractor (fast/free)
+bunx unrag add extractor pdf-text-layer
+
+# Install LLM extractor (high quality)
+bunx unrag add extractor pdf-llm
+
+# Install OCR extractor (worker-only)
+bunx unrag add extractor pdf-ocr
+```
+
+Then register them in your config. The order matters—extractors are tried in sequence:
+
+```ts
+import { createPdfTextLayerExtractor } from "./lib/unrag/extractors/pdf-text-layer";
+import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [
+      createPdfTextLayerExtractor(),
+      createPdfLlmExtractor(),
+    ],
+  },
+} as const);
+```
 
 ## Configuration
 
-PDF extraction is controlled via `assetProcessing.pdf.llmExtraction` in your config:
+Each extractor has its own configuration section under `assetProcessing.pdf`:
 
 ```ts
 export const unrag = defineUnragConfig({
   // ...
   engine: {
     // ...
-  assetProcessing: {
-    pdf: {
-      llmExtraction: {
-        enabled: true,
-        model: "google/gemini-2.0-flash",
-        prompt: "Extract all readable text from this PDF...",
-        timeoutMs: 60_000,
-        maxBytes: 15 * 1024 * 1024,
-        maxOutputChars: 200_000,
+    assetProcessing: {
+      pdf: {
+        // Text layer extraction (fast/free)
+        textLayer: {
+          enabled: true,
+          maxBytes: 15 * 1024 * 1024,
+          maxOutputChars: 200_000,
+          minChars: 200,  // Fall back to next extractor if less
+        },
+        
+        // LLM-based extraction (high quality)
+        llmExtraction: {
+          enabled: true,
+          model: "google/gemini-2.0-flash",
+          timeoutMs: 60_000,
+          maxBytes: 15 * 1024 * 1024,
+          maxOutputChars: 200_000,
+        },
+        
+        // OCR extraction (worker-only)
+        ocr: {
+          enabled: false,  // Requires worker environment
+          maxBytes: 15 * 1024 * 1024,
+          maxOutputChars: 200_000,
+        },
       },
     },
-  },
   },
 } as const);
 ```
 
-See [pdf:llm](/docs/extractors/pdf/llm) for detailed configuration options.
+See each extractor's page for detailed configuration options:
+- [pdf:text-layer](/docs/extractors/pdf/text-layer) — Fast text layer extraction
+- [pdf:llm](/docs/extractors/pdf/llm) — LLM-based document analysis
+- [pdf:ocr](/docs/extractors/pdf/ocr) — Traditional OCR pipeline
+
+## Fallback behavior
+
+When multiple PDF extractors are registered, Unrag tries them in order:
+
+1. First extractor processes the PDF
+2. If it produces enough text (above `minChars`), we're done
+3. If it fails or produces too little text, try the next extractor
+4. Continue until one succeeds or all are exhausted
+
+This is why `minChars` is important for `pdf:text-layer`. A scanned PDF might have a few characters of embedded text (watermarks, headers) but not enough useful content. Setting `minChars: 200` ensures these PDFs fall through to the LLM extractor.
+
+## Example: ingesting a contract PDF
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const pdfBytes = await readFile("./documents/contract.pdf");
+
+const result = await engine.ingest({
+  sourceId: "contracts:acme-2024",
+  content: "Service agreement with Acme Corp",
+  assets: [
+    {
+      assetId: "contract-pdf",
+      kind: "pdf",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(pdfBytes),
+        mediaType: "application/pdf",
+        filename: "contract.pdf",
+      },
+    },
+  ],
+});
+
+console.log(`Extracted ${result.chunkCount} chunks`);
+
+// Check which extractor was used
+if (result.warnings.length === 0) {
+  console.log("PDF extracted successfully");
+}
+```
+
+## Troubleshooting
+
+### PDF produces no chunks
+
+Check `result.warnings` for the cause:
+
+```ts
+for (const w of result.warnings) {
+  console.log(`${w.code}: ${w.message}`);
+}
+```
+
+Common causes:
+- No PDF extractors installed
+- All extractors disabled in config
+- PDF is encrypted or corrupted
+- File exceeds `maxBytes` limit
+
+### Text layer works but quality is poor
+
+Some PDFs have text layers that don't match visual layout—especially PDFs converted from images or with weird encodings. If `pdf:text-layer` produces garbled output, configure `minChars` high enough to fall through to `pdf:llm`.
+
+### LLM extraction is slow
+
+The LLM extractor sends the entire PDF to the model, which takes time for large documents. Consider:
+- Using Gemini Flash (faster than Pro)
+- Setting `maxBytes` to skip very large PDFs
+- Pre-filtering which documents need LLM extraction
 

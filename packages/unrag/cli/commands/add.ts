@@ -35,6 +35,21 @@ type ParsedAddArgs = {
   yes?: boolean;
 };
 
+const AVAILABLE_EXTRACTORS: ExtractorName[] = [
+  "pdf-llm",
+  "pdf-text-layer",
+  "pdf-ocr",
+  "image-ocr",
+  "image-caption-llm",
+  "audio-transcribe",
+  "video-transcribe",
+  "video-frames",
+  "file-text",
+  "file-docx",
+  "file-pptx",
+  "file-xlsx",
+];
+
 const parseAddArgs = (args: string[]): ParsedAddArgs => {
   const out: ParsedAddArgs = {};
 
@@ -83,7 +98,7 @@ export async function addCommand(args: string[]) {
         "  unrag add extractor <name>",
         "",
         "Available connectors: notion",
-        "Available extractors: pdf-llm",
+        `Available extractors: ${AVAILABLE_EXTRACTORS.join(", ")}`,
       ].join("\n")
     );
     return;
@@ -155,8 +170,10 @@ export async function addCommand(args: string[]) {
 
   // Extractors
   const extractor = name as ExtractorName | undefined;
-  if (extractor !== "pdf-llm") {
-    outro(`Unknown extractor: ${name}\n\nAvailable extractors: pdf-llm`);
+  if (!extractor || !AVAILABLE_EXTRACTORS.includes(extractor)) {
+    outro(
+      `Unknown extractor: ${name}\n\nAvailable extractors: ${AVAILABLE_EXTRACTORS.join(", ")}`
+    );
     return;
   }
 

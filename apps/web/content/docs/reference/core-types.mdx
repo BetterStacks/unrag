@@ -127,6 +127,14 @@ type IngestWarning =
       assetMediaType?: string;
     }
   | {
+      code: "asset_skipped_extraction_disabled";
+      message: string;
+      assetId: string;
+      assetKind: AssetKind;
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
       code: "asset_skipped_pdf_llm_extraction_disabled";
       message: string;
       assetId: string;
@@ -147,6 +155,14 @@ type IngestWarning =
       message: string;
       assetId: string;
       assetKind: "pdf";
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
+      code: "asset_skipped_extraction_empty";
+      message: string;
+      assetId: string;
+      assetKind: AssetKind;
       assetUri?: string;
       assetMediaType?: string;
     }
@@ -328,12 +344,8 @@ The interface for extractor modules that process rich media assets into text or 
 ```ts
 type AssetExtractor = {
   name: string;
-  supports: (asset: AssetInput, ctx: AssetExtractorContext) => boolean;
-  extract: (args: {
-    asset: AssetInput;
-    ctx: AssetExtractorContext;
-    limits: ExtractorLimits;
-  }) => Promise<{
+  supports: (args: { asset: AssetInput; ctx: AssetExtractorContext }) => boolean;
+  extract: (args: { asset: AssetInput; ctx: AssetExtractorContext }) => Promise<{
     texts: Array<{
       label: string;
       content: string;
@@ -341,6 +353,7 @@ type AssetExtractor = {
       pageRange?: [number, number];
       timeRangeSec?: [number, number];
     }>;
+    skipped?: { code: string; message: string };
     metadata?: Metadata;
     diagnostics?: { model?: string; tokens?: number; seconds?: number };
   }>;
@@ -355,7 +368,7 @@ type AssetExtractor = {
     },
     supports: {
       description: 'Returns true if this extractor can handle the given asset. Called for each asset to find the right extractor.',
-      type: '(asset, ctx) => boolean',
+      type: '({ asset, ctx }) => boolean',
     },
     extract: {
       description: 'Performs extraction and returns text segments with optional metadata and diagnostics.',
@@ -374,6 +387,7 @@ The `extract` function returns:
 | `texts[].confidence` | Optional confidence score (0-1) for the extraction |
 | `texts[].pageRange` | Optional page range `[start, end]` for PDFs |
 | `texts[].timeRangeSec` | Optional time range in seconds for audio/video |
+| `skipped` | Optional structured skip reason (e.g., disabled by config, too-large) |
 | `metadata` | Optional metadata merged into chunks created from this asset |
 | `diagnostics` | Optional diagnostic info (model used, token count, processing time) |
 
@@ -386,11 +400,11 @@ export function createAudioTranscriptExtractor(): AssetExtractor {
   return {
     name: "audio:whisper",
     
-    supports: (asset, ctx) => {
-      return asset.kind === "audio" && ctx.config.assetProcessing.audio?.enabled;
+    supports: ({ asset, ctx }) => {
+      return asset.kind === "audio" && ctx.assetProcessing.audio.transcription.enabled;
     },
     
-    extract: async ({ asset, ctx, limits }) => {
+    extract: async ({ asset, ctx }) => {
       const audioBytes = asset.data.kind === "bytes" 
         ? asset.data.bytes 
         : await fetchAssetBytes(asset.data.url);

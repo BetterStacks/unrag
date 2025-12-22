@@ -1,0 +1,87 @@
+---
+title: Video Extractors
+description: Make videos searchable through transcription and frame analysis.
+---
+
+Videos are rich media that combine spoken content, on-screen text, and visual information. Unrag can extract searchable content from videos through two complementary strategies:
+
+- **Transcription**: Convert the audio track to text. This is the high-value, low-effort option for most videos.
+- **Frame sampling**: Sample frames at intervals and extract text from each frame. This catches on-screen text that transcription misses.
+
+For a product demo video, transcription captures what the presenter says. Frame sampling captures the text shown in the UI. Together, they make the video fully searchable.
+
+## Available video extractors
+
+| Extractor | How it works | Best for |
+|-----------|--------------|----------|
+| [video:transcribe](/docs/extractors/video/transcribe) | Transcribes the audio track into text chunks | Talks, demos, meetings—anything with speech |
+| [video:frames](/docs/extractors/video/frames) | Samples frames (via ffmpeg) and runs vision extraction | Screen recordings, slide presentations, on-screen text |
+
+## Choosing an approach
+
+### Start with transcription
+
+For most videos, `video:transcribe` alone provides excellent search coverage. Speakers typically narrate what's happening on screen, so the transcript captures the essence of the content.
+
+**Use transcription for:**
+- Meeting recordings
+- Webinars and talks
+- Tutorial videos
+- Podcast videos
+- Interviews
+
+### Add frame sampling when needed
+
+`video:frames` is more expensive and requires `ffmpeg`, but it catches visual content that transcription misses:
+
+**Add frame sampling for:**
+- Screen recordings with minimal narration
+- Slide presentations where slides contain key information
+- UI demos where on-screen text is important
+- Videos with significant text overlays
+
+### Using both together
+
+You can install both extractors. Unrag will produce chunks from each, all searchable in the same query:
+
+```ts
+extractors: [
+  createVideoTranscribeExtractor(),
+  createVideoFramesExtractor(),
+],
+```
+
+Chunks from transcription will have `metadata.extractor: "video:transcribe"`, and frame-extracted text will have `metadata.extractor: "video:frames"`.
+
+## Typical use cases
+
+**Internal knowledge base**: Transcribe company all-hands, product demos, and training videos. Employees can search across months of video content to find specific discussions.
+
+**Educational content**: Index course videos. Students search for "how to configure OAuth" and find the exact lecture segment.
+
+**Customer support**: Transcribe support call recordings (if stored as video). Agents search past calls to find how similar issues were resolved.
+
+**Product documentation**: For software products, transcribe tutorial videos and sample frames from screen recordings. Users search docs and video content together.
+
+## Production considerations
+
+Video processing is resource-intensive:
+
+- **Transcription** can take 30+ seconds for longer videos
+- **Frame sampling** requires `ffmpeg` (not available in serverless)
+- **Large files** consume significant bandwidth and memory
+
+<Callout type="warn">
+For production on Vercel, run video extraction in background jobs with retries. The `video:frames` extractor specifically requires a worker environment with `ffmpeg` installed. See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe).
+</Callout>
+
+## Cost considerations
+
+- **Transcription** is priced per minute of audio. Transcribing hours of video adds up.
+- **Frame sampling** involves LLM calls per sampled frame. At 0.2 FPS, a 10-minute video produces ~120 frames.
+
+To manage costs:
+- Set `maxBytes` to skip unexpectedly large files
+- Adjust `sampleFps` to balance coverage vs. cost for frame sampling
+- Prioritize high-value videos for extraction
+

@@ -145,11 +145,17 @@ export const ingest = async (
     assetMediaType?: string;
     extractors: AssetExtractor[];
     stopOnFirstNonEmpty: boolean;
-  }): Promise<{ specs: PreparedChunkSpec[]; warnings: IngestWarning[] }> => {
+  }): Promise<{
+    specs: PreparedChunkSpec[];
+    warnings: IngestWarning[];
+    attemptedExtractors: string[];
+  }> => {
     const outSpecs: PreparedChunkSpec[] = [];
     const outWarnings: IngestWarning[] = [];
+    const attemptedExtractors: string[] = [];
 
     for (const ex of args.extractors) {
+      attemptedExtractors.push(ex.name);
       const start = now();
       assetProcessing.hooks?.onEvent?.({
         type: "extractor:start",
@@ -237,7 +243,7 @@ export const ingest = async (
       }
     }
 
-    return { specs: outSpecs, warnings: outWarnings };
+    return { specs: outSpecs, warnings: outWarnings, attemptedExtractors };
   };
 
   const processAsset = async (
@@ -274,6 +280,9 @@ export const ingest = async (
       if (w.code === "asset_skipped_pdf_empty_extraction") {
         return assetProcessing.onError === "fail";
       }
+      if (w.code === "asset_skipped_extraction_empty") {
+        return assetProcessing.onError === "fail";
+      }
       return assetProcessing.onUnsupportedAsset === "fail";
     };
 
@@ -298,6 +307,9 @@ export const ingest = async (
         ? storedCaption.split(/\s+/).filter(Boolean).length
         : 0;
 
+      const specs: PreparedChunkSpec[] = [];
+      const warnings: IngestWarning[] = [];
+
       if (config.embedding.embedImage) {
         const data =
           asset.data.kind === "bytes" ? asset.data.bytes : asset.data.url;
@@ -306,44 +318,59 @@ export const ingest = async (
             ? asset.data.mediaType
             : asset.data.mediaType;
 
-        return {
-          specs: [
-            {
-              documentId,
-              sourceId: input.sourceId,
-              content: storedCaption,
-              tokenCount: storedCaptionTokenCount,
-              metadata: { ...assetMeta, extractor: "image:embed" },
-              documentContent: storedDocumentContent,
-              embed: { kind: "image", data, mediaType, assetId: asset.assetId },
-              storedContent: storedCaption,
-              storedTokenCount: storedCaptionTokenCount,
-            },
-          ],
-          warnings: [],
-        };
-      }
-
-      if (caption) {
-        const captionChunks = config.chunker(caption, chunkingOptions);
-        const specs: PreparedChunkSpec[] = captionChunks.map((c) => ({
+        specs.push({
           documentId,
           sourceId: input.sourceId,
-          content: storeChunkContent ? c.content : "",
-          tokenCount: storeChunkContent ? c.tokenCount : 0,
-          metadata: { ...assetMeta, extractor: "image:caption" },
+          content: storedCaption,
+          tokenCount: storedCaptionTokenCount,
+          metadata: { ...assetMeta, extractor: "image:embed" },
           documentContent: storedDocumentContent,
-          embed: { kind: "text", text: c.content },
-          storedContent: storeChunkContent ? c.content : "",
-          storedTokenCount: storeChunkContent ? c.tokenCount : 0,
-        }));
-        return { specs, warnings: [] };
+          embed: { kind: "image", data, mediaType, assetId: asset.assetId },
+          storedContent: storedCaption,
+          storedTokenCount: storedCaptionTokenCount,
+        });
+      } else if (caption) {
+        const captionChunks = config.chunker(caption, chunkingOptions);
+        for (const c of captionChunks) {
+          specs.push({
+            documentId,
+            sourceId: input.sourceId,
+            content: storeChunkContent ? c.content : "",
+            tokenCount: storeChunkContent ? c.tokenCount : 0,
+            metadata: { ...assetMeta, extractor: "image:caption" },
+            documentContent: storedDocumentContent,
+            embed: { kind: "text", text: c.content },
+            storedContent: storeChunkContent ? c.content : "",
+            storedTokenCount: storeChunkContent ? c.tokenCount : 0,
+          });
+        }
+      }
+
+      const matching = config.extractors.filter((ex) =>
+        ex.supports({ asset, ctx: extractorCtx })
+      );
+
+      if (matching.length > 0) {
+        const r = await runExtractors({
+          asset,
+          assetMeta,
+          assetUri,
+          assetMediaType,
+          extractors: matching,
+          stopOnFirstNonEmpty: true,
+        });
+        specs.push(...r.specs);
+        warnings.push(...r.warnings);
+      }
+
+      if (specs.length > 0) {
+        return { specs, warnings };
       }
 
       return skip({
         code: "asset_skipped_image_no_multimodal_and_no_caption",
         message:
-          "Image skipped because embedding provider does not support embedImage() and assets[].text (caption/alt) is empty.",
+          "Image skipped because embedding provider does not support embedImage(), assets[].text (caption/alt) is empty, and no enabled image extractors are configured.",
         assetId: asset.assetId,
         assetKind: "image",
         ...(assetUri ? { assetUri } : {}),
@@ -353,26 +380,31 @@ export const ingest = async (
 
     // PDF handling uses extractors when enabled.
     if (asset.kind === "pdf") {
-      if (!assetProcessing.pdf.llmExtraction.enabled) {
-        return skip({
-          code: "asset_skipped_pdf_llm_extraction_disabled",
-          message:
-            "PDF skipped because assetProcessing.pdf.llmExtraction.enabled is false. Enable it and install/configure a PDF extractor to extract and embed PDF text.",
-          assetId: asset.assetId,
-          assetKind: "pdf",
-          ...(assetUri ? { assetUri } : {}),
-          ...(assetMediaType ? { assetMediaType } : {}),
-        });
-      }
-
       const matching = config.extractors.filter((ex) =>
         ex.supports({ asset, ctx: extractorCtx })
       );
       if (matching.length === 0) {
+        // If ALL configured PDF extraction approaches are disabled, emit a specific warning.
+        if (
+          !assetProcessing.pdf.llmExtraction.enabled &&
+          !assetProcessing.pdf.textLayer.enabled &&
+          !assetProcessing.pdf.ocr.enabled
+        ) {
+          return skip({
+            code: "asset_skipped_pdf_llm_extraction_disabled",
+            message:
+              "PDF skipped because no PDF extraction strategy is enabled (assetProcessing.pdf.*.enabled are all false).",
+            assetId: asset.assetId,
+            assetKind: "pdf",
+            ...(assetUri ? { assetUri } : {}),
+            ...(assetMediaType ? { assetMediaType } : {}),
+          });
+        }
+
         return skip({
           code: "asset_skipped_unsupported_kind",
           message:
-            'PDF extraction is enabled but no installed extractor supports this asset. Install/configure a PDF extractor module (e.g. "pdf-llm").',
+            'PDF extraction is enabled but no installed extractor supports this asset. Install/configure a PDF extractor module (e.g. "pdf-llm", "pdf-text-layer").',
           assetId: asset.assetId,
           assetKind: "pdf",
           ...(assetUri ? { assetUri } : {}),
@@ -409,6 +441,29 @@ export const ingest = async (
       ex.supports({ asset, ctx: extractorCtx })
     );
     if (matching.length === 0) {
+      // Distinguish \"disabled by config\" vs \"no extractor installed\".
+      const disabledByConfig =
+        (asset.kind === "audio" && !assetProcessing.audio.transcription.enabled) ||
+        (asset.kind === "video" &&
+          !assetProcessing.video.transcription.enabled &&
+          !assetProcessing.video.frames.enabled) ||
+        (asset.kind === "file" &&
+          !assetProcessing.file.text.enabled &&
+          !assetProcessing.file.docx.enabled &&
+          !assetProcessing.file.pptx.enabled &&
+          !assetProcessing.file.xlsx.enabled);
+
+      if (disabledByConfig) {
+        return skip({
+          code: "asset_skipped_extraction_disabled",
+          message: `Asset skipped because extraction for kind "${asset.kind}" is disabled by config.`,
+          assetId: asset.assetId,
+          assetKind: asset.kind,
+          ...(assetUri ? { assetUri } : {}),
+          ...(assetMediaType ? { assetMediaType } : {}),
+        });
+      }
+
       return skip({
         code: "asset_skipped_unsupported_kind",
         message: `Asset skipped because kind "${asset.kind}" is not supported by the built-in pipeline.`,
@@ -430,11 +485,11 @@ export const ingest = async (
 
     if (specs.length === 0) {
       return skip({
-        code: "asset_processing_error",
-        message: "All configured extractors returned empty text outputs for this asset.",
+        code: "asset_skipped_extraction_empty",
+        message:
+          "All configured extractors returned empty text outputs for this asset.",
         assetId: asset.assetId,
         assetKind: asset.kind,
-        stage: "extract",
         ...(assetUri ? { assetUri } : {}),
         ...(assetMediaType ? { assetMediaType } : {}),
       });
@@ -584,32 +639,35 @@ export const planIngest = async (
     );
 
     if (asset.kind === "pdf") {
-      if (!assetProcessing.pdf.llmExtraction.enabled) {
-        emit({
-          code: "asset_skipped_pdf_llm_extraction_disabled",
-          message:
-            "PDF would be skipped because assetProcessing.pdf.llmExtraction.enabled is false.",
-          assetId: asset.assetId,
-          assetKind: "pdf",
-          ...(assetUri ? { assetUri } : {}),
-          ...(assetMediaType ? { assetMediaType } : {}),
-        });
-
-        plan.push({
-          assetId: asset.assetId,
-          kind: asset.kind,
-          uri: asset.uri,
-          status: "will_skip",
-          reason: "asset_skipped_pdf_llm_extraction_disabled",
-        });
-        continue;
-      }
-
       if (matchingExtractors.length === 0) {
+        if (
+          !assetProcessing.pdf.llmExtraction.enabled &&
+          !assetProcessing.pdf.textLayer.enabled &&
+          !assetProcessing.pdf.ocr.enabled
+        ) {
+          emit({
+            code: "asset_skipped_pdf_llm_extraction_disabled",
+            message:
+              "PDF would be skipped because no PDF extraction strategy is enabled (assetProcessing.pdf.*.enabled are all false).",
+            assetId: asset.assetId,
+            assetKind: "pdf",
+            ...(assetUri ? { assetUri } : {}),
+            ...(assetMediaType ? { assetMediaType } : {}),
+          });
+          plan.push({
+            assetId: asset.assetId,
+            kind: asset.kind,
+            uri: asset.uri,
+            status: "will_skip",
+            reason: "asset_skipped_pdf_llm_extraction_disabled",
+          });
+          continue;
+        }
+
         emit({
           code: "asset_skipped_unsupported_kind",
           message:
-            'PDF extraction is enabled but no installed extractor supports this asset. Install/configure a PDF extractor module (e.g. "pdf-llm").',
+            'PDF extraction is enabled but no installed extractor supports this asset. Install/configure a PDF extractor module (e.g. "pdf-llm", "pdf-text-layer").',
           assetId: asset.assetId,
           assetKind: "pdf",
           ...(assetUri ? { assetUri } : {}),
@@ -636,25 +694,66 @@ export const planIngest = async (
     }
 
     if (asset.kind === "image") {
+      const extractors: string[] = [];
       if (config.embedding.embedImage) {
+        extractors.push("image:embed");
+      } else {
+        const caption = (asset.text ?? "").trim();
+        if (caption) {
+          extractors.push("image:caption");
+        }
+      }
+
+      extractors.push(...matchingExtractors.map((e) => e.name));
+
+      if (extractors.length > 0) {
         plan.push({
           assetId: asset.assetId,
           kind: asset.kind,
           uri: asset.uri,
           status: "will_process",
-          extractors: ["image:embed"],
+          extractors,
         });
         continue;
       }
 
-      const caption = (asset.text ?? "").trim();
-      if (!caption) {
+      emit({
+        code: "asset_skipped_image_no_multimodal_and_no_caption",
+        message:
+          "Image would be skipped because embedding provider does not support embedImage(), assets[].text is empty, and no enabled image extractors are configured.",
+        assetId: asset.assetId,
+        assetKind: "image",
+        ...(assetUri ? { assetUri } : {}),
+        ...(assetMediaType ? { assetMediaType } : {}),
+      });
+      plan.push({
+        assetId: asset.assetId,
+        kind: asset.kind,
+        uri: asset.uri,
+        status: "will_skip",
+        reason: "asset_skipped_image_no_multimodal_and_no_caption",
+      });
+      continue;
+    }
+
+    if (matchingExtractors.length === 0) {
+      const disabledByConfig =
+        (asset.kind === "audio" && !assetProcessing.audio.transcription.enabled) ||
+        (asset.kind === "video" &&
+          !assetProcessing.video.transcription.enabled &&
+          !assetProcessing.video.frames.enabled) ||
+        (asset.kind === "file" &&
+          !assetProcessing.file.text.enabled &&
+          !assetProcessing.file.docx.enabled &&
+          !assetProcessing.file.pptx.enabled &&
+          !assetProcessing.file.xlsx.enabled);
+
+      if (disabledByConfig) {
         emit({
-          code: "asset_skipped_image_no_multimodal_and_no_caption",
-          message:
-            "Image would be skipped because embedding provider does not support embedImage() and assets[].text is empty.",
+          code: "asset_skipped_extraction_disabled",
+          message: `Asset would be skipped because extraction for kind "${asset.kind}" is disabled by config.`,
           assetId: asset.assetId,
-          assetKind: "image",
+          assetKind: asset.kind,
           ...(assetUri ? { assetUri } : {}),
           ...(assetMediaType ? { assetMediaType } : {}),
         });
@@ -663,22 +762,11 @@ export const planIngest = async (
           kind: asset.kind,
           uri: asset.uri,
           status: "will_skip",
-          reason: "asset_skipped_image_no_multimodal_and_no_caption",
+          reason: "asset_skipped_extraction_disabled",
         });
         continue;
       }
 
-      plan.push({
-        assetId: asset.assetId,
-        kind: asset.kind,
-        uri: asset.uri,
-        status: "will_process",
-        extractors: ["image:caption"],
-      });
-      continue;
-    }
-
-    if (matchingExtractors.length === 0) {
       emit({
         code: "asset_skipped_unsupported_kind",
         message: `Asset would be skipped because kind "${asset.kind}" is not supported by the built-in pipeline.`,

@@ -1,0 +1,250 @@
+---
+title: "video:frames Extractor"
+description: Sample video frames and extract on-screen text for searchable content.
+---
+
+The `video:frames` extractor samples frames from a video at regular intervals and uses a vision-capable LLM to extract visible text from each frame. This catches content that transcription misses: slide text, UI elements, code on screen, captions, and any other text visible in the video.
+
+<Callout type="warn">
+This extractor requires `ffmpeg` and is not suitable for serverless environments like Vercel. Run it in a worker environment (dedicated server, BullMQ worker, Inngest function with container runtime).
+</Callout>
+
+## Installation
+
+First, install the extractor:
+
+```bash
+bunx unrag add extractor video-frames
+```
+
+Then register it in your config:
+
+```ts
+import { createVideoFramesExtractor } from "./lib/unrag/extractors/video-frames";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createVideoFramesExtractor()],
+  },
+} as const);
+```
+
+## How it works
+
+1. Unrag calls `ffmpeg` to extract frames at the configured sample rate
+2. Each frame is sent to a vision-capable LLM (Gemini by default)
+3. The LLM extracts all visible text from the frame
+4. Extracted text is chunked and embedded
+5. Chunks include timestamp metadata for linking back to the source moment
+
+For a 10-minute video at 0.2 FPS (one frame every 5 seconds), you'll get ~120 frames. Each frame becomes one or more chunks depending on how much text is visible.
+
+## Configuration
+
+Enable frame sampling in your config:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      video: {
+        frames: {
+          enabled: true,
+          sampleFps: 0.2,              // One frame every 5 seconds
+          maxFrames: 50,               // Cap total frames to limit cost
+          maxBytes: 50 * 1024 * 1024,  // Skip videos larger than 50MB
+          model: "google/gemini-2.0-flash",
+          prompt: "Extract all readable text from this video frame. Output plain text only.",
+          timeoutMs: 60_000,
+          maxOutputChars: 50_000,
+          // ffmpegPath: "/usr/bin/ffmpeg",  // Uncomment if ffmpeg isn't in PATH
+        },
+      },
+    },
+  },
+} as const);
+```
+
+### Configuration options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `false` | Whether to sample and process video frames |
+| `sampleFps` | `0.2` | Frames per second to sample (0.2 = 1 frame every 5 seconds) |
+| `maxFrames` | `50` | Maximum frames to process per video |
+| `maxBytes` | `50MB` | Maximum video file size |
+| `model` | `"google/gemini-2.0-flash"` | Vision model for text extraction |
+| `prompt` | `"Extract all readable text..."` | Prompt sent with each frame |
+| `timeoutMs` | `60000` | Timeout per frame extraction |
+| `maxOutputChars` | `50000` | Max characters of extracted text per frame |
+| `ffmpegPath` | `undefined` | Path to ffmpeg binary (uses PATH if not set) |
+
+### Choosing a sample rate
+
+The `sampleFps` setting balances coverage against cost:
+
+- **0.1 FPS** (1 frame every 10 seconds): Low cost, might miss fast-changing content
+- **0.2 FPS** (1 frame every 5 seconds): Good balance for most videos
+- **0.5 FPS** (1 frame every 2 seconds): Higher coverage, more expensive
+- **1.0 FPS**: Every second—only for short, text-heavy content
+
+For slide presentations where slides stay on screen for 30+ seconds, 0.1 FPS is plenty. For screen recordings with frequent changes, consider 0.5 FPS.
+
+## Usage example
+
+### Ingesting a screen recording
+
+```ts
+await engine.ingest({
+  sourceId: "tutorials:setup-guide",
+  content: "How to set up your development environment",
+  assets: [
+    {
+      assetId: "setup-screencast",
+      kind: "video",
+      data: {
+        kind: "url",
+        url: "https://storage.example.com/tutorials/setup-guide.mp4",
+        mediaType: "video/mp4",
+      },
+      metadata: {
+        type: "screencast",
+        duration: "00:08:30",
+      },
+    },
+  ],
+});
+```
+
+### Combining with transcription
+
+For maximum coverage, use both extractors:
+
+```ts
+import { createVideoTranscribeExtractor } from "./lib/unrag/extractors/video-transcribe";
+import { createVideoFramesExtractor } from "./lib/unrag/extractors/video-frames";
+
+extractors: [
+  createVideoTranscribeExtractor(),
+  createVideoFramesExtractor(),
+],
+```
+
+A search for "npm install error" might find:
+- A transcript chunk where the presenter says "if you see an npm install error..."
+- A frame chunk showing the actual error message on screen
+
+## Retrieving frame-extracted content
+
+```ts
+import { getChunkAssetRef } from "@unrag/core";
+
+const result = await engine.retrieve({
+  query: "EACCES permission denied",
+  topK: 10,
+});
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  
+  if (ref?.assetKind === "video" && ref.extractor === "video:frames") {
+    console.log("Found in video frame:");
+    console.log(`  Text: ${chunk.content}`);
+    
+    const timeRange = chunk.metadata?.extractorTimeRangeSec;
+    if (timeRange) {
+      const timestamp = Math.floor(timeRange[0]);
+      console.log(`  At: ${Math.floor(timestamp / 60)}:${(timestamp % 60).toString().padStart(2, "0")}`);
+    }
+  }
+}
+```
+
+## What gets stored
+
+For each frame's extracted text:
+
+| Field | Content |
+|-------|---------|
+| `chunk.content` | Text extracted from the frame |
+| `chunk.metadata.assetKind` | `"video"` |
+| `chunk.metadata.assetId` | Your provided asset ID |
+| `chunk.metadata.extractor` | `"video:frames"` |
+| `chunk.metadata.extractorTimeRangeSec` | `[frameSec, frameSec]` |
+| `embedding` | Vector from your text embedding model |
+
+Neither the video nor the individual frame images are stored. Store originals in your own storage if you need to display them.
+
+## Worker environment setup
+
+This extractor requires `ffmpeg`. In your worker environment:
+
+### Ubuntu/Debian
+
+```bash
+apt-get update && apt-get install -y ffmpeg
+```
+
+### Alpine
+
+```bash
+apk add --no-cache ffmpeg
+```
+
+### Docker
+
+```dockerfile
+FROM node:20
+RUN apt-get update && apt-get install -y ffmpeg
+# ... rest of your Dockerfile
+```
+
+### Verifying ffmpeg is available
+
+```bash
+ffmpeg -version
+```
+
+If `ffmpeg` isn't in your PATH, set `ffmpegPath` in the config to the full path.
+
+## Cost considerations
+
+Frame extraction involves:
+- **ffmpeg processing**: CPU-bound, no external cost
+- **LLM calls**: One call per frame (this is the main cost)
+
+For a 10-minute video at 0.2 FPS with `maxFrames: 50`:
+- 50 frames × LLM cost per image = your per-video cost
+
+To reduce costs:
+- Lower `sampleFps` for longer videos
+- Set `maxFrames` to cap total frames
+- Skip videos unlikely to have valuable on-screen text
+
+## Troubleshooting
+
+### "ffmpeg not found"
+
+The extractor can't locate ffmpeg:
+1. Install ffmpeg in your environment
+2. Ensure it's in PATH, or set `ffmpegPath` explicitly
+3. Verify with `ffmpeg -version`
+
+### Extraction is slow
+
+Frame extraction is inherently slow (video decoding + LLM calls). To speed things up:
+- Reduce `maxFrames`
+- Lower `sampleFps`
+- Use a faster model (trade quality for speed)
+
+### Empty or poor extractions
+
+If frames produce little text:
+- The video might not have much on-screen text
+- Try adjusting the prompt for your content type
+- Check frame quality—very compressed video produces blurry frames
+

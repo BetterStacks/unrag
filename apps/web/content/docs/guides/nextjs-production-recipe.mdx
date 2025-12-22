@@ -55,6 +55,11 @@ export const unrag = defineUnragConfig({
 } as const);
 ```
 
+<Callout type="warn">
+Some extractors are **worker-only** by design (they require native binaries or long runtimes), for example:
+`pdf:ocr` (Poppler + Tesseract) and `video:frames` (ffmpeg).
+</Callout>
+
 ## Observability: warnings + events
 
 In production, treat ingestion warnings as signals:

@@ -1,0 +1,114 @@
+---
+title: File Extractors
+description: Extract searchable text from documents, spreadsheets, and text files.
+---
+
+The `file` asset kind handles generic file attachments—Word documents, PowerPoint presentations, Excel spreadsheets, and plain text files. These are common in knowledge bases, document repositories, and connector imports.
+
+Unrag routes files to the appropriate extractor based on the file's media type or filename extension. A `.docx` file goes to the Word extractor, a `.txt` file goes to the text extractor, and so on.
+
+## Available file extractors
+
+| Extractor | Handles | Best for |
+|-----------|---------|----------|
+| [file:text](/docs/extractors/file/text) | `.txt`, `.md`, `.html`, `.json`, `.csv` | Plain text and markup files |
+| [file:docx](/docs/extractors/file/docx) | `.docx` | Word documents |
+| [file:pptx](/docs/extractors/file/pptx) | `.pptx` | PowerPoint presentations |
+| [file:xlsx](/docs/extractors/file/xlsx) | `.xlsx` | Excel spreadsheets |
+
+## How file routing works
+
+When you ingest a `kind: "file"` asset, Unrag looks at the media type and filename to decide which extractor to use:
+
+```ts
+// This will be routed to file:docx based on mediaType
+{
+  assetId: "quarterly-report",
+  kind: "file",
+  data: {
+    kind: "url",
+    url: "https://storage.example.com/reports/q3.docx",
+    mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  },
+}
+
+// This will be routed to file:text based on filename extension
+{
+  assetId: "readme",
+  kind: "file",
+  data: {
+    kind: "bytes",
+    bytes: readmeBytes,
+    mediaType: "application/octet-stream", // Unknown type
+    filename: "README.md", // Extension tells us it's markdown
+  },
+}
+```
+
+If no extractor matches the file type, the asset is skipped (and a warning is emitted).
+
+## Typical use cases
+
+**Document libraries**: Index Word documents, presentations, and spreadsheets from shared drives or document management systems.
+
+**Knowledge bases**: When teams export their documentation as downloadable files, extract the text and make it searchable alongside web content.
+
+**Notion imports**: Notion's file attachments appear as `kind: "file"` assets. Install the appropriate extractors to index attached Word docs, spreadsheets, and more.
+
+**Email attachments**: If you're indexing email, extract text from common attachment types so users can search for content inside attachments.
+
+## Quick start
+
+Install the extractors you need:
+
+```bash
+# For Word documents
+bunx unrag add extractor file-docx
+
+# For plain text, markdown, HTML, JSON, CSV
+bunx unrag add extractor file-text
+
+# For PowerPoint
+bunx unrag add extractor file-pptx
+
+# For Excel
+bunx unrag add extractor file-xlsx
+```
+
+Then register them in your config:
+
+```ts
+import { createFileDocxExtractor } from "./lib/unrag/extractors/file-docx";
+import { createFileTextExtractor } from "./lib/unrag/extractors/file-text";
+import { createFilePptxExtractor } from "./lib/unrag/extractors/file-pptx";
+import { createFileXlsxExtractor } from "./lib/unrag/extractors/file-xlsx";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [
+      createFileDocxExtractor(),
+      createFileTextExtractor(),
+      createFilePptxExtractor(),
+      createFileXlsxExtractor(),
+    ],
+  },
+} as const);
+```
+
+## What about PDFs?
+
+PDFs use `kind: "pdf"`, not `kind: "file"`. They have their own dedicated extractors. See [PDF Extractors](/docs/extractors/pdf) for details.
+
+## Quality expectations
+
+File extraction is **best-effort**. These extractors focus on getting text out of files, not perfect formatting:
+
+- **Word documents**: Extracts paragraph text. Complex layouts, tables, and embedded objects may lose structure.
+- **PowerPoint**: Extracts slide text. Notes and complex SmartArt may be incomplete.
+- **Excel**: Extracts cell values. Formulas show as their computed values, not the formula text.
+- **Text files**: Extracts as-is. HTML has tags stripped.
+
+For documents where formatting matters, consider whether the extracted text is sufficient for search, even if it wouldn't be suitable for display.
+

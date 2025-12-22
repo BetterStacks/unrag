@@ -30,6 +30,12 @@ describe("core ingest warnings", () => {
         concurrency: 1,
         fetch: { enabled: true, maxBytes: 15 * 1024 * 1024, timeoutMs: 20_000 },
         pdf: {
+          textLayer: {
+            enabled: false,
+            maxBytes: 15 * 1024 * 1024,
+            maxOutputChars: 200_000,
+            minChars: 200,
+          },
           llmExtraction: {
             enabled: false,
             model: "google/gemini-2.0-flash",
@@ -37,6 +43,84 @@ describe("core ingest warnings", () => {
             timeoutMs: 60_000,
             maxBytes: 15 * 1024 * 1024,
             maxOutputChars: 200_000,
+          },
+          ocr: {
+            enabled: false,
+            maxBytes: 15 * 1024 * 1024,
+            maxOutputChars: 200_000,
+            minChars: 200,
+            dpi: 200,
+            lang: "eng",
+          },
+        },
+        image: {
+          ocr: {
+            enabled: false,
+            model: "google/gemini-2.0-flash",
+            prompt: "Extract text from image",
+            timeoutMs: 60_000,
+            maxBytes: 10 * 1024 * 1024,
+            maxOutputChars: 50_000,
+          },
+          captionLlm: {
+            enabled: false,
+            model: "google/gemini-2.0-flash",
+            prompt: "Write a caption for this image",
+            timeoutMs: 60_000,
+            maxBytes: 10 * 1024 * 1024,
+            maxOutputChars: 10_000,
+          },
+        },
+        audio: {
+          transcription: {
+            enabled: true,
+            model: "openai/whisper-1",
+            timeoutMs: 120_000,
+            maxBytes: 25 * 1024 * 1024,
+          },
+        },
+        video: {
+          transcription: {
+            enabled: false,
+            model: "openai/whisper-1",
+            timeoutMs: 120_000,
+            maxBytes: 50 * 1024 * 1024,
+          },
+          frames: {
+            enabled: false,
+            sampleFps: 0.2,
+            maxFrames: 50,
+            maxBytes: 50 * 1024 * 1024,
+            model: "google/gemini-2.0-flash",
+            prompt: "Extract text from frame",
+            timeoutMs: 60_000,
+            maxOutputChars: 50_000,
+          },
+        },
+        file: {
+          text: {
+            enabled: false,
+            maxBytes: 5 * 1024 * 1024,
+            maxOutputChars: 200_000,
+            minChars: 50,
+          },
+          docx: {
+            enabled: false,
+            maxBytes: 15 * 1024 * 1024,
+            maxOutputChars: 200_000,
+            minChars: 50,
+          },
+          pptx: {
+            enabled: false,
+            maxBytes: 30 * 1024 * 1024,
+            maxOutputChars: 200_000,
+            minChars: 50,
+          },
+          xlsx: {
+            enabled: false,
+            maxBytes: 30 * 1024 * 1024,
+            maxOutputChars: 200_000,
+            minChars: 50,
           },
         },
       },

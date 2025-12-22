@@ -1,0 +1,212 @@
+---
+title: "audio:transcribe Extractor"
+description: Transcribe audio files into searchable text chunks.
+---
+
+The `audio:transcribe` extractor converts audio files into text using an AI transcription service. It's the workhorse for making meetings, interviews, and podcasts searchable.
+
+## Installation
+
+First, install the extractor module:
+
+```bash
+bunx unrag add extractor audio-transcribe
+```
+
+Then register it in your `unrag.config.ts`:
+
+```ts
+import { createAudioTranscribeExtractor } from "./lib/unrag/extractors/audio-transcribe";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createAudioTranscribeExtractor()],
+  },
+} as const);
+```
+
+Without both steps, audio assets will be skipped during ingestion (and you'll see warnings in `result.warnings`).
+
+## How it works
+
+1. Unrag fetches the audio bytes (if it's a URL) or uses the bytes you provided
+2. The audio is sent to the transcription API (Whisper by default)
+3. The service returns a transcript, often with word-level timestamps
+4. The transcript is chunked using your configured chunking settings
+5. Each chunk is embedded and stored with `metadata.extractor: "audio:transcribe"`
+
+When timestamps are available, Unrag includes `extractorTimeRangeSec` in chunk metadata so you can link back to the specific moment in the recording.
+
+## Configuration
+
+Enable and configure transcription in your engine config:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      audio: {
+        transcription: {
+          enabled: true,
+          model: "openai/whisper-1",
+          timeoutMs: 120_000,    // 2 minutes—long recordings take time
+          maxBytes: 25 * 1024 * 1024,  // Skip files larger than 25MB
+        },
+      },
+    },
+  },
+} as const);
+```
+
+### Configuration options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `false` | Whether to transcribe audio assets |
+| `model` | `"openai/whisper-1"` | The transcription model to use |
+| `timeoutMs` | `120000` | How long to wait for transcription to complete |
+| `maxBytes` | `25 * 1024 * 1024` | Maximum audio file size (25MB) |
+
+## Usage example
+
+### Ingesting a meeting recording
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+
+await engine.ingest({
+  sourceId: "meetings:standup-2024-01-15",
+  content: "Daily standup - January 15, 2024",
+  assets: [
+    {
+      assetId: "recording",
+      kind: "audio",
+      data: {
+        kind: "url",
+        url: "https://storage.example.com/meetings/standup-2024-01-15.mp3",
+        mediaType: "audio/mpeg",
+      },
+      metadata: {
+        attendees: ["alice", "bob", "charlie"],
+        duration: "00:15:32",
+      },
+    },
+  ],
+});
+```
+
+### Ingesting uploaded audio
+
+```ts
+// From a file upload in your app
+const audioFile = formData.get("audio") as File;
+
+await engine.ingest({
+  sourceId: `voice-notes:${audioFile.name}`,
+  content: "Voice note",
+  assets: [
+    {
+      assetId: audioFile.name,
+      kind: "audio",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(await audioFile.arrayBuffer()),
+        mediaType: audioFile.type,
+        filename: audioFile.name,
+      },
+    },
+  ],
+});
+```
+
+## Retrieving transcribed content
+
+Transcribed audio is searchable like any text:
+
+```ts
+import { getChunkAssetRef } from "@unrag/core";
+
+const result = await engine.retrieve({
+  query: "Q3 budget decision",
+  topK: 10,
+});
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  
+  if (ref?.assetKind === "audio" && ref.extractor === "audio:transcribe") {
+    console.log("Found in audio transcript:");
+    console.log(`  Content: ${chunk.content}`);
+    console.log(`  Source: ${chunk.sourceId}`);
+    
+    // Link to timestamp if available
+    const timeRange = chunk.metadata?.extractorTimeRangeSec;
+    if (timeRange) {
+      console.log(`  Timestamp: ${timeRange[0]}s - ${timeRange[1]}s`);
+    }
+  }
+}
+```
+
+## What gets stored
+
+For each transcript chunk:
+
+| Field | Content |
+|-------|---------|
+| `chunk.content` | The transcribed text |
+| `chunk.metadata.assetKind` | `"audio"` |
+| `chunk.metadata.assetId` | Your provided asset ID |
+| `chunk.metadata.extractor` | `"audio:transcribe"` |
+| `chunk.metadata.extractorTimeRangeSec` | `[startSec, endSec]` (when available) |
+| `embedding` | Vector from your text embedding model |
+
+The **audio bytes are not stored** in the database. Store recordings in your own storage if you need to play them back after retrieval.
+
+## Production considerations
+
+Audio transcription can be slow—a 30-minute meeting might take 60+ seconds to transcribe. For production deployments:
+
+- **Use background jobs**: Don't block HTTP requests on transcription. Queue the work and process it asynchronously.
+- **Set reasonable timeouts**: Give long recordings enough time to complete.
+- **Handle failures gracefully**: Set `onError: "skip"` to continue with other assets if one fails, or use `onError: "fail"` for strict mode.
+
+<Callout>
+For Next.js on Vercel, transcription is too slow for a single request. See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) for patterns using QStash, BullMQ, or Inngest.
+</Callout>
+
+## Troubleshooting
+
+### Audio being skipped
+
+Check `result.warnings` for clues:
+
+```ts
+const result = await engine.ingest({ ... });
+for (const w of result.warnings) {
+  if (w.assetKind === "audio") {
+    console.log(`Audio skipped: ${w.code} - ${w.message}`);
+  }
+}
+```
+
+Common causes:
+- `audio.transcription.enabled` is `false`
+- File exceeds `maxBytes`
+- Transcription timed out
+
+### Poor transcript quality
+
+If transcripts are noisy:
+
+1. Check audio quality—is the original recording clear?
+2. Consider preprocessing (noise reduction) before ingestion
+3. Try a different transcription model if available
+4. Accept that some audio just doesn't transcribe well
+

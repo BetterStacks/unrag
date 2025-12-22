@@ -3,7 +3,10 @@
   "pages": [
     "index",
     "pdf",
-    "image"
+    "image",
+    "audio",
+    "video",
+    "file"
   ]
 }
 

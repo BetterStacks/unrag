@@ -189,16 +189,71 @@ Controls how PDFs, images, and other rich media are processed during ingestion. 
       type: 'FetchConfig',
       typeDescriptionLink: '/docs/reference/asset-processing#fetchconfig',
     },
+    "pdf.textLayer": {
+      description: 'Fast/cheap PDF text-layer extraction (requires installing `pdf-text-layer`).',
+      type: 'PdfTextLayerConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#pdftextlayerconfig',
+    },
     "pdf.llmExtraction": {
       description: 'PDF text extraction via LLM. Key setting: enabled (template: true, library: false).',
       type: 'PdfLlmExtractionConfig',
       typeDescriptionLink: '/docs/reference/asset-processing#pdfllmextractionconfig',
     },
+    "pdf.ocr": {
+      description: 'OCR-based PDF extraction (worker-only, requires `pdf-ocr`).',
+      type: 'PdfOcrConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#pdfocrconfig',
+    },
+    "image.ocr": {
+      description: 'Image OCR into text chunks (requires `image-ocr`).',
+      type: 'ImageOcrConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#imageocrconfig',
+    },
+    "image.captionLlm": {
+      description: 'Generate image captions via LLM (requires `image-caption-llm`).',
+      type: 'ImageCaptionLlmConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#imagecaptionllmconfig',
+    },
+    "audio.transcription": {
+      description: 'Audio transcription (requires `audio-transcribe`).',
+      type: 'AudioTranscriptionConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#audiotranscriptionconfig',
+    },
+    "video.transcription": {
+      description: 'Video transcription (requires `video-transcribe`).',
+      type: 'VideoTranscriptionConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#videotranscriptionconfig',
+    },
+    "video.frames": {
+      description: 'Video frame sampling + extraction (worker-only, requires `video-frames`).',
+      type: 'VideoFramesConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#videoframesconfig',
+    },
+    "file.text": {
+      description: 'Text-ish attachments (requires `file-text`).',
+      type: 'FileTextConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#fileconfig',
+    },
+    "file.docx": {
+      description: 'DOCX attachments (requires `file-docx`).',
+      type: 'FileDocxConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#fileconfig',
+    },
+    "file.pptx": {
+      description: 'PPTX attachments (requires `file-pptx`).',
+      type: 'FilePptxConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#fileconfig',
+    },
+    "file.xlsx": {
+      description: 'XLSX attachments (requires `file-xlsx`).',
+      type: 'FileXlsxConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#fileconfig',
+    },
   }}
 />
 
 <Callout>
-The generated template sets `pdf.llmExtraction.enabled: true`, but PDF extraction is performed by an extractor module. Install and register `pdf-llm` (or another PDF extractor) to actually process PDFs. If no extractor is registered, ingestion emits warnings so you don't miss content silently.
+The generated template sets `pdf.llmExtraction.enabled: true`, but PDF extraction is performed by an extractor module. Install and register a PDF extractor (e.g. `pdf-llm`, `pdf-text-layer`) to actually process PDFs. If no extractor is registered, ingestion emits warnings so you don't miss content silently.
 </Callout>
 
 ### extractors
@@ -213,8 +268,8 @@ export const unrag = defineUnragConfig({
   engine: {
     // ...
     extractors: [
-    createPdfLlmExtractor(),
-    // Add more extractors as you install them
+      createPdfLlmExtractor(),
+      // Add more extractors as you install them
     ],
   },
 } as const);
@@ -234,10 +289,21 @@ This copies the extractor source to `lib/unrag/extractors/pdf-llm/` and adds dep
 
 | Module | Extractor name | Description |
 |--------|----------------|-------------|
+| `pdf-text-layer` | `pdf:text-layer` | Fast/cheap PDF text-layer extraction |
 | `pdf-llm` | `pdf:llm` | Extract text from PDFs using an LLM (Gemini by default) |
+| `pdf-ocr` | `pdf:ocr` | OCR PDFs by rasterizing pages (worker-only) |
+| `image-ocr` | `image:ocr` | OCR images into text chunks |
+| `image-caption-llm` | `image:caption-llm` | Generate image captions via LLM |
+| `audio-transcribe` | `audio:transcribe` | Transcribe audio into text chunks |
+| `video-transcribe` | `video:transcribe` | Transcribe video audio track into text chunks |
+| `video-frames` | `video:frames` | Sample frames + extract text per frame (worker-only) |
+| `file-text` | `file:text` | Decode text-ish attachments |
+| `file-docx` | `file:docx` | Extract raw text from `.docx` |
+| `file-pptx` | `file:pptx` | Extract slide text from `.pptx` |
+| `file-xlsx` | `file:xlsx` | Extract sheet content from `.xlsx` |
 
 <Callout type="info">
-Image handling (`image:embed`, `image:caption`) is built into the core engine—no extractor module needed. Configure via your embedding provider's `type` setting.
+Image handling (`image:embed`, `image:caption`) is built into the core engine—no extractor module needed. Configure via your embedding provider's `type` setting. Installable image extractors (`image:ocr`, `image:caption-llm`) can generate additional text chunks when enabled.
 </Callout>
 
 See [Extractors Overview](/docs/extractors) for details on all available extractors and how to create custom ones.

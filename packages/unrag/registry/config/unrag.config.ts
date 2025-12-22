@@ -72,6 +72,14 @@ export const unrag = defineUnragConfig({
       // allowedHosts: ["..."], // recommended to mitigate SSRF
     },
     pdf: {
+      // Fast/cheap text-layer extraction (requires installing a PDF text-layer extractor module).
+      textLayer: {
+        enabled: false,
+        maxBytes: 15 * 1024 * 1024,
+        maxOutputChars: 200_000,
+        minChars: 200,
+        // maxPages: 200,
+      },
       llmExtraction: {
         enabled: true,
         model: "google/gemini-2.0-flash",
@@ -81,6 +89,72 @@ export const unrag = defineUnragConfig({
         maxBytes: 15 * 1024 * 1024,
         maxOutputChars: 200_000,
       },
+      // Worker-only OCR pipelines typically require native binaries (poppler/tesseract) or external services.
+      ocr: {
+        enabled: false,
+        maxBytes: 15 * 1024 * 1024,
+        maxOutputChars: 200_000,
+        minChars: 200,
+        // maxPages: 200,
+        // pdftoppmPath: "/usr/bin/pdftoppm",
+        // tesseractPath: "/usr/bin/tesseract",
+        // dpi: 200,
+        // lang: "eng",
+      },
+    },
+    image: {
+      ocr: {
+        enabled: false,
+        model: "google/gemini-2.0-flash",
+        prompt:
+          "Extract all readable text from this image as faithfully as possible. Output plain text only. Do not add commentary.",
+        timeoutMs: 60_000,
+        maxBytes: 10 * 1024 * 1024,
+        maxOutputChars: 50_000,
+      },
+      captionLlm: {
+        enabled: false,
+        model: "google/gemini-2.0-flash",
+        prompt:
+          "Write a concise, information-dense caption for this image. Include names, numbers, and labels if visible. Output plain text only.",
+        timeoutMs: 60_000,
+        maxBytes: 10 * 1024 * 1024,
+        maxOutputChars: 10_000,
+      },
+    },
+    audio: {
+      transcription: {
+        enabled: false,
+        model: "openai/whisper-1",
+        timeoutMs: 120_000,
+        maxBytes: 25 * 1024 * 1024,
+      },
+    },
+    video: {
+      transcription: {
+        enabled: false,
+        model: "openai/whisper-1",
+        timeoutMs: 120_000,
+        maxBytes: 50 * 1024 * 1024,
+      },
+      frames: {
+        enabled: false,
+        sampleFps: 0.2,
+        maxFrames: 50,
+        // ffmpegPath: "/usr/bin/ffmpeg",
+        maxBytes: 50 * 1024 * 1024,
+        model: "google/gemini-2.0-flash",
+        prompt:
+          "Extract all readable text from this video frame as faithfully as possible. Output plain text only. Do not add commentary.",
+        timeoutMs: 60_000,
+        maxOutputChars: 50_000,
+      },
+    },
+    file: {
+      text: { enabled: false, maxBytes: 5 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
+      docx: { enabled: false, maxBytes: 15 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
+      pptx: { enabled: false, maxBytes: 30 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
+      xlsx: { enabled: false, maxBytes: 30 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
     },
   },
   },

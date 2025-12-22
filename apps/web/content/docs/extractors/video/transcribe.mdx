@@ -1,0 +1,225 @@
+---
+title: "video:transcribe Extractor"
+description: Transcribe videos by converting the audio track into searchable text.
+---
+
+The `video:transcribe` extractor sends video files to a transcription service, extracts the spoken content, and stores it as searchable text chunks. It's the fastest way to make video content discoverable.
+
+## Installation
+
+First, install the extractor:
+
+```bash
+bunx unrag add extractor video-transcribe
+```
+
+Then register it in your config:
+
+```ts
+import { createVideoTranscribeExtractor } from "./lib/unrag/extractors/video-transcribe";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createVideoTranscribeExtractor()],
+  },
+} as const);
+```
+
+## How it works
+
+1. Unrag fetches the video bytes (or uses the bytes you provided)
+2. The video is sent to the transcription API
+3. The service extracts the audio track and transcribes it
+4. The transcript is chunked and embedded
+5. Chunks are stored with `metadata.extractor: "video:transcribe"`
+
+Most transcription services accept video files directly and handle audio extraction internally. If yours doesn't, you'll need to extract audio first (see troubleshooting below).
+
+## Configuration
+
+Enable transcription in your config:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      video: {
+        transcription: {
+          enabled: true,
+          model: "openai/whisper-1",
+          timeoutMs: 180_000,         // 3 minutes for longer videos
+          maxBytes: 100 * 1024 * 1024, // 100MB limit
+        },
+      },
+    },
+  },
+} as const);
+```
+
+### Configuration options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `enabled` | `false` | Whether to transcribe video audio tracks |
+| `model` | `"openai/whisper-1"` | The transcription model to use |
+| `timeoutMs` | `120000` | Timeout for transcription (increase for long videos) |
+| `maxBytes` | `50 * 1024 * 1024` | Maximum video file size (50MB) |
+
+## Usage example
+
+### Ingesting a product demo
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+
+await engine.ingest({
+  sourceId: "demos:feature-walkthrough-v2",
+  content: "Feature Walkthrough v2 - New dashboard and reporting",
+  assets: [
+    {
+      assetId: "demo-video",
+      kind: "video",
+      data: {
+        kind: "url",
+        url: "https://storage.example.com/demos/feature-walkthrough-v2.mp4",
+        mediaType: "video/mp4",
+      },
+      metadata: {
+        presenter: "alice",
+        duration: "00:12:45",
+        recordedAt: "2024-01-10",
+      },
+    },
+  ],
+});
+```
+
+### Ingesting from bytes
+
+```ts
+const videoFile = formData.get("video") as File;
+
+await engine.ingest({
+  sourceId: `uploads:${videoFile.name}`,
+  content: "Uploaded video",
+  assets: [
+    {
+      assetId: videoFile.name,
+      kind: "video",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(await videoFile.arrayBuffer()),
+        mediaType: videoFile.type,
+        filename: videoFile.name,
+      },
+    },
+  ],
+});
+```
+
+## Retrieving transcribed content
+
+Search finds relevant moments in videos:
+
+```ts
+import { getChunkAssetRef } from "@unrag/core";
+
+const result = await engine.retrieve({
+  query: "how to configure the new dashboard",
+  topK: 10,
+});
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  
+  if (ref?.assetKind === "video" && ref.extractor === "video:transcribe") {
+    console.log("Found in video transcript:");
+    console.log(`  ${chunk.content}`);
+    console.log(`  Source: ${chunk.sourceId}`);
+    
+    // Timestamps help users jump to the right moment
+    const timeRange = chunk.metadata?.extractorTimeRangeSec;
+    if (timeRange) {
+      const startMin = Math.floor(timeRange[0] / 60);
+      const startSec = Math.floor(timeRange[0] % 60);
+      console.log(`  Timestamp: ${startMin}:${startSec.toString().padStart(2, "0")}`);
+    }
+  }
+}
+```
+
+## What gets stored
+
+For each transcript chunk:
+
+| Field | Content |
+|-------|---------|
+| `chunk.content` | The transcribed text |
+| `chunk.metadata.assetKind` | `"video"` |
+| `chunk.metadata.assetId` | Your provided asset ID |
+| `chunk.metadata.extractor` | `"video:transcribe"` |
+| `chunk.metadata.extractorTimeRangeSec` | `[startSec, endSec]` when available |
+| `embedding` | Vector from your text embedding model |
+
+Video bytes are not stored. If you need to play back videos, store them in your own storage and use `assetUri` or `assetId` to resolve them after retrieval.
+
+## Production considerations
+
+Video transcription is slow. A 10-minute video might take 30-60 seconds to transcribe. For production:
+
+- **Queue the work**: Don't block HTTP requests on transcription
+- **Set generous timeouts**: Long videos need more time
+- **Handle large files**: Set `maxBytes` to prevent memory issues
+
+<Callout>
+For Next.js on Vercel, transcription doesn't fit in a single request. See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) for background job patterns.
+</Callout>
+
+## Troubleshooting
+
+### Provider doesn't accept video files
+
+Some transcription APIs only accept audio. If you get format errors:
+
+1. **Extract audio first**: Use `ffmpeg` to convert video to audio before ingestion
+2. **Ingest as audio**: Change `kind: "audio"` and use the `audio:transcribe` extractor
+3. **Use a pipeline**: In a worker, extract audio → transcribe → ingest result
+
+```bash
+# Extract audio from video
+ffmpeg -i video.mp4 -vn -acodec mp3 audio.mp3
+```
+
+### Videos being skipped
+
+Check warnings for the cause:
+
+```ts
+for (const w of result.warnings) {
+  if (w.assetKind === "video") {
+    console.log(`Video skipped: ${w.code}`);
+  }
+}
+```
+
+Common causes:
+- `video.transcription.enabled` is `false`
+- File exceeds `maxBytes`
+- Timeout exceeded
+
+### Poor transcript quality
+
+Video transcription quality depends on the audio track:
+
+- Clear speech transcribes well
+- Music, sound effects, and background noise reduce accuracy
+- Multiple simultaneous speakers can confuse the model
+
+Consider pre-processing video audio (noise reduction, volume normalization) before ingestion if quality is an issue.
+

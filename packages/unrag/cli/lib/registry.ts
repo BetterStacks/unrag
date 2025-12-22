@@ -378,6 +378,7 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
     "extractors",
     selection.extractor
   );
+  const sharedRegistryAbs = path.join(selection.registryRoot, "extractors", "_shared");
 
   if (!(await exists(extractorRegistryAbs))) {
     throw new Error(
@@ -385,23 +386,59 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
     );
   }
 
-  const files = await listFilesRecursive(extractorRegistryAbs);
+  const extractorFiles = await listFilesRecursive(extractorRegistryAbs);
+  const sharedFiles = (await exists(sharedRegistryAbs))
+    ? await listFilesRecursive(sharedRegistryAbs)
+    : [];
 
   const destRootAbs = path.join(
     installBaseAbs,
     "extractors",
     selection.extractor
   );
+  const sharedDestRootAbs = path.join(installBaseAbs, "extractors", "_shared");
 
   const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY;
 
-  for (const src of files) {
+  // Copy extractor files.
+  for (const src of extractorFiles) {
     if (!(await exists(src))) {
       throw new Error(`Registry file missing: ${src}`);
     }
 
     const rel = path.relative(extractorRegistryAbs, src);
     const dest = path.join(destRootAbs, rel);
+
+    if (await exists(dest)) {
+      if (nonInteractive) {
+        continue;
+      }
+
+      const answer = await confirm({
+        message: `Overwrite ${path.relative(selection.projectRoot, dest)}?`,
+        initialValue: false,
+      });
+      if (isCancel(answer)) {
+        cancel("Cancelled.");
+        return;
+      }
+      if (!answer) {
+        continue;
+      }
+    }
+
+    const raw = await readText(src);
+    await writeText(dest, raw);
+  }
+
+  // Copy shared extractor utilities (if present).
+  for (const src of sharedFiles) {
+    if (!(await exists(src))) {
+      throw new Error(`Registry file missing: ${src}`);
+    }
+
+    const rel = path.relative(sharedRegistryAbs, src);
+    const dest = path.join(sharedDestRootAbs, rel);
 
     if (await exists(dest)) {
       if (nonInteractive) {

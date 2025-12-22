@@ -144,10 +144,21 @@ This is intentional—extraction has cost and complexity implications, so you ex
 
 | Module | Install command | Extractor name | Description |
 |--------|-----------------|----------------|-------------|
+| `pdf-text-layer` | `unrag add extractor pdf-text-layer` | `pdf:text-layer` | Extract built-in PDF text layer (fast/cheap) |
 | `pdf-llm` | `unrag add extractor pdf-llm` | `pdf:llm` | Extract text from PDFs using an LLM |
+| `pdf-ocr` | `unrag add extractor pdf-ocr` | `pdf:ocr` | OCR PDFs by rasterizing pages (worker-only) |
+| `image-ocr` | `unrag add extractor image-ocr` | `image:ocr` | OCR images into searchable text |
+| `image-caption-llm` | `unrag add extractor image-caption-llm` | `image:caption-llm` | Generate image captions via LLM |
+| `audio-transcribe` | `unrag add extractor audio-transcribe` | `audio:transcribe` | Transcribe audio into text chunks |
+| `video-transcribe` | `unrag add extractor video-transcribe` | `video:transcribe` | Transcribe video audio track into text chunks |
+| `video-frames` | `unrag add extractor video-frames` | `video:frames` | Sample frames + extract text per frame (worker-only) |
+| `file-text` | `unrag add extractor file-text` | `file:text` | Decode text-ish files (txt/md/html/json/csv) |
+| `file-docx` | `unrag add extractor file-docx` | `file:docx` | Extract raw text from `.docx` |
+| `file-pptx` | `unrag add extractor file-pptx` | `file:pptx` | Extract slide text from `.pptx` |
+| `file-xlsx` | `unrag add extractor file-xlsx` | `file:xlsx` | Extract sheet content from `.xlsx` |
 
 <Callout>
-Image handling (`image:embed` and `image:caption`) is built into the core engine and doesn't require an extractor module. It's controlled by your embedding provider configuration (`type: "multimodal"` vs `type: "text"`).
+Image handling (`image:embed` and `image:caption`) is built into the core engine and doesn't require an extractor module. It's controlled by your embedding provider configuration (`type: "multimodal"` vs `type: "text"`). Additional installable image extractors (`image:ocr`, `image:caption-llm`) can produce extra text chunks when enabled.
 </Callout>
 
 ## Creating custom extractors
@@ -161,12 +172,12 @@ export function createMyExtractor(): AssetExtractor {
   return {
     name: "my:custom", // Unique identifier (stored in chunk metadata)
     
-    supports: (asset, ctx) => {
+    supports: ({ asset, ctx }) => {
       // Return true if this extractor handles this asset
-      return asset.kind === "audio" && ctx.config.assetProcessing.audio?.enabled;
+      return asset.kind === "audio" && ctx.assetProcessing.audio.transcription.enabled;
     },
     
-    extract: async ({ asset, ctx, limits }) => {
+    extract: async ({ asset, ctx }) => {
       // Perform extraction and return text segments
       const transcription = await transcribeAudio(asset);
       
@@ -190,10 +201,15 @@ export function createMyExtractor(): AssetExtractor {
 Then register it like any other extractor:
 
 ```ts
-const extractors = [
-  createPdfLlmExtractor(),
-  createMyExtractor(),
-];
+import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createPdfLlmExtractor(), createMyExtractor()],
+  },
+} as const);
 ```
 
 See [Core Types Reference](/docs/reference/core-types#assetextractor) for the full `AssetExtractor` interface.

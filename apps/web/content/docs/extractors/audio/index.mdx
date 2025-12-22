@@ -1,0 +1,52 @@
+---
+title: Audio Extractors
+description: Make audio files searchable by transcribing speech into text.
+---
+
+Audio files—meeting recordings, podcasts, voice notes, interviews—contain valuable information that's invisible to text search. Unrag can transcribe audio into text, chunk it, and embed it alongside your other content. Once transcribed, audio becomes as searchable as any document.
+
+## How audio extraction works
+
+When you ingest an audio asset, Unrag sends the audio to a transcription service (like OpenAI's Whisper). The service returns text—ideally with timestamps for each segment. Unrag then chunks this text and embeds it like any other content.
+
+The result: a user searching for "what did we decide about the Q3 budget" can find the relevant moment in a meeting recording, even if they never listened to it.
+
+## Available audio extractors
+
+| Extractor | How it works | Best for |
+|-----------|--------------|----------|
+| [audio:transcribe](/docs/extractors/audio/transcribe) | Sends audio to an AI transcription API and stores the transcript | Speech-heavy content: meetings, interviews, podcasts |
+
+## Typical use cases
+
+**Meeting recordings**: Automatically transcribe standups, planning sessions, and all-hands meetings. Team members can search across months of meetings without watching hours of video.
+
+**Voice notes**: Transcribe quick audio notes from mobile apps. Find that brilliant idea you recorded while walking to lunch.
+
+**Podcast archives**: Make your podcast library searchable. Listeners can find episodes where specific topics were discussed.
+
+**Interview transcripts**: Index recorded interviews alongside written notes. Search finds relevant passages from either source.
+
+## What to expect
+
+Audio transcription quality depends on several factors:
+
+- **Audio quality**: Clear audio with minimal background noise transcribes best
+- **Speaker clarity**: Distinct speakers, moderate pace, and standard accents improve accuracy
+- **Language**: Most transcription services work best with common languages
+- **Length**: Very long recordings may need to be split or may hit API limits
+
+For most business content (meetings, presentations, interviews), transcription quality is excellent. Heavily accented speech, multiple overlapping speakers, or poor audio quality will produce noisier transcripts.
+
+## Cost considerations
+
+Audio transcription is typically priced per minute of audio. For high-volume use:
+
+- Prioritize transcribing high-value recordings first
+- Consider whether you need every meeting or just key ones
+- Set `maxBytes` limits to skip unexpectedly large files
+
+<Callout>
+For production deployments (especially on Vercel), run transcription in background jobs with retries. Audio processing can take 30+ seconds for longer recordings. See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe).
+</Callout>
+
