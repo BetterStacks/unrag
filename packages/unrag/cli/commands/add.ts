@@ -65,7 +65,6 @@ const parseAddArgs = (args: string[]): ParsedAddArgs => {
         out.kind = "extractor";
         continue;
       }
-      // Backwards-compatible default: `unrag add <connector>`
       out.kind = "connector";
       out.name = a;
       continue;
