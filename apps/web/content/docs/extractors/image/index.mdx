@@ -18,7 +18,7 @@ Image extraction makes visual content discoverable through semantic search. Unra
 
 Use when you want queries like "architecture diagram" to find actual diagrams based on their visual content.
 
-**Requires**: A multimodal embedding model (e.g., `voyage/voyage-multimodal-3`)
+**Requires**: A multimodal embedding model (e.g., `cohere/embed-v4.0`)
 
 **Pros:**
 - True visual understanding
@@ -64,7 +64,7 @@ const embedding = createAiEmbeddingProvider({
 // Multimodal: images are embedded directly
 const embedding = createAiEmbeddingProvider({
   type: "multimodal",
-  model: "voyage/voyage-multimodal-3",
+  model: "cohere/embed-v4.0",
 });
 ```
 

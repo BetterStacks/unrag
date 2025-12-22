@@ -26,7 +26,7 @@ import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
 
 const embedding = createAiEmbeddingProvider({
   type: "multimodal",
-  model: "voyage/voyage-multimodal-3", // Example multimodal model
+  model: "cohere/embed-v4.0", // Example multimodal model
   timeoutMs: 30_000,
 });
 ```
@@ -42,7 +42,7 @@ Not all embedding models support images. Check your provider's documentation. So
 | Voyage | voyage-multimodal-3 | Yes |
 | OpenAI | text-embedding-3-small | No |
 | OpenAI | text-embedding-3-large | No |
-| Cohere | embed-v3 | Images supported |
+| Cohere | embed-v4.0 | Yes |
 
 <Callout type="warn">
 The embedding model must embed both text and images into the same space. Using different models for text and images would create incompatible embedding spaces—retrieval wouldn't work correctly.
@@ -160,12 +160,14 @@ For advanced use cases, you can customize how image values are formatted for the
 ```ts
 const embedding = createAiEmbeddingProvider({
   type: "multimodal",
-  model: "voyage/voyage-multimodal-3",
+  model: "cohere/embed-v4.0",
   
   // Custom formatter for image embedding values
-  toImageEmbedValue: (input) => ({
-    image: [input.data], // Some models expect arrays
-  }),
+  image: {
+    value: (input) => ({
+      image: [input.data], // Provider-specific; may need a data URL when input.data is bytes
+    }),
+  },
 });
 ```
 
@@ -224,7 +226,7 @@ export const unrag = defineUnragConfig({
     provider: "ai",
     config: {
     type: "multimodal",
-    model: "voyage/voyage-multimodal-3",
+    model: "cohere/embed-v4.0",
     timeoutMs: 30_000,
   },
   },

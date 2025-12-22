@@ -21,7 +21,7 @@ import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
 
 const embedding = createAiEmbeddingProvider({
   type: "multimodal",
-  model: "voyage/voyage-multimodal-3",
+  model: "cohere/embed-v4.0",
   timeoutMs: 30_000,
 });
 ```
@@ -30,8 +30,8 @@ const embedding = createAiEmbeddingProvider({
 
 | Provider | Model | Notes |
 |----------|-------|-------|
-| Voyage | voyage-multimodal-3 | Recommended. High quality, supports images + text |
-| Cohere | embed-v3 | Images supported in multimodal mode |
+| Cohere | embed-v4.0 | Recommended. High quality, supports images + text |
+| Voyage | voyage-multimodal-3 | Images supported in multimodal mode |
 
 <Callout type="warn">
 The model must embed both text and images into the **same vector space**. Using different models for text and images would create incompatible embeddings.
@@ -50,7 +50,7 @@ export const unrag = defineUnragConfig({
     provider: "ai",
     config: {
     type: "multimodal",
-    model: "voyage/voyage-multimodal-3",
+    model: "cohere/embed-v4.0",
     timeoutMs: 30_000,
   },
   },

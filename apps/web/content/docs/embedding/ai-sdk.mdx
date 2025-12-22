@@ -46,7 +46,7 @@ The provider accepts these options:
 - `openai/text-embedding-3-large` (3072 dimensions, more accurate, costs more)
 - `openai/text-embedding-ada-002` (1536 dimensions, legacy)
 
-When `type: "multimodal"` is enabled and you do not specify a model (and `AI_GATEWAY_MODEL` is not set), Unrag defaults to `voyage/voyage-multimodal-3`.
+When `type: "multimodal"` is enabled and you do not specify a model (and `AI_GATEWAY_MODEL` is not set), Unrag defaults to `cohere/embed-v4.0`.
 
 **`timeoutMs`** sets how long to wait for an embedding response before failing. The default is 15 seconds, which is generous for most use cases. Reduce it if you want faster failures, or increase it for high-latency scenarios.
 
