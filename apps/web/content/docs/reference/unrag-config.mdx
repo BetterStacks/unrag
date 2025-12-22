@@ -310,7 +310,6 @@ export async function retrieveForTenant(tenantId: string, query: string) {
   const engine = createUnragEngine();
   return engine.retrieve({
     query,
-    topK: unrag.defaults.retrieval.topK,
     scope: { sourceId: `tenant:${tenantId}:` },
   });
 }
