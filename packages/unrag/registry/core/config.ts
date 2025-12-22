@@ -4,6 +4,7 @@ import type {
   ResolvedContextEngineConfig,
   AssetProcessingConfig,
   DeepPartial,
+  ContentStorageConfig,
 } from "./types";
 import { defaultChunker, resolveChunkingOptions } from "./chunking";
 
@@ -37,6 +38,11 @@ export const defaultAssetProcessingConfig: AssetProcessingConfig = {
   },
 };
 
+export const defaultContentStorageConfig: ContentStorageConfig = {
+  storeChunkContent: true,
+  storeDocumentContent: true,
+};
+
 const mergeDeep = <T extends Record<string, any>>(
   base: T,
   overrides: DeepPartial<T> | undefined
@@ -67,6 +73,10 @@ export const resolveAssetProcessingConfig = (
   overrides?: DeepPartial<AssetProcessingConfig>
 ): AssetProcessingConfig => mergeDeep(defaultAssetProcessingConfig, overrides);
 
+export const resolveContentStorageConfig = (
+  overrides?: DeepPartial<ContentStorageConfig>
+): ContentStorageConfig => mergeDeep(defaultContentStorageConfig, overrides);
+
 export const resolveConfig = (
   config: ContextEngineConfig
 ): ResolvedContextEngineConfig => {
@@ -78,6 +88,7 @@ export const resolveConfig = (
     defaults: resolveChunkingOptions(config.defaults),
     chunker,
     idGenerator: config.idGenerator ?? defaultIdGenerator,
+    storage: resolveContentStorageConfig(config.storage),
     assetProcessing: resolveAssetProcessingConfig(config.assetProcessing),
   };
 };

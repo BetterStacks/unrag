@@ -3,7 +3,14 @@ export { deleteDocuments } from "./delete";
 export { ingest } from "./ingest";
 export { retrieve } from "./retrieve";
 export { defaultChunker, resolveChunkingOptions } from "./chunking";
-export { defaultAssetProcessingConfig, resolveAssetProcessingConfig } from "./config";
+export {
+  defaultAssetProcessingConfig,
+  defaultContentStorageConfig,
+  resolveAssetProcessingConfig,
+  resolveContentStorageConfig,
+} from "./config";
+export { getChunkAssetRef, isAssetChunk } from "./assets";
+export type { ChunkAssetRef } from "./assets";
 export * from "./types";
 
 

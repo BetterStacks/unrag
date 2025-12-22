@@ -288,14 +288,62 @@ const result = await engine.retrieve({
 Check `chunk.metadata.assetKind` and `chunk.metadata.extractor` to identify where each chunk came from:
 
 ```ts
+import { getChunkAssetRef } from "@unrag/core";
+
 for (const chunk of result.chunks) {
-  if (chunk.metadata.extractor === "pdf:llm") {
-    console.log("From PDF:", chunk.content);
-  } else if (chunk.metadata.extractor === "image:embed") {
-    console.log("From image embedding");
-  } else {
+  const ref = getChunkAssetRef(chunk);
+
+  // Plain text chunks have no asset reference.
+  if (!ref) {
     console.log("From text:", chunk.content);
+    continue;
   }
+
+  // Asset chunks (images, PDFs, and future multimodal kinds) include both:
+  // - ref.assetKind (coarse type: image/pdf/audio/video/file)
+  // - ref.extractor (fine-grained origin: "pdf:llm", "image:embed", etc.)
+  if (ref.assetKind === "pdf" && ref.extractor === "pdf:llm") {
+    console.log("From PDF:", chunk.content);
+    continue;
+  }
+
+  if (ref.assetKind === "image") {
+    console.log(`From image (${ref.extractor ?? "unknown"}):`, chunk.content);
+    continue;
+  }
+
+  console.log(`From ${ref.assetKind} (${ref.extractor ?? "unknown"}):`, chunk.content);
+}
+```
+
+## Resolving an asset chunk to the original bytes
+
+Unrag retrieval returns standard chunks. For rich media matches (images, PDFs, etc.), Unrag stores **references** to the originating asset in `chunk.metadata` (like `assetKind`, `assetId`, optional `assetUri`). It does **not** store the original bytes.
+
+Use `getChunkAssetRef()` to extract these fields consistently:
+
+```ts
+import { getChunkAssetRef, type ChunkAssetRef } from "@unrag/core";
+
+async function resolveAssetBytes(ref: ChunkAssetRef): Promise<Uint8Array> {
+  // Prefer resolving from your own storage (S3/GCS/filesystem) by assetId.
+  // Fall back to assetUri if you stored a stable URL at ingest time.
+  if (ref.assetUri) {
+    const res = await fetch(ref.assetUri);
+    if (!res.ok) throw new Error(`Failed to fetch asset (${res.status})`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+  return await myAssetStore.getBytes(ref.assetId); // implement in your app
+}
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  if (!ref) continue;
+
+  // Example: only resolve images
+  if (ref.assetKind !== "image") continue;
+  const bytes = await resolveAssetBytes(ref);
+  console.log("resolved image bytes", bytes.length);
 }
 ```
 
