@@ -27,18 +27,24 @@ First, ensure your config enables PDF extraction:
 
 ```ts
 // unrag.config.ts
-import { createContextEngine } from "./lib/unrag/core";
-import { createAiEmbeddingProvider } from "./lib/unrag/embedding/ai";
-import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
+import { defineUnragConfig } from "./lib/unrag/core";
 
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  defaults: {
+    chunking: { chunkSize: 200, chunkOverlap: 40 },
+    retrieval: { topK: 8 },
+  },
   embedding: {
+    provider: "ai",
+    config: {
     type: "text", // or "multimodal" for direct image embedding
     model: "openai/text-embedding-3-small",
   },
+  },
+  engine: {
   assetProcessing: {
     onUnsupportedAsset: "skip", // Skip audio/video for now
-    onError: "skip",           // Don't fail on individual asset errors
+      onError: "skip", // Don't fail on individual asset errors
     pdf: {
       llmExtraction: {
         enabled: true,
@@ -52,7 +58,8 @@ export const unragConfig = {
       ],
     },
   },
-} as const;
+  },
+} as const);
 
 // ... createUnragEngine setup
 ```
@@ -112,13 +119,16 @@ For each asset, the connector captures:
 If you want images embedded directly (not just captions), switch to a multimodal embedding model:
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ... rest of config
   embedding: {
+    provider: "ai",
+    config: {
     type: "multimodal",
     model: "voyage/voyage-multimodal-3",
   },
-  // ... rest of config
-};
+  },
+} as const);
 ```
 
 Now a query like "architecture diagram" can find actual diagrams, not just pages that mention them.

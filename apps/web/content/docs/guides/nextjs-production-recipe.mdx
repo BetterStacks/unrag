@@ -46,22 +46,13 @@ Then register it in your `unrag.config.ts`:
 ```ts
 import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
 
-export function createUnragEngine() {
-  const embedding = createAiEmbeddingProvider({ /* ... */ });
-  const store = /* ... */;
-
-  const extractors = [createPdfLlmExtractor()];
-
-  return createContextEngine(
-    defineConfig({
-      embedding,
-      store,
-      extractors,
-      assetProcessing: unragConfig.assetProcessing,
-      defaults: unragConfig.chunking,
-    })
-  );
-}
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createPdfLlmExtractor()],
+  },
+} as const);
 ```
 
 ## Observability: warnings + events

@@ -256,19 +256,22 @@ const embedding = withRetry(
 Once you have a custom provider, use it in `unrag.config.ts`:
 
 ```ts
-import { createContextEngine, defineConfig } from "@unrag/core";
+import { defineUnragConfig } from "@unrag/core";
 import { createDrizzleVectorStore } from "@unrag/store/drizzle";
 import { myCohereProvider } from "./my-cohere-provider";
 import { db } from "@/lib/db";
 
+export const unrag = defineUnragConfig({
+  defaults: {
+    chunking: { chunkSize: 200, chunkOverlap: 40 },
+    retrieval: { topK: 8 },
+  },
+  embedding: { provider: "custom", create: () => myCohereProvider },
+  engine: {},
+} as const);
+
 export function createUnragEngine() {
-  return createContextEngine(
-    defineConfig({
-      embedding: myCohereProvider,
-      store: createDrizzleVectorStore(db),
-      defaults: { chunkSize: 200, chunkOverlap: 40 },
-    })
-  );
+  return unrag.createEngine({ store: createDrizzleVectorStore(db) });
 }
 ```
 

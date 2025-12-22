@@ -21,12 +21,16 @@ The embedding model you choose affects retrieval quality, latency, and cost. The
 For documentation, articles, and support content:
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
   embedding: {
+    provider: "ai",
+    config: {
     model: "openai/text-embedding-3-small",
     timeoutMs: 15_000,
   },
-} as const;
+  },
+} as const);
 ```
 
 This model is fast, cheap, and produces good results for most English text. It's the default for a reason.
@@ -37,12 +41,16 @@ This model is fast, cheap, and produces good results for most English text. It's
 When quality is paramount or you have multilingual content:
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
   embedding: {
+    provider: "ai",
+    config: {
     model: "openai/text-embedding-3-large",
     timeoutMs: 20_000,
   },
-} as const;
+  },
+} as const);
 ```
 
 The larger model handles multiple languages better and captures finer semantic distinctions.
@@ -194,12 +202,16 @@ Local models eliminate API costs entirely, reduce latency (no network round-trip
 When your content includes images that carry semantic meaning (diagrams, charts, screenshots), consider a multimodal embedding model. These models embed both text and images into the same vector space, allowing text queries to match image content directly.
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
   embedding: {
+    provider: "ai",
+    config: {
     type: "multimodal",
     model: "voyage/voyage-multimodal-3",
   },
-} as const;
+  },
+} as const);
 ```
 
 <Callout>

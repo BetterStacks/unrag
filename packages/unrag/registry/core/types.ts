@@ -465,6 +465,63 @@ export type RetrieveResult = {
   };
 };
 
+/**
+ * Higher-level (ergonomic) Unrag config wrapper.
+ *
+ * This is intentionally separate from `ContextEngineConfig`:
+ * - `defaults.retrieval` is not part of the engine config; it's a convenience default for callers.
+ * - `defaults.chunking` maps to the engine's `defaults` field.
+ * - `embedding` is configured declaratively and can be turned into an `EmbeddingProvider`.
+ */
+export type UnragDefaultsConfig = {
+  chunking?: Partial<ChunkingOptions>;
+  retrieval?: {
+    topK?: number;
+  };
+};
+
+export type UnragEngineConfig = Omit<
+  ContextEngineConfig,
+  "embedding" | "store" | "defaults"
+>;
+
+export type UnragEmbeddingConfig =
+  | {
+      provider: "ai";
+      config?: import("../embedding/ai").AiEmbeddingConfig;
+    }
+  | {
+      provider: "custom";
+      /**
+       * Escape hatch for bringing your own embedding provider.
+       * Use this when you need a provider that is not backed by the AI SDK.
+       */
+      create: () => EmbeddingProvider;
+    };
+
+export type DefineUnragConfigInput = {
+  defaults?: UnragDefaultsConfig;
+  /**
+   * Engine configuration (everything except embedding/store/defaults).
+   * This is where you configure storage, asset processing, chunker/idGenerator, etc.
+   */
+  engine?: UnragEngineConfig;
+  /**
+   * Embedding configuration. The engine's embedding provider is derived from this.
+   */
+  embedding: UnragEmbeddingConfig;
+};
+
+export type UnragCreateEngineRuntime = {
+  store: VectorStore;
+  /**
+   * Optional runtime override/extension of extractors.
+   * - If you pass an array, it replaces the base extractors from `engine.extractors`.
+   * - If you pass a function, it receives the base extractors and should return the final array.
+   */
+  extractors?: AssetExtractor[] | ((base: AssetExtractor[]) => AssetExtractor[]);
+};
+
 export type ContextEngineConfig = {
   embedding: EmbeddingProvider;
   store: VectorStore;

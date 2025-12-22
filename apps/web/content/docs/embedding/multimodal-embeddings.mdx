@@ -211,27 +211,31 @@ Here's a config that enables multimodal embedding:
 
 ```ts
 // unrag.config.ts
-import { createContextEngine, defineConfig } from "./lib/unrag/core";
-import { createAiEmbeddingProvider } from "./lib/unrag/embedding/ai";
+import { defineUnragConfig } from "./lib/unrag/core";
 import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
+import { db } from "./lib/db";
 
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  defaults: {
+    chunking: { chunkSize: 200, chunkOverlap: 40 },
+    retrieval: { topK: 8 },
+  },
   embedding: {
+    provider: "ai",
+    config: {
     type: "multimodal",
     model: "voyage/voyage-multimodal-3",
     timeoutMs: 30_000,
   },
+  },
+  engine: {
   // ... other config
-} as const;
+  },
+} as const);
 
 export function createUnragEngine() {
-  const embedding = createAiEmbeddingProvider({
-    type: unragConfig.embedding.type,
-    model: unragConfig.embedding.model,
-    timeoutMs: unragConfig.embedding.timeoutMs,
-  });
-
-  // ... rest of engine setup
+  const store = createDrizzleVectorStore(db);
+  return unrag.createEngine({ store });
 }
 ```
 

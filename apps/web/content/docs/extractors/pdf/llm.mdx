@@ -18,19 +18,13 @@ Then register it in your `unrag.config.ts`:
 ```ts
 import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
 
-export function createUnragEngine() {
-  const extractors = [createPdfLlmExtractor()];
-
-  return createContextEngine(
-    defineConfig({
-      embedding,
-      store,
-      extractors,
-      assetProcessing: unragConfig.assetProcessing,
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
       // ...
-    })
-  );
-}
+    extractors: [createPdfLlmExtractor()],
+  },
+} as const);
 ```
 
 <Callout>
@@ -49,7 +43,10 @@ Without installing and registering the extractor, PDF assets will be skipped dur
 Enable and configure the extractor in your `unrag.config.ts`:
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
   assetProcessing: {
     pdf: {
       llmExtraction: {
@@ -63,7 +60,8 @@ export const unragConfig = {
       },
     },
   },
-};
+  },
+} as const);
 ```
 
 ### Configuration options

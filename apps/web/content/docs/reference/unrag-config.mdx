@@ -10,13 +10,13 @@ The `unrag.config.ts` file is the central place to configure Unrag. It's generat
 A typical generated config looks like:
 
 ```ts
-import { createContextEngine, defineConfig } from "./lib/unrag/core";
-import { createAiEmbeddingProvider } from "./lib/unrag/embedding/ai";
+import { defineUnragConfig } from "./lib/unrag/core";
 import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  defaults: {
   chunking: {
     chunkSize: 200,
     chunkOverlap: 40,
@@ -24,15 +24,21 @@ export const unragConfig = {
   retrieval: {
     topK: 8,
   },
-  storage: {
-    storeChunkContent: true,
-    storeDocumentContent: true,
   },
   embedding: {
+    provider: "ai",
+    config: {
     type: "text",
     model: "openai/text-embedding-3-small",
     timeoutMs: 15_000,
   },
+  },
+  engine: {
+    storage: {
+      storeChunkContent: true,
+      storeDocumentContent: true,
+    },
+    extractors: [],
   assetProcessing: {
     onUnsupportedAsset: "skip",
     onError: "skip",
@@ -49,21 +55,10 @@ export const unragConfig = {
       },
     },
   },
-} as const;
+  },
+} as const);
 
 export function createUnragEngine() {
-  const embedding = createAiEmbeddingProvider({
-    type: unragConfig.embedding.type,
-    model: unragConfig.embedding.model,
-    timeoutMs: unragConfig.embedding.timeoutMs,
-  });
-
-  // Optional extractor modules (installed via `unrag add extractor <name>`).
-  // Example:
-  // import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
-  // const extractors = [createPdfLlmExtractor()];
-  const extractors = [];
-
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
 
@@ -75,29 +70,15 @@ export function createUnragEngine() {
 
   const store = createDrizzleVectorStore(db);
 
-  return createContextEngine(
-    defineConfig({
-      embedding,
-      store,
-      storage: unragConfig.storage,
-      extractors,
-      assetProcessing: unragConfig.assetProcessing,
-      defaults: unragConfig.chunking,
-    })
-  );
-}
-
-export async function retrieve(query: string) {
-  const engine = createUnragEngine();
-  return engine.retrieve({ query, topK: unragConfig.retrieval.topK });
+  return unrag.createEngine({ store });
 }
 ```
 
-## The unragConfig object
+## The unrag config
 
 This object holds your default settings. Changing values here affects all operations that use these defaults.
 
-### chunking
+### defaults.chunking
 
 Controls how documents are split into chunks. See [Chunking](/docs/concepts/chunking) for details on strategies.
 
@@ -116,9 +97,9 @@ Controls how documents are split into chunks. See [Chunking](/docs/concepts/chun
   }}
 />
 
-### retrieval
+### defaults.retrieval
 
-Default settings for `engine.retrieve()` calls.
+Convenience defaults you can use in your own `engine.retrieve()` calls/helpers (the engine default is `topK: 8` when omitted).
 
 <TypeTable
   type={{
@@ -227,23 +208,16 @@ The `extractors` array holds extractor module instances that process rich media 
 ```ts
 import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
 
-export function createUnragEngine() {
+export const unrag = defineUnragConfig({
   // ...
-  const extractors = [
+  engine: {
+    // ...
+    extractors: [
     createPdfLlmExtractor(),
     // Add more extractors as you install them
-  ];
-
-  return createContextEngine(
-    defineConfig({
-      embedding,
-      store,
-      extractors,  // Register here
-      assetProcessing: unragConfig.assetProcessing,
-      // ...
-    })
-  );
-}
+    ],
+  },
+} as const);
 ```
 
 #### Installing extractors
@@ -274,10 +248,10 @@ This function assembles all the pieces into a working engine. You'll typically c
 
 The generated version includes:
 
-1. **Embedding provider creation** using your configured model and timeout
+1. **Embedding provider wiring** (derived from `unrag.embedding`)
 2. **Database connection** with a singleton pattern to prevent connection exhaustion
 3. **Store adapter creation** using your chosen adapter type
-4. **Engine construction** with everything wired together
+4. **Engine construction** via `unrag.createEngine({ store })`
 
 ## Customizing database connection
 
@@ -336,7 +310,7 @@ export async function retrieveForTenant(tenantId: string, query: string) {
   const engine = createUnragEngine();
   return engine.retrieve({
     query,
-    topK: unragConfig.retrieval.topK,
+    topK: unrag.defaults.retrieval.topK,
     scope: { sourceId: `tenant:${tenantId}:` },
   });
 }

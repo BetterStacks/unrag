@@ -28,8 +28,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
   const installImportBase = `./${selection.installDir.replace(/\\/g, "/")}`;
 
   const baseImports = [
-    `import { createContextEngine, defineConfig } from "${installImportBase}/core";`,
-    `import { createAiEmbeddingProvider } from "${installImportBase}/embedding/ai";`,
+    `import { defineUnragConfig } from "${installImportBase}/core";`,
   ];
 
   const storeImports: string[] = [];
@@ -83,32 +82,14 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 
   const createEngineBlock = [
     `export function createUnragEngine() {`,
-    `  const embedding = createAiEmbeddingProvider({`,
-    `    type: unragConfig.embedding.type,`,
-    `    model: unragConfig.embedding.model,`,
-    `    timeoutMs: unragConfig.embedding.timeoutMs,`,
-    `  });`,
-    ``,
-    `  // Optional extractor modules (installed via \`unrag add extractor <name>\`).`,
-    `  // Add extractor imports above and include them in this array.`,
-    `  const extractors = [];`,
     ...storeCreateLines,
     ``,
-    `  return createContextEngine(`,
-    `    defineConfig({`,
-    `      embedding,`,
-    `      store,`,
-      `      extractors,`,
-    `      storage: unragConfig.storage,`,
-    `      assetProcessing: unragConfig.assetProcessing,`,
-    `      defaults: unragConfig.chunking,`,
-    `    })`,
-    `  );`,
+    `  return unrag.createEngine({ store });`,
     `}`,
     ``,
     `export async function retrieve(query: string) {`,
     `  const engine = createUnragEngine();`,
-    `  return engine.retrieve({ query, topK: unragConfig.retrieval.topK });`,
+    `  return engine.retrieve({ query, topK: unrag.defaults.retrieval.topK });`,
     `}`,
   ].join("\n");
 

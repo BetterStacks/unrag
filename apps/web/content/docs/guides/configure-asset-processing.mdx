@@ -20,22 +20,20 @@ Add `assetProcessing` to your config:
 
 ```ts
 // unrag.config.ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ... other config
+  engine: {
   assetProcessing: {
     // Error handling
-    onUnsupportedAsset: "skip",  // or "fail"
-    onError: "skip",             // or "fail"
+      onUnsupportedAsset: "skip", // or "fail"
+      onError: "skip", // or "fail"
 
     // URL fetching settings
     fetch: {
       enabled: true,
       maxBytes: 15 * 1024 * 1024, // 15 MB
       timeoutMs: 20_000,
-      allowedHosts: [
-        "*.notion.so",
-        "*.amazonaws.com",
-        "storage.googleapis.com",
-      ],
+        allowedHosts: ["*.notion.so", "*.amazonaws.com", "storage.googleapis.com"],
     },
 
     // PDF extraction
@@ -49,8 +47,8 @@ export const unragConfig = {
       },
     },
   },
-  // ... other config
-};
+  },
+} as const);
 ```
 
 ## Per-ingest overrides
