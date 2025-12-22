@@ -1,0 +1,83 @@
+---
+title: Extractors Overview
+description: Extract text, metadata, and embeddings from rich media assets.
+---
+
+Extractors transform rich media (currently: PDFs and images) into searchable content. Each asset type has one or more extractors that produce text chunks or direct embeddings.
+
+## How extractors work
+
+When you ingest content with assets, Unrag's ingest pipeline routes each asset to the appropriate extractor based on its `kind`. The extractor produces either:
+
+- **Text chunks**: extracted/transcribed text that's chunked and embedded like normal text
+- **Direct embeddings**: vector representations of the asset itself (e.g., multimodal image embeddings)
+
+The extractor used is recorded in `chunk.metadata.extractor` so you can identify the source during retrieval.
+
+## Available extractors
+
+### PDF
+
+| Extractor | Output | Requirements |
+|-----------|--------|--------------|
+| [pdf:llm](/docs/extractors/pdf/llm) | Text chunks | LLM with file input support (e.g., Gemini) |
+
+PDFs are processed by sending them to an LLM that extracts readable text. The extracted text is then chunked and embedded like normal documents.
+
+### Image
+
+| Extractor | Output | Requirements |
+|-----------|--------|--------------|
+| [image:embed](/docs/extractors/image/embed) | Direct embedding | Multimodal embedding model |
+| [image:caption](/docs/extractors/image/caption) | Text chunks | Caption/alt text provided at ingest |
+
+Images can be embedded directly using multimodal models, or their captions can be embedded as text.
+
+Unrag currently supports extractors for PDFs and images.
+
+## Extractor metadata
+
+Every chunk produced by an extractor includes metadata fields you can use during retrieval:
+
+```ts
+import { getChunkAssetRef } from "@unrag/core";
+
+const ref = getChunkAssetRef(chunk);
+if (ref) {
+  console.log(ref.assetKind);    // "pdf" | "image"
+  console.log(ref.assetId);      // stable identifier from ingest
+  console.log(ref.extractor);    // "pdf:llm" | "image:embed" | "image:caption" | ...
+  console.log(ref.assetUri);     // optional URL/path
+  console.log(ref.assetMediaType); // optional MIME type
+}
+```
+
+## Configuring extractors
+
+Extractors are configured via `assetProcessing` in your `unrag.config.ts`. See [Asset Processing Reference](/docs/reference/asset-processing) for the full configuration schema.
+
+```ts
+export const unragConfig = {
+  // ...
+  assetProcessing: {
+    onUnsupportedAsset: "skip",
+    onError: "skip",
+    pdf: {
+      llmExtraction: {
+        enabled: true,
+        model: "google/gemini-2.0-flash",
+        // ...
+      },
+    },
+  },
+};
+```
+
+## Adding custom extractors
+
+Unrag's ingest pipeline can be extended (today) by:
+
+1. Pre-processing assets before ingestion (extract text yourself, pass as `content`)
+2. Modifying the vendored `ingest.ts` to add custom extraction logic
+3. Using `assets[].text` to provide pre-extracted text for any asset type
+

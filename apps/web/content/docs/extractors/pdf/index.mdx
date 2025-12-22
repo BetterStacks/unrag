@@ -1,0 +1,50 @@
+---
+title: PDF Extractors
+description: Extract searchable text from PDF documents.
+---
+
+PDF extraction converts document files into searchable text chunks. Since PDFs can contain complex layouts, tables, images, and scanned content, extraction quality depends heavily on the method used.
+
+## Available PDF extractors
+
+| Extractor | How it works | Best for |
+|-----------|--------------|----------|
+| [pdf:llm](/docs/extractors/pdf/llm) | Sends PDF to an LLM for text extraction | Complex layouts, scanned docs, mixed content |
+
+## Choosing an extractor
+
+Currently, Unrag provides one PDF extractor: **pdf:llm**. This sends the entire PDF to a vision-capable LLM (like Gemini) which reads and transcribes the content.
+
+**Pros:**
+- Handles complex layouts, tables, and multi-column text
+- Can read scanned/image-based PDFs (OCR built into the model)
+- Preserves semantic structure (headings, lists)
+
+**Cons:**
+- Requires LLM API calls (cost per page)
+- Subject to model token limits
+- Slower than local text extraction
+
+## Configuration
+
+PDF extraction is controlled via `assetProcessing.pdf.llmExtraction` in your config:
+
+```ts
+export const unragConfig = {
+  assetProcessing: {
+    pdf: {
+      llmExtraction: {
+        enabled: true,
+        model: "google/gemini-2.0-flash",
+        prompt: "Extract all readable text from this PDF...",
+        timeoutMs: 60_000,
+        maxBytes: 15 * 1024 * 1024,
+        maxOutputChars: 200_000,
+      },
+    },
+  },
+};
+```
+
+See [pdf:llm](/docs/extractors/pdf/llm) for detailed configuration options.
+

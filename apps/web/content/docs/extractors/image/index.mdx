@@ -1,0 +1,120 @@
+---
+title: Image Extractors
+description: Make images searchable through direct embedding or caption-based retrieval.
+---
+
+Image extraction makes visual content discoverable through semantic search. Unrag supports two approaches: embedding images directly into the vector space, or embedding their text descriptions.
+
+## Available image extractors
+
+| Extractor | How it works | Best for |
+|-----------|--------------|----------|
+| [image:embed](/docs/extractors/image/embed) | Embeds image pixels directly | Visual similarity search, diagrams, photos |
+| [image:caption](/docs/extractors/image/caption) | Embeds caption/alt text | When good descriptions exist, text-only models |
+
+## Choosing an extractor
+
+### image:embed (multimodal)
+
+Use when you want queries like "architecture diagram" to find actual diagrams based on their visual content.
+
+**Requires**: A multimodal embedding model (e.g., `voyage/voyage-multimodal-3`)
+
+**Pros:**
+- True visual understanding
+- Finds images by what they show, not how they're described
+- Works without captions
+
+**Cons:**
+- Requires multimodal model (more expensive)
+- Some models have quality/availability limitations
+
+### image:caption (text-based)
+
+Use when you have good captions and want to stick with text-only embedding.
+
+**Requires**: Caption text provided via `assets[].text` at ingest time
+
+**Pros:**
+- Works with any text embedding model
+- Lower cost
+- Captions can include context the image doesn't show
+
+**Cons:**
+- Only as good as your captions
+- Can't find images based on visual content alone
+
+## How Unrag chooses
+
+During ingestion, Unrag automatically selects the extractor:
+
+1. **If your embedding provider has `embedImage()`** → uses `image:embed`
+2. **Else if the asset has `text` (caption)** → uses `image:caption`
+3. **Else** → skips the image (emits a warning)
+
+You control this by configuring your embedding provider:
+
+```ts
+// Text-only: images fall back to captions
+const embedding = createAiEmbeddingProvider({
+  type: "text",
+  model: "openai/text-embedding-3-small",
+});
+
+// Multimodal: images are embedded directly
+const embedding = createAiEmbeddingProvider({
+  type: "multimodal",
+  model: "voyage/voyage-multimodal-3",
+});
+```
+
+## Providing captions
+
+For `image:caption` (or as fallback when multimodal isn't available), provide captions at ingest time:
+
+```ts
+await engine.ingest({
+  sourceId: "products:widget-x",
+  content: "The Widget X is our flagship product...",
+  assets: [
+    {
+      assetId: "hero-image",
+      kind: "image",
+      data: { kind: "url", url: "https://..." },
+      text: "Product photo of Widget X showing the chrome finish and LED display", // Caption
+    },
+  ],
+});
+```
+
+Good captions describe:
+- What the image shows (objects, people, scenes)
+- Context not visible in the image (product name, location, date)
+- Why the image matters (illustrates feature X, shows step 3)
+
+## Retrieving image chunks
+
+Image chunks are retrieved like any other content. Use `getChunkAssetRef()` to identify them:
+
+```ts
+import { getChunkAssetRef } from "@unrag/core";
+
+const result = await engine.retrieve({ query: "product photos" });
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  
+  if (ref?.assetKind === "image") {
+    console.log(`Image match (${ref.extractor}):`);
+    console.log(`  Asset ID: ${ref.assetId}`);
+    console.log(`  Caption: ${chunk.content}`);
+    
+    // Resolve the actual image if needed
+    if (ref.assetUri) {
+      const imageUrl = ref.assetUri;
+      // Display or fetch the image...
+    }
+  }
+}
+```
+
