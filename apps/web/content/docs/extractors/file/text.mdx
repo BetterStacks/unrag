@@ -3,9 +3,9 @@ title: "file:text Extractor"
 description: Extract text from plain text files, markdown, HTML, JSON, and CSV.
 ---
 
-The `file:text` extractor handles "text-ish" files—anything that's fundamentally plain text under the hood. This includes markdown files, HTML pages, JSON documents, CSV files, and plain `.txt` files.
+The `file:text` extractor handles files that are fundamentally plain text—markdown documents, HTML pages, JSON files, CSV data, and simple `.txt` files. For HTML, it strips the markup and extracts readable text. For everything else, it decodes the bytes as UTF-8 and passes the content through for chunking and embedding.
 
-For HTML, the extractor strips markup and extracts just the readable text. For everything else, it decodes the bytes as UTF-8 and passes the content through.
+This is the simplest extractor, but it covers a surprisingly large number of use cases. Configuration files, documentation in markdown, API responses stored as JSON, data exports as CSV—all become searchable content.
 
 ## Installation
 
@@ -13,7 +13,7 @@ For HTML, the extractor strips markup and extracts just the readable text. For e
 bunx unrag add extractor file-text
 ```
 
-Register it in your config:
+Register in your config:
 
 ```ts
 import { createFileTextExtractor } from "./lib/unrag/extractors/file-text";
@@ -27,25 +27,13 @@ export const unrag = defineUnragConfig({
 } as const);
 ```
 
-## Supported file types
+## Supported formats
 
-The extractor matches files by media type and filename extension:
+The extractor matches files by media type and filename extension. It handles `text/plain`, `text/markdown`, `text/html`, `application/json`, `text/csv`, `text/xml`, and `text/yaml`, along with their common filename extensions.
 
-| Extension | Media types |
-|-----------|-------------|
-| `.txt` | `text/plain` |
-| `.md` | `text/markdown`, `text/x-markdown` |
-| `.html`, `.htm` | `text/html` |
-| `.json` | `application/json` |
-| `.csv` | `text/csv` |
-| `.xml` | `text/xml`, `application/xml` |
-| `.yaml`, `.yml` | `text/yaml`, `application/x-yaml` |
-
-Files with unknown media types but recognized extensions will also match.
+Files with unknown media types but recognized extensions will also match. A file with extension `.md` extracts as markdown even if the media type isn't set correctly.
 
 ## Configuration
-
-Enable and configure in your engine config:
 
 ```ts
 export const unrag = defineUnragConfig({
@@ -56,9 +44,9 @@ export const unrag = defineUnragConfig({
       file: {
         text: {
           enabled: true,
-          maxBytes: 5 * 1024 * 1024,  // Skip files larger than 5MB
-          maxOutputChars: 200_000,     // Truncate very long files
-          minChars: 50,                // Skip files with less than 50 chars
+          maxBytes: 5 * 1024 * 1024,
+          maxOutputChars: 200_000,
+          minChars: 50,
         },
       },
     },
@@ -66,55 +54,50 @@ export const unrag = defineUnragConfig({
 } as const);
 ```
 
-### Configuration options
+**`maxBytes`** sets the maximum file size to process. Very large text files might be data dumps or logs that shouldn't become search content.
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `enabled` | `false` | Whether to extract text from matching files |
-| `maxBytes` | `5MB` | Maximum file size to process |
-| `maxOutputChars` | `200000` | Truncate extracted text beyond this length |
-| `minChars` | `50` | Skip files with fewer characters than this |
+**`maxOutputChars`** truncates extracted text beyond this length. This protects against accidentally ingesting enormous files that would produce thousands of chunks.
+
+**`minChars`** skips files that produce fewer characters than this threshold. Very short files might be placeholders or config stubs that don't add search value.
 
 ## Usage example
-
-### Ingesting a markdown file
 
 ```ts
 import { readFile } from "node:fs/promises";
 
-const markdownContent = await readFile("./docs/getting-started.md");
+const markdown = await readFile("./docs/api-reference.md");
 
 await engine.ingest({
-  sourceId: "docs:getting-started",
-  content: "Getting started guide",
+  sourceId: "docs:api-reference",
+  content: "API Reference Documentation",
   assets: [
     {
-      assetId: "guide-md",
+      assetId: "api-ref-md",
       kind: "file",
       data: {
         kind: "bytes",
-        bytes: new Uint8Array(markdownContent),
+        bytes: new Uint8Array(markdown),
         mediaType: "text/markdown",
-        filename: "getting-started.md",
+        filename: "api-reference.md",
       },
     },
   ],
 });
 ```
 
-### Ingesting from a URL
+For files available via URL:
 
 ```ts
 await engine.ingest({
-  sourceId: "config:app-settings",
-  content: "Application configuration",
+  sourceId: "config:deployment",
+  content: "Deployment configuration",
   assets: [
     {
-      assetId: "settings-json",
+      assetId: "config-json",
       kind: "file",
       data: {
         kind: "url",
-        url: "https://storage.example.com/configs/settings.json",
+        url: "https://storage.example.com/configs/deploy.json",
         mediaType: "application/json",
       },
     },
@@ -122,58 +105,17 @@ await engine.ingest({
 });
 ```
 
-## What gets stored
+## HTML handling
 
-For each text file:
+For HTML files, the extractor strips tags and extracts text content. A webpage becomes its readable text, without navigation elements, scripts, or styling markup. This is basic extraction—it won't preserve document structure or handle complex layouts intelligently. For high-fidelity HTML extraction, you might want a custom extractor that uses a proper HTML parser.
 
-| Field | Content |
-|-------|---------|
-| `chunk.content` | The extracted text (HTML stripped if applicable) |
-| `chunk.metadata.assetKind` | `"file"` |
-| `chunk.metadata.assetId` | Your provided asset ID |
-| `chunk.metadata.extractor` | `"file:text"` |
-| `embedding` | Vector from your text embedding model |
+## When to use plain content instead
 
-## When to use this vs. plain content
+If you're already reading text files in your code, you can pass the content directly to `engine.ingest()` without using the file extractor. The extractor is most useful when text files arrive as assets from connectors or when you want consistent handling across multiple file types.
 
-You might wonder: why use `file:text` instead of just reading the file and passing it as `content`?
+Both approaches produce the same searchable chunks. It's a matter of where the file-reading logic lives and whether you want asset-level metadata on the resulting chunks.
 
-**Use `file:text` when:**
-- You want consistent asset handling across file types
-- You're processing files from a connector that provides them as assets
-- You want the `assetKind` and `extractor` metadata for traceability
+## Encoding considerations
 
-**Use plain `content` when:**
-- You're building a simple script that reads files directly
-- You don't need asset-level metadata
-- The file content is your primary content, not an attachment
-
-Both approaches produce the same searchable chunks—it's a matter of how you want to organize your ingestion.
-
-## Troubleshooting
-
-### Files being skipped
-
-Check warnings for the cause:
-
-```ts
-for (const w of result.warnings) {
-  if (w.assetKind === "file") {
-    console.log(`File skipped: ${w.code} - ${w.message}`);
-  }
-}
-```
-
-Common causes:
-- `file.text.enabled` is `false`
-- File exceeds `maxBytes`
-- Extracted text is shorter than `minChars`
-- Media type / extension doesn't match supported types
-
-### Garbled text
-
-If extracted text looks wrong:
-- Check the file encoding—the extractor assumes UTF-8
-- Very old files might be in a different encoding
-- Binary files accidentally matched as text will produce garbage
+The extractor assumes UTF-8 encoding. Files in other encodings (Latin-1, Windows-1252, etc.) may produce garbled text. If you're processing legacy files with non-UTF-8 encoding, convert them to UTF-8 before ingestion.
 

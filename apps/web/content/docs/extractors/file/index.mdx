@@ -1,114 +1,114 @@
 ---
 title: File Extractors
-description: Extract searchable text from documents, spreadsheets, and text files.
+description: Extract searchable text from common document formats.
 ---
 
-The `file` asset kind handles generic file attachments—Word documents, PowerPoint presentations, Excel spreadsheets, and plain text files. These are common in knowledge bases, document repositories, and connector imports.
+File extractors handle the everyday documents that end up in knowledge bases—Word documents, Excel spreadsheets, PowerPoint presentations, and plain text files like markdown and JSON. These formats contain structured or semi-structured text that becomes valuable search content once extracted.
 
-Unrag routes files to the appropriate extractor based on the file's media type or filename extension. A `.docx` file goes to the Word extractor, a `.txt` file goes to the text extractor, and so on.
+The extraction approach is straightforward: parse the file format, pull out the text content, and pass it through your normal chunking and embedding pipeline. A Word document becomes searchable text. A spreadsheet becomes searchable rows. A slide deck becomes searchable slides.
 
 ## Available file extractors
 
-| Extractor | Handles | Best for |
+| Extractor | Formats | Best for |
 |-----------|---------|----------|
-| [file:text](/docs/extractors/file/text) | `.txt`, `.md`, `.html`, `.json`, `.csv` | Plain text and markup files |
-| [file:docx](/docs/extractors/file/docx) | `.docx` | Word documents |
-| [file:pptx](/docs/extractors/file/pptx) | `.pptx` | PowerPoint presentations |
-| [file:xlsx](/docs/extractors/file/xlsx) | `.xlsx` | Excel spreadsheets |
+| [file:text](/docs/extractors/file/text) | .txt, .md, .html, .json, .csv | Plain text files, configs, markdown docs |
+| [file:docx](/docs/extractors/file/docx) | .docx | Word documents |
+| [file:pptx](/docs/extractors/file/pptx) | .pptx | PowerPoint presentations |
+| [file:xlsx](/docs/extractors/file/xlsx) | .xlsx | Excel spreadsheets |
 
-## How file routing works
+Each extractor understands its file format and extracts text appropriately. A Word document's paragraphs become flowing text. A spreadsheet's rows become structured data. A presentation's slides stay organized.
 
-When you ingest a `kind: "file"` asset, Unrag looks at the media type and filename to decide which extractor to use:
+## Installation
 
-```ts
-// This will be routed to file:docx based on mediaType
-{
-  assetId: "quarterly-report",
-  kind: "file",
-  data: {
-    kind: "url",
-    url: "https://storage.example.com/reports/q3.docx",
-    mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  },
-}
-
-// This will be routed to file:text based on filename extension
-{
-  assetId: "readme",
-  kind: "file",
-  data: {
-    kind: "bytes",
-    bytes: readmeBytes,
-    mediaType: "application/octet-stream", // Unknown type
-    filename: "README.md", // Extension tells us it's markdown
-  },
-}
-```
-
-If no extractor matches the file type, the asset is skipped (and a warning is emitted).
-
-## Typical use cases
-
-**Document libraries**: Index Word documents, presentations, and spreadsheets from shared drives or document management systems.
-
-**Knowledge bases**: When teams export their documentation as downloadable files, extract the text and make it searchable alongside web content.
-
-**Notion imports**: Notion's file attachments appear as `kind: "file"` assets. Install the appropriate extractors to index attached Word docs, spreadsheets, and more.
-
-**Email attachments**: If you're indexing email, extract text from common attachment types so users can search for content inside attachments.
-
-## Quick start
-
-Install the extractors you need:
+Install the extractors for the file types you need:
 
 ```bash
-# For Word documents
-bunx unrag add extractor file-docx
-
-# For plain text, markdown, HTML, JSON, CSV
 bunx unrag add extractor file-text
-
-# For PowerPoint
+bunx unrag add extractor file-docx
 bunx unrag add extractor file-pptx
-
-# For Excel
 bunx unrag add extractor file-xlsx
 ```
 
-Then register them in your config:
+Register them in your config:
 
 ```ts
-import { createFileDocxExtractor } from "./lib/unrag/extractors/file-docx";
 import { createFileTextExtractor } from "./lib/unrag/extractors/file-text";
-import { createFilePptxExtractor } from "./lib/unrag/extractors/file-pptx";
-import { createFileXlsxExtractor } from "./lib/unrag/extractors/file-xlsx";
+import { createFileDocxExtractor } from "./lib/unrag/extractors/file-docx";
 
 export const unrag = defineUnragConfig({
   // ...
   engine: {
     // ...
     extractors: [
-      createFileDocxExtractor(),
       createFileTextExtractor(),
-      createFilePptxExtractor(),
-      createFileXlsxExtractor(),
+      createFileDocxExtractor(),
     ],
   },
 } as const);
 ```
 
-## What about PDFs?
+## Configuration
 
-PDFs use `kind: "pdf"`, not `kind: "file"`. They have their own dedicated extractors. See [PDF Extractors](/docs/extractors/pdf) for details.
+File extraction settings live under `assetProcessing.file`:
 
-## Quality expectations
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      file: {
+        text: {
+          enabled: true,
+          maxBytes: 5 * 1024 * 1024,
+        },
+        docx: {
+          enabled: true,
+          maxBytes: 50 * 1024 * 1024,
+        },
+        pptx: {
+          enabled: true,
+          includeNotes: true,
+        },
+        xlsx: {
+          enabled: true,
+          treatFirstRowAsHeader: true,
+          format: "text",
+        },
+      },
+    },
+  },
+} as const);
+```
 
-File extraction is **best-effort**. These extractors focus on getting text out of files, not perfect formatting:
+Each extractor has format-specific settings. PowerPoint lets you include or exclude speaker notes. Excel lets you choose how to format the extracted data. See each extractor's page for the full options.
 
-- **Word documents**: Extracts paragraph text. Complex layouts, tables, and embedded objects may lose structure.
-- **PowerPoint**: Extracts slide text. Notes and complex SmartArt may be incomplete.
-- **Excel**: Extracts cell values. Formulas show as their computed values, not the formula text.
-- **Text files**: Extracts as-is. HTML has tags stripped.
+## When to use file extractors vs. plain content
 
-For documents where formatting matters, consider whether the extracted text is sufficient for search, even if it wouldn't be suitable for display.
+If you're reading files yourself and passing their contents to `engine.ingest()`, you don't strictly need file extractors. You could read the file, extract text in your own code, and pass it as the `content` field.
+
+File extractors are useful when files arrive as assets—attached to documents from connectors, uploaded through your application, or referenced by URL. The connector delivers the file as an asset, and the extractor handles the format-specific parsing.
+
+File extractors also provide consistent metadata. Chunks from file extraction include `metadata.assetKind` and `metadata.extractor`, which helps you understand where content came from when debugging retrieval results.
+
+## Handling unsupported formats
+
+If a file arrives with a format no extractor handles, Unrag skips it and emits a warning. The warning includes the file's media type and extension, helping you identify what's being missed.
+
+```ts
+const result = await engine.ingest({
+  sourceId: "docs:mixed-content",
+  content: "Department files",
+  assets: [
+    { assetId: "doc1", kind: "file", data: { /* .docx - will extract */ } },
+    { assetId: "doc2", kind: "file", data: { /* .rtf - will skip */ } },
+  ],
+});
+
+for (const w of result.warnings) {
+  console.log(`Skipped: ${w.assetId} - ${w.message}`);
+}
+```
+
+You can add support for more formats by implementing custom extractors. The existing extractors provide examples of the pattern.
 

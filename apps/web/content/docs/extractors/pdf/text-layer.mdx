@@ -1,32 +1,19 @@
 ---
 title: "pdf:text-layer Extractor"
-description: Extract text from PDFs using the built-in text layer (fast/cheap).
+description: Extract text from PDFs using the built-in text layer.
 ---
 
 The `pdf:text-layer` extractor pulls text directly from a PDF's embedded text layer. When a document is "born digital"—created in Word, Google Docs, or any text-aware application—that text is stored in the PDF and can be extracted without any OCR or AI processing.
 
 This is the fastest and cheapest PDF extraction method. There are no API calls, no external dependencies, and it runs entirely in JavaScript. The tradeoff is that it only works well for PDFs that actually have embedded text.
 
-## When this works well
+## When text-layer works well
 
-Text layer extraction shines when your documents are:
+Text layer extraction is ideal for born-digital documents: reports, proposals, contracts, articles generated from text applications. These have clean text layers that extract quickly and accurately.
 
-- **Born-digital**: Created in word processors, exported to PDF
-- **Modern documents**: Reports, contracts, articles generated from text
-- **Clean layouts**: Single-column text without complex formatting
+It doesn't work for scanned documents or image-based PDFs where pages are essentially photographs. There's no text layer to extract. Some PDFs have partial text layers—a watermark or header but not the body content. These produce sparse output.
 
-You'll get fast, accurate extraction with zero cost per document.
-
-## When this doesn't work
-
-The text layer approach falls short when:
-
-- **Scanned documents**: Paper documents that were photographed/scanned have no text layer
-- **Image-based PDFs**: PDFs where pages are just images
-- **Complex layouts**: Multi-column, tables, or forms may extract in wrong order
-- **OCR'd PDFs with errors**: Some PDFs have OCR text layers with mistakes
-
-For these cases, pair `pdf:text-layer` with a fallback like `pdf:llm`.
+Complex layouts can also cause problems. Multi-column documents, sidebars, and text boxes may extract in unexpected reading order. The text layer doesn't guarantee logical reading sequence.
 
 ## Installation
 
@@ -50,8 +37,6 @@ export const unrag = defineUnragConfig({
 
 ## Configuration
 
-Enable and configure via `assetProcessing.pdf.textLayer`:
-
 ```ts
 export const unrag = defineUnragConfig({
   // ...
@@ -61,9 +46,9 @@ export const unrag = defineUnragConfig({
       pdf: {
         textLayer: {
           enabled: true,
-          maxBytes: 15 * 1024 * 1024,  // Skip files over 15MB
-          maxOutputChars: 200_000,      // Truncate very long output
-          minChars: 200,                // Fall back if less than 200 chars
+          maxBytes: 15 * 1024 * 1024,
+          maxOutputChars: 200_000,
+          minChars: 200,
         },
       },
     },
@@ -71,135 +56,62 @@ export const unrag = defineUnragConfig({
 } as const);
 ```
 
-### Configuration options
+**`maxBytes`** sets the maximum PDF file size to process.
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `enabled` | `false` | Whether to use text layer extraction |
-| `maxBytes` | `15MB` | Maximum PDF file size to process |
-| `maxOutputChars` | `200000` | Truncate extracted text beyond this |
-| `minChars` | `200` | Minimum chars to consider extraction successful |
+**`maxOutputChars`** truncates extracted text beyond this length.
 
-### The `minChars` threshold
+**`minChars`** is the minimum character count to consider extraction successful. Below this threshold, the extractor reports failure so the next extractor in the chain can try. This is how you implement fallback to LLM extraction for scanned documents.
 
-The `minChars` setting is key to the fallback behavior. When extraction produces fewer characters than this threshold, the extractor reports that it couldn't handle the document, allowing the next extractor in the chain to try.
+## The minChars threshold
 
-**Why this matters**: Some scanned PDFs have a tiny text layer—maybe a watermark or header text—but not the actual document content. Without `minChars`, these would "succeed" with just a few characters, and you'd never fall through to the LLM extractor.
+The `minChars` setting is key to fallback behavior. A scanned PDF might have a few dozen characters of embedded text—a watermark, page numbers, a header line. Without `minChars`, this would count as "successful" extraction, and you'd end up with a chunk containing just "CONFIDENTIAL" and some page numbers.
 
-A value of `200` works well for most cases. Adjust based on your documents:
+Setting `minChars: 200` means the extractor only claims success when it finds meaningful content. Documents with sparse text layers fall through to the LLM extractor.
 
-```ts
-// Stricter: require more text for success
-minChars: 500,
-
-// Lenient: accept sparse text layers
-minChars: 50,
-```
+The right threshold depends on your documents. For typical business documents, 200 characters works well. If you're processing shorter documents (single-page forms, for example), you might lower it.
 
 ## Usage with fallbacks
 
-The most common pattern is pairing `pdf:text-layer` with `pdf:llm`:
+The most common pattern pairs `pdf:text-layer` with `pdf:llm`:
 
 ```ts
-import { createPdfTextLayerExtractor } from "./lib/unrag/extractors/pdf-text-layer";
-import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
-
-export const unrag = defineUnragConfig({
-  // ...
-  engine: {
-    extractors: [
-      createPdfTextLayerExtractor(),  // Try text layer first
-      createPdfLlmExtractor(),        // Fall back to LLM
-    ],
-    assetProcessing: {
-      pdf: {
-        textLayer: {
-          enabled: true,
-          minChars: 200,  // Fall back if not enough text
-        },
-        llmExtraction: {
-          enabled: true,
-          model: "google/gemini-2.0-flash",
-        },
-      },
-    },
-  },
-} as const);
+extractors: [
+  createPdfTextLayerExtractor(),  // Try text layer first
+  createPdfLlmExtractor(),        // Fall back to LLM
+],
 ```
 
-With this setup:
-1. Digital PDFs extract instantly with text layer
-2. Scanned or complex PDFs fall through to LLM
-3. You get fast extraction when possible, quality when needed
+Digital PDFs extract instantly. Scanned or complex PDFs fall through to LLM. You get fast extraction when possible, quality when needed.
 
-## Example
-
-### Ingesting a digital PDF
+## Usage example
 
 ```ts
 import { readFile } from "node:fs/promises";
 
-const reportPdf = await readFile("./reports/quarterly-review.pdf");
+const pdfBytes = await readFile("./documents/quarterly-report.pdf");
 
-const result = await engine.ingest({
+await engine.ingest({
   sourceId: "reports:q3-2024",
-  content: "Q3 2024 Quarterly Review",
+  content: "Q3 2024 Quarterly Report",
   assets: [
     {
-      assetId: "quarterly-pdf",
+      assetId: "q3-report-pdf",
       kind: "pdf",
       data: {
         kind: "bytes",
-        bytes: new Uint8Array(reportPdf),
+        bytes: new Uint8Array(pdfBytes),
         mediaType: "application/pdf",
       },
     },
   ],
 });
-
-console.log(`Extracted ${result.chunkCount} chunks`);
-```
-
-## Chunk metadata
-
-Chunks from text layer extraction include:
-
-| Field | Value |
-|-------|-------|
-| `metadata.assetKind` | `"pdf"` |
-| `metadata.assetId` | Your provided ID |
-| `metadata.extractor` | `"pdf:text-layer"` |
-
-You can use this to identify how each chunk was extracted:
-
-```ts
-const results = await engine.retrieve({ query: "payment terms" });
-
-for (const chunk of results.chunks) {
-  if (chunk.metadata?.extractor === "pdf:text-layer") {
-    console.log("Extracted via text layer:", chunk.content);
-  }
-}
 ```
 
 ## Troubleshooting
 
-### Empty or garbled output
+If extraction produces empty or garbled output, open the PDF in a reader and try to select and copy text. If you can't select text, the PDF doesn't have a text layer and needs LLM or OCR extraction.
 
-**Check the source PDF**: Open it in a PDF reader and try to select/copy text. If you can't select text, the PDF doesn't have a text layer.
+If text extracts but in wrong order (paragraphs jumbled, columns mixed), the PDF has a text layer but with non-linear reading order. Complex layouts benefit from LLM extraction, which "reads" the document visually and interprets structure.
 
-**Check encoding issues**: Some older PDFs use custom fonts or encodings that don't extract cleanly. These are better handled by `pdf:llm`.
-
-### Text in wrong order
-
-Complex layouts (multi-column, sidebars, text boxes) may extract in an unexpected order because the text layer doesn't guarantee reading order. Consider using `pdf:llm` for documents with complex layouts.
-
-### Extraction succeeds but content is sparse
-
-If you're getting some text but not enough, check if:
-- The PDF has partial OCR (headers but not body text)
-- Content is in images or embedded objects
-- Text is in form fields (limited support)
-
-Increase `minChars` to ensure these fall through to a better extractor.
+If extraction succeeds but produces very little text despite a lengthy document, you may have hit a PDF with a partial text layer. Adjust `minChars` to ensure fallback kicks in.
 
