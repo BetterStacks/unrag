@@ -196,6 +196,7 @@ export const ingest = async (
               documentContent: storedDocumentContent,
               metadata: {
                 ...args.assetMeta,
+                ...(res?.metadata ?? {}),
                 extractor: ex.name,
                 extractorLabel: item.label,
                 ...(item.confidence !== undefined
@@ -203,7 +204,6 @@ export const ingest = async (
                   : {}),
                 ...(item.pageRange ? { extractorPageRange: item.pageRange } : {}),
                 ...(item.timeRangeSec ? { extractorTimeRangeSec: item.timeRangeSec } : {}),
-                ...(res?.metadata ? { extractorMeta: res.metadata } : {}),
               },
               embed: { kind: "text", text: c.content },
               storedContent: storeChunkContent ? c.content : "",
