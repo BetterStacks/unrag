@@ -15,7 +15,7 @@ import { createUnragEngine } from "@unrag/config";
 const engine = createUnragEngine();
 ```
 
-This function is generated when you run `unrag init`. It creates the embedding provider, initializes the database connection, constructs the store adapter, and assembles everything into a working engine. You can open `unrag.config.ts` to see exactly how it's built.
+This function is generated when you run `unrag@latest init`. It creates the embedding provider, initializes the database connection, constructs the store adapter, and assembles everything into a working engine. You can open `unrag.config.ts` to see exactly how it's built.
 
 If you need multiple engine instances with different configurations (for example, different embedding models for different content types), you can create them by calling `createContextEngine()` directly with your own configuration:
 

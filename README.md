@@ -43,7 +43,7 @@ Then in any project:
 
 ```bash
 bun link unrag
-bunx unrag init
+bunx unrag@latest init
 ```
 
 ## Releases (Changesets)

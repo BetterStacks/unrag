@@ -3,13 +3,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findUp, tryFindProjectRoot } from "../lib/fs";
 import { readJsonFile, writeJsonFile } from "../lib/json";
-import { copyConnectorFiles } from "../lib/registry";
+import { copyConnectorFiles, copyExtractorFiles } from "../lib/registry";
 import {
   depsForConnector,
+  depsForExtractor,
   mergeDeps,
   readPackageJson,
   writePackageJson,
   type ConnectorName,
+  type ExtractorName,
 } from "../lib/packageJson";
 import { docsUrl } from "../lib/constants";
 
@@ -19,6 +21,7 @@ type InitConfig = {
   aliasBase?: string;
   version: number;
   connectors?: string[];
+  extractors?: string[];
 };
 
 const CONFIG_FILE = "unrag.json";
@@ -27,7 +30,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 type ParsedAddArgs = {
-  connector?: string;
+  kind?: "connector" | "extractor";
+  name?: string;
   yes?: boolean;
 };
 
@@ -40,8 +44,20 @@ const parseAddArgs = (args: string[]): ParsedAddArgs => {
       out.yes = true;
       continue;
     }
-    if (!out.connector && a && !a.startsWith("-")) {
-      out.connector = a;
+
+    if (!out.kind && a && !a.startsWith("-")) {
+      if (a === "extractor") {
+        out.kind = "extractor";
+        continue;
+      }
+      // Backwards-compatible default: `unrag add <connector>`
+      out.kind = "connector";
+      out.name = a;
+      continue;
+    }
+
+    if (out.kind === "extractor" && !out.name && a && !a.startsWith("-")) {
+      out.name = a;
       continue;
     }
   }
@@ -56,22 +72,27 @@ export async function addCommand(args: string[]) {
   }
 
   const parsed = parseAddArgs(args);
-  const connector = parsed.connector as ConnectorName | undefined;
+  const kind = parsed.kind ?? "connector";
+  const name = parsed.name;
 
-  if (!connector) {
-    outro("Usage: unrag add <connector>\n\nAvailable connectors: notion");
-    return;
-  }
-
-  if (connector !== "notion") {
-    outro(`Unknown connector: ${connector}\n\nAvailable connectors: notion`);
+  if (!name) {
+    outro(
+      [
+        "Usage:",
+        "  unrag add <connector>",
+        "  unrag add extractor <name>",
+        "",
+        "Available connectors: notion",
+        "Available extractors: pdf-llm",
+      ].join("\n")
+    );
     return;
   }
 
   const configPath = path.join(root, CONFIG_FILE);
   const config = await readJsonFile<InitConfig>(configPath);
   if (!config?.installDir) {
-    throw new Error(`Missing ${CONFIG_FILE}. Run \`unrag init\` first.`);
+    throw new Error(`Missing ${CONFIG_FILE}. Run \`unrag@latest init\` first.`);
   }
 
   const cliPackageRoot = await findUp(__dirname, "package.json");
@@ -82,40 +103,94 @@ export async function addCommand(args: string[]) {
 
   const nonInteractive = parsed.yes || !process.stdin.isTTY;
 
-  await copyConnectorFiles({
+  const pkg = await readPackageJson(root);
+
+  if (kind === "connector") {
+    const connector = name as ConnectorName | undefined;
+    if (connector !== "notion") {
+      outro(`Unknown connector: ${name}\n\nAvailable connectors: notion`);
+      return;
+    }
+
+    await copyConnectorFiles({
+      projectRoot: root,
+      registryRoot,
+      installDir: config.installDir,
+      connector,
+      yes: nonInteractive,
+    });
+
+    const { deps, devDeps } = depsForConnector(connector);
+    const merged = mergeDeps(pkg, deps, devDeps);
+    if (merged.changes.length > 0) {
+      await writePackageJson(root, merged.pkg);
+    }
+
+    const connectors = Array.from(
+      new Set([...(config.connectors ?? []), connector])
+    ).sort();
+
+    await writeJsonFile(configPath, { ...config, connectors });
+
+    outro(
+      [
+        `Installed connector: ${connector}.`,
+        "",
+        `- Code: ${path.join(config.installDir, "connectors", connector)}`,
+        `- Docs: ${docsUrl(`/docs/connectors/${connector}`)}`,
+        "",
+        merged.changes.length > 0
+          ? `Added deps: ${merged.changes.map((c) => c.name).join(", ")}`
+          : "Added deps: none",
+        nonInteractive
+          ? ""
+          : "Tip: keep NOTION_TOKEN server-side only (env var).",
+      ]
+        .filter(Boolean)
+        .join("\n")
+    );
+
+    return;
+  }
+
+  // Extractors
+  const extractor = name as ExtractorName | undefined;
+  if (extractor !== "pdf-llm") {
+    outro(`Unknown extractor: ${name}\n\nAvailable extractors: pdf-llm`);
+    return;
+  }
+
+  await copyExtractorFiles({
     projectRoot: root,
     registryRoot,
     installDir: config.installDir,
-    connector,
+    extractor,
     yes: nonInteractive,
   });
 
-  const pkg = await readPackageJson(root);
-  const { deps, devDeps } = depsForConnector(connector);
+  const { deps, devDeps } = depsForExtractor(extractor);
   const merged = mergeDeps(pkg, deps, devDeps);
   if (merged.changes.length > 0) {
     await writePackageJson(root, merged.pkg);
   }
 
-  const connectors = Array.from(
-    new Set([...(config.connectors ?? []), connector])
+  const extractors = Array.from(
+    new Set([...(config.extractors ?? []), extractor])
   ).sort();
 
-  await writeJsonFile(configPath, { ...config, connectors });
+  await writeJsonFile(configPath, { ...config, extractors });
 
   outro(
     [
-      `Installed connector: ${connector}.`,
+      `Installed extractor: ${extractor}.`,
       "",
-      `- Code: ${path.join(config.installDir, "connectors", connector)}`,
-      `- Docs: ${docsUrl(`/docs/connectors/${connector}`)}`,
+      `- Code: ${path.join(config.installDir, "extractors", extractor)}`,
       "",
       merged.changes.length > 0
         ? `Added deps: ${merged.changes.map((c) => c.name).join(", ")}`
         : "Added deps: none",
-      nonInteractive
-        ? ""
-        : "Tip: keep NOTION_TOKEN server-side only (env var).",
+      "",
+      `Next: import the extractor and pass it to createContextEngine({ extractors: [...] }).`,
     ]
       .filter(Boolean)
       .join("\n")

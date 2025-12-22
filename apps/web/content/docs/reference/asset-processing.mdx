@@ -27,6 +27,10 @@ Common warning causes:
 
 For the full warning type, see [IngestWarning](/docs/reference/core-types#ingestwarning).
 
+<Callout>
+If you run Unrag on Next.js (especially Vercel serverless), prefer running extraction in background jobs with retries.\nSee the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe).
+</Callout>
+
 ## AssetProcessingConfig
 
 The main configuration type for asset processing. Set this on your engine config or override per-ingest.
@@ -38,6 +42,14 @@ type AssetProcessingConfig = {
 
   /** What to do when asset processing throws an error. */
   onError: "skip" | "fail";
+
+  /** Max number of assets to process concurrently (bounded). */
+  concurrency: number;
+
+  /** Optional structured event hooks for observability. */
+  hooks?: {
+    onEvent?: (event: AssetProcessingEvent) => void;
+  };
 
   /** Settings for fetching URL-based assets. */
   fetch: FetchConfig;
@@ -60,6 +72,18 @@ type AssetProcessingConfig = {
       description: 'What happens when asset processing throws an error (network failure, extraction timeout, etc.). "skip" continues without that asset; "fail" propagates the error.',
       type: '"skip" | "fail"',
       default: '"skip"',
+    },
+    concurrency: {
+      description:
+        "Max number of assets to process concurrently (extraction + fetch I/O). Use this to bound parallelism and cost.",
+      type: "number",
+      default: "4",
+    },
+    hooks: {
+      description:
+        "Optional structured event hooks (asset:start, extractor:start, extractor:success/error, asset:skipped). Useful for logging/metrics.",
+      type: "{ onEvent?: (event: AssetProcessingEvent) => void }",
+      default: "undefined",
     },
     fetch: {
       description: 'Settings for fetching assets from URLs.',

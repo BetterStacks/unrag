@@ -1,5 +1,5 @@
 import { deleteDocuments } from "./delete";
-import { ingest } from "./ingest";
+import { ingest, planIngest } from "./ingest";
 import { retrieve } from "./retrieve";
 import { defineConfig, resolveConfig } from "./config";
 import type {
@@ -7,6 +7,7 @@ import type {
   DeleteInput,
   IngestInput,
   IngestResult,
+  IngestPlanResult,
   ResolvedContextEngineConfig,
   RetrieveInput,
   RetrieveResult,
@@ -21,6 +22,16 @@ export class ContextEngine {
 
   async ingest(input: IngestInput): Promise<IngestResult> {
     return ingest(this.config, input);
+  }
+
+  /**
+   * Dry-run for ingestion. Returns which assets would be processed and by which extractors,
+   * without calling external services.
+   *
+   * Note: chunk counts/embeddings are not produced in dry-run.
+   */
+  async planIngest(input: IngestInput): Promise<IngestPlanResult> {
+    return planIngest(this.config, input);
   }
 
   async retrieve(input: RetrieveInput): Promise<RetrieveResult> {

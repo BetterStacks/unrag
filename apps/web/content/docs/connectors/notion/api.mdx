@@ -67,6 +67,10 @@ await syncNotionPages({
 
 This lower-level helper loads a single page and returns a normalized document shape with `sourceId`, `content`, `metadata`, and `assets`. Use it when you want to add custom metadata, control chunking, or decide exactly how ingestion happens (batching, retries, conditional writes).
 
+<Callout>
+Notion file URLs are signed and can expire. For production ingestion (especially with PDF extraction), prefer a background job pattern so you can retry safely. See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe).
+</Callout>
+
 Here's an example that adds custom metadata before ingesting:
 
 ```ts

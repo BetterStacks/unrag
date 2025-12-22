@@ -10,7 +10,7 @@ Installing Unrag is a one-command operation. You run the initializer, answer a f
 The simplest invocation is interactive:
 
 ```bash
-bunx unrag init
+bunx unrag@latest init
 ```
 
 This will prompt you for:
@@ -24,7 +24,7 @@ This will prompt you for:
 If you want to skip the prompts—useful in CI or when scripting—pass the `--yes` flag along with your choices:
 
 ```bash
-bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
+bunx unrag@latest init --yes --store drizzle --dir lib/unrag --alias @unrag
 ```
 
 ## What the CLI creates
@@ -59,7 +59,7 @@ After initialization completes, your project will have several new files:
 
 **`lib/unrag/unrag.md`** contains setup documentation specific to your choices—the exact SQL schema, environment variables, and adapter notes.
 
-**`unrag.json`** records your installation choices for future `unrag init` runs.
+**`unrag.json`** records your installation choices for future `unrag@latest init` runs.
 
 ## Changes to existing files
 
@@ -113,7 +113,7 @@ yarn
 
 Because Unrag vendors code into your project, "updating" means re-running the initializer. The CLI will ask before overwriting any existing files, so you can review changes before accepting them. A typical update workflow:
 
-1. Run `bunx unrag init` (it reads your previous choices from `unrag.json`)
+1. Run `bunx unrag@latest init` (it reads your previous choices from `unrag.json`)
 2. Review the diff for any files the CLI wants to overwrite
 3. Accept or reject file-by-file
 4. Run your tests to make sure everything still works

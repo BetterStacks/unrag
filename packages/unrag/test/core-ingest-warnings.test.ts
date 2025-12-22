@@ -22,9 +22,12 @@ describe("core ingest warnings", () => {
         return [{ index: 0, content: text, tokenCount: text.split(/\s+/).filter(Boolean).length }];
       },
       idGenerator: () => "id",
+      extractors: [],
+      storage: { storeChunkContent: true, storeDocumentContent: true },
       assetProcessing: {
         onUnsupportedAsset: "skip",
         onError: "skip",
+        concurrency: 1,
         fetch: { enabled: true, maxBytes: 15 * 1024 * 1024, timeoutMs: 20_000 },
         pdf: {
           llmExtraction: {

@@ -5,6 +5,7 @@
  * - Embedding provider/model/timeouts
  * - Chunking defaults
  * - Retrieval defaults
+ * - Optional extractor modules (PDF/OCR/transcription/etc)
  * - How you construct your DB client (Pool/Prisma/etc)
  *
  * The files under your install dir (e.g. `lib/unrag/**`) are intended to be
@@ -42,11 +43,15 @@ export const unragConfig = {
    * Notes:
    * - The library defaults are cost-safe (PDF LLM extraction is off).
    * - This generated config opts you into PDF extraction for convenience.
+   * - To actually extract PDFs, install and register a PDF extractor module:
+   *   - `unrag add extractor pdf-llm`
+   *   - import it in this file and add it to the `extractors` array in createUnragEngine()
    * - Tighten fetch allowlists/limits in production if you ingest URL-based assets.
    */
   assetProcessing: {
     onUnsupportedAsset: "skip",
     onError: "skip",
+    concurrency: 4,
     fetch: {
       enabled: true,
       maxBytes: 15 * 1024 * 1024,

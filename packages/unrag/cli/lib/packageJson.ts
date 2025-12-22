@@ -102,6 +102,21 @@ export function depsForConnector(connector: ConnectorName) {
   return { deps, devDeps };
 }
 
+export type ExtractorName = "pdf-llm";
+
+export function depsForExtractor(extractor: ExtractorName) {
+  const deps: Record<string, string> = {};
+  const devDeps: Record<string, string> = {};
+
+  // pdf-llm uses the AI SDK which is already installed by `unrag init`,
+  // but keep this here in case extractor installs are used independently later.
+  if (extractor === "pdf-llm") {
+    deps["ai"] = "^5.0.113";
+  }
+
+  return { deps, devDeps };
+}
+
 export function installCmd(pm: PackageManager) {
   if (pm === "bun") return "bun install";
   if (pm === "pnpm") return "pnpm install";

@@ -88,12 +88,17 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
     `    model: unragConfig.embedding.model,`,
     `    timeoutMs: unragConfig.embedding.timeoutMs,`,
     `  });`,
+    ``,
+    `  // Optional extractor modules (installed via \`unrag add extractor <name>\`).`,
+    `  // Add extractor imports above and include them in this array.`,
+    `  const extractors = [];`,
     ...storeCreateLines,
     ``,
     `  return createContextEngine(`,
     `    defineConfig({`,
     `      embedding,`,
     `      store,`,
+      `      extractors,`,
     `      storage: unragConfig.storage,`,
     `      assetProcessing: unragConfig.assetProcessing,`,
     `      defaults: unragConfig.chunking,`,
@@ -208,10 +213,6 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
     {
       src: path.join(selection.registryRoot, "core/ingest.ts"),
       dest: path.join(installBaseAbs, "core/ingest.ts"),
-    },
-    {
-      src: path.join(selection.registryRoot, "core/pdf-llm.ts"),
-      dest: path.join(installBaseAbs, "core/pdf-llm.ts"),
     },
     {
       src: path.join(selection.registryRoot, "core/retrieve.ts"),
@@ -353,6 +354,72 @@ export async function copyConnectorFiles(selection: ConnectorSelection) {
     }
 
     const rel = path.relative(connectorRegistryAbs, src);
+    const dest = path.join(destRootAbs, rel);
+
+    if (await exists(dest)) {
+      if (nonInteractive) {
+        continue;
+      }
+
+      const answer = await confirm({
+        message: `Overwrite ${path.relative(selection.projectRoot, dest)}?`,
+        initialValue: false,
+      });
+      if (isCancel(answer)) {
+        cancel("Cancelled.");
+        return;
+      }
+      if (!answer) {
+        continue;
+      }
+    }
+
+    const raw = await readText(src);
+    await writeText(dest, raw);
+  }
+}
+
+export type ExtractorSelection = {
+  projectRoot: string;
+  registryRoot: string;
+  installDir: string; // project-relative posix
+  extractor: string; // e.g. "pdf-llm"
+  yes?: boolean; // non-interactive skip-overwrite
+};
+
+export async function copyExtractorFiles(selection: ExtractorSelection) {
+  const toAbs = (projectRelative: string) =>
+    path.join(selection.projectRoot, projectRelative);
+
+  const installBaseAbs = toAbs(selection.installDir);
+  const extractorRegistryAbs = path.join(
+    selection.registryRoot,
+    "extractors",
+    selection.extractor
+  );
+
+  if (!(await exists(extractorRegistryAbs))) {
+    throw new Error(
+      `Unknown extractor registry: ${path.relative(selection.registryRoot, extractorRegistryAbs)}`
+    );
+  }
+
+  const files = await listFilesRecursive(extractorRegistryAbs);
+
+  const destRootAbs = path.join(
+    installBaseAbs,
+    "extractors",
+    selection.extractor
+  );
+
+  const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY;
+
+  for (const src of files) {
+    if (!(await exists(src))) {
+      throw new Error(`Registry file missing: ${src}`);
+    }
+
+    const rel = path.relative(extractorRegistryAbs, src);
     const dest = path.join(destRootAbs, rel);
 
     if (await exists(dest)) {

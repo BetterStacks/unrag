@@ -68,6 +68,20 @@ assetProcessing: {
 },
 ```
 
+### Installing the PDF extractor (required)
+
+Enabling `pdf.llmExtraction.enabled` controls *whether PDFs should be processed*, but the actual extraction work is performed by an **extractor module**.
+
+Install the Gemini PDF extractor:
+
+```bash
+bunx unrag add extractor pdf-llm --yes
+```
+
+Then register it in `createUnragEngine()` by importing it and adding it to the engine’s `extractors` array.
+
+If you enable PDF extraction but don’t install/register a PDF extractor, ingestion will emit warnings so you don’t silently miss content.
+
 ### What to expect
 
 When PDF extraction is enabled:
@@ -156,6 +170,16 @@ assetProcessing: {
 ```
 
 This is useful when you want to guarantee nothing is silently dropped.
+
+## Next.js production recipe
+
+For production on Vercel, run extraction in a background job (QStash/BullMQ/Inngest) instead of in a single request:
+
+<Cards>
+  <Card title="Next.js Production Recipe" href="/docs/guides/nextjs-production-recipe">
+    Reliable extraction + ingestion on Vercel with retries and observability
+  </Card>
+</Cards>
 
 ## Working with connectors
 
