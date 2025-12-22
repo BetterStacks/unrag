@@ -1,6 +1,7 @@
 {
   "name": "unrag",
   "type": "module",
+  "repository": "https://github.com/BetterStacks/unrag",
   "bin": {
     "unrag": "./dist/cli/index.js"
   },
