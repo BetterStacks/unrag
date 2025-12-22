@@ -158,11 +158,135 @@ export type AssetProcessingConfig = {
   onUnsupportedAsset: AssetPolicy;
   /** What to do when processing an asset fails (fetch/LLM errors). */
   onError: AssetPolicy;
+  /**
+   * Bounded concurrency for asset processing (extraction + any I/O).
+   * This does not affect text chunking/embedding batching.
+   */
+  concurrency: number;
+  /**
+   * Optional hooks for observability (structured events).
+   * Prefer this over ad-hoc logging inside extractors.
+   */
+  hooks?: {
+    onEvent?: (event: AssetProcessingEvent) => void;
+  };
   /** Network fetch settings for URL-based assets. */
   fetch: AssetFetchConfig;
   pdf: {
     llmExtraction: PdfLlmExtractionConfig;
   };
+};
+
+export type AssetProcessingEvent =
+  | {
+      type: "asset:start";
+      sourceId: string;
+      documentId: string;
+      assetId: string;
+      assetKind: AssetKind;
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | ({
+      type: "asset:skipped";
+      sourceId: string;
+      documentId: string;
+    } & IngestWarning)
+  | {
+      type: "extractor:start";
+      sourceId: string;
+      documentId: string;
+      assetId: string;
+      assetKind: AssetKind;
+      extractor: string;
+    }
+  | {
+      type: "extractor:success";
+      sourceId: string;
+      documentId: string;
+      assetId: string;
+      assetKind: AssetKind;
+      extractor: string;
+      durationMs: number;
+      textItemCount: number;
+    }
+  | {
+      type: "extractor:error";
+      sourceId: string;
+      documentId: string;
+      assetId: string;
+      assetKind: AssetKind;
+      extractor: string;
+      durationMs: number;
+      errorMessage: string;
+    };
+
+export type ExtractedTextItem = {
+  /**
+   * A label describing the extraction output (e.g. \"fulltext\", \"ocr\", \"transcript\").
+   * Used only for metadata/debugging.
+   */
+  label: string;
+  /** Extracted text content. This will be chunked and embedded as normal text. */
+  content: string;
+  confidence?: number;
+  /**
+   * Optional range metadata produced by the extractor.
+   * This is stored in chunk metadata (if provided) for traceability.
+   */
+  pageRange?: [number, number];
+  timeRangeSec?: [number, number];
+};
+
+export type AssetExtractorResult = {
+  texts: ExtractedTextItem[];
+  /**
+   * Extractor-produced metadata merged into chunk metadata.
+   * Useful for things like detected language, page count, etc.
+   */
+  metadata?: Metadata;
+  diagnostics?: {
+    model?: string;
+    tokens?: number;
+    seconds?: number;
+  };
+};
+
+export type AssetExtractorContext = {
+  sourceId: string;
+  documentId: string;
+  documentMetadata: Metadata;
+  /** Engine-resolved asset processing config (defaults + overrides). */
+  assetProcessing: AssetProcessingConfig;
+};
+
+export type AssetExtractor = {
+  /** Stable name used in metadata and routing (e.g. \"pdf:llm\"). */
+  name: string;
+  /** Whether this extractor can handle a given asset input. */
+  supports: (args: { asset: AssetInput; ctx: AssetExtractorContext }) => boolean;
+  /** Extract text outputs from the asset. */
+  extract: (args: {
+    asset: AssetInput;
+    ctx: AssetExtractorContext;
+  }) => Promise<AssetExtractorResult>;
+};
+
+export type AssetProcessingPlanItem =
+  | ({
+      status: "will_process";
+      extractors: string[];
+    } & Pick<AssetInput, "assetId" | "kind" | "uri">)
+  | ({
+      status: "will_skip";
+      reason: IngestWarning["code"];
+    } & Pick<AssetInput, "assetId" | "kind" | "uri">);
+
+export type IngestPlanResult = {
+  documentId: string;
+  sourceId: string;
+  assets: AssetProcessingPlanItem[];
+  warnings: IngestWarning[];
 };
 
 /**
@@ -348,6 +472,12 @@ export type ContextEngineConfig = {
   chunker?: Chunker;
   idGenerator?: () => string;
   /**
+   * Optional extractor modules that can process non-text assets into text outputs.
+   * These are typically installed via `unrag add extractor <name>` and imported
+   * from your vendored module directory.
+   */
+  extractors?: AssetExtractor[];
+  /**
    * Controls whether Unrag persists chunk/document text into the database.
    * Defaults to storing both.
    */
@@ -365,6 +495,7 @@ export type ResolvedContextEngineConfig = {
   defaults: ChunkingOptions;
   chunker: Chunker;
   idGenerator: () => string;
+  extractors: AssetExtractor[];
   storage: ContentStorageConfig;
   assetProcessing: AssetProcessingConfig;
 };

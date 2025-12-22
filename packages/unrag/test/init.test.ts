@@ -24,7 +24,7 @@ async function pathExists(p: string) {
   }
 }
 
-describe("unrag init", () => {
+describe("unrag@latest init", () => {
   let runDir: string;
   let originalCwd: string;
 
@@ -55,7 +55,6 @@ describe("unrag init", () => {
     expect(await pathExists(path.join(runDir, "unrag.config.ts"))).toBe(true);
     expect(await pathExists(path.join(runDir, "lib/unrag", "unrag.md"))).toBe(true);
     expect(await pathExists(path.join(runDir, "lib/unrag/core/delete.ts"))).toBe(true);
-    expect(await pathExists(path.join(runDir, "lib/unrag/core/pdf-llm.ts"))).toBe(true);
 
     expect(
       await pathExists(

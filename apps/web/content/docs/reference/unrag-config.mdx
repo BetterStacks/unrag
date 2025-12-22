@@ -3,7 +3,7 @@ title: unrag.config.ts Reference
 description: The generated configuration file and how to customize it.
 ---
 
-The `unrag.config.ts` file is the central place to configure Unrag. It's generated when you run `unrag init` and contains everything needed to construct a working engine: database connection, embedding provider, and default settings.
+The `unrag.config.ts` file is the central place to configure Unrag. It's generated when you run `unrag@latest init` and contains everything needed to construct a working engine: database connection, embedding provider, and default settings.
 
 ## Structure overview
 
@@ -36,6 +36,7 @@ export const unragConfig = {
   assetProcessing: {
     onUnsupportedAsset: "skip",
     onError: "skip",
+    concurrency: 4,
     fetch: { enabled: true, maxBytes: 15 * 1024 * 1024, timeoutMs: 20_000 },
     pdf: {
       llmExtraction: {
@@ -57,6 +58,12 @@ export function createUnragEngine() {
     timeoutMs: unragConfig.embedding.timeoutMs,
   });
 
+  // Optional extractor modules (installed via `unrag add extractor <name>`).
+  // Example:
+  // import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
+  // const extractors = [createPdfLlmExtractor()];
+  const extractors = [];
+
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
 
@@ -73,6 +80,7 @@ export function createUnragEngine() {
       embedding,
       store,
       storage: unragConfig.storage,
+      extractors,
       assetProcessing: unragConfig.assetProcessing,
       defaults: unragConfig.chunking,
     })
@@ -183,6 +191,18 @@ Controls how PDFs, images, and other rich media are processed during ingestion. 
       type: '"skip" | "fail"',
       default: '"skip"',
     },
+    concurrency: {
+      description:
+        "Max number of assets to process concurrently (extraction + fetch I/O). Use this to bound parallelism and cost.",
+      type: "number",
+      default: "4",
+    },
+    hooks: {
+      description:
+        "Optional structured event hook for observability (asset/extractor start/success/error).",
+      type: "{ onEvent?: (event: AssetProcessingEvent) => void }",
+      default: "undefined",
+    },
     fetch: {
       description: 'URL fetching settings: enabled, maxBytes, timeoutMs, allowedHosts.',
       type: 'FetchConfig',
@@ -197,8 +217,56 @@ Controls how PDFs, images, and other rich media are processed during ingestion. 
 />
 
 <Callout>
-The generated template sets `pdf.llmExtraction.enabled: true` so new projects work with PDFs out of the box. Set it to `false` if you want text-only ingestion or need to control costs.
+The generated template sets `pdf.llmExtraction.enabled: true`, but PDF extraction is performed by an extractor module. Install and register `pdf-llm` (or another PDF extractor) to actually process PDFs. If no extractor is registered, ingestion emits warnings so you don't miss content silently.
 </Callout>
+
+### extractors
+
+The `extractors` array holds extractor module instances that process rich media assets. Extractors are installed via the CLI and then registered here.
+
+```ts
+import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
+
+export function createUnragEngine() {
+  // ...
+  const extractors = [
+    createPdfLlmExtractor(),
+    // Add more extractors as you install them
+  ];
+
+  return createContextEngine(
+    defineConfig({
+      embedding,
+      store,
+      extractors,  // Register here
+      assetProcessing: unragConfig.assetProcessing,
+      // ...
+    })
+  );
+}
+```
+
+#### Installing extractors
+
+Use the CLI to install extractor modules:
+
+```bash
+bunx unrag add extractor pdf-llm
+```
+
+This copies the extractor source to `lib/unrag/extractors/pdf-llm/` and adds dependencies.
+
+#### Available extractors
+
+| Module | Extractor name | Description |
+|--------|----------------|-------------|
+| `pdf-llm` | `pdf:llm` | Extract text from PDFs using an LLM (Gemini by default) |
+
+<Callout type="info">
+Image handling (`image:embed`, `image:caption`) is built into the core engine—no extractor module needed. Configure via your embedding provider's `type` setting.
+</Callout>
+
+See [Extractors Overview](/docs/extractors) for details on all available extractors and how to create custom ones.
 
 ## The createUnragEngine function
 

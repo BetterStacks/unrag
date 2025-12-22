@@ -5,6 +5,38 @@ description: Extract text from PDFs using a vision-capable LLM.
 
 The `pdf:llm` extractor sends PDF files to a vision-capable LLM (like Google's Gemini) to extract readable text. The LLM "reads" the PDF visually and outputs plain text or markdown, which Unrag then chunks and embeds like normal text content.
 
+## Installation
+
+Install the extractor module via CLI:
+
+```bash
+bunx unrag add extractor pdf-llm
+```
+
+Then register it in your `unrag.config.ts`:
+
+```ts
+import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
+
+export function createUnragEngine() {
+  const extractors = [createPdfLlmExtractor()];
+
+  return createContextEngine(
+    defineConfig({
+      embedding,
+      store,
+      extractors,
+      assetProcessing: unragConfig.assetProcessing,
+      // ...
+    })
+  );
+}
+```
+
+<Callout>
+Without installing and registering the extractor, PDF assets will be skipped during ingestion (with warnings emitted).
+</Callout>
+
 ## How it works
 
 1. PDF bytes are sent to the configured LLM as a file attachment

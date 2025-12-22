@@ -5,6 +5,7 @@
     "ingest-from-filesystem",
     "ingest-rich-media",
     "configure-asset-processing",
+    "nextjs-production-recipe",
     "reindexing",
     "multi-tenant",
     "use-with-chat"

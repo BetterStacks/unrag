@@ -98,8 +98,8 @@ export default function HomePage() {
           <div className="unrag-reveal my-6 flex justify-center" style={reveal(280)}>
             <div className="inline-flex items-center gap-3 px-5 py-3 rounded-lg bg-white/5 border border-white/10 backdrop-blur font-mono text-sm">
               <span className="text-white/55">$</span>
-              <span className="text-white">bunx unrag init</span>
-              <CopyButton text="bunx unrag init" />
+              <span className="text-white">bunx unrag@latest init</span>
+              <CopyButton text="bunx unrag@latest init" />
             </div>
           </div>
 
@@ -176,8 +176,8 @@ export default function HomePage() {
 
           <div className="inline-flex items-center gap-3 px-5 py-3 rounded-lg bg-[var(--color-fd-card)] border border-[var(--color-fd-border)] font-mono text-sm">
             <span className="text-[var(--color-fd-muted-foreground)]">$</span>
-            <span className="text-[var(--color-fd-foreground)]">bunx unrag init</span>
-            <CopyButton text="bunx unrag init" />
+            <span className="text-[var(--color-fd-foreground)]">bunx unrag@latest init</span>
+            <CopyButton text="bunx unrag@latest init" />
           </div>
 
           <div className="mt-8 flex flex-wrap gap-4 justify-center">

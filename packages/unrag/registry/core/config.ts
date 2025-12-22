@@ -18,6 +18,10 @@ const DEFAULT_PDF_LLM_MODEL = "google/gemini-2.0-flash";
 export const defaultAssetProcessingConfig: AssetProcessingConfig = {
   onUnsupportedAsset: "skip",
   onError: "skip",
+  concurrency: 4,
+  hooks: {
+    onEvent: undefined,
+  },
   fetch: {
     enabled: true,
     allowedHosts: undefined,
@@ -88,6 +92,7 @@ export const resolveConfig = (
     defaults: resolveChunkingOptions(config.defaults),
     chunker,
     idGenerator: config.idGenerator ?? defaultIdGenerator,
+    extractors: config.extractors ?? [],
     storage: resolveContentStorageConfig(config.storage),
     assetProcessing: resolveAssetProcessingConfig(config.assetProcessing),
   };

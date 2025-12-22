@@ -1,6 +1,6 @@
 ---
 title: CLI Reference
-description: Complete reference for the unrag init command and its options.
+description: Complete reference for the unrag@latest init command and its options.
 ---
 
 Unrag is installed through a single CLI command that generates all the necessary files and configuration. This reference covers every option and behavior.
@@ -8,7 +8,7 @@ Unrag is installed through a single CLI command that generates all the necessary
 ## Basic usage
 
 ```bash
-bunx unrag init
+bunx unrag@latest init
 ```
 
 Running without arguments starts an interactive prompt that asks for your preferences. For CI/CD or scripted setups, pass flags to skip the prompts.
@@ -18,10 +18,53 @@ Running without arguments starts an interactive prompt that asks for your prefer
 Install a connector into an existing Unrag installation:
 
 ```bash
-bunx unrag add notion
+bunx unrag add connector notion
 ```
 
 This installs vendored connector source files under your Unrag install directory (e.g. `lib/unrag/connectors/notion`) and adds connector-specific dependencies to your project.
+
+## Adding an extractor
+
+Install an extractor module for processing rich media assets:
+
+```bash
+bunx unrag add extractor pdf-llm
+```
+
+This installs the extractor source files under `lib/unrag/extractors/<name>` and adds any required dependencies.
+
+### Available extractors
+
+| Name | Description | Dependencies |
+|------|-------------|--------------|
+| `pdf-llm` | Extract text from PDFs using an LLM (Gemini by default) | `ai`, `@ai-sdk/google` |
+
+### Registering extractors
+
+After installing, you need to register the extractor in your `unrag.config.ts`:
+
+```ts
+import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
+
+export function createUnragEngine() {
+  // ...
+  const extractors = [createPdfLlmExtractor()];
+
+  return createContextEngine(
+    defineConfig({
+      embedding,
+      store,
+      extractors, // Register here
+      assetProcessing: unragConfig.assetProcessing,
+      // ...
+    })
+  );
+}
+```
+
+<Callout>
+Without registering the extractor, assets of that type will be skipped during ingestion (with warnings emitted). This is by design—you explicitly opt into extraction capabilities.
+</Callout>
 
 ## Command flags
 
@@ -30,7 +73,7 @@ This installs vendored connector source files under your Unrag install directory
 Skip interactive prompts and use defaults (or values from an existing `unrag.json` file). This is essential for automated pipelines.
 
 ```bash
-bunx unrag init --yes
+bunx unrag@latest init --yes
 ```
 
 **`--store <adapter>`**
@@ -42,7 +85,7 @@ Choose which database adapter to install. Options are:
 - `raw-sql` — Direct `pg` driver usage
 
 ```bash
-bunx unrag init --store drizzle
+bunx unrag@latest init --store drizzle
 ```
 
 **`--dir <path>` or `--install-dir <path>`**
@@ -50,7 +93,7 @@ bunx unrag init --store drizzle
 Set where the vendored module code is installed, relative to your project root. The default is `lib/unrag`.
 
 ```bash
-bunx unrag init --dir src/lib/unrag
+bunx unrag@latest init --dir src/lib/unrag
 ```
 
 **`--alias <base>`**
@@ -58,7 +101,7 @@ bunx unrag init --dir src/lib/unrag
 Set the TypeScript path alias prefix. The default is `@unrag`, which means you'll import from `@unrag/core`, `@unrag/config`, etc.
 
 ```bash
-bunx unrag init --alias @myproject/rag
+bunx unrag@latest init --alias @myproject/rag
 ```
 
 ## Full example
@@ -66,7 +109,7 @@ bunx unrag init --alias @myproject/rag
 A complete non-interactive invocation:
 
 ```bash
-bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
+bunx unrag@latest init --yes --store drizzle --dir lib/unrag --alias @unrag
 ```
 
 ## Files created
@@ -82,7 +125,7 @@ After initialization, your project will contain:
 
 **`lib/unrag/unrag.md`** — Generated setup notes including the database schema, environment variables, and adapter-specific tips.
 
-**`unrag.json`** — Records your installation choices. When you re-run `unrag init`, it reads this file and uses your previous selections as defaults.
+**`unrag.json`** — Records your installation choices. When you re-run `unrag@latest init`, it reads this file and uses your previous selections as defaults.
 
 ## Files modified
 
@@ -112,11 +155,11 @@ If target files already exist, the CLI prompts before overwriting. In non-intera
 
 ## Re-running safely
 
-It's safe to re-run `unrag init` to update your installation. The CLI reads `unrag.json` for your previous choices and prompts only for files that would be overwritten. This lets you update vendored code when new versions are available while keeping your customizations.
+It's safe to re-run `unrag@latest init` to update your installation. The CLI reads `unrag.json` for your previous choices and prompts only for files that would be overwritten. This lets you update vendored code when new versions are available while keeping your customizations.
 
 A typical update workflow:
 
-1. Run `bunx unrag init`
+1. Run `bunx unrag@latest init`
 2. Review each file the CLI wants to overwrite
 3. Accept updates for files you haven't customized
 4. Reject updates for files with intentional local changes

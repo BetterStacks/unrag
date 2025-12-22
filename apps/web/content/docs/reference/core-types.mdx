@@ -321,6 +321,96 @@ type DeleteInput =
   | { sourceIdPrefix: string };
 ```
 
+## AssetExtractor
+
+The interface for extractor modules that process rich media assets into text or embeddings. Extractors are installed via the CLI and registered in your engine configuration.
+
+```ts
+type AssetExtractor = {
+  name: string;
+  supports: (asset: AssetInput, ctx: AssetExtractorContext) => boolean;
+  extract: (args: {
+    asset: AssetInput;
+    ctx: AssetExtractorContext;
+    limits: ExtractorLimits;
+  }) => Promise<{
+    texts: Array<{
+      label: string;
+      content: string;
+      confidence?: number;
+      pageRange?: [number, number];
+      timeRangeSec?: [number, number];
+    }>;
+    metadata?: Metadata;
+    diagnostics?: { model?: string; tokens?: number; seconds?: number };
+  }>;
+};
+```
+
+<TypeTable
+  type={{
+    name: {
+      description: 'Unique identifier for the extractor (e.g., "pdf:llm", "ocr:vision"). Stored in chunk.metadata.extractor.',
+      type: 'string',
+    },
+    supports: {
+      description: 'Returns true if this extractor can handle the given asset. Called for each asset to find the right extractor.',
+      type: '(asset, ctx) => boolean',
+    },
+    extract: {
+      description: 'Performs extraction and returns text segments with optional metadata and diagnostics.',
+      type: '(args) => Promise<ExtractResult>',
+    },
+  }}
+/>
+
+### Extract result
+
+The `extract` function returns:
+
+| Field | Description |
+|-------|-------------|
+| `texts` | Array of extracted text segments, each with a `label` (e.g., "page-1", "transcription") and `content` |
+| `texts[].confidence` | Optional confidence score (0-1) for the extraction |
+| `texts[].pageRange` | Optional page range `[start, end]` for PDFs |
+| `texts[].timeRangeSec` | Optional time range in seconds for audio/video |
+| `metadata` | Optional metadata merged into chunks created from this asset |
+| `diagnostics` | Optional diagnostic info (model used, token count, processing time) |
+
+### Example: Custom extractor
+
+```ts
+import type { AssetExtractor } from "@unrag/core";
+
+export function createAudioTranscriptExtractor(): AssetExtractor {
+  return {
+    name: "audio:whisper",
+    
+    supports: (asset, ctx) => {
+      return asset.kind === "audio" && ctx.config.assetProcessing.audio?.enabled;
+    },
+    
+    extract: async ({ asset, ctx, limits }) => {
+      const audioBytes = asset.data.kind === "bytes" 
+        ? asset.data.bytes 
+        : await fetchAssetBytes(asset.data.url);
+      
+      const transcription = await whisperTranscribe(audioBytes);
+      
+      return {
+        texts: [
+          { label: "transcription", content: transcription.text },
+        ],
+        diagnostics: {
+          model: "whisper-large-v3",
+          seconds: transcription.durationSec,
+        },
+      };
+    },
+  };
+}
+```
+
 ## ContextEngineConfig
 
 The configuration for creating an engine:
@@ -329,6 +419,9 @@ The configuration for creating an engine:
 type ContextEngineConfig = {
   embedding: EmbeddingProvider;
   store: VectorStore;
+  extractors?: AssetExtractor[];
+  assetProcessing?: DeepPartial<AssetProcessingConfig>;
+  storage?: { storeChunkContent?: boolean; storeDocumentContent?: boolean };
   defaults?: Partial<ChunkingOptions>;
   chunker?: Chunker;
   idGenerator?: () => string;
@@ -348,5 +441,41 @@ type ChunkText = {
 };
 ```
 
-Most configurations only specify `embedding`, `store`, and `defaults`. Custom `chunker` and `idGenerator` are optional overrides for advanced use cases.
+<TypeTable
+  type={{
+    embedding: {
+      description: 'The embedding provider for generating vectors.',
+      type: 'EmbeddingProvider',
+    },
+    store: {
+      description: 'The vector store adapter for database operations.',
+      type: 'VectorStore',
+    },
+    extractors: {
+      description: 'Optional array of extractor modules for processing rich media assets. Install via CLI, then register here.',
+      type: 'AssetExtractor[]',
+      default: '[]',
+    },
+    assetProcessing: {
+      description: 'Configuration for how assets are processed (fetch limits, extraction settings, error handling).',
+      type: 'DeepPartial<AssetProcessingConfig>',
+    },
+    storage: {
+      description: 'Controls what content is persisted to the database.',
+      type: 'object',
+    },
+    defaults: {
+      description: 'Default chunking settings (chunkSize, chunkOverlap).',
+      type: 'Partial<ChunkingOptions>',
+    },
+    chunker: {
+      description: 'Optional custom chunking function. Defaults to recursive text splitter.',
+      type: 'Chunker',
+    },
+    idGenerator: {
+      description: 'Optional custom UUID generator.',
+      type: '() => string',
+    },
+  }}
+/>
 

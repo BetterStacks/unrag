@@ -50,7 +50,7 @@ This document specifies the **optional extractor module system** for Unrag. Extr
 - The command must:
   - Copy extractor module source files from the Unrag registry into the user’s install directory (e.g. `lib/unrag/extractors/<name>/**`).
   - Add required dependencies to the user’s `package.json` (deps/devDeps).
-  - Record installed extractors in `unrag.json` (e.g. `extractors: ["pdf-gemini", "audio-transcribe", ...]`).
+  - Record installed extractors in `unrag.json` (e.g. `extractors: ["pdf-llm", "audio-transcribe", ...]`).
 - The command must be **idempotent** and support non-interactive usage (`--yes`).
 
 ### R2. Standard extractor interface
@@ -108,7 +108,7 @@ The system must support user-configurable routing for images:
 
 ### R5. Extractor module: PDF document analysis (Gemini via AI SDK)
 
-Provide an installable module (example name: `pdf-gemini`) that:
+Provide an installable module (example name: `pdf-llm`) that:
 
 - Accepts PDF bytes (preferred) or URL (optional; if URL is used, must obey fetch safety).
 - Uses Gemini document processing (via Vercel AI SDK) to extract:
@@ -211,7 +211,7 @@ assetProcessing: {
     };
   };
   pdf?: {
-    extractors: Array<"pdf-text-layer" | "pdf-gemini" | "ocr-vision">;
+    extractors: Array<"pdf-text-layer" | "pdf-llm" | "ocr-vision">;
   };
   audio?: {
     extractors: Array<"audio-transcribe" | "llm-extract">;
@@ -246,5 +246,5 @@ assetProcessing: {
 
 ## Acceptance criteria
 
-- A user can:\n+  1) run `unrag init`,\n+  2) run `unrag add notion`,\n+  3) run `unrag add extractor pdf-gemini`,\n+  4) configure the extractor in `unrag.config.ts`,\n+  5) ingest a Notion page with an embedded PDF,\n+  6) retrieve relevant chunks from PDF content via text query.\n+- Safety controls prevent downloading/processing unexpectedly large assets by default.\n+- Errors are visible and controllable via `onError` policy.\n+\n+## Open questions (to resolve during implementation)\n+\n+- Exact extractor interface shape: sync vs async generator (streaming).\n+- How modules register themselves: explicit import + config vs auto-registration when installed.\n+- How to handle Notion expiring URLs: require bytes fetch at ingest time vs store stable references only.\n+- Model/provider compatibility: which AI SDK providers support image embeddings in the same space as text.\n+\n*** End Patch}
+- A user can:\n+  1) run `unrag@latest init`,\n+  2) run `unrag add notion`,\n+  3) run `unrag add extractor pdf-llm`,\n+  4) configure the extractor in `unrag.config.ts`,\n+  5) ingest a Notion page with an embedded PDF,\n+  6) retrieve relevant chunks from PDF content via text query.\n+- Safety controls prevent downloading/processing unexpectedly large assets by default.\n+- Errors are visible and controllable via `onError` policy.\n+\n+## Open questions (to resolve during implementation)\n+\n+- Exact extractor interface shape: sync vs async generator (streaming).\n+- How modules register themselves: explicit import + config vs auto-registration when installed.\n+- How to handle Notion expiring URLs: require bytes fetch at ingest time vs store stable references only.\n+- Model/provider compatibility: which AI SDK providers support image embeddings in the same space as text.\n+\n*** End Patch}
 

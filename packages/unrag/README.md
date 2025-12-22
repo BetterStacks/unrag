@@ -10,13 +10,13 @@ It installs small, auditable source files into your repo:
 ## Usage
 
 ```bash
-bunx unrag init
+bunx unrag@latest init
 ```
 
 ### Common flags
 
 ```bash
-bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
+bunx unrag@latest init --yes --store drizzle --dir lib/unrag --alias @unrag
 ```
 
 - `--store`: `drizzle` | `prisma` | `raw-sql`
