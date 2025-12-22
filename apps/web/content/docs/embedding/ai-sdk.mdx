@@ -53,14 +53,17 @@ When `type: "multimodal"` is enabled and you do not specify a model (and `AI_GAT
 These options are typically set in `unrag.config.ts`:
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
   embedding: {
+    provider: "ai",
+    config: {
     type: "text",
     model: "openai/text-embedding-3-small",
     timeoutMs: 15_000,
   },
-  // ...
-} as const;
+  },
+} as const);
 ```
 
 ## Environment variables

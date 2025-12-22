@@ -44,14 +44,17 @@ Image embedding is enabled automatically when your embedding provider supports i
 To explicitly use multimodal mode in your config:
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
   embedding: {
+    provider: "ai",
+    config: {
     type: "multimodal",
     model: "voyage/voyage-multimodal-3",
     timeoutMs: 30_000,
   },
-  // ...
-};
+  },
+} as const);
 ```
 
 ## Usage example

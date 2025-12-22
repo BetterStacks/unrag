@@ -43,45 +43,47 @@ Configure Unrag with PDF extraction enabled:
 
 ```ts
 // unrag.config.ts
-import { createContextEngine } from "./lib/unrag/core";
-import { createAiEmbeddingProvider } from "./lib/unrag/embedding/ai";
+import { defineUnragConfig } from "./lib/unrag/core";
 import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
 import { db } from "./lib/db";
 
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  defaults: {
   chunking: {
-    strategy: "recursive",
-    maxChunkSize: 1000,
-    overlap: 100,
+      chunkSize: 1000,
+      chunkOverlap: 100,
   },
+    retrieval: {
+      topK: 8,
+    },
+  },
+  embedding: {
+    provider: "ai",
+    config: {
+      type: "text",
+      model: "openai/text-embedding-3-small",
+    },
+  },
+  engine: {
   assetProcessing: {
     onError: "skip", // Continue if a PDF fails
     pdf: {
       llmExtraction: {
         enabled: true,
         model: "google/gemini-2.0-flash",
-        timeoutMs: 90_000,        // 90s for large PDFs
+          timeoutMs: 90_000, // 90s for large PDFs
         maxBytes: 20 * 1024 * 1024, // 20 MB limit
         maxOutputChars: 300_000,
       },
     },
   },
-} as const;
+  },
+} as const);
 
 export function createUnragEngine() {
-  const embedding = createAiEmbeddingProvider({
-    type: "text",
-    model: "openai/text-embedding-3-small",
-  });
-
   const store = createDrizzleVectorStore(db);
 
-  return createContextEngine({
-    embedding,
-    store,
-    chunking: unragConfig.chunking,
-    assetProcessing: unragConfig.assetProcessing,
-  });
+  return unrag.createEngine({ store });
 }
 ```
 

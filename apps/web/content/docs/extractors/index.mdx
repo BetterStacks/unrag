@@ -57,7 +57,9 @@ if (ref) {
 Extractors are configured via `assetProcessing` in your `unrag.config.ts`. See [Asset Processing Reference](/docs/reference/asset-processing) for the full configuration schema.
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
   // ...
   assetProcessing: {
     onUnsupportedAsset: "skip",
@@ -70,7 +72,8 @@ export const unragConfig = {
       },
     },
   },
-};
+  },
+} as const);
 ```
 
 ## Installing extractors
@@ -92,27 +95,16 @@ After installation, import and register the extractor in `unrag.config.ts`:
 ```ts
 import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
 
-export function createUnragEngine() {
-  const embedding = createAiEmbeddingProvider({ ... });
-  
-  // Create extractor instances
-  const extractors = [
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [
     createPdfLlmExtractor(),
     // Add more extractors here as you install them
-  ];
-
-  const store = createDrizzleVectorStore(db);
-
-  return createContextEngine(
-    defineConfig({
-      embedding,
-      store,
-      extractors,  // Register extractors with the engine
-      assetProcessing: unragConfig.assetProcessing,
-      defaults: unragConfig.chunking,
-    })
-  );
-}
+    ],
+  },
+} as const);
 ```
 
 ### Step 3: Configure (optional)
@@ -120,7 +112,10 @@ export function createUnragEngine() {
 Most extractors are configured via `assetProcessing` in your config. For example, the `pdf-llm` extractor reads its settings from `assetProcessing.pdf.llmExtraction`:
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
   assetProcessing: {
     pdf: {
       llmExtraction: {
@@ -131,7 +126,8 @@ export const unragConfig = {
       },
     },
   },
-};
+  },
+} as const);
 ```
 
 ### What happens without extractors?

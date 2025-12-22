@@ -46,20 +46,13 @@ After installing, you need to register the extractor in your `unrag.config.ts`:
 ```ts
 import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
 
-export function createUnragEngine() {
+export const unrag = defineUnragConfig({
   // ...
-  const extractors = [createPdfLlmExtractor()];
-
-  return createContextEngine(
-    defineConfig({
-      embedding,
-      store,
-      extractors, // Register here
-      assetProcessing: unragConfig.assetProcessing,
+  engine: {
       // ...
-    })
-  );
-}
+    extractors: [createPdfLlmExtractor()],
+  },
+} as const);
 ```
 
 <Callout>

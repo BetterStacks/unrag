@@ -30,7 +30,10 @@ Currently, Unrag provides one PDF extractor: **pdf:llm**. This sends the entire 
 PDF extraction is controlled via `assetProcessing.pdf.llmExtraction` in your config:
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
   assetProcessing: {
     pdf: {
       llmExtraction: {
@@ -43,7 +46,8 @@ export const unragConfig = {
       },
     },
   },
-};
+  },
+} as const);
 ```
 
 See [pdf:llm](/docs/extractors/pdf/llm) for detailed configuration options.

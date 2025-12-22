@@ -17,22 +17,25 @@ const engine = createUnragEngine();
 
 This function is generated when you run `unrag@latest init`. It creates the embedding provider, initializes the database connection, constructs the store adapter, and assembles everything into a working engine. You can open `unrag.config.ts` to see exactly how it's built.
 
-If you need multiple engine instances with different configurations (for example, different embedding models for different content types), you can create them by calling `createContextEngine()` directly with your own configuration:
+If you need multiple engine instances with different configurations (for example, different embedding models for different content types), you can create them by defining multiple configs with `defineUnragConfig()` and calling `unrag.createEngine(...)`:
 
 ```ts
-import { createContextEngine, defineConfig } from "@unrag/core";
-import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+import { defineUnragConfig } from "@unrag/core";
 import { createDrizzleVectorStore } from "@unrag/store/drizzle";
 
-const customEngine = createContextEngine(
-  defineConfig({
-    embedding: createAiEmbeddingProvider({ 
-      model: "openai/text-embedding-3-large" 
-    }),
-    store: createDrizzleVectorStore(db),
-    defaults: { chunkSize: 500, chunkOverlap: 100 },
-  })
-);
+const unrag = defineUnragConfig({
+  defaults: {
+    chunking: { chunkSize: 500, chunkOverlap: 100 },
+    retrieval: { topK: 8 },
+  },
+  embedding: {
+    provider: "ai",
+    config: { model: "openai/text-embedding-3-large" },
+  },
+  engine: {},
+} as const);
+
+const customEngine = unrag.createEngine({ store: createDrizzleVectorStore(db) });
 ```
 
 ## Using the engine

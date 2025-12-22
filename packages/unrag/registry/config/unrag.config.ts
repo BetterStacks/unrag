@@ -2,11 +2,10 @@
  * Root Unrag config (generated).
  *
  * This file is meant to be the single place you tweak:
+ * - Defaults (chunking + retrieval)
+ * - Engine settings (storage, asset processing, extractors)
  * - Embedding provider/model/timeouts
- * - Chunking defaults
- * - Retrieval defaults
- * - Optional extractor modules (PDF/OCR/transcription/etc)
- * - How you construct your DB client (Pool/Prisma/etc)
+ * - How you construct your DB client (Pool/Prisma/etc) and vector store adapter
  *
  * The files under your install dir (e.g. `lib/unrag/**`) are intended to be
  * treated like vendored source code.
@@ -14,7 +13,8 @@
 
 // __UNRAG_IMPORTS__
 
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  defaults: {
   chunking: {
     chunkSize: 200,
     chunkOverlap: 40,
@@ -22,6 +22,16 @@ export const unragConfig = {
   retrieval: {
     topK: 8,
   },
+  },
+  embedding: {
+    provider: "ai",
+    config: {
+      type: "text",
+      model: "openai/text-embedding-3-small",
+      timeoutMs: 15_000,
+    },
+  },
+  engine: {
   /**
    * Storage controls.
    *
@@ -32,20 +42,23 @@ export const unragConfig = {
     storeChunkContent: true,
     storeDocumentContent: true,
   },
-  embedding: {
-    type: "text",
-    model: "openai/text-embedding-3-small",
-    timeoutMs: 15_000,
-  },
+    /**
+     * Optional extractor modules that can process non-text assets into text outputs.
+     *
+     * To install:
+     * - `unrag add extractor pdf-llm`
+     *
+     * Then import it in this file and add it here, for example:
+     * - `import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";`
+     * - `extractors: [createPdfLlmExtractor()]`
+     */
+    extractors: [],
   /**
    * Rich media processing controls.
    *
    * Notes:
    * - The library defaults are cost-safe (PDF LLM extraction is off).
    * - This generated config opts you into PDF extraction for convenience.
-   * - To actually extract PDFs, install and register a PDF extractor module:
-   *   - `unrag add extractor pdf-llm`
-   *   - import it in this file and add it to the `extractors` array in createUnragEngine()
    * - Tighten fetch allowlists/limits in production if you ingest URL-based assets.
    */
   assetProcessing: {
@@ -70,7 +83,8 @@ export const unragConfig = {
       },
     },
   },
-} as const;
+  },
+} as const);
 
 // __UNRAG_CREATE_ENGINE__
 

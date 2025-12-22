@@ -1,4 +1,9 @@
-export { ContextEngine, createContextEngine, defineConfig } from "./context-engine";
+export {
+  ContextEngine,
+  createContextEngine,
+  defineConfig,
+  defineUnragConfig,
+} from "./context-engine";
 export { deleteDocuments } from "./delete";
 export { ingest, planIngest } from "./ingest";
 export { retrieve } from "./retrieve";

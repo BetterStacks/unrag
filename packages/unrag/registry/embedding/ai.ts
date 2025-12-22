@@ -1,5 +1,5 @@
 import { embed, embedMany } from "ai";
-import type { EmbeddingProvider, ImageEmbeddingInput } from "../core";
+import type { EmbeddingProvider, ImageEmbeddingInput } from "../core/types";
 
 type BaseConfig = {
   /**
