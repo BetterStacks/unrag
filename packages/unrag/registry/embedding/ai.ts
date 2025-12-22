@@ -29,7 +29,8 @@ export type AiEmbeddingConfig =
       };
     });
 
-const DEFAULT_MODEL = "openai/text-embedding-3-small";
+const DEFAULT_TEXT_MODEL = "openai/text-embedding-3-small";
+const DEFAULT_MULTIMODAL_MODEL = "voyage/voyage-multimodal-3";
 
 const bytesToDataUrl = (bytes: Uint8Array, mediaType: string) => {
   const base64 = Buffer.from(bytes).toString("base64");
@@ -49,9 +50,12 @@ const defaultImageValue = (input: ImageEmbeddingInput) => {
 export const createAiEmbeddingProvider = (
   config: AiEmbeddingConfig = {}
 ): EmbeddingProvider => {
-  const model = config.model ?? process.env.AI_GATEWAY_MODEL ?? DEFAULT_MODEL;
-  const timeoutMs = config.timeoutMs;
   const type = (config as any).type ?? "text";
+  const model =
+    config.model ??
+    process.env.AI_GATEWAY_MODEL ??
+    (type === "multimodal" ? DEFAULT_MULTIMODAL_MODEL : DEFAULT_TEXT_MODEL);
+  const timeoutMs = config.timeoutMs;
 
   return {
     name: `ai-sdk:${model}`,
