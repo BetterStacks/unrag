@@ -53,6 +53,10 @@ export const ingest = async (
   const totalStart = now();
   const chunkingStart = now();
 
+  const storeChunkContent = config.storage.storeChunkContent;
+  const storeDocumentContent = config.storage.storeDocumentContent;
+  const storedDocumentContent = storeDocumentContent ? input.content : "";
+
   const chunkingOptions = {
     ...config.defaults,
     ...input.chunking,
@@ -84,10 +88,10 @@ export const ingest = async (
         documentId,
         sourceId: input.sourceId,
         index: c.index,
-        content: c.content,
-        tokenCount: c.tokenCount,
+        content: storeChunkContent ? c.content : "",
+        tokenCount: storeChunkContent ? c.tokenCount : 0,
         metadata,
-        documentContent: input.content,
+        documentContent: storedDocumentContent,
       },
       embed: { kind: "text", text: c.content },
     });
@@ -159,10 +163,10 @@ export const ingest = async (
               documentId,
               sourceId: input.sourceId,
               index: nextIndex + c.index,
-              content: c.content,
-              tokenCount: c.tokenCount,
+              content: storeChunkContent ? c.content : "",
+              tokenCount: storeChunkContent ? c.tokenCount : 0,
               metadata: { ...assetMeta, extractor: "pdf:llm" },
-              documentContent: input.content,
+              documentContent: storedDocumentContent,
             },
             embed: { kind: "text", text: c.content },
           });
@@ -187,6 +191,10 @@ export const ingest = async (
     if (asset.kind === "image") {
       // If we can't embed the image bytes/URL directly, fall back to caption text (if present).
       const caption = (asset.text ?? "").trim();
+      const storedCaption = storeChunkContent ? caption : "";
+      const storedCaptionTokenCount = storedCaption
+        ? storedCaption.split(/\s+/).filter(Boolean).length
+        : 0;
 
       if (config.embedding.embedImage) {
         const data =
@@ -202,10 +210,10 @@ export const ingest = async (
             documentId,
             sourceId: input.sourceId,
             index: nextIndex,
-            content: caption,
-            tokenCount: caption ? caption.split(/\s+/).filter(Boolean).length : 0,
+            content: storedCaption,
+            tokenCount: storedCaptionTokenCount,
             metadata: { ...assetMeta, extractor: "image:embed" },
-            documentContent: input.content,
+            documentContent: storedDocumentContent,
           },
           embed: { kind: "image", data, mediaType, assetId: asset.assetId },
         });
@@ -222,10 +230,10 @@ export const ingest = async (
               documentId,
               sourceId: input.sourceId,
               index: nextIndex + c.index,
-              content: c.content,
-              tokenCount: c.tokenCount,
+              content: storeChunkContent ? c.content : "",
+              tokenCount: storeChunkContent ? c.tokenCount : 0,
               metadata: { ...assetMeta, extractor: "image:caption" },
-              documentContent: input.content,
+              documentContent: storedDocumentContent,
             },
             embed: { kind: "text", text: c.content },
           });

@@ -21,6 +21,16 @@ export const unragConfig = {
   retrieval: {
     topK: 8,
   },
+  /**
+   * Storage controls.
+   *
+   * - storeChunkContent: whether `chunk.content` is persisted and returned by retrieval.
+   * - storeDocumentContent: whether the full original document text is stored in `documents.content`.
+   */
+  storage: {
+    storeChunkContent: true,
+    storeDocumentContent: true,
+  },
   embedding: {
     type: "text",
     model: "openai/text-embedding-3-small",

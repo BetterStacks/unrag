@@ -27,6 +27,7 @@ You are responsible for migrations. Create these tables:
 create table documents (
   id uuid primary key,
   source_id text not null,
+  content text not null,
   metadata jsonb,
   created_at timestamp default now()
 );
@@ -49,6 +50,11 @@ create table embeddings (
   created_at timestamp default now()
 );
 ```
+
+Notes:
+- `documents.content` stores the full original document text (used for debugging/re-chunking).
+- `chunks.content` stores the chunk text returned by retrieval (`chunk.content`).
+- You can disable persisting either/both via the engine config (`storage.storeDocumentContent` / `storage.storeChunkContent`). The schema still requires `text not null`, so Unrag stores empty strings when disabled.
 
 Recommended indexes:
 

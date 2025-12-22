@@ -242,11 +242,11 @@ type Chunk = {
   documentId: string;         // UUID of the parent document
   sourceId: string;           // Logical identifier from ingestion
   index: number;              // Position in the original document (0, 1, 2, ...)
-  content: string;            // The chunk's text
+  content: string;            // The chunk's text (may be empty if storage.storeChunkContent is false)
   tokenCount: number;         // Approximate token count
   metadata: Metadata;         // JSON metadata from ingestion
   embedding?: number[];       // Vector (present during upsert, not in query results)
-  documentContent?: string;   // Full document text (during upsert only)
+  documentContent?: string;   // Full document text (during upsert only; may be empty if storage.storeDocumentContent is false)
 };
 ```
 

@@ -59,6 +59,76 @@ When you ingest an image asset with multimodal enabled:
 
 During retrieval, your text query is embedded and compared against all vectors—both text chunks and image embeddings.
 
+## Resolving an image result back to bytes
+
+Retrieval returns standard chunks. For image matches, Unrag stores **references** to the originating asset in `chunk.metadata` (not the image bytes):
+
+- `chunk.metadata.assetKind === "image"`
+- `chunk.metadata.assetId` (stable id emitted at ingest time)
+- optional `chunk.metadata.assetUri` / `chunk.metadata.assetMediaType`
+- `chunk.metadata.extractor === "image:embed"`
+
+`chunk.content` will be the image caption/alt text (if provided) and may be an empty string (for example if you didn’t provide a caption, or if you disabled `storage.storeChunkContent`).
+
+To get the actual image, resolve it via your asset store:
+
+- **If you stored a URL/URI**: fetch `chunk.metadata.assetUri` (note: connector URLs like Notion can expire).
+- **If you store bytes yourself**: look up the image by `chunk.metadata.assetId`.
+
+For convenience, you can use `getChunkAssetRef` to extract a typed reference:
+
+```ts
+import { getChunkAssetRef, type ChunkAssetRef } from "@unrag/core";
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  if (ref?.assetKind === "image") {
+    console.log("image asset", ref.assetId, ref.assetUri);
+  }
+}
+```
+
+### Example: resolve bytes from a retrieved asset chunk (URL-based)
+
+This pattern works when `assetUri` is a stable, fetchable URL (or a signed URL that hasn’t expired):
+
+```ts
+import { getChunkAssetRef, type ChunkAssetRef } from "@unrag/core";
+
+async function fetchAssetBytes(ref: ChunkAssetRef): Promise<Uint8Array> {
+  if (!ref.assetUri) throw new Error(`No assetUri for assetId=${ref.assetId}`);
+  const res = await fetch(ref.assetUri);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch asset (${res.status}) assetId=${ref.assetId}`);
+  }
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  if (ref?.assetKind !== "image") continue;
+  const bytes = await fetchAssetBytes(ref);
+  console.log("image bytes length", bytes.length);
+}
+```
+
+### Example: resolve bytes from your own blob store (assetId-based)
+
+If you ingest images as `bytes`, Unrag embeds them but does **not** persist the bytes. To make results resolvable later, store the bytes yourself keyed by `assetId` (or put your blob key in `assets[].metadata` and read it back from `chunk.metadata`):
+
+```ts
+import { getChunkAssetRef } from "@unrag/core";
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  if (ref?.assetKind !== "image") continue;
+
+  // Pseudocode: implement this in your app
+  const bytes = await myAssetStore.getBytes(ref.assetId);
+  console.log("image bytes length", bytes.length);
+}
+```
+
 ## The image embedding interface
 
 The multimodal provider adds an `embedImage` function:
