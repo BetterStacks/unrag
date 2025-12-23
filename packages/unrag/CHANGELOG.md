@@ -1,5 +1,13 @@
 # unrag
 
+## 0.2.5
+
+### Patch Changes
+
+- Added Google Drive connector. Sync specific Google Drive files into Unrag by file ID, with stable source IDs for reliable updates and deletes.
+- New support for safer, more controllable sync. Configurable per-file size limit (defaults to **15MB**) and an option to **delete previously ingested content when a file is removed or access is revoked**.
+- `unrag add google-drive` is now supported (and `unrag add` lists available connectors).
+
 ## 0.2.4
 
 ### Patch Changes
