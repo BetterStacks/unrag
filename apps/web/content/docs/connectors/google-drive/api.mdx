@@ -258,6 +258,119 @@ const { drive } = await createGoogleDriveClient({
 const res = await drive.files.list({ pageSize: 10 });
 ```
 
+## Listing accessible files
+
+The connector doesn't include a built-in "list everything" helper because Google Drive accounts can contain a lot of content, and listing strategies tend to be application-specific. Instead, the connector exposes `createGoogleDriveClient()`, which gives you the full Drive API client so you can list files in the way that matches your product.
+
+When you're using a service account without domain-wide delegation, the list results are effectively "what has been shared with this service account" (plus anything it owns). With OAuth, the results are what the authenticated user can access.
+
+### Listing all visible files
+
+Here's a simple pagination loop that lists file IDs and basic metadata:
+
+```ts
+import { createGoogleDriveClient } from "@unrag/connectors/google-drive";
+
+export async function listAccessibleFiles(auth: any) {
+  const { drive } = await createGoogleDriveClient({ auth });
+
+  const files: Array<{ id: string; name?: string; mimeType?: string }> = [];
+  let pageToken: string | undefined;
+
+  while (true) {
+    const res = await drive.files.list({
+      pageSize: 100,
+      pageToken,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      fields: "nextPageToken, files(id,name,mimeType)",
+    });
+
+    files.push(...(res.data.files ?? []));
+    pageToken = res.data.nextPageToken ?? undefined;
+    if (!pageToken) break;
+  }
+
+  return files;
+}
+```
+
+Once you have a list of IDs, you can pass them straight into `syncGoogleDriveFiles({ fileIds })`.
+
+### Listing files from a folder
+
+If you want folder-based syncing, list the folder contents first and then sync those IDs:
+
+```ts
+import { createGoogleDriveClient, syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+
+export async function syncDriveFolder(args: {
+  engine: any;
+  auth: any;
+  folderId: string;
+}) {
+  const { drive } = await createGoogleDriveClient({ auth: args.auth });
+
+  const fileIds: string[] = [];
+  let pageToken: string | undefined;
+
+  while (true) {
+    const res = await drive.files.list({
+      q: `'${args.folderId}' in parents and trashed = false`,
+      pageSize: 100,
+      pageToken,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      fields: "nextPageToken, files(id)",
+    });
+
+    fileIds.push(...(res.data.files?.map((f: any) => f.id).filter(Boolean) ?? []));
+    pageToken = res.data.nextPageToken ?? undefined;
+    if (!pageToken) break;
+  }
+
+  return await syncGoogleDriveFiles({
+    engine: args.engine,
+    auth: args.auth,
+    fileIds,
+  });
+}
+```
+
+This is a good fit when your users connect a single “knowledge base folder” and you want sync to pick up newly added files automatically.
+
+### Listing files shared with the authenticated user
+
+For OAuth-based apps, you may want to start with files that have been shared with the user. Drive's search syntax supports this with `sharedWithMe = true`:
+
+```ts
+import { createGoogleDriveClient } from "@unrag/connectors/google-drive";
+
+export async function listSharedWithMe(auth: any) {
+  const { drive } = await createGoogleDriveClient({ auth });
+
+  const files: Array<{ id: string; name?: string; mimeType?: string }> = [];
+  let pageToken: string | undefined;
+
+  while (true) {
+    const res = await drive.files.list({
+      q: "sharedWithMe = true and trashed = false",
+      pageSize: 100,
+      pageToken,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      fields: "nextPageToken, files(id,name,mimeType)",
+    });
+
+    files.push(...(res.data.files ?? []));
+    pageToken = res.data.nextPageToken ?? undefined;
+    if (!pageToken) break;
+  }
+
+  return files;
+}
+```
+
 ### MIME type helpers
 
 The connector exports helpers for working with Drive MIME types:
