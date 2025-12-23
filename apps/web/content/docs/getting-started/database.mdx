@@ -56,7 +56,7 @@ create table documents (
 );
 ```
 
-The `documents` table represents logical documents you've ingested. The `source_id` is your identifier for the document—something like `docs:getting-started` or `kb:article-123`. When you re-ingest content with the same `source_id`, Unrag updates the existing document. The `content` column stores the full original text (useful for debugging and re-chunking), and `metadata` holds any JSON you passed during ingestion.
+The `documents` table represents logical documents you've ingested. The `source_id` is your identifier for the document—something like `docs:getting-started` or `kb:article-123`. When you re-ingest content with the same `source_id`, Unrag updates the existing document. The `content` column stores the full original text (useful for debugging and re-chunking) and can be disabled via `storage.storeDocumentContent` (Unrag will store an empty string). `metadata` holds any JSON you passed during ingestion.
 
 ```sql
 create table chunks (
@@ -71,7 +71,7 @@ create table chunks (
 );
 ```
 
-The `chunks` table holds the individual pieces that documents are split into. Each chunk belongs to a document (`document_id`), has an index showing its position in the original document (`idx`), contains the chunk's text (`content`), and records an approximate token count. The `source_id` is denormalized here for faster filtering during retrieval.
+The `chunks` table holds the individual pieces that documents are split into. Each chunk belongs to a document (`document_id`), has an index showing its position in the original document (`idx`), contains the chunk's text (`content`), and records an approximate token count. You can disable persisting chunk text via `storage.storeChunkContent` (retrieval still works, but `chunk.content` will be empty). The `source_id` is denormalized here for faster filtering during retrieval.
 
 ```sql
 create table embeddings (

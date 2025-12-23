@@ -1,0 +1,84 @@
+import { generateText } from "ai";
+import type { AssetData, AssetExtractor, AssetFetchConfig } from "../../core/types";
+import { getAssetBytes } from "../_shared/fetch";
+import { normalizeMediaType } from "../_shared/media";
+import { capText } from "../_shared/text";
+
+async function getPdfBytes(args: {
+  data: AssetData;
+  fetchConfig: AssetFetchConfig;
+  maxBytes: number;
+}): Promise<{ bytes: Uint8Array; mediaType: string; filename?: string }> {
+  return await getAssetBytes({
+    data: args.data,
+    fetchConfig: args.fetchConfig,
+    maxBytes: args.maxBytes,
+    defaultMediaType: "application/pdf",
+  });
+}
+
+/**
+ * PDF text extraction via LLM (default model: Gemini via AI Gateway).
+ *
+ * This extractor reads its configuration from `assetProcessing.pdf.llmExtraction`.
+ */
+export function createPdfLlmExtractor(): AssetExtractor {
+  return {
+    name: "pdf:llm",
+    supports: ({ asset, ctx }) =>
+      asset.kind === "pdf" && ctx.assetProcessing.pdf.llmExtraction.enabled,
+    extract: async ({ asset, ctx }) => {
+      const llm = ctx.assetProcessing.pdf.llmExtraction;
+      const fetchConfig = ctx.assetProcessing.fetch;
+
+      if (!llm.enabled) {
+        return { texts: [] };
+      }
+
+      const maxBytes = Math.min(llm.maxBytes, fetchConfig.maxBytes);
+      const { bytes, mediaType, filename } = await getPdfBytes({
+        data: asset.data,
+        fetchConfig,
+        maxBytes,
+      });
+
+      if (bytes.byteLength > maxBytes) {
+        throw new Error(`PDF too large (${bytes.byteLength} > ${maxBytes})`);
+      }
+
+      const abortSignal = AbortSignal.timeout(llm.timeoutMs);
+
+      const result = await generateText({
+        // Intentionally allow string model ids for AI Gateway usage.
+        model: llm.model as any,
+        abortSignal,
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: llm.prompt },
+              {
+                type: "file",
+                data: bytes,
+                mediaType: normalizeMediaType(mediaType) ?? "application/pdf",
+                ...(filename ? { filename } : {}),
+              },
+            ],
+          },
+        ],
+      });
+
+      const text = String((result as any)?.text ?? "").trim();
+      if (!text) return { texts: [], diagnostics: { model: llm.model } };
+
+      const capped = capText(text, llm.maxOutputChars);
+
+      return {
+        texts: [{ label: "fulltext", content: capped }],
+        diagnostics: { model: llm.model },
+      };
+    },
+  };
+}
+
+

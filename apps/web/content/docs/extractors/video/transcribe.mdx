@@ -1,0 +1,150 @@
+---
+title: "video:transcribe Extractor"
+description: Extract and transcribe video audio tracks for searchable content.
+---
+
+The `video:transcribe` extractor pulls the audio track from video files and transcribes it using Whisper. The resulting text flows through your normal chunking and embedding pipeline, making spoken content in videos searchable.
+
+This is the most practical approach to video search for content where speech carries the information—lectures, interviews, meetings, tutorials. You don't need to analyze every frame when the speaker is explaining what's happening.
+
+## Installation
+
+```bash
+bunx unrag@latest add extractor video-transcribe
+```
+
+Register in your config:
+
+```ts
+import { createVideoTranscribeExtractor } from "./lib/unrag/extractors/video-transcribe";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createVideoTranscribeExtractor()],
+  },
+} as const);
+```
+
+## How it works
+
+The extraction pipeline has two stages. First, `ffmpeg` extracts the audio track from the video file. This produces an audio stream that's passed to the Whisper transcription API. Whisper returns text, which then becomes chunks and embeddings like any other content.
+
+This approach handles any video format that `ffmpeg` understands—mp4, webm, mov, avi, and many others. The audio track doesn't need to be a specific format; `ffmpeg` handles the conversion.
+
+## Configuration
+
+Configure via `assetProcessing.video.transcription`:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      video: {
+        transcription: {
+          enabled: true,
+          model: "whisper-1",
+          maxDurationSec: 3600,
+          maxBytes: 100 * 1024 * 1024,
+          language: "en",
+          ffmpegPath: "/usr/bin/ffmpeg",
+        },
+      },
+    },
+  },
+} as const);
+```
+
+**`maxDurationSec`** limits how long a video can be. An hour (3600 seconds) is a reasonable default. Longer videos are skipped with a warning rather than processed partially.
+
+**`maxBytes`** caps file size. Video files can be very large, and you may want to limit what your system attempts to process. 100MB allows most short-to-medium videos while avoiding multi-gigabyte files.
+
+**`ffmpegPath`** specifies where to find `ffmpeg`. If not set, the extractor looks for it in your system PATH. For containerized environments, you might need to provide an explicit path.
+
+## Usage example
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const videoBytes = await readFile("./videos/product-demo.mp4");
+
+const result = await engine.ingest({
+  sourceId: "demos:product-launch",
+  content: "Product launch demo video",
+  assets: [
+    {
+      assetId: "demo-video",
+      kind: "video",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(videoBytes),
+        mediaType: "video/mp4",
+      },
+    },
+  ],
+});
+```
+
+For large videos, prefer URLs over loading bytes into memory:
+
+```ts
+await engine.ingest({
+  sourceId: "training:orientation",
+  content: "New hire orientation session",
+  assets: [
+    {
+      assetId: "orientation-recording",
+      kind: "video",
+      data: {
+        kind: "url",
+        url: "https://storage.example.com/hr/orientation.mp4",
+        mediaType: "video/mp4",
+      },
+    },
+  ],
+});
+```
+
+## What gets stored
+
+Transcribed chunks carry metadata identifying their source:
+
+| Field | Content |
+|-------|---------|
+| `chunk.content` | Portion of the transcript |
+| `chunk.metadata.assetKind` | `"video"` |
+| `chunk.metadata.assetId` | Your provided ID |
+| `chunk.metadata.extractor` | `"video:transcribe"` |
+
+## Runtime requirements
+
+This extractor requires `ffmpeg` to be installed. In standard Node.js environments and Docker containers, install it through your package manager:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install ffmpeg
+
+# macOS
+brew install ffmpeg
+
+# Alpine (Docker)
+apk add ffmpeg
+```
+
+Most serverless runtimes don't include `ffmpeg`, so video transcription typically runs in workers or containers. See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) for background job patterns.
+
+## Processing time
+
+Video transcription takes meaningful time. The `ffmpeg` step to extract audio is fast, but Whisper transcription scales with duration. A 30-minute video might take a minute or more to transcribe, depending on API load.
+
+For production systems processing video on-demand, use background jobs. Queue the ingestion work, let it complete asynchronously, and notify users when their video is searchable. Trying to do this in a request handler leads to timeouts and poor user experience.
+
+## Handling videos without audio
+
+Some videos have no audio track or have only silence. The extractor handles these gracefully—when `ffmpeg` produces no audio or Whisper returns an empty transcript, a warning is emitted but ingestion continues. The video just won't have transcription-based chunks.
+
+If you're ingesting videos that might be silent (screen recordings without narration, for example), consider pairing with the `video:frames` extractor to capture visual content instead.
+

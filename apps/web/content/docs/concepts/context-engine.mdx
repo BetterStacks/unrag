@@ -15,24 +15,27 @@ import { createUnragEngine } from "@unrag/config";
 const engine = createUnragEngine();
 ```
 
-This function is generated when you run `unrag init`. It creates the embedding provider, initializes the database connection, constructs the store adapter, and assembles everything into a working engine. You can open `unrag.config.ts` to see exactly how it's built.
+This function is generated when you run `unrag@latest init`. It creates the embedding provider, initializes the database connection, constructs the store adapter, and assembles everything into a working engine. You can open `unrag.config.ts` to see exactly how it's built.
 
-If you need multiple engine instances with different configurations (for example, different embedding models for different content types), you can create them by calling `createContextEngine()` directly with your own configuration:
+If you need multiple engine instances with different configurations (for example, different embedding models for different content types), you can create them by defining multiple configs with `defineUnragConfig()` and calling `unrag.createEngine(...)`:
 
 ```ts
-import { createContextEngine, defineConfig } from "@unrag/core";
-import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+import { defineUnragConfig } from "@unrag/core";
 import { createDrizzleVectorStore } from "@unrag/store/drizzle";
 
-const customEngine = createContextEngine(
-  defineConfig({
-    embedding: createAiEmbeddingProvider({ 
-      model: "openai/text-embedding-3-large" 
-    }),
-    store: createDrizzleVectorStore(db),
-    defaults: { chunkSize: 500, chunkOverlap: 100 },
-  })
-);
+const unrag = defineUnragConfig({
+  defaults: {
+    chunking: { chunkSize: 500, chunkOverlap: 100 },
+    retrieval: { topK: 8 },
+  },
+  embedding: {
+    provider: "ai",
+    config: { model: "openai/text-embedding-3-large" },
+  },
+  engine: {},
+} as const);
+
+const customEngine = unrag.createEngine({ store: createDrizzleVectorStore(db) });
 ```
 
 ## Using the engine
@@ -132,15 +135,18 @@ The `documentId` is the UUID assigned to this document in the database. The `chu
 
 Each chunk includes its content, the document it came from, any metadata, and a `score` representing its similarity to the query. Lower scores mean higher similarity when using cosine distance.
 
+If you set `storage.storeChunkContent: false` in your engine config, `chunk.content` will be an empty string in retrieval results (you’ll need to resolve the original content from your source system using ids/metadata).
+
 ## Configuration options
 
 When constructing an engine (either through `createUnragEngine()` or directly), you can configure:
 
 1. **embedding**: The provider that turns text into vectors
 2. **store**: The adapter that handles database operations
-3. **defaults**: Default chunking parameters (`chunkSize` and `chunkOverlap`)
-4. **chunker**: A custom function for splitting documents (optional)
-5. **idGenerator**: A custom function for generating UUIDs (optional, defaults to `crypto.randomUUID()`)
+3. **storage**: Whether Unrag persists `chunks.content` and/or `documents.content`
+4. **defaults**: Default chunking parameters (`chunkSize` and `chunkOverlap`)
+5. **chunker**: A custom function for splitting documents (optional)
+6. **idGenerator**: A custom function for generating UUIDs (optional, defaults to `crypto.randomUUID()`)
 
 Most projects only customize the first three. The defaults in `unrag.config.ts` work well for general-purpose text content.
 

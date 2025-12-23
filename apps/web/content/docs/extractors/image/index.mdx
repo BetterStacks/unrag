@@ -1,0 +1,114 @@
+---
+title: Image Extractors
+description: Make images searchable through direct embedding or text extraction.
+---
+
+Images are everywhere in knowledge bases—diagrams in documentation, screenshots in support tickets, product photos in catalogs. Making them searchable opens up powerful retrieval capabilities. A user asking "what does the architecture look like?" can find that system diagram. A support agent searching "error message" can surface screenshots showing the actual error.
+
+Unrag supports two fundamentally different approaches to image search. You can embed images directly into the same vector space as text, using a multimodal embedding model. Or you can extract text from images—through captions, OCR, or LLM descriptions—and embed that text.
+
+## Two approaches to image search
+
+With a multimodal embedding model, you can embed images directly. When someone searches "colorful sunset," the query embedding is compared directly against image embeddings. No text required. This is powerful for visual similarity—a query about "system architecture" might surface a diagram even if the diagram has no text labels.
+
+The alternative is to convert images to text and embed that. Text can come from provided captions, OCR of visible text, or LLM-generated descriptions. This works with any embedding model and lets you add context that isn't visible in the image itself ("photo from the 2024 all-hands meeting").
+
+| Extractor | How it works | Best for |
+|-----------|--------------|----------|
+| image:embed | Embeds image pixels directly | Visual similarity, diagrams, photos |
+| image:caption | Embeds provided caption/alt text | When good descriptions exist |
+| [image:ocr](/docs/extractors/image/ocr) | OCR images into text chunks | Screenshots, charts, UI captures |
+| [image:caption-llm](/docs/extractors/image/caption-llm) | Generates captions via LLM | Images without source captions |
+
+## How Unrag handles images
+
+During ingestion, Unrag decides how to handle each image based on your configuration. If your embedding provider supports image embedding (`type: "multimodal"`), images produce direct image embeddings. If the asset has a `text` field (a caption), that also produces a text chunk. If image extractors are installed and enabled, they may produce additional text chunks.
+
+This means you can combine approaches. With a multimodal model and `image:ocr` installed, an image might produce both a direct image embedding (visual search) and a text chunk from OCR (text search for words visible in the image).
+
+## Providing captions
+
+When captions exist in your source data—Notion image captions, CMS alt text, manual descriptions—pass them via the `text` field:
+
+```ts
+await engine.ingest({
+  sourceId: "docs:architecture",
+  content: "System Architecture Overview",
+  assets: [
+    {
+      assetId: "arch-diagram",
+      kind: "image",
+      data: { kind: "url", url: "https://..." },
+      text: "High-level architecture diagram showing frontend, API gateway, and microservices",
+    },
+  ],
+});
+```
+
+The caption becomes searchable. Queries for "microservices" will find this image even if the word doesn't appear in the diagram itself.
+
+Good captions describe what the image shows, provide context not visible in the image, and explain why the image matters. A caption like "screenshot.png" doesn't help search. A caption like "Error dialog showing 'Connection timeout' message with retry button in the mobile app settings screen" makes the image discoverable for many relevant queries.
+
+## Configuring your approach
+
+Your embedding model configuration determines the primary approach:
+
+```ts
+// Multimodal: images are embedded directly
+const embedding = createAiEmbeddingProvider({
+  type: "multimodal",
+  model: "cohere/embed-v4.0",
+});
+
+// Text-only: images fall back to captions/extractors
+const embedding = createAiEmbeddingProvider({
+  type: "text",
+  model: "openai/text-embedding-3-small",
+});
+```
+
+With multimodal embedding, both visual search and text search work. With text-only embedding, you need captions or extractors to make images searchable.
+
+## Retrieving image chunks
+
+Image chunks are retrieved like any other content. Use `getChunkAssetRef()` to identify them:
+
+```ts
+import { getChunkAssetRef } from "@unrag/core";
+
+const result = await engine.retrieve({ query: "product photos" });
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  
+  if (ref?.assetKind === "image") {
+    console.log(`Image match via ${ref.extractor}`);
+    if (ref.assetUri) {
+      console.log(`URL: ${ref.assetUri}`);
+    }
+  }
+}
+```
+
+## Combining approaches
+
+For comprehensive image search, combine multiple approaches. Use multimodal embedding for direct image search. Install `image:ocr` to capture text visible in screenshots. The same image can produce multiple searchable representations, each finding it for different types of queries.
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    embedding: createAiEmbeddingProvider({
+      type: "multimodal",
+      model: "cohere/embed-v4.0",
+    }),
+    extractors: [createImageOcrExtractor()],
+    assetProcessing: {
+      image: {
+        ocr: { enabled: true },
+      },
+    },
+  },
+} as const);
+```
+

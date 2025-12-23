@@ -11,6 +11,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
+    "@ridemountainpig/svgl-react": "^1.0.14",
+    "@tanstack/react-table": "^8.21.3",
     "fumadocs-core": "16.2.5",
     "fumadocs-mdx": "14.1.1",
     "fumadocs-ui": "16.2.5",

@@ -1,3 +1,5 @@
+import type { AssetInput, AssetKind, Metadata } from "../../core";
+
 type RichText = { plain_text?: string };
 
 export type NotionBlock = {
@@ -19,6 +21,82 @@ const rt = (value: unknown): string => {
 };
 
 const indent = (n: number) => (n > 0 ? "  ".repeat(n) : "");
+
+const asString = (v: unknown) => String(v ?? "").trim();
+
+const supportedAssetKinds = new Set<AssetKind>([
+  "image",
+  "pdf",
+  "audio",
+  "video",
+  "file",
+]);
+
+const toAssetKind = (notionType: string): AssetKind | null => {
+  const t = notionType as AssetKind;
+  return supportedAssetKinds.has(t) ? t : null;
+};
+
+const pickUrl = (payload: any): string | undefined => {
+  const type = String(payload?.type ?? "");
+  if (type === "external") return asString(payload?.external?.url);
+  if (type === "file") return asString(payload?.file?.url);
+  return undefined;
+};
+
+const pickCaption = (payload: any): string => {
+  // Notion captions are typically an array of rich text items.
+  return rt(payload?.caption);
+};
+
+const inferMediaType = (assetKind: AssetKind, payload: any): string | undefined => {
+  if (assetKind === "pdf") return "application/pdf";
+  // Notion does not consistently include media types; keep it optional.
+  return asString(payload?.media_type) || undefined;
+};
+
+const asMetadata = (obj: Record<string, unknown>): Metadata => obj as any;
+
+export function extractNotionAssets(
+  nodes: NotionBlockNode[],
+  opts: { maxDepth?: number } = {}
+): AssetInput[] {
+  const maxDepth = opts.maxDepth ?? 6;
+  const out: AssetInput[] = [];
+
+  const walk = (node: NotionBlockNode, depth: number) => {
+    if (depth > maxDepth) return;
+    const b = node.block as any;
+    const kind = toAssetKind(String(b.type ?? ""));
+    if (kind) {
+      const payload = b[kind];
+      const url = pickUrl(payload);
+      if (url) {
+        const caption = pickCaption(payload).trim();
+        const mediaType = inferMediaType(kind, payload);
+        out.push({
+          assetId: String(b.id),
+          kind,
+          data: { kind: "url", url, ...(mediaType ? { mediaType } : {}) },
+          uri: url,
+          ...(caption ? { text: caption } : {}),
+          metadata: asMetadata({
+            connector: "notion",
+            notionBlockId: String(b.id),
+            notionBlockType: String(b.type),
+          }),
+        });
+      }
+    }
+
+    for (const child of node.children) {
+      walk(child, depth + 1);
+    }
+  };
+
+  for (const n of nodes) walk(n, 0);
+  return out;
+}
 
 export function renderNotionBlocksToText(
   nodes: NotionBlockNode[],

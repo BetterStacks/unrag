@@ -7,6 +7,7 @@ import { CodeBlock } from './components/code-block';
 import { CopyButton } from './components/copy-button';
 import { GITHUB_REPO } from '@/constants';
 import { GlowingStarsBackground } from './components/glowing-stars-background';
+import { RegistrySection } from './components/registry-section';
 import bannerImg from '@/public/banner.png'
 
 const CODE_EXAMPLE = `import { createUnragEngine } from "@unrag/config";
@@ -98,8 +99,8 @@ export default function HomePage() {
           <div className="unrag-reveal my-6 flex justify-center" style={reveal(280)}>
             <div className="inline-flex items-center gap-3 px-5 py-3 rounded-lg bg-white/5 border border-white/10 backdrop-blur font-mono text-sm">
               <span className="text-white/55">$</span>
-              <span className="text-white">bunx unrag init</span>
-              <CopyButton text="bunx unrag init" />
+              <span className="text-white">bunx unrag@latest init</span>
+              <CopyButton text="bunx unrag@latest init" />
             </div>
           </div>
 
@@ -148,10 +149,12 @@ export default function HomePage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-[var(--color-fd-foreground)] mb-4">
-              The entire API
+              Two methods. That's it.
             </h2>
-            <p className="text-[var(--color-fd-muted-foreground)] text-lg">
-              This is not a simplified example. This is the real thing.
+            <p className="text-[var(--color-fd-muted-foreground)] text-lg max-w-2xl mx-auto">
+              This isn't a simplified demo—it's the actual API. Ingest your content, retrieve what's relevant.
+              No hidden complexity, no configuration mazes, no abstractions you'll need to fight later.
+              Just a few hundred lines of TypeScript you can read, understand, and make your own.
             </p>
           </div>
 
@@ -164,8 +167,11 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Registry Section */}
+      <RegistrySection />
+
       {/* Final CTA */}
-      <section className="relative px-6 py-24 border-t border-[var(--color-fd-border)] text-center">
+      <section className="relative px-6 py-24 text-center">
         <div className="max-w-2xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-[var(--color-fd-foreground)] mb-4">
             Ready to own your RAG?
@@ -176,8 +182,8 @@ export default function HomePage() {
 
           <div className="inline-flex items-center gap-3 px-5 py-3 rounded-lg bg-[var(--color-fd-card)] border border-[var(--color-fd-border)] font-mono text-sm">
             <span className="text-[var(--color-fd-muted-foreground)]">$</span>
-            <span className="text-[var(--color-fd-foreground)]">bunx unrag init</span>
-            <CopyButton text="bunx unrag init" />
+            <span className="text-[var(--color-fd-foreground)]">bunx unrag@latest init</span>
+            <CopyButton text="bunx unrag@latest init" />
           </div>
 
           <div className="mt-8 flex flex-wrap gap-4 justify-center">

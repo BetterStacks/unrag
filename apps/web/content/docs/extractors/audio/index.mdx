@@ -1,0 +1,94 @@
+---
+title: Audio Extractors
+description: Make audio content searchable through transcription.
+---
+
+Audio files—podcasts, meeting recordings, voice memos—contain valuable information that's invisible to text search. The solution is transcription: convert speech to text, then chunk and embed that text like any other content.
+
+Unrag's audio extraction sends audio files to a speech-to-text service (OpenAI's Whisper by default) and processes the resulting transcript through your normal ingestion pipeline. The text becomes fully searchable, and queries about topics discussed in the recording surface the relevant segments.
+
+## The transcription approach
+
+Audio extraction is fundamentally a text extraction problem. Unlike images, where you might embed visual features directly, audio search works through text proxies. Someone searching "quarterly revenue" finds the meeting recording because those words appear in the transcript.
+
+This means transcription quality matters a lot. A good transcript captures not just words but speaker changes, pauses, and context. A poor one produces garbled text that won't match queries. The default Whisper-based extractor handles most audio well, but very noisy recordings or heavy accents may need preprocessing or a specialized model.
+
+| Extractor | How it works | Best for |
+|-----------|--------------|----------|
+| [audio:transcribe](/docs/extractors/audio/transcribe) | Whisper-based transcription | Meetings, podcasts, voice recordings |
+
+## Installation
+
+```bash
+bunx unrag@latest add extractor audio-transcribe
+```
+
+Register the extractor in your config:
+
+```ts
+import { createAudioTranscribeExtractor } from "./lib/unrag/extractors/audio-transcribe";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createAudioTranscribeExtractor()],
+  },
+} as const);
+```
+
+## Configuration
+
+Audio transcription is controlled via `assetProcessing.audio.transcription`:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      audio: {
+        transcription: {
+          enabled: true,
+          model: "whisper-1",
+          maxDurationSec: 3600,
+          maxBytes: 25 * 1024 * 1024,
+        },
+      },
+    },
+  },
+} as const);
+```
+
+The `maxDurationSec` setting is important for cost control. Long recordings produce long transcripts, which means more chunks and more embedding calls. For a two-hour meeting, you might want to split the audio or accept the higher processing cost.
+
+## Usage example
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const audioBytes = await readFile("./recordings/team-standup.mp3");
+
+const result = await engine.ingest({
+  sourceId: "meetings:standup-2024-01-15",
+  content: "Daily standup meeting",
+  assets: [
+    {
+      assetId: "standup-audio",
+      kind: "audio",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(audioBytes),
+        mediaType: "audio/mpeg",
+      },
+    },
+  ],
+});
+```
+
+After ingestion, queries like "what did the team decide about the API deadline" can surface chunks from the meeting transcript.
+
+## Worker considerations
+
+Audio transcription can be slow—processing a one-hour recording takes meaningful time. For serverless environments with strict timeouts, consider running transcription in a background job. The [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) covers patterns for handling long-running extractions.
+

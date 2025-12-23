@@ -1,0 +1,136 @@
+---
+title: "file:xlsx Extractor"
+description: Extract text and data from Excel spreadsheets.
+---
+
+The `file:xlsx` extractor reads Excel spreadsheets and converts their contents to searchable text. Spreadsheets are tricky for semantic search—a grid of numbers doesn't inherently match text queries. The extractor focuses on extracting meaningful text: column headers, row labels, text cells, and optionally numeric data formatted for readability.
+
+Spreadsheets often serve as lightweight databases in organizations—employee lists, inventory tracking, project schedules. Making them searchable lets queries like "who works in marketing?" or "what's in stock for the Denver warehouse?" surface the relevant data.
+
+## Installation
+
+```bash
+bunx unrag@latest add extractor file-xlsx
+```
+
+Register in your config:
+
+```ts
+import { createFileXlsxExtractor } from "./lib/unrag/extractors/file-xlsx";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createFileXlsxExtractor()],
+  },
+} as const);
+```
+
+## What gets extracted
+
+The extractor walks through each sheet in the workbook and extracts cell values. String cells extract directly. Formula cells extract their computed result, not the formula itself. Date cells format as readable dates.
+
+By default, numeric-only cells are skipped. A spreadsheet full of numbers without labels doesn't search well—what would "1,234.56" match? Enabling `includeNumbers` adds them back in, useful when numbers have context from headers or labels.
+
+## Configuration
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      file: {
+        xlsx: {
+          enabled: true,
+          maxBytes: 50 * 1024 * 1024,
+          maxOutputChars: 500_000,
+          maxSheets: 20,
+          maxRowsPerSheet: 10_000,
+          treatFirstRowAsHeader: true,
+          includeNumbers: false,
+          format: "text",
+        },
+      },
+    },
+  },
+} as const);
+```
+
+**`treatFirstRowAsHeader`** tells the extractor to use the first row as column headers, associating subsequent cell values with their header. This produces output like "Name: Alice Johnson" rather than just "Alice Johnson."
+
+**`includeNumbers`** controls whether numeric-only cells appear in the output. Without it, you get just the text content. With it, numbers are included with their column context.
+
+**`format`** controls how the data is formatted. Options are `"text"` for readable prose-like output, `"csv"` for comma-separated values, or `"markdown"` for markdown tables.
+
+## Output formats
+
+The format setting changes how extracted data looks:
+
+With `format: "text"` (default), the output reads like key-value pairs:
+
+```
+Sheet: Employees
+
+Name: Alice Johnson
+Department: Engineering
+Role: Senior Developer
+
+Name: Bob Smith
+Department: Design
+Role: UX Designer
+```
+
+With `format: "markdown"`, the output is a markdown table:
+
+```markdown
+## Sheet: Employees
+
+| Name | Department | Role |
+|------|------------|------|
+| Alice Johnson | Engineering | Senior Developer |
+| Bob Smith | Design | UX Designer |
+```
+
+The text format tends to chunk more naturally into meaningful segments. The markdown format preserves tabular structure better. Choose based on your content and how you want search results to look.
+
+## Usage example
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const xlsxBytes = await readFile("./data/employees.xlsx");
+
+await engine.ingest({
+  sourceId: "hr:employee-directory",
+  content: "Employee Directory",
+  assets: [
+    {
+      assetId: "employees-xlsx",
+      kind: "file",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(xlsxBytes),
+        mediaType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename: "employees.xlsx",
+      },
+    },
+  ],
+});
+```
+
+## Spreadsheet search considerations
+
+Spreadsheets often contain dense structured data that doesn't always search intuitively. A query for "Alice's department" might not match if the chunk containing Alice doesn't include enough context about her row being about an employee with a department.
+
+The `treatFirstRowAsHeader` setting helps by associating values with their headers. But very wide spreadsheets (many columns) or very long ones (many rows) may still produce chunks that lack sufficient context.
+
+For spreadsheets that are really databases, consider whether a proper database with SQL queries might serve your use case better than semantic search.
+
+## Large spreadsheets
+
+The `maxSheets` and `maxRowsPerSheet` settings protect against processing enormous workbooks. A 50-sheet workbook with 100,000 rows per sheet would produce an overwhelming amount of chunks. The limits ensure processing stays reasonable while still capturing the bulk of typical business spreadsheets.
+
+If you're hitting these limits frequently, consider whether all that data needs to be searchable. Often, a spreadsheet's first few rows contain the important information, with detail rows below that matter less for search discovery.
+

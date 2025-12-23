@@ -28,8 +28,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
   const installImportBase = `./${selection.installDir.replace(/\\/g, "/")}`;
 
   const baseImports = [
-    `import { createContextEngine, defineConfig } from "${installImportBase}/core";`,
-    `import { createAiEmbeddingProvider } from "${installImportBase}/embedding/ai";`,
+    `import { defineUnragConfig } from "${installImportBase}/core";`,
   ];
 
   const storeImports: string[] = [];
@@ -83,24 +82,14 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 
   const createEngineBlock = [
     `export function createUnragEngine() {`,
-    `  const embedding = createAiEmbeddingProvider({`,
-    `    model: unragConfig.embedding.model,`,
-    `    timeoutMs: unragConfig.embedding.timeoutMs,`,
-    `  });`,
     ...storeCreateLines,
     ``,
-    `  return createContextEngine(`,
-    `    defineConfig({`,
-    `      embedding,`,
-    `      store,`,
-    `      defaults: unragConfig.chunking,`,
-    `    })`,
-    `  );`,
+    `  return unrag.createEngine({ store });`,
     `}`,
     ``,
     `export async function retrieve(query: string) {`,
     `  const engine = createUnragEngine();`,
-    `  return engine.retrieve({ query, topK: unragConfig.retrieval.topK });`,
+    `  return engine.retrieve({ query, topK: unrag.defaults.retrieval.topK });`,
     `}`,
   ].join("\n");
 
@@ -179,6 +168,10 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       dest: path.join(installBaseAbs, "core/index.ts"),
     },
     {
+      src: path.join(selection.registryRoot, "core/assets.ts"),
+      dest: path.join(installBaseAbs, "core/assets.ts"),
+    },
+    {
       src: path.join(selection.registryRoot, "core/types.ts"),
       dest: path.join(installBaseAbs, "core/types.ts"),
     },
@@ -193,6 +186,10 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
     {
       src: path.join(selection.registryRoot, "core/context-engine.ts"),
       dest: path.join(installBaseAbs, "core/context-engine.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "core/delete.ts"),
+      dest: path.join(installBaseAbs, "core/delete.ts"),
     },
     {
       src: path.join(selection.registryRoot, "core/ingest.ts"),
@@ -339,6 +336,109 @@ export async function copyConnectorFiles(selection: ConnectorSelection) {
 
     const rel = path.relative(connectorRegistryAbs, src);
     const dest = path.join(destRootAbs, rel);
+
+    if (await exists(dest)) {
+      if (nonInteractive) {
+        continue;
+      }
+
+      const answer = await confirm({
+        message: `Overwrite ${path.relative(selection.projectRoot, dest)}?`,
+        initialValue: false,
+      });
+      if (isCancel(answer)) {
+        cancel("Cancelled.");
+        return;
+      }
+      if (!answer) {
+        continue;
+      }
+    }
+
+    const raw = await readText(src);
+    await writeText(dest, raw);
+  }
+}
+
+export type ExtractorSelection = {
+  projectRoot: string;
+  registryRoot: string;
+  installDir: string; // project-relative posix
+  extractor: string; // e.g. "pdf-llm"
+  yes?: boolean; // non-interactive skip-overwrite
+};
+
+export async function copyExtractorFiles(selection: ExtractorSelection) {
+  const toAbs = (projectRelative: string) =>
+    path.join(selection.projectRoot, projectRelative);
+
+  const installBaseAbs = toAbs(selection.installDir);
+  const extractorRegistryAbs = path.join(
+    selection.registryRoot,
+    "extractors",
+    selection.extractor
+  );
+  const sharedRegistryAbs = path.join(selection.registryRoot, "extractors", "_shared");
+
+  if (!(await exists(extractorRegistryAbs))) {
+    throw new Error(
+      `Unknown extractor registry: ${path.relative(selection.registryRoot, extractorRegistryAbs)}`
+    );
+  }
+
+  const extractorFiles = await listFilesRecursive(extractorRegistryAbs);
+  const sharedFiles = (await exists(sharedRegistryAbs))
+    ? await listFilesRecursive(sharedRegistryAbs)
+    : [];
+
+  const destRootAbs = path.join(
+    installBaseAbs,
+    "extractors",
+    selection.extractor
+  );
+  const sharedDestRootAbs = path.join(installBaseAbs, "extractors", "_shared");
+
+  const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY;
+
+  // Copy extractor files.
+  for (const src of extractorFiles) {
+    if (!(await exists(src))) {
+      throw new Error(`Registry file missing: ${src}`);
+    }
+
+    const rel = path.relative(extractorRegistryAbs, src);
+    const dest = path.join(destRootAbs, rel);
+
+    if (await exists(dest)) {
+      if (nonInteractive) {
+        continue;
+      }
+
+      const answer = await confirm({
+        message: `Overwrite ${path.relative(selection.projectRoot, dest)}?`,
+        initialValue: false,
+      });
+      if (isCancel(answer)) {
+        cancel("Cancelled.");
+        return;
+      }
+      if (!answer) {
+        continue;
+      }
+    }
+
+    const raw = await readText(src);
+    await writeText(dest, raw);
+  }
+
+  // Copy shared extractor utilities (if present).
+  for (const src of sharedFiles) {
+    if (!(await exists(src))) {
+      throw new Error(`Registry file missing: ${src}`);
+    }
+
+    const rel = path.relative(sharedRegistryAbs, src);
+    const dest = path.join(sharedDestRootAbs, rel);
 
     if (await exists(dest)) {
       if (nonInteractive) {

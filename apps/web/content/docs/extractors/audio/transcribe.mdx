@@ -1,0 +1,152 @@
+---
+title: "audio:transcribe Extractor"
+description: Transcribe audio files using Whisper and embed the transcript.
+---
+
+The `audio:transcribe` extractor converts speech to text using OpenAI's Whisper model. Audio bytes are sent to the Whisper API, which returns a text transcript. That transcript then flows through your normal chunking and embedding pipeline, making the spoken content searchable.
+
+Whisper handles a wide range of audio: podcasts, meeting recordings, phone calls, voice memos. It's robust to background noise and can transcribe multiple languages. For most audio content, you can send it through without preprocessing.
+
+## Installation
+
+```bash
+bunx unrag@latest add extractor audio-transcribe
+```
+
+Then register the extractor:
+
+```ts
+import { createAudioTranscribeExtractor } from "./lib/unrag/extractors/audio-transcribe";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createAudioTranscribeExtractor()],
+  },
+} as const);
+```
+
+## How it works
+
+When an audio asset arrives, the extractor uploads the audio bytes to the Whisper API. Whisper processes the entire file and returns a transcript. That transcript becomes the text content that gets chunked and embedded.
+
+The transcript inherits the asset's metadata, so chunks from audio files are tagged with `metadata.extractor: "audio:transcribe"`. This lets you distinguish spoken content from written content in your retrieval results.
+
+## Configuration
+
+Enable and configure transcription in your engine config:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      audio: {
+        transcription: {
+          enabled: true,
+          model: "whisper-1",
+          maxDurationSec: 3600,
+          maxBytes: 25 * 1024 * 1024,
+          language: "en",
+        },
+      },
+    },
+  },
+} as const);
+```
+
+**`model`** specifies the Whisper model. Currently `whisper-1` is the only option through OpenAI's API.
+
+**`maxDurationSec`** sets the maximum audio duration to process. Whisper can handle long recordings, but cost and latency scale with duration. A one-hour recording at 3600 seconds is a reasonable default. Longer files are skipped with a warning.
+
+**`maxBytes`** caps the file size. Whisper accepts up to 25MB per request.
+
+**`language`** hints at the audio's language. If omitted, Whisper auto-detects. Specifying the language can improve accuracy for non-English content.
+
+## Supported formats
+
+Whisper accepts most common audio formats: mp3, mp4, m4a, wav, webm, and more. The file's media type should be set correctly in the asset data, but Whisper is generally good at detecting format from the bytes.
+
+## Usage example
+
+Here's a typical flow for ingesting a meeting recording:
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const meetingAudio = await readFile("./recordings/product-review.mp3");
+
+const result = await engine.ingest({
+  sourceId: "meetings:product-review-jan",
+  content: "January product review meeting",
+  assets: [
+    {
+      assetId: "meeting-audio",
+      kind: "audio",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(meetingAudio),
+        mediaType: "audio/mpeg",
+      },
+    },
+  ],
+});
+
+console.log(`Created ${result.chunkCount} chunks from transcript`);
+```
+
+For audio from URLs (maybe from a podcast RSS feed or cloud storage):
+
+```ts
+await engine.ingest({
+  sourceId: "podcast:episode-42",
+  content: "Episode 42: The Future of AI",
+  assets: [
+    {
+      assetId: "episode-42-audio",
+      kind: "audio",
+      data: {
+        kind: "url",
+        url: "https://cdn.example.com/podcasts/ep42.mp3",
+        mediaType: "audio/mpeg",
+      },
+    },
+  ],
+});
+```
+
+## What gets stored
+
+Each chunk from the transcript includes:
+
+| Field | Content |
+|-------|---------|
+| `chunk.content` | Portion of the transcript text |
+| `chunk.metadata.assetKind` | `"audio"` |
+| `chunk.metadata.assetId` | Your provided ID |
+| `chunk.metadata.extractor` | `"audio:transcribe"` |
+
+## Cost and latency
+
+Whisper pricing is based on audio duration, not transcript length. A one-minute file costs the same whether the speaker talks fast or slow. Check OpenAI's pricing page for current rates.
+
+Transcription latency scales roughly linearly with duration. A five-minute recording might take 10-20 seconds to transcribe. For long recordings in production systems, consider using background jobs rather than blocking request handlers.
+
+## Handling long recordings
+
+Very long recordings (multi-hour meetings, full podcast episodes) can strain serverless timeouts and produce very long transcripts. A few strategies help:
+
+Split before ingestion if possible. If your source provides chapter markers or natural break points, ingest as separate assets. This also makes retrieval results more precise—finding "the part about budgets" is easier when chapters are separate.
+
+Accept the processing time for batch jobs. If you're ingesting a library of recordings overnight, long transcription times may be acceptable.
+
+Use a worker environment for processing. The [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) covers setting up background jobs for heavy extraction work.
+
+## Troubleshooting
+
+If transcription produces empty or poor results, check that the audio is clear enough for speech recognition. Very noisy recordings, heavy accents, or multiple overlapping speakers can challenge Whisper. You might need to preprocess the audio (noise reduction, speaker separation) before ingestion.
+
+If processing times out, the audio may exceed your configured limits or your infrastructure's timeout. For serverless, consider shorter `maxDurationSec` or moving to background processing.
+

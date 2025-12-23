@@ -1,0 +1,373 @@
+---
+title: Ingest Rich Media
+description: Ingest PDFs, images, and other assets into your Unrag store.
+---
+
+Unrag can process more than just text. When your content includes PDFs, images, or other media, you can include them as `assets` during ingestion. This guide shows you how.
+
+## The basics
+
+The `engine.ingest()` method accepts an optional `assets` array alongside your text content:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+
+await engine.ingest({
+  sourceId: "report:q3-2024",
+  content: "Q3 2024 Financial Summary. See attached PDF for details.",
+  assets: [
+    {
+      assetId: "financial-report",
+      kind: "pdf",
+      data: {
+        kind: "url",
+        url: "https://example.com/reports/q3-2024.pdf",
+        mediaType: "application/pdf",
+      },
+    },
+  ],
+});
+```
+
+Unrag processes both the text and the assets, creating chunks from each. The resulting chunks all live in the same embedding space, so a text query can retrieve content from the PDF.
+
+## Don’t miss skipped assets (warnings)
+
+If an asset is skipped (unsupported kind, extraction disabled, or best-effort error with `onError: "skip"`), Unrag emits **structured warnings** in the ingest result.
+
+```ts
+const result = await engine.ingest({ sourceId, content, assets });
+
+if (result.warnings.length > 0) {
+  console.warn("unrag ingest warnings", result.warnings);
+  // In production: forward to your logger/metrics/alerts
+}
+```
+
+If you prefer ingestion to fail instead of skipping, set `assetProcessing.onUnsupportedAsset: "fail"` and/or `assetProcessing.onError: "fail"`.
+
+## Ingesting PDFs
+
+PDFs are processed through LLM extraction: Unrag sends the PDF to an LLM (Gemini by default) and asks it to extract all readable text. This extracted text is then chunked and embedded like any other content.
+
+### Enabling PDF extraction
+
+PDF extraction is **opt-in by default** in the library (for cost safety), but the generated `unrag.config.ts` enables it:
+
+```ts
+// In unrag.config.ts
+assetProcessing: {
+  pdf: {
+    llmExtraction: {
+      enabled: true, // Set to false to disable
+      model: "google/gemini-2.0-flash",
+    },
+  },
+},
+```
+
+### Installing the PDF extractor (required)
+
+Enabling `pdf.llmExtraction.enabled` controls *whether PDFs should be processed*, but the actual extraction work is performed by an **extractor module**.
+
+Install the Gemini PDF extractor:
+
+```bash
+bunx unrag@latest add extractor pdf-llm --yes
+```
+
+Then register it in `createUnragEngine()` by importing it and adding it to the engine’s `extractors` array.
+
+If you enable PDF extraction but don’t install/register a PDF extractor, ingestion will emit warnings so you don’t silently miss content.
+
+### What to expect
+
+When PDF extraction is enabled:
+
+1. Unrag fetches the PDF (if it's a URL) or uses the provided bytes
+2. The PDF is sent to Gemini with an extraction prompt
+3. Gemini returns the extracted text (preserving structure as markdown where possible)
+4. The extracted text is chunked and embedded
+
+The extraction prompt is designed to faithfully reproduce the PDF's text content while preserving headings, lists, and structure.
+
+### Handling large PDFs
+
+You can limit which PDFs get processed:
+
+```ts
+assetProcessing: {
+  pdf: {
+    llmExtraction: {
+      enabled: true,
+      maxBytes: 10 * 1024 * 1024, // Skip PDFs larger than 10MB
+      maxOutputChars: 100_000,    // Truncate very long extractions
+    },
+  },
+},
+```
+
+PDFs that exceed `maxBytes` are skipped (or cause ingestion to fail if `onUnsupportedAsset: "fail"`).
+
+## Ingesting images
+
+Images can be handled two ways:
+
+### Direct image embedding (multimodal)
+
+If your embedding provider supports images, Unrag can embed the image directly into the same vector space as text. This means text queries can semantically match image content.
+
+Enable multimodal mode in your embedding config:
+
+```ts
+const embedding = createAiEmbeddingProvider({
+  type: "multimodal",
+  model: "cohere/embed-v4.0", // Example multimodal model
+});
+```
+
+With multimodal enabled, images become first-class citizens in your retrieval results.
+
+### Caption fallback
+
+If multimodal embedding isn't available (or you're using `type: "text"`), Unrag falls back to the image's `text` field—typically a caption or alt text:
+
+```ts
+await engine.ingest({
+  sourceId: "docs:architecture",
+  content: "System architecture overview...",
+  assets: [
+    {
+      assetId: "arch-diagram",
+      kind: "image",
+      data: { kind: "url", url: "https://..." },
+      text: "Architecture diagram showing the three-tier system with load balancer, application servers, and database cluster",
+    },
+  ],
+});
+```
+
+The caption text is chunked and embedded, making the image findable via text search.
+
+## Handling unsupported assets
+
+In v1, audio, video, and generic files aren't extracted. By default, they're skipped:
+
+```ts
+assetProcessing: {
+  onUnsupportedAsset: "skip", // Default: continue without these assets
+},
+```
+
+If you need to ensure all content is processed, switch to strict mode:
+
+```ts
+assetProcessing: {
+  onUnsupportedAsset: "fail", // Throw if we encounter unsupported assets
+},
+```
+
+This is useful when you want to guarantee nothing is silently dropped.
+
+## Next.js production recipe
+
+For production on Vercel, run extraction in a background job (QStash/BullMQ/Inngest) instead of in a single request:
+
+<Cards>
+  <Card title="Next.js Production Recipe" href="/docs/guides/nextjs-production-recipe">
+    Reliable extraction + ingestion on Vercel with retries and observability
+  </Card>
+</Cards>
+
+## Working with connectors
+
+When using connectors like Notion, you don't need to build the `assets` array yourself. The connector extracts assets from the content automatically:
+
+```ts
+import { syncNotionPages } from "@unrag/connectors/notion";
+
+await syncNotionPages({
+  engine,
+  token: process.env.NOTION_TOKEN!,
+  pageIds: ["..."],
+  // Assets are extracted from Notion blocks automatically
+});
+```
+
+Notion blocks like `image`, `pdf`, `file`, `audio`, and `video` are converted to `AssetInput` objects and included in the ingest call.
+
+## Building assets manually
+
+When ingesting from your own sources, construct `AssetInput` objects:
+
+```ts
+import type { AssetInput } from "@unrag/core";
+
+// From a URL
+const pdfAsset: AssetInput = {
+  assetId: "contract-v1",
+  kind: "pdf",
+  data: {
+    kind: "url",
+    url: "https://storage.example.com/contracts/v1.pdf",
+    headers: { Authorization: `Bearer ${token}` }, // Optional auth headers
+    mediaType: "application/pdf",
+  },
+  metadata: {
+    contractType: "service-agreement",
+    version: 1,
+  },
+};
+
+// From bytes (e.g., file upload)
+const imageAsset: AssetInput = {
+  assetId: "product-photo",
+  kind: "image",
+  data: {
+    kind: "bytes",
+    bytes: await file.arrayBuffer().then((b) => new Uint8Array(b)),
+    mediaType: file.type,
+    filename: file.name,
+  },
+  text: "Product photo showing the blue variant",
+};
+```
+
+## Complete example: Ingesting a folder of PDFs
+
+Here's a script that ingests all PDFs from a directory:
+
+```ts
+// scripts/ingest-pdfs.ts
+import { createUnragEngine } from "../unrag.config";
+import { readdir, readFile } from "fs/promises";
+import path from "path";
+
+async function main() {
+  const engine = createUnragEngine();
+  const pdfDir = path.join(process.cwd(), "documents");
+  const files = await readdir(pdfDir);
+
+  const pdfs = files.filter((f) => f.toLowerCase().endsWith(".pdf"));
+  console.log(`Found ${pdfs.length} PDFs to ingest\n`);
+
+  for (const filename of pdfs) {
+    const fullPath = path.join(pdfDir, filename);
+    const bytes = await readFile(fullPath);
+
+    const sourceId = `pdfs:${filename.replace(".pdf", "")}`;
+
+    try {
+      const result = await engine.ingest({
+        sourceId,
+        content: "", // No text content, just the PDF
+        assets: [
+          {
+            assetId: filename,
+            kind: "pdf",
+            data: {
+              kind: "bytes",
+              bytes: new Uint8Array(bytes),
+              mediaType: "application/pdf",
+              filename,
+            },
+          },
+        ],
+        metadata: {
+          filename,
+          ingestedAt: new Date().toISOString(),
+        },
+      });
+
+      console.log(`✓ ${filename} (${result.chunkCount} chunks)`);
+    } catch (error) {
+      console.error(`✗ ${filename}: ${error.message}`);
+    }
+  }
+}
+
+main().catch(console.error);
+```
+
+Run with `npx tsx scripts/ingest-pdfs.ts`.
+
+## Querying mixed content
+
+Once ingested, all content—text, extracted PDFs, embedded images—is queryable with the same API:
+
+```ts
+const result = await engine.retrieve({
+  query: "What are the payment terms in the contract?",
+  topK: 5,
+});
+
+// Results may include chunks from:
+// - Text documents mentioning payment terms
+// - Extracted PDF content about payment terms
+// - Image captions describing payment-related diagrams
+```
+
+Check `chunk.metadata.assetKind` and `chunk.metadata.extractor` to identify where each chunk came from:
+
+```ts
+import { getChunkAssetRef } from "@unrag/core";
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+
+  // Plain text chunks have no asset reference.
+  if (!ref) {
+    console.log("From text:", chunk.content);
+    continue;
+  }
+
+  // Asset chunks (images, PDFs, and future multimodal kinds) include both:
+  // - ref.assetKind (coarse type: image/pdf/audio/video/file)
+  // - ref.extractor (fine-grained origin: "pdf:llm", "image:embed", etc.)
+  if (ref.assetKind === "pdf" && ref.extractor === "pdf:llm") {
+    console.log("From PDF:", chunk.content);
+    continue;
+  }
+
+  if (ref.assetKind === "image") {
+    console.log(`From image (${ref.extractor ?? "unknown"}):`, chunk.content);
+    continue;
+  }
+
+  console.log(`From ${ref.assetKind} (${ref.extractor ?? "unknown"}):`, chunk.content);
+}
+```
+
+## Resolving an asset chunk to the original bytes
+
+Unrag retrieval returns standard chunks. For rich media matches (images, PDFs, etc.), Unrag stores **references** to the originating asset in `chunk.metadata` (like `assetKind`, `assetId`, optional `assetUri`). It does **not** store the original bytes.
+
+Use `getChunkAssetRef()` to extract these fields consistently:
+
+```ts
+import { getChunkAssetRef, type ChunkAssetRef } from "@unrag/core";
+
+async function resolveAssetBytes(ref: ChunkAssetRef): Promise<Uint8Array> {
+  // Prefer resolving from your own storage (S3/GCS/filesystem) by assetId.
+  // Fall back to assetUri if you stored a stable URL at ingest time.
+  if (ref.assetUri) {
+    const res = await fetch(ref.assetUri);
+    if (!res.ok) throw new Error(`Failed to fetch asset (${res.status})`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+  return await myAssetStore.getBytes(ref.assetId); // implement in your app
+}
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  if (!ref) continue;
+
+  // Example: only resolve images
+  if (ref.assetKind !== "image") continue;
+  const bytes = await resolveAssetBytes(ref);
+  console.log("resolved image bytes", bytes.length);
+}
+```
+

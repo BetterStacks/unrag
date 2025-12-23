@@ -1,0 +1,443 @@
+---
+title: PDF Knowledge Base
+description: Build a searchable knowledge base from a folder of PDF documents.
+---
+
+PDFs are everywhere—contracts, reports, manuals, research papers. This example shows how to build a searchable knowledge base from a folder of PDFs using Unrag's LLM extraction.
+
+## What you'll build
+
+A complete PDF ingestion pipeline that:
+
+1. Scans a directory for PDF files
+2. Extracts text from each PDF using Gemini
+3. Chunks and embeds the extracted text
+4. Provides a search interface
+
+## Prerequisites
+
+- Unrag installed and configured
+- A folder of PDFs to index
+- API access to Gemini (via Vercel AI Gateway)
+
+## Project structure
+
+```
+my-pdf-knowledge-base/
+├── documents/           # Your PDFs go here
+│   ├── contract-2024.pdf
+│   ├── user-manual.pdf
+│   └── quarterly-report.pdf
+├── scripts/
+│   ├── ingest.ts        # Ingest all PDFs
+│   └── search.ts        # Search interface
+├── lib/
+│   └── unrag/           # Generated Unrag files
+├── unrag.config.ts
+└── package.json
+```
+
+## Configuration
+
+Configure Unrag with PDF extraction enabled:
+
+```ts
+// unrag.config.ts
+import { defineUnragConfig } from "./lib/unrag/core";
+import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
+import { db } from "./lib/db";
+
+export const unrag = defineUnragConfig({
+  defaults: {
+  chunking: {
+      chunkSize: 1000,
+      chunkOverlap: 100,
+  },
+    retrieval: {
+      topK: 8,
+    },
+  },
+  embedding: {
+    provider: "ai",
+    config: {
+      type: "text",
+      model: "openai/text-embedding-3-small",
+    },
+  },
+  engine: {
+  assetProcessing: {
+    onError: "skip", // Continue if a PDF fails
+    pdf: {
+      llmExtraction: {
+        enabled: true,
+        model: "google/gemini-2.0-flash",
+          timeoutMs: 90_000, // 90s for large PDFs
+        maxBytes: 20 * 1024 * 1024, // 20 MB limit
+        maxOutputChars: 300_000,
+      },
+    },
+  },
+  },
+} as const);
+
+export function createUnragEngine() {
+  const store = createDrizzleVectorStore(db);
+
+  return unrag.createEngine({ store });
+}
+```
+
+## Ingest script
+
+```ts
+// scripts/ingest.ts
+import { createUnragEngine } from "../unrag.config";
+import { readdir, readFile, stat } from "fs/promises";
+import path from "path";
+
+const PDF_DIR = path.join(process.cwd(), "documents");
+
+async function getPdfFiles(dir: string): Promise<string[]> {
+  const entries = await readdir(dir, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await getPdfFiles(fullPath)));
+    } else if (entry.name.toLowerCase().endsWith(".pdf")) {
+      files.push(fullPath);
+    }
+  }
+
+  return files;
+}
+
+async function main() {
+  const engine = createUnragEngine();
+  const pdfFiles = await getPdfFiles(PDF_DIR);
+
+  console.log(`Found ${pdfFiles.length} PDFs to ingest\n`);
+
+  let successCount = 0;
+  let errorCount = 0;
+
+  for (const filePath of pdfFiles) {
+    const filename = path.basename(filePath);
+    const relativePath = path.relative(PDF_DIR, filePath);
+    const stats = await stat(filePath);
+
+    // Create a stable sourceId from the path
+    const sourceId = `pdf:${relativePath.replace(/\\/g, "/")}`;
+
+    console.log(`Processing: ${relativePath} (${formatBytes(stats.size)})`);
+
+    try {
+      const bytes = await readFile(filePath);
+
+      const result = await engine.ingest({
+        sourceId,
+        content: "", // No text content, just the PDF asset
+        metadata: {
+          filename,
+          path: relativePath,
+          size: stats.size,
+          ingestedAt: new Date().toISOString(),
+        },
+        assets: [
+          {
+            assetId: "main",
+            kind: "pdf",
+            data: {
+              kind: "bytes",
+              bytes: new Uint8Array(bytes),
+              mediaType: "application/pdf",
+              filename,
+            },
+          },
+        ],
+      });
+
+      console.log(`  ✓ Created ${result.chunkCount} chunks\n`);
+      successCount++;
+    } catch (error) {
+      console.error(`  ✗ Error: ${error.message}\n`);
+      errorCount++;
+    }
+  }
+
+  console.log(`\nComplete: ${successCount} succeeded, ${errorCount} failed`);
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+main().catch(console.error);
+```
+
+Run with:
+
+```bash
+npx tsx scripts/ingest.ts
+```
+
+## Search script
+
+```ts
+// scripts/search.ts
+import { createUnragEngine } from "../unrag.config";
+import readline from "readline";
+
+async function main() {
+  const engine = createUnragEngine();
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  console.log("PDF Knowledge Base Search");
+  console.log("Type your query, or 'exit' to quit.\n");
+
+  const prompt = () => {
+    rl.question("Query: ", async (query) => {
+      if (query.toLowerCase() === "exit") {
+        rl.close();
+        return;
+      }
+
+      if (!query.trim()) {
+        prompt();
+        return;
+      }
+
+      try {
+        const result = await engine.retrieve({
+          query,
+          topK: 5,
+        });
+
+        console.log(`\nFound ${result.chunks.length} results:\n`);
+
+        for (let i = 0; i < result.chunks.length; i++) {
+          const chunk = result.chunks[i];
+          const score = result.scores?.[i]?.toFixed(3) || "N/A";
+          const file = chunk.metadata.filename || "Unknown";
+
+          console.log(`[${i + 1}] ${file} (score: ${score})`);
+          console.log(`    ${chunk.content.slice(0, 200).replace(/\n/g, " ")}...`);
+          console.log();
+        }
+      } catch (error) {
+        console.error(`Error: ${error.message}`);
+      }
+
+      prompt();
+    });
+  };
+
+  prompt();
+}
+
+main().catch(console.error);
+```
+
+Run with:
+
+```bash
+npx tsx scripts/search.ts
+```
+
+## Adding a web interface
+
+Create an API endpoint for search:
+
+```ts
+// app/api/search/route.ts (Next.js)
+import { createUnragEngine } from "@/unrag.config";
+import { NextRequest, NextResponse } from "next/server";
+
+export async function GET(req: NextRequest) {
+  const query = req.nextUrl.searchParams.get("q");
+  
+  if (!query) {
+    return NextResponse.json({ error: "Missing query" }, { status: 400 });
+  }
+
+  const engine = createUnragEngine();
+  const result = await engine.retrieve({
+    query,
+    topK: 10,
+  });
+
+  return NextResponse.json({
+    query,
+    results: result.chunks.map((chunk, i) => ({
+      content: chunk.content,
+      score: result.scores?.[i],
+      file: chunk.metadata.filename,
+      path: chunk.metadata.path,
+    })),
+  });
+}
+```
+
+## Handling large PDFs
+
+For very large PDFs, consider:
+
+### 1. Increase timeouts
+
+```ts
+assetProcessing: {
+  pdf: {
+    llmExtraction: {
+      timeoutMs: 180_000, // 3 minutes
+    },
+  },
+},
+```
+
+### 2. Process in batches
+
+```ts
+const BATCH_SIZE = 5;
+
+for (let i = 0; i < pdfFiles.length; i += BATCH_SIZE) {
+  const batch = pdfFiles.slice(i, i + BATCH_SIZE);
+  
+  await Promise.all(
+    batch.map((file) => ingestPdf(engine, file))
+  );
+  
+  console.log(`Processed ${Math.min(i + BATCH_SIZE, pdfFiles.length)}/${pdfFiles.length}`);
+}
+```
+
+### 3. Skip very large files
+
+```ts
+const MAX_SIZE = 25 * 1024 * 1024; // 25 MB
+
+for (const filePath of pdfFiles) {
+  const stats = await stat(filePath);
+  
+  if (stats.size > MAX_SIZE) {
+    console.log(`Skipping ${filePath} (too large)`);
+    continue;
+  }
+  
+  // Process...
+}
+```
+
+## Incremental updates
+
+Track which PDFs have been ingested to avoid reprocessing:
+
+```ts
+import { readFile, writeFile } from "fs/promises";
+
+const MANIFEST_PATH = "./pdf-manifest.json";
+
+type Manifest = Record<string, { mtime: number; chunks: number }>;
+
+async function loadManifest(): Promise<Manifest> {
+  try {
+    const data = await readFile(MANIFEST_PATH, "utf-8");
+    return JSON.parse(data);
+  } catch {
+    return {};
+  }
+}
+
+async function saveManifest(manifest: Manifest) {
+  await writeFile(MANIFEST_PATH, JSON.stringify(manifest, null, 2));
+}
+
+async function main() {
+  const engine = createUnragEngine();
+  const manifest = await loadManifest();
+  const pdfFiles = await getPdfFiles(PDF_DIR);
+
+  for (const filePath of pdfFiles) {
+    const stats = await stat(filePath);
+    const existing = manifest[filePath];
+
+    // Skip if file hasn't changed
+    if (existing && existing.mtime === stats.mtimeMs) {
+      console.log(`Skipping ${filePath} (unchanged)`);
+      continue;
+    }
+
+    const result = await ingestPdf(engine, filePath);
+    
+    manifest[filePath] = {
+      mtime: stats.mtimeMs,
+      chunks: result.chunkCount,
+    };
+  }
+
+  await saveManifest(manifest);
+}
+```
+
+## Custom extraction prompts
+
+Tailor the extraction prompt for your document type:
+
+```ts
+// For legal contracts
+assetProcessing: {
+  pdf: {
+    llmExtraction: {
+      enabled: true,
+      prompt: `
+Extract all text from this legal document. Pay special attention to:
+- Section and clause numbers
+- Defined terms (preserve exact capitalization)
+- Dates and monetary amounts
+- Signature blocks
+
+Preserve the document structure as markdown.
+      `.trim(),
+    },
+  },
+},
+
+// For technical manuals
+assetProcessing: {
+  pdf: {
+    llmExtraction: {
+      enabled: true,
+      prompt: `
+Extract all text from this technical document. Include:
+- All headings and subheadings
+- Numbered steps and procedures
+- Table contents (format as markdown tables)
+- Figure captions
+
+Preserve technical terminology exactly.
+      `.trim(),
+    },
+  },
+},
+```
+
+## Next steps
+
+<Cards>
+  <Card title="Build a Search Endpoint" href="/docs/guides/build-a-search-endpoint">
+    Create a production-ready search API
+  </Card>
+  <Card title="Use with Chat" href="/docs/guides/use-with-chat">
+    Add conversational AI on top of your PDF knowledge
+  </Card>
+  <Card title="Asset Processing Reference" href="/docs/reference/asset-processing">
+    Full configuration options for PDF extraction
+  </Card>
+</Cards>
+

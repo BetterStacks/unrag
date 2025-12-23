@@ -1,0 +1,134 @@
+---
+title: "pdf:ocr Extractor"
+description: OCR PDFs by rendering pages and running text recognition.
+---
+
+The `pdf:ocr` extractor handles scanned PDFs the traditional way: render each page to an image, then run OCR to extract text. This gives you scanned document support without per-document LLM costs.
+
+The catch is that it requires native binaries—`pdftoppm` for rendering and `tesseract` for OCR—and processing can be resource-intensive. This isn't suitable for serverless environments. Use it when you have a worker runtime with native dependency support and want to avoid LLM costs for scanned documents.
+
+## When to use OCR
+
+The OCR extractor makes sense when you process many scanned documents and want to minimize costs. LLM extraction is arguably better quality—modern vision models understand document structure, not just character shapes—but it costs money per document.
+
+For documents where OCR quality is sufficient (clean scans, simple layouts, mostly text), the OCR extractor does the job at much lower per-document cost. The infrastructure investment is in setting up the worker environment, not ongoing API bills.
+
+For complex documents (poor scans, mixed layouts, handwriting), LLM extraction will produce better results. Consider your document mix when choosing.
+
+## Installation
+
+```bash
+bunx unrag@latest add extractor pdf-ocr
+```
+
+You'll also need the native binaries installed in your runtime environment:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install poppler-utils tesseract-ocr
+
+# macOS
+brew install poppler tesseract
+
+# Alpine (Docker)
+apk add poppler-utils tesseract-ocr
+```
+
+Register in your config:
+
+```ts
+import { createPdfOcrExtractor } from "./lib/unrag/extractors/pdf-ocr";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createPdfOcrExtractor()],
+  },
+} as const);
+```
+
+<Callout type="warn">
+This extractor requires `pdftoppm` and `tesseract` binaries. It's not suitable for serverless runtimes like Vercel Functions or AWS Lambda (without custom layers).
+</Callout>
+
+## Configuration
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      pdf: {
+        ocr: {
+          enabled: true,
+          maxBytes: 15 * 1024 * 1024,
+          maxOutputChars: 200_000,
+          minChars: 200,
+          dpi: 200,
+          lang: "eng",
+          pdftoppmPath: "/usr/bin/pdftoppm",
+          tesseractPath: "/usr/bin/tesseract",
+        },
+      },
+    },
+  },
+} as const);
+```
+
+**`dpi`** controls the resolution of rendered page images. Higher DPI means better OCR accuracy but slower processing and more memory. 200 DPI works well for most scans; increase to 300 for poor-quality originals.
+
+**`lang`** sets the Tesseract language code. Install additional language packs for non-English documents (`tesseract-ocr-deu` for German, etc.).
+
+**`pdftoppmPath`** and **`tesseractPath`** let you specify explicit paths to the binaries. If not set, the extractor searches your system PATH.
+
+## How it works
+
+The extraction pipeline has three stages. First, `pdftoppm` renders each PDF page to a PNG image at the configured DPI. Then, `tesseract` processes each image and extracts text. Finally, the text from all pages is combined and flows through your normal chunking and embedding.
+
+Processing time scales with page count and DPI. A 20-page document at 200 DPI might take 10-20 seconds depending on your hardware.
+
+## Worker setup
+
+Since this extractor needs native binaries, you'll typically run it in a container or dedicated worker process. A basic Docker setup:
+
+```dockerfile
+FROM node:20-slim
+
+RUN apt-get update && apt-get install -y \
+    poppler-utils \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY . .
+RUN npm install
+
+CMD ["node", "worker.js"]
+```
+
+The worker processes PDF extraction jobs from a queue, separate from your main application. See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) for patterns around background processing.
+
+## Fallback chains
+
+You can use `pdf:ocr` as part of a fallback chain:
+
+```ts
+extractors: [
+  createPdfTextLayerExtractor(),  // Try text layer first
+  createPdfOcrExtractor(),        // Fall back to OCR for scanned docs
+],
+```
+
+This gives you fast extraction for digital PDFs and scanned document support without LLM costs. The tradeoff is needing the worker infrastructure for the OCR extractor.
+
+## Troubleshooting
+
+If you see "pdftoppm not found" or "tesseract not found" errors, the binaries aren't installed or aren't in PATH. Install them or provide explicit paths in configuration.
+
+If OCR quality is poor, try increasing DPI. For documents in languages other than English, make sure the appropriate Tesseract language pack is installed.
+
+If processing is slow, that's somewhat inherent to OCR pipelines. You can lower DPI for faster processing at the cost of accuracy, or process fewer pages by setting limits. For production, background processing is essential—don't OCR PDFs in request handlers.
+

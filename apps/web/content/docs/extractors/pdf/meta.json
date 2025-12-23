@@ -1,0 +1,10 @@
+{
+  "title": "PDF",
+  "pages": [
+    "index",
+    "text-layer",
+    "llm",
+    "ocr"
+  ]
+}
+

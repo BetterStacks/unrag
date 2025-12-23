@@ -3,20 +3,20 @@ title: unrag.config.ts Reference
 description: The generated configuration file and how to customize it.
 ---
 
-The `unrag.config.ts` file is the central place to configure Unrag. It's generated when you run `unrag init` and contains everything needed to construct a working engine: database connection, embedding provider, and default settings.
+The `unrag.config.ts` file is the central place to configure Unrag. It's generated when you run `unrag@latest init` and contains everything needed to construct a working engine: database connection, embedding provider, and default settings.
 
 ## Structure overview
 
 A typical generated config looks like:
 
 ```ts
-import { createContextEngine, defineConfig } from "./lib/unrag/core";
-import { createAiEmbeddingProvider } from "./lib/unrag/embedding/ai";
+import { defineUnragConfig } from "./lib/unrag/core";
 import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  defaults: {
   chunking: {
     chunkSize: 200,
     chunkOverlap: 40,
@@ -24,18 +24,41 @@ export const unragConfig = {
   retrieval: {
     topK: 8,
   },
+  },
   embedding: {
+    provider: "ai",
+    config: {
+    type: "text",
     model: "openai/text-embedding-3-small",
     timeoutMs: 15_000,
   },
-} as const;
+  },
+  engine: {
+    storage: {
+      storeChunkContent: true,
+      storeDocumentContent: true,
+    },
+    extractors: [],
+  assetProcessing: {
+    onUnsupportedAsset: "skip",
+    onError: "skip",
+    concurrency: 4,
+    fetch: { enabled: true, maxBytes: 15 * 1024 * 1024, timeoutMs: 20_000 },
+    pdf: {
+      llmExtraction: {
+        enabled: true, // template default (library default is false)
+        model: "google/gemini-2.0-flash",
+        prompt: "Extract all readable text from this PDF as faithfully as possible...",
+        timeoutMs: 60_000,
+        maxBytes: 15 * 1024 * 1024,
+        maxOutputChars: 200_000,
+      },
+    },
+  },
+  },
+} as const);
 
 export function createUnragEngine() {
-  const embedding = createAiEmbeddingProvider({
-    model: unragConfig.embedding.model,
-    timeoutMs: unragConfig.embedding.timeoutMs,
-  });
-
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) throw new Error("DATABASE_URL is required");
 
@@ -47,34 +70,243 @@ export function createUnragEngine() {
 
   const store = createDrizzleVectorStore(db);
 
-  return createContextEngine(
-    defineConfig({
-      embedding,
-      store,
-      defaults: unragConfig.chunking,
-    })
-  );
-}
-
-export async function retrieve(query: string) {
-  const engine = createUnragEngine();
-  return engine.retrieve({ query, topK: unragConfig.retrieval.topK });
+  return unrag.createEngine({ store });
 }
 ```
 
-## The unragConfig object
+## The unrag config
 
 This object holds your default settings. Changing values here affects all operations that use these defaults.
 
-**`chunking.chunkSize`** — How many words (approximately) per chunk. Smaller chunks give more precise retrieval but cost more to embed. Default: 200.
+### defaults.chunking
 
-**`chunking.chunkOverlap`** — How many words overlap between adjacent chunks. Overlap preserves context across boundaries. Default: 40.
+Controls how documents are split into chunks. See [Chunking](/docs/concepts/chunking) for details on strategies.
 
-**`retrieval.topK`** — Default number of results returned by `retrieve()`. Can be overridden per-call. Default: 8.
+<TypeTable
+  type={{
+    chunkSize: {
+      description: 'Approximate words per chunk. Smaller = more precise retrieval, higher embedding cost.',
+      type: 'number',
+      default: '200',
+    },
+    chunkOverlap: {
+      description: 'Words that overlap between adjacent chunks. Preserves context across boundaries.',
+      type: 'number',
+      default: '40',
+    },
+  }}
+/>
 
-**`embedding.model`** — The embedding model identifier. Format is `provider/model-name` for the AI SDK. Default: `openai/text-embedding-3-small`.
+### defaults.retrieval
 
-**`embedding.timeoutMs`** — How long to wait for embedding API responses before timing out. Default: 15000 (15 seconds).
+Convenience defaults you can use in your own `engine.retrieve()` calls/helpers (the engine default is `topK: 8` when omitted).
+
+<TypeTable
+  type={{
+    topK: {
+      description: 'Default number of chunks returned. Can be overridden per-call.',
+      type: 'number',
+      default: '8',
+    },
+  }}
+/>
+
+### storage
+
+Controls what Unrag persists to your database.
+
+<TypeTable
+  type={{
+    storeChunkContent: {
+      description:
+        'Whether to persist chunk text in `chunks.content` (and therefore return it as `chunk.content` in retrieval). If false, Unrag stores empty strings and you should resolve the original content from your source system using ids/metadata.',
+      type: 'boolean',
+      default: 'true',
+    },
+    storeDocumentContent: {
+      description:
+        'Whether to persist the full original document text in `documents.content`. Useful for debugging/re-chunking; can be disabled for privacy/compliance.',
+      type: 'boolean',
+      default: 'true',
+    },
+  }}
+/>
+
+### embedding
+
+Configuration for the embedding provider. See [AI SDK Embeddings](/docs/embedding/ai-sdk) and [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) for more.
+
+<TypeTable
+  type={{
+    type: {
+      description: 'Embedding mode. Use "multimodal" to embed images directly (requires compatible model).',
+      type: '"text" | "multimodal"',
+      default: '"text"',
+    },
+    model: {
+      description: 'The embedding model identifier. Format: provider/model-name.',
+      type: 'string',
+      default: '"openai/text-embedding-3-small" (text) / "cohere/embed-v4.0" (multimodal)',
+    },
+    timeoutMs: {
+      description: 'Timeout for embedding API responses.',
+      type: 'number',
+      default: '15000',
+    },
+  }}
+/>
+
+### assetProcessing
+
+Controls how PDFs, images, and other rich media are processed during ingestion. For complete type definitions, see [Asset Processing Reference](/docs/reference/asset-processing).
+
+<TypeTable
+  type={{
+    onUnsupportedAsset: {
+      description: 'What to do when an asset kind has no extractor (e.g., audio).',
+      type: '"skip" | "fail"',
+      default: '"skip"',
+    },
+    onError: {
+      description: 'What to do when asset processing throws an error.',
+      type: '"skip" | "fail"',
+      default: '"skip"',
+    },
+    concurrency: {
+      description:
+        "Max number of assets to process concurrently (extraction + fetch I/O). Use this to bound parallelism and cost.",
+      type: "number",
+      default: "4",
+    },
+    hooks: {
+      description:
+        "Optional structured event hook for observability (asset/extractor start/success/error).",
+      type: "{ onEvent?: (event: AssetProcessingEvent) => void }",
+      default: "undefined",
+    },
+    fetch: {
+      description: 'URL fetching settings: enabled, maxBytes, timeoutMs, allowedHosts.',
+      type: 'FetchConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#fetchconfig',
+    },
+    "pdf.textLayer": {
+      description: 'Fast/cheap PDF text-layer extraction (requires installing `pdf-text-layer`).',
+      type: 'PdfTextLayerConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#pdftextlayerconfig',
+    },
+    "pdf.llmExtraction": {
+      description: 'PDF text extraction via LLM. Key setting: enabled (template: true, library: false).',
+      type: 'PdfLlmExtractionConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#pdfllmextractionconfig',
+    },
+    "pdf.ocr": {
+      description: 'OCR-based PDF extraction (worker-only, requires `pdf-ocr`).',
+      type: 'PdfOcrConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#pdfocrconfig',
+    },
+    "image.ocr": {
+      description: 'Image OCR into text chunks (requires `image-ocr`).',
+      type: 'ImageOcrConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#imageocrconfig',
+    },
+    "image.captionLlm": {
+      description: 'Generate image captions via LLM (requires `image-caption-llm`).',
+      type: 'ImageCaptionLlmConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#imagecaptionllmconfig',
+    },
+    "audio.transcription": {
+      description: 'Audio transcription (requires `audio-transcribe`).',
+      type: 'AudioTranscriptionConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#audiotranscriptionconfig',
+    },
+    "video.transcription": {
+      description: 'Video transcription (requires `video-transcribe`).',
+      type: 'VideoTranscriptionConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#videotranscriptionconfig',
+    },
+    "video.frames": {
+      description: 'Video frame sampling + extraction (worker-only, requires `video-frames`).',
+      type: 'VideoFramesConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#videoframesconfig',
+    },
+    "file.text": {
+      description: 'Text-ish attachments (requires `file-text`).',
+      type: 'FileTextConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#fileconfig',
+    },
+    "file.docx": {
+      description: 'DOCX attachments (requires `file-docx`).',
+      type: 'FileDocxConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#fileconfig',
+    },
+    "file.pptx": {
+      description: 'PPTX attachments (requires `file-pptx`).',
+      type: 'FilePptxConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#fileconfig',
+    },
+    "file.xlsx": {
+      description: 'XLSX attachments (requires `file-xlsx`).',
+      type: 'FileXlsxConfig',
+      typeDescriptionLink: '/docs/reference/asset-processing#fileconfig',
+    },
+  }}
+/>
+
+<Callout>
+The generated template sets `pdf.llmExtraction.enabled: true`, but PDF extraction is performed by an extractor module. Install and register a PDF extractor (e.g. `pdf-llm`, `pdf-text-layer`) to actually process PDFs. If no extractor is registered, ingestion emits warnings so you don't miss content silently.
+</Callout>
+
+### extractors
+
+The `extractors` array holds extractor module instances that process rich media assets. Extractors are installed via the CLI and then registered here.
+
+```ts
+import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [
+      createPdfLlmExtractor(),
+      // Add more extractors as you install them
+    ],
+  },
+} as const);
+```
+
+#### Installing extractors
+
+Use the CLI to install extractor modules:
+
+```bash
+bunx unrag@latest add extractor pdf-llm
+```
+
+This copies the extractor source to `lib/unrag/extractors/pdf-llm/` and adds dependencies.
+
+#### Available extractors
+
+| Module | Extractor name | Description |
+|--------|----------------|-------------|
+| `pdf-text-layer` | `pdf:text-layer` | Fast/cheap PDF text-layer extraction |
+| `pdf-llm` | `pdf:llm` | Extract text from PDFs using an LLM (Gemini by default) |
+| `pdf-ocr` | `pdf:ocr` | OCR PDFs by rasterizing pages (worker-only) |
+| `image-ocr` | `image:ocr` | OCR images into text chunks |
+| `image-caption-llm` | `image:caption-llm` | Generate image captions via LLM |
+| `audio-transcribe` | `audio:transcribe` | Transcribe audio into text chunks |
+| `video-transcribe` | `video:transcribe` | Transcribe video audio track into text chunks |
+| `video-frames` | `video:frames` | Sample frames + extract text per frame (worker-only) |
+| `file-text` | `file:text` | Decode text-ish attachments |
+| `file-docx` | `file:docx` | Extract raw text from `.docx` |
+| `file-pptx` | `file:pptx` | Extract slide text from `.pptx` |
+| `file-xlsx` | `file:xlsx` | Extract sheet content from `.xlsx` |
+
+<Callout type="info">
+Image handling (`image:embed`, `image:caption`) is built into the core engine—no extractor module needed. Configure via your embedding provider's `type` setting. Installable image extractors (`image:ocr`, `image:caption-llm`) can generate additional text chunks when enabled.
+</Callout>
+
+See [Extractors Overview](/docs/extractors) for details on all available extractors and how to create custom ones.
 
 ## The createUnragEngine function
 
@@ -82,10 +314,10 @@ This function assembles all the pieces into a working engine. You'll typically c
 
 The generated version includes:
 
-1. **Embedding provider creation** using your configured model and timeout
+1. **Embedding provider wiring** (derived from `unrag.embedding`)
 2. **Database connection** with a singleton pattern to prevent connection exhaustion
 3. **Store adapter creation** using your chosen adapter type
-4. **Engine construction** with everything wired together
+4. **Engine construction** via `unrag.createEngine({ store })`
 
 ## Customizing database connection
 
@@ -144,7 +376,6 @@ export async function retrieveForTenant(tenantId: string, query: string) {
   const engine = createUnragEngine();
   return engine.retrieve({
     query,
-    topK: unragConfig.retrieval.topK,
     scope: { sourceId: `tenant:${tenantId}:` },
   });
 }
@@ -168,11 +399,25 @@ export async function ingestDocument(
 
 The config file expects these environment variables:
 
-**`DATABASE_URL`** — Your Postgres connection string. Required.
-
-**`AI_GATEWAY_API_KEY`** — API key for the embedding provider (typically OpenAI). Required by the AI SDK.
-
-**`AI_GATEWAY_MODEL`** — Optional override for the embedding model. If set, it takes precedence over the config file setting.
+<TypeTable
+  type={{
+    DATABASE_URL: {
+      description: 'Your Postgres connection string.',
+      type: 'string',
+      default: 'Required',
+    },
+    AI_GATEWAY_API_KEY: {
+      description: 'API key for the embedding provider (typically OpenAI). Used by the AI SDK.',
+      type: 'string',
+      default: 'Required',
+    },
+    AI_GATEWAY_MODEL: {
+      description: 'Override for the embedding model. Takes precedence over config file setting.',
+      type: 'string',
+      default: 'Optional',
+    },
+  }}
+/>
 
 ## Server-only
 

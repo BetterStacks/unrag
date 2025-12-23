@@ -20,6 +20,7 @@ type InitConfig = {
   aliasBase?: string;
   version: number;
   connectors?: string[];
+  extractors?: string[];
 };
 
 const CONFIG_FILE = "unrag.json";
@@ -179,6 +180,7 @@ export async function initCommand(args: string[]) {
     aliasBase,
     version: CONFIG_VERSION,
     connectors: existing?.connectors ?? [],
+    extractors: existing?.extractors ?? [],
   };
   await writeJsonFile(path.join(root, CONFIG_FILE), config);
 

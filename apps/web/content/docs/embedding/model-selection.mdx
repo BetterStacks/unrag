@@ -21,12 +21,16 @@ The embedding model you choose affects retrieval quality, latency, and cost. The
 For documentation, articles, and support content:
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
   embedding: {
+    provider: "ai",
+    config: {
     model: "openai/text-embedding-3-small",
     timeoutMs: 15_000,
   },
-} as const;
+  },
+} as const);
 ```
 
 This model is fast, cheap, and produces good results for most English text. It's the default for a reason.
@@ -37,12 +41,16 @@ This model is fast, cheap, and produces good results for most English text. It's
 When quality is paramount or you have multilingual content:
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
   embedding: {
+    provider: "ai",
+    config: {
     model: "openai/text-embedding-3-large",
     timeoutMs: 20_000,
   },
-} as const;
+  },
+} as const);
 ```
 
 The larger model handles multiple languages better and captures finer semantic distinctions.
@@ -188,4 +196,41 @@ const localEmbedding: EmbeddingProvider = {
 ```
 
 Local models eliminate API costs entirely, reduce latency (no network round-trip), and keep your data private. The quality may be lower than OpenAI's models for some use cases, but it's often sufficient.
+
+## Multimodal embedding models
+
+When your content includes images that carry semantic meaning (diagrams, charts, screenshots), consider a multimodal embedding model. These models embed both text and images into the same vector space, allowing text queries to match image content directly.
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "ai",
+    config: {
+    type: "multimodal",
+    model: "cohere/embed-v4.0",
+  },
+  },
+} as const);
+```
+
+<Callout>
+Multimodal models must embed both text and images into the **same** semantic space. You cannot mix a text-only model for documents with a separate vision model for images—the embeddings wouldn't be comparable.
+</Callout>
+
+### When to use multimodal
+
+Use multimodal when:
+- Your content has diagrams, charts, or photos that carry information
+- You want "show me the architecture diagram" to find actual diagrams
+- Image captions aren't detailed enough for text-only search
+
+Stick with text-only when:
+- Your content is primarily text
+- Images are decorative (logos, memes)
+- You want to minimize embedding costs
+
+### Fallback behavior
+
+If you use a text-only embedding provider but your ingest includes images, Unrag falls back to embedding image captions. This works well when images have descriptive alt text or captions. See [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) for details.
 
