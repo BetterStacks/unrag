@@ -25,6 +25,8 @@ Before using the connector, you need a Google Cloud project with the Drive API e
 
 Go to the [Google Cloud Console](https://console.cloud.google.com/), create a new project (or use an existing one), and enable the Google Drive API under **APIs & Services → Library**.
 
+If you're new to Drive API setup, Google's guide is a good reference: [Enable the Google Drive API](https://developers.google.com/drive/api/guides/enable-drive-api).
+
 ### Setting up OAuth2 credentials
 
 If you're building an app where users connect their own Drive accounts, create OAuth credentials under **APIs & Services → Credentials → Create Credentials → OAuth client ID**. Choose "Web application" as the application type and configure your redirect URIs.
@@ -39,6 +41,8 @@ GOOGLE_REDIRECT_URI="https://your-app.com/auth/google/callback"
 
 After the user completes the OAuth flow, you'll have a refresh token that the connector uses to maintain access.
 
+If you're implementing OAuth end-to-end, Google's overview is helpful: [Using OAuth 2.0 to Access Google APIs](https://developers.google.com/identity/protocols/oauth2).
+
 ### Setting up a service account
 
 For server-to-server access, create a service account under **IAM & Admin → Service Accounts**. Generate a JSON key file for the account.
@@ -46,6 +50,11 @@ For server-to-server access, create a service account under **IAM & Admin → Se
 The simplest setup is to share specific files or folders with the service account's email address (something like `my-service@project-id.iam.gserviceaccount.com`). The service account can then access those files directly.
 
 For Google Workspace organizations, you can enable domain-wide delegation (DWD) to let the service account impersonate any user in your domain. This requires Workspace admin setup but gives you access to all files in the organization without explicit sharing.
+
+For the official references, see:
+
+- [Create and manage service account keys](https://cloud.google.com/iam/docs/keys-create-delete)
+- [Delegate domain-wide authority to a service account](https://developers.google.com/identity/protocols/oauth2/service-account#delegatingauthority)
 
 ### Choosing which files to ingest
 

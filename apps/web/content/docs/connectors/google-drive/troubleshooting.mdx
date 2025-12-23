@@ -239,6 +239,8 @@ DWD isn't working. Common causes:
 3. **Wrong subject**: The `subject` email must be a user in your Workspace domain
 4. **Propagation delay**: Changes to DWD settings can take up to 24 hours to propagate (usually faster)
 
+If you're setting up DWD for the first time, Google's service account delegation guide is the canonical reference: [Delegate domain-wide authority to a service account](https://developers.google.com/identity/protocols/oauth2/service-account#delegatingauthority).
+
 To test DWD, try a simple Drive API call with the impersonated user before running the full sync.
 
 ### "Invalid subject claim"
