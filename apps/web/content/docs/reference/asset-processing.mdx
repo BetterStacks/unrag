@@ -1,0 +1,605 @@
+---
+title: Asset Processing Reference
+description: Complete reference for the AssetProcessingConfig type and related interfaces.
+---
+
+This page documents the types and configuration options for Unrag's asset processing system—how PDFs, images, and other media are handled during ingestion.
+
+## Skips and warnings (don’t miss content silently)
+
+When `assetProcessing.onUnsupportedAsset` or `assetProcessing.onError` are set to `"skip"` (the defaults), Unrag will continue ingestion even if some assets cannot be processed.
+
+To ensure you don’t silently miss content, `engine.ingest()` returns **structured warnings**:
+
+```ts
+const result = await engine.ingest(input);
+if (result.warnings.length) {
+  console.warn("unrag ingest warnings", result.warnings);
+}
+```
+
+Common warning causes:
+
+- Assets skipped because extraction is disabled by config (e.g. `audio.transcription.enabled: false`)
+- PDFs skipped because all PDF strategies are disabled (e.g. `pdf.llmExtraction.enabled: false` and no other PDF extractor enabled)
+- Image skipped because no multimodal embedding provider is configured and there’s no caption text
+- Best-effort failures when `onError: "skip"` is set
+
+For the full warning type, see [IngestWarning](/docs/reference/core-types#ingestwarning).
+
+<Callout>
+If you run Unrag on Next.js (especially Vercel serverless), prefer running extraction in background jobs with retries.\nSee the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe).
+</Callout>
+
+## AssetProcessingConfig
+
+The main configuration type for asset processing. Set this on your engine config or override per-ingest.
+
+```ts
+type AssetProcessingConfig = {
+  /** What to do when an asset kind has no configured extractor. */
+  onUnsupportedAsset: "skip" | "fail";
+
+  /** What to do when asset processing throws an error. */
+  onError: "skip" | "fail";
+
+  /** Max number of assets to process concurrently (bounded). */
+  concurrency: number;
+
+  /** Optional structured event hooks for observability. */
+  hooks?: {
+    onEvent?: (event: AssetProcessingEvent) => void;
+  };
+
+  /** Settings for fetching URL-based assets. */
+  fetch: FetchConfig;
+
+  /** PDF-specific extraction settings. */
+  pdf: {
+    textLayer: PdfTextLayerConfig;
+    llmExtraction: PdfLlmExtractionConfig;
+    ocr: PdfOcrConfig;
+  };
+
+  /** Image-specific extraction settings (optional installable extractors). */
+  image: {
+    ocr: ImageOcrConfig;
+    captionLlm: ImageCaptionLlmConfig;
+  };
+
+  /** Audio-specific extraction settings. */
+  audio: {
+    transcription: AudioTranscriptionConfig;
+  };
+
+  /** Video-specific extraction settings. */
+  video: {
+    transcription: VideoTranscriptionConfig;
+    frames: VideoFramesConfig;
+  };
+
+  /** Generic file (attachment) extraction settings. */
+  file: {
+    text: FileTextConfig;
+    docx: FileDocxConfig;
+    pptx: FilePptxConfig;
+    xlsx: FileXlsxConfig;
+  };
+};
+```
+
+<TypeTable
+  type={{
+    onUnsupportedAsset: {
+      description: 'What happens when Unrag encounters an asset kind it cannot process (e.g., audio in v1). "skip" continues without that asset; "fail" throws an error.',
+      type: '"skip" | "fail"',
+      default: '"skip"',
+    },
+    onError: {
+      description: 'What happens when asset processing throws an error (network failure, extraction timeout, etc.). "skip" continues without that asset; "fail" propagates the error.',
+      type: '"skip" | "fail"',
+      default: '"skip"',
+    },
+    concurrency: {
+      description:
+        "Max number of assets to process concurrently (extraction + fetch I/O). Use this to bound parallelism and cost.",
+      type: "number",
+      default: "4",
+    },
+    hooks: {
+      description:
+        "Optional structured event hooks (asset:start, extractor:start, extractor:success/error, asset:skipped). Useful for logging/metrics.",
+      type: "{ onEvent?: (event: AssetProcessingEvent) => void }",
+      default: "undefined",
+    },
+    fetch: {
+      description: 'Settings for fetching assets from URLs.',
+      type: 'FetchConfig',
+    },
+    pdf: {
+      description: 'PDF-specific settings (text-layer, LLM, OCR).',
+      type: '{ textLayer: PdfTextLayerConfig; llmExtraction: PdfLlmExtractionConfig; ocr: PdfOcrConfig }',
+    },
+    image: {
+      description: 'Image-specific settings (OCR, caption generation).',
+      type: '{ ocr: ImageOcrConfig; captionLlm: ImageCaptionLlmConfig }',
+    },
+    audio: {
+      description: 'Audio transcription settings.',
+      type: '{ transcription: AudioTranscriptionConfig }',
+    },
+    video: {
+      description: 'Video settings (transcription, frame sampling).',
+      type: '{ transcription: VideoTranscriptionConfig; frames: VideoFramesConfig }',
+    },
+    file: {
+      description: 'Generic file attachment extractors (text/docx/pptx/xlsx).',
+      type: '{ text: FileTextConfig; docx: FileDocxConfig; pptx: FilePptxConfig; xlsx: FileXlsxConfig }',
+    },
+  }}
+/>
+
+## FetchConfig
+
+Controls how Unrag fetches assets when they're provided as URLs.
+
+```ts
+type FetchConfig = {
+  enabled: boolean;
+  maxBytes: number;
+  timeoutMs: number;
+  allowedHosts?: string[];
+  headers?: Record<string, string>;
+};
+```
+
+<TypeTable
+  type={{
+    enabled: {
+      description: 'Whether to fetch URL-based assets. If false, assets with URL data are skipped.',
+      type: 'boolean',
+      default: 'true',
+    },
+    maxBytes: {
+      description: 'Maximum response size in bytes. Larger responses are rejected.',
+      type: 'number',
+      default: '15 * 1024 * 1024 (15 MB)',
+    },
+    timeoutMs: {
+      description: 'Fetch timeout in milliseconds.',
+      type: 'number',
+      default: '20000 (20 seconds)',
+    },
+    allowedHosts: {
+      description: 'If provided, only URLs with these hostnames are fetched. Recommended for production to prevent SSRF.',
+      type: 'string[]',
+      default: 'undefined (all hosts allowed)',
+    },
+    headers: {
+      description: 'Optional headers applied to all asset fetches (merged with per-asset headers).',
+      type: 'Record<string, string>',
+      default: 'undefined',
+    },
+  }}
+/>
+
+<Callout type="warn">
+For production deployments, always configure `allowedHosts` to prevent server-side request forgery (SSRF). Only allow hosts you trust, such as your CDN or Notion's asset domains.
+</Callout>
+
+## PdfLlmExtractionConfig
+
+Settings for extracting text from PDFs using an LLM.
+
+```ts
+type PdfLlmExtractionConfig = {
+  enabled: boolean;
+  model: string;
+  prompt: string;
+  timeoutMs: number;
+  maxBytes: number;
+  maxOutputChars: number;
+};
+```
+
+<TypeTable
+  type={{
+    enabled: {
+      description: 'Whether to extract text from PDFs using an LLM. The library defaults to false (cost-safe); the generated config template sets this to true.',
+      type: 'boolean',
+      default: 'false (library), true (generated config)',
+    },
+    model: {
+      description: 'The AI Gateway model string to use for extraction.',
+      type: 'string',
+      default: '"google/gemini-2.0-flash"',
+    },
+    prompt: {
+      description: 'The prompt sent to the LLM along with the PDF. Customize this for domain-specific extraction needs.',
+      type: 'string',
+      default: '"Extract all readable text from this PDF as faithfully as possible..."',
+    },
+    timeoutMs: {
+      description: 'Timeout for the LLM extraction call.',
+      type: 'number',
+      default: '60000 (60 seconds)',
+    },
+    maxBytes: {
+      description: 'Maximum PDF size to process. Larger PDFs are skipped.',
+      type: 'number',
+      default: '15 * 1024 * 1024 (15 MB)',
+    },
+    maxOutputChars: {
+      description: 'Maximum characters of extracted text to return. Longer extractions are truncated.',
+      type: 'number',
+      default: '200000',
+    },
+  }}
+/>
+
+## PdfTextLayerConfig
+
+Settings for extracting embedded text from PDFs (fast/cheap).
+
+See [pdf:text-layer](/docs/extractors/pdf/text-layer).
+
+```ts
+type PdfTextLayerConfig = {
+  enabled: boolean;
+  maxBytes: number;
+  maxOutputChars: number;
+  minChars: number;
+  maxPages?: number;
+};
+```
+
+## PdfOcrConfig
+
+Settings for OCR-based PDF extraction (worker-only).
+
+See [pdf:ocr](/docs/extractors/pdf/ocr).
+
+```ts
+type PdfOcrConfig = {
+  enabled: boolean;
+  maxBytes: number;
+  maxOutputChars: number;
+  minChars: number;
+  maxPages?: number;
+  pdftoppmPath?: string;
+  tesseractPath?: string;
+  dpi?: number;
+  lang?: string;
+};
+```
+
+## ImageOcrConfig
+
+Settings for OCR-ing images into text chunks.
+
+See [image:ocr](/docs/extractors/image/ocr).
+
+```ts
+type ImageOcrConfig = {
+  enabled: boolean;
+  model: string;
+  prompt: string;
+  timeoutMs: number;
+  maxBytes: number;
+  maxOutputChars: number;
+};
+```
+
+## ImageCaptionLlmConfig
+
+Settings for generating captions for images.
+
+See [image:caption-llm](/docs/extractors/image/caption-llm).
+
+```ts
+type ImageCaptionLlmConfig = {
+  enabled: boolean;
+  model: string;
+  prompt: string;
+  timeoutMs: number;
+  maxBytes: number;
+  maxOutputChars: number;
+};
+```
+
+## AudioTranscriptionConfig
+
+Settings for transcribing audio.
+
+See [audio:transcribe](/docs/extractors/audio/transcribe).
+
+```ts
+type AudioTranscriptionConfig = {
+  enabled: boolean;
+  model: string;
+  timeoutMs: number;
+  maxBytes: number;
+};
+```
+
+## VideoTranscriptionConfig
+
+Settings for transcribing video (audio track).
+
+See [video:transcribe](/docs/extractors/video/transcribe).
+
+```ts
+type VideoTranscriptionConfig = {
+  enabled: boolean;
+  model: string;
+  timeoutMs: number;
+  maxBytes: number;
+};
+```
+
+## VideoFramesConfig
+
+Settings for sampling video frames and extracting text per frame (worker-only).
+
+See [video:frames](/docs/extractors/video/frames).
+
+```ts
+type VideoFramesConfig = {
+  enabled: boolean;
+  sampleFps: number;
+  maxFrames: number;
+  ffmpegPath?: string;
+  maxBytes: number;
+  model: string;
+  prompt: string;
+  timeoutMs: number;
+  maxOutputChars: number;
+};
+```
+
+## File*Config
+
+Settings for extracting text from generic file attachments.
+
+See [File Extractors](/docs/extractors/file) for format-specific behavior.
+
+```ts
+type FileTextConfig = { enabled: boolean; maxBytes: number; maxOutputChars: number; minChars: number };
+type FileDocxConfig = { enabled: boolean; maxBytes: number; maxOutputChars: number; minChars: number };
+type FilePptxConfig = { enabled: boolean; maxBytes: number; maxOutputChars: number; minChars: number };
+type FileXlsxConfig = { enabled: boolean; maxBytes: number; maxOutputChars: number; minChars: number };
+```
+
+## AssetInput
+
+The type for individual assets passed to `engine.ingest()`.
+
+```ts
+type AssetInput = {
+  /** Stable identifier for this asset within the document. */
+  assetId: string;
+
+  /** The kind of asset. Determines how it's processed. */
+  kind: AssetKind;
+
+  /** The asset data—either a URL to fetch or raw bytes. */
+  data: AssetData;
+
+  /** Optional stable URI for display/debugging (not necessarily fetchable). */
+  uri?: string;
+
+  /** Caption, alt text, or other text representation of the asset. */
+  text?: string;
+
+  /** Additional metadata to attach to chunks created from this asset. */
+  metadata?: Metadata;
+};
+```
+
+<TypeTable
+  type={{
+    assetId: {
+      description: 'A stable identifier for this asset within the document. For Notion, this is typically the block ID.',
+      type: 'string',
+    },
+    kind: {
+      description: 'The type of asset: "image", "pdf", "audio", "video", or "file".',
+      type: 'AssetKind',
+    },
+    data: {
+      description: 'Either a URL to fetch ({ kind: "url", url, ... }) or raw bytes ({ kind: "bytes", bytes, mediaType }).',
+      type: 'AssetData',
+    },
+    uri: {
+      description: 'Optional display URI. Useful for debugging or linking back to the original asset.',
+      type: 'string',
+    },
+    text: {
+      description: 'Caption or alt text. For images without multimodal embedding, this text is embedded instead.',
+      type: 'string',
+    },
+    metadata: {
+      description: 'Additional metadata merged into chunks created from this asset.',
+      type: 'Metadata',
+    },
+  }}
+/>
+
+## AssetData
+
+The data payload for an asset—either a URL or raw bytes.
+
+```ts
+type AssetData =
+  | {
+      kind: "url";
+      url: string;
+      headers?: Record<string, string>;
+      mediaType?: string;
+      filename?: string;
+    }
+  | {
+      kind: "bytes";
+      bytes: Uint8Array;
+      mediaType: string;
+      filename?: string;
+    };
+```
+
+**URL-based data** is fetched during ingestion (subject to `fetch` config). This is common for connectors like Notion where assets are hosted externally.
+
+**Bytes-based data** is used directly without fetching. Use this when you already have the file contents in memory.
+
+## AssetKind
+
+The supported asset types:
+
+```ts
+type AssetKind = "image" | "pdf" | "audio" | "video" | "file";
+```
+
+| Kind | v1 Support | Notes |
+|------|------------|-------|
+| `image` | Supported | Direct embedding (multimodal) or caption fallback |
+| `pdf` | Supported | Requires at least one enabled PDF extractor (`pdf:text-layer`, `pdf:llm`, or `pdf:ocr`) |
+| `audio` | Supported | Requires installing `audio-transcribe` and enabling `audio.transcription.enabled` |
+| `video` | Supported | Requires installing `video-transcribe` and/or `video-frames` and enabling config |
+| `file` | Supported | Requires installing file extractors and enabling config (text/docx/pptx/xlsx) |
+
+## Per-ingest overrides
+
+You can override asset processing settings per-ingest using `DeepPartial<AssetProcessingConfig>`:
+
+```ts
+await engine.ingest({
+  sourceId: "important-doc",
+  content: "...",
+  assets: [...],
+  assetProcessing: {
+    // Only override what you need—everything else uses engine defaults
+    pdf: {
+      textLayer: {
+        enabled: true,
+      },
+      llmExtraction: {
+        enabled: true,
+        maxBytes: 50 * 1024 * 1024, // Allow larger PDFs for this doc
+      },
+    },
+    audio: {
+      transcription: {
+        enabled: true,
+      },
+    },
+    onError: "fail", // Fail this ingest if any asset errors
+  },
+});
+```
+
+This is useful for:
+
+- Enabling extraction for specific high-value documents
+- Disabling extraction during bulk imports to save cost
+- Switching to strict mode (`onError: "fail"`) for critical content
+
+## Default configuration
+
+The library defaults (cost-safe, conservative):
+
+```ts
+const DEFAULT_ASSET_PROCESSING: AssetProcessingConfig = {
+  onUnsupportedAsset: "skip",
+  onError: "skip",
+  concurrency: 4,
+  hooks: { onEvent: undefined },
+  fetch: {
+    enabled: true,
+    maxBytes: 15 * 1024 * 1024,
+    timeoutMs: 20_000,
+    allowedHosts: undefined,
+    headers: undefined,
+  },
+  pdf: {
+    textLayer: {
+      enabled: false,
+      maxBytes: 15 * 1024 * 1024,
+      maxOutputChars: 200_000,
+      minChars: 200,
+      maxPages: undefined,
+    },
+    llmExtraction: {
+      enabled: false, // Off by default in library
+      model: "google/gemini-2.0-flash",
+      prompt: "Extract all readable text from this PDF...",
+      timeoutMs: 60_000,
+      maxBytes: 15 * 1024 * 1024,
+      maxOutputChars: 200_000,
+    },
+    ocr: {
+      enabled: false,
+      maxBytes: 15 * 1024 * 1024,
+      maxOutputChars: 200_000,
+      minChars: 200,
+      maxPages: undefined,
+      pdftoppmPath: undefined,
+      tesseractPath: undefined,
+      dpi: 200,
+      lang: "eng",
+    },
+  },
+  image: {
+    ocr: {
+      enabled: false,
+      model: "google/gemini-2.0-flash",
+      prompt: "Extract all readable text from this image...",
+      timeoutMs: 60_000,
+      maxBytes: 10 * 1024 * 1024,
+      maxOutputChars: 50_000,
+    },
+    captionLlm: {
+      enabled: false,
+      model: "google/gemini-2.0-flash",
+      prompt: "Write a concise, information-dense caption for this image...",
+      timeoutMs: 60_000,
+      maxBytes: 10 * 1024 * 1024,
+      maxOutputChars: 10_000,
+    },
+  },
+  audio: {
+    transcription: {
+      enabled: false,
+      model: "openai/whisper-1",
+      timeoutMs: 120_000,
+      maxBytes: 25 * 1024 * 1024,
+    },
+  },
+  video: {
+    transcription: {
+      enabled: false,
+      model: "openai/whisper-1",
+      timeoutMs: 120_000,
+      maxBytes: 50 * 1024 * 1024,
+    },
+    frames: {
+      enabled: false,
+      sampleFps: 0.2,
+      maxFrames: 50,
+      ffmpegPath: undefined,
+      maxBytes: 50 * 1024 * 1024,
+      model: "google/gemini-2.0-flash",
+      prompt: "Extract all readable text from this video frame...",
+      timeoutMs: 60_000,
+      maxOutputChars: 50_000,
+    },
+  },
+  file: {
+    text: { enabled: false, maxBytes: 5 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
+    docx: { enabled: false, maxBytes: 15 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
+    pptx: { enabled: false, maxBytes: 30 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
+    xlsx: { enabled: false, maxBytes: 30 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
+  },
+};
+```
+
+The generated `unrag.config.ts` enables `pdf.llmExtraction.enabled` by default, but you still need to install and register a PDF extractor module (like `pdf-llm`) to actually process PDFs.
+

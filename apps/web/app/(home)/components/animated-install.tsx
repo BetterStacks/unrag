@@ -49,7 +49,7 @@ export function AnimatedInstall() {
     return (
       <div className="space-y-1 text-left">
         <div className="text-[var(--color-fd-muted-foreground)]">
-          <span className="text-[var(--color-fd-muted-foreground)]">$</span> bunx unrag init
+          <span className="text-[var(--color-fd-muted-foreground)]">$</span> bunx unrag@latest init
         </div>
         <div className="opacity-0">✓ Created unrag.config.ts</div>
         <div className="opacity-0">✓ Installed lib/unrag/core/*</div>
@@ -64,7 +64,7 @@ export function AnimatedInstall() {
     <div className="space-y-1 text-left">
       <div className="text-[var(--color-fd-muted-foreground)]">
         <span className="text-[var(--color-fd-muted-foreground)]">$</span>{' '}
-        <TypeWriter text="bunx unrag init" delay={60} onComplete={startPhaseSequence} />
+        <TypeWriter text="bunx unrag@latest init" delay={60} onComplete={startPhaseSequence} />
       </div>
       
       <div

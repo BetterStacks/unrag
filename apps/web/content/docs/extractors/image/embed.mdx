@@ -1,0 +1,228 @@
+---
+title: "image:embed Extractor"
+description: Embed images directly into the vector space for visual similarity search.
+---
+
+The `image:embed` extractor sends image data to a multimodal embedding model, producing a vector that represents the image's visual content. This vector lives in the same space as text embeddings, enabling cross-modal retrieval.
+
+## How it works
+
+1. Image bytes or URL are passed to the multimodal embedding model
+2. The model returns a vector representing the image's semantic content
+3. The vector is stored alongside text chunk embeddings
+4. Text queries can match image embeddings and vice versa
+
+## Requirements
+
+You need a multimodal embedding model that supports image inputs:
+
+```ts
+import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+
+const embedding = createAiEmbeddingProvider({
+  type: "multimodal",
+  model: "cohere/embed-v4.0",
+  timeoutMs: 30_000,
+});
+```
+
+### Supported models
+
+| Provider | Model | Notes |
+|----------|-------|-------|
+| Cohere | embed-v4.0 | Recommended. High quality, supports images + text |
+| Voyage | voyage-multimodal-3 | Images supported in multimodal mode |
+
+<Callout type="warn">
+The model must embed both text and images into the **same vector space**. Using different models for text and images would create incompatible embeddings.
+</Callout>
+
+## Configuration
+
+Image embedding is enabled automatically when your embedding provider supports it. No additional configuration is needed.
+
+To explicitly use multimodal mode in your config:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "ai",
+    config: {
+    type: "multimodal",
+    model: "cohere/embed-v4.0",
+    timeoutMs: 30_000,
+  },
+  },
+} as const);
+```
+
+## Usage example
+
+### Ingesting images
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+
+await engine.ingest({
+  sourceId: "products:widget-x",
+  content: "The Widget X is our flagship product with a sleek design.",
+  assets: [
+    {
+      assetId: "hero-image",
+      kind: "image",
+      data: {
+        kind: "url",
+        url: "https://cdn.example.com/products/widget-x-hero.jpg",
+        mediaType: "image/jpeg",
+      },
+      uri: "https://cdn.example.com/products/widget-x-hero.jpg",
+      text: "Widget X product photo", // Optional caption (stored in chunk.content)
+    },
+    {
+      assetId: "diagram",
+      kind: "image",
+      data: {
+        kind: "url",
+        url: "https://cdn.example.com/products/widget-x-diagram.png",
+        mediaType: "image/png",
+      },
+      uri: "https://cdn.example.com/products/widget-x-diagram.png",
+      text: "Technical diagram showing internal components",
+    },
+  ],
+});
+```
+
+### Ingesting images from bytes
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const imageBytes = await readFile("./images/photo.jpg");
+
+await engine.ingest({
+  sourceId: "photos:vacation-2024",
+  content: "Photos from summer vacation",
+  assets: [
+    {
+      assetId: "beach-sunset",
+      kind: "image",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(imageBytes),
+        mediaType: "image/jpeg",
+        filename: "beach-sunset.jpg",
+      },
+      text: "Sunset over the ocean at Malibu beach",
+    },
+  ],
+});
+```
+
+## Retrieving image matches
+
+Text queries find relevant images:
+
+```ts
+const result = await engine.retrieve({
+  query: "product diagram showing components",
+  topK: 10,
+});
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  
+  if (ref?.assetKind === "image" && ref.extractor === "image:embed") {
+    console.log("Found image via embedding:");
+    console.log(`  Score: ${chunk.score}`);
+    console.log(`  Caption: ${chunk.content}`);
+    console.log(`  Asset ID: ${ref.assetId}`);
+    console.log(`  URL: ${ref.assetUri}`);
+  }
+}
+```
+
+## Resolving the original image
+
+The chunk contains references, not bytes. To get the actual image:
+
+```ts
+import { getChunkAssetRef, type ChunkAssetRef } from "@unrag/core";
+
+async function resolveImageBytes(ref: ChunkAssetRef): Promise<Uint8Array> {
+  // Option 1: Fetch from stored URI
+  if (ref.assetUri) {
+    const res = await fetch(ref.assetUri);
+    if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+    return new Uint8Array(await res.arrayBuffer());
+  }
+  
+  // Option 2: Look up from your own asset store by ID
+  return await myAssetStore.getImage(ref.assetId);
+}
+
+// Usage
+const ref = getChunkAssetRef(chunk);
+if (ref?.assetKind === "image") {
+  const bytes = await resolveImageBytes(ref);
+  // Use the image bytes...
+}
+```
+
+<Callout type="warn">
+**URL expiration**: Some connectors (like Notion) provide signed URLs that expire. If you need long-term access, download and store images in your own storage during ingestion, then use `assetId` for resolution.
+</Callout>
+
+## What gets stored
+
+For each image chunk, Unrag stores:
+
+| Field | Content |
+|-------|---------|
+| `chunk.content` | Caption text (from `assets[].text`), may be empty |
+| `chunk.metadata.assetKind` | `"image"` |
+| `chunk.metadata.assetId` | Your provided asset ID |
+| `chunk.metadata.assetUri` | URL (if provided) |
+| `chunk.metadata.assetMediaType` | MIME type (if provided) |
+| `chunk.metadata.extractor` | `"image:embed"` |
+| `embedding` | Vector from multimodal model |
+
+The **image bytes are not stored** in the database. You're responsible for storing/resolving them if needed after retrieval.
+
+## Cost considerations
+
+Multimodal embedding typically costs more than text embedding:
+
+- **Embed once, query many**: Images are embedded at ingest time; queries are text-only (cheap)
+- **Batch ingestion**: Group multiple images in a single ingest call when possible
+- **Caption fallback**: For less important images, good captions with text embedding may suffice
+
+## Troubleshooting
+
+### Images being skipped
+
+If images are skipped, check `result.warnings`:
+
+```ts
+const result = await engine.ingest({ ... });
+for (const w of result.warnings) {
+  if (w.code === "asset_skipped_image_no_multimodal_and_no_caption") {
+    console.log(`Image ${w.assetId} skipped: no multimodal support and no caption`);
+  }
+}
+```
+
+**Fix**: Either switch to a multimodal embedding model, or provide captions.
+
+### Poor retrieval quality
+
+If text queries aren't finding relevant images:
+
+1. Check that images and text use the same embedding model
+2. Try more specific queries
+3. Consider whether the model actually "understands" your image types
+4. Add captions to supplement visual embedding
+

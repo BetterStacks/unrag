@@ -26,13 +26,15 @@ These defaults work reasonably well for prose content like documentation, articl
 You can change the defaults in `unrag.config.ts`:
 
 ```ts
-export const unragConfig = {
+export const unrag = defineUnragConfig({
+  // ...
+  defaults: {
   chunking: {
     chunkSize: 300,
     chunkOverlap: 60,
   },
-  // ...
-} as const;
+  },
+} as const);
 ```
 
 ## Per-document overrides
@@ -76,8 +78,8 @@ The default word-based chunker is simple but naive. It doesn't understand senten
 To use a custom chunker, pass it when constructing the engine:
 
 ```ts
-import { createContextEngine, defineConfig } from "@unrag/core";
-import type { Chunker, ChunkText, ChunkingOptions } from "@unrag/core/types";
+import { defineUnragConfig } from "@unrag/core";
+import type { Chunker, ChunkText, ChunkingOptions } from "@unrag/core";
 
 // A sentence-aware chunker (simplified example)
 const sentenceChunker: Chunker = (
@@ -120,14 +122,18 @@ const sentenceChunker: Chunker = (
 };
 
 // Use it in your engine config
-const engine = createContextEngine(
-  defineConfig({
-    embedding: myEmbeddingProvider,
-    store: myStore,
+const unrag = defineUnragConfig({
+  defaults: {
+    chunking: { chunkSize: 200, chunkOverlap: 0 },
+    retrieval: { topK: 8 },
+  },
+  embedding: { provider: "custom", create: () => myEmbeddingProvider },
+  engine: {
     chunker: sentenceChunker,
-    defaults: { chunkSize: 200, chunkOverlap: 0 },
-  })
-);
+  },
+} as const);
+
+const engine = unrag.createEngine({ store: myStore });
 ```
 
 Common reasons to build a custom chunker:

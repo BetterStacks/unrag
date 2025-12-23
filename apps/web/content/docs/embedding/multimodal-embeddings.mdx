@@ -1,0 +1,265 @@
+---
+title: Multimodal Embeddings
+description: Embed images directly alongside text in the same vector space.
+---
+
+By default, Unrag's embedding provider handles text only. But some embedding models can embed both text and images into the same vector space—meaning a text query can semantically match image content.
+
+This page explains how to enable and use multimodal embeddings.
+
+## What multimodal means
+
+In a multimodal embedding space:
+
+- **Text** is embedded as usual (query strings, document chunks)
+- **Images** are embedded directly from their pixels
+- Both live in the **same vector space** with the same dimensions
+
+This means a query like "architecture diagram" can retrieve an actual architecture diagram image, not just text that mentions one. The embedding model understands the semantic content of images.
+
+## Enabling multimodal mode
+
+Set `type: 'multimodal'` when creating your embedding provider:
+
+```ts
+import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+
+const embedding = createAiEmbeddingProvider({
+  type: "multimodal",
+  model: "cohere/embed-v4.0", // Example multimodal model
+  timeoutMs: 30_000,
+});
+```
+
+With multimodal enabled, the provider exposes an `embedImage` function that the ingest pipeline uses for image assets.
+
+## Which models support multimodal
+
+Not all embedding models support images. Check your provider's documentation. Some examples:
+
+| Provider | Model | Multimodal |
+|----------|-------|------------|
+| Voyage | voyage-multimodal-3 | Yes |
+| OpenAI | text-embedding-3-small | No |
+| OpenAI | text-embedding-3-large | No |
+| Cohere | embed-v4.0 | Yes |
+
+<Callout type="warn">
+The embedding model must embed both text and images into the same space. Using different models for text and images would create incompatible embedding spaces—retrieval wouldn't work correctly.
+</Callout>
+
+## How image embedding works
+
+When you ingest an image asset with multimodal enabled:
+
+1. The image data (URL or bytes) is passed to the embedding provider
+2. The provider calls the multimodal model's image embedding endpoint
+3. A vector is returned representing the image's semantic content
+4. This vector is stored alongside text chunk vectors
+
+During retrieval, your text query is embedded and compared against all vectors—both text chunks and image embeddings.
+
+## Resolving an image result back to bytes
+
+Retrieval returns standard chunks. For image matches, Unrag stores **references** to the originating asset in `chunk.metadata` (not the image bytes):
+
+- `chunk.metadata.assetKind === "image"`
+- `chunk.metadata.assetId` (stable id emitted at ingest time)
+- optional `chunk.metadata.assetUri` / `chunk.metadata.assetMediaType`
+- `chunk.metadata.extractor === "image:embed"`
+
+`chunk.content` will be the image caption/alt text (if provided) and may be an empty string (for example if you didn’t provide a caption, or if you disabled `storage.storeChunkContent`).
+
+To get the actual image, resolve it via your asset store:
+
+- **If you stored a URL/URI**: fetch `chunk.metadata.assetUri` (note: connector URLs like Notion can expire).
+- **If you store bytes yourself**: look up the image by `chunk.metadata.assetId`.
+
+For convenience, you can use `getChunkAssetRef` to extract a typed reference:
+
+```ts
+import { getChunkAssetRef, type ChunkAssetRef } from "@unrag/core";
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  if (ref?.assetKind === "image") {
+    console.log("image asset", ref.assetId, ref.assetUri);
+  }
+}
+```
+
+### Example: resolve bytes from a retrieved asset chunk (URL-based)
+
+This pattern works when `assetUri` is a stable, fetchable URL (or a signed URL that hasn’t expired):
+
+```ts
+import { getChunkAssetRef, type ChunkAssetRef } from "@unrag/core";
+
+async function fetchAssetBytes(ref: ChunkAssetRef): Promise<Uint8Array> {
+  if (!ref.assetUri) throw new Error(`No assetUri for assetId=${ref.assetId}`);
+  const res = await fetch(ref.assetUri);
+  if (!res.ok) {
+    throw new Error(`Failed to fetch asset (${res.status}) assetId=${ref.assetId}`);
+  }
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  if (ref?.assetKind !== "image") continue;
+  const bytes = await fetchAssetBytes(ref);
+  console.log("image bytes length", bytes.length);
+}
+```
+
+### Example: resolve bytes from your own blob store (assetId-based)
+
+If you ingest images as `bytes`, Unrag embeds them but does **not** persist the bytes. To make results resolvable later, store the bytes yourself keyed by `assetId` (or put your blob key in `assets[].metadata` and read it back from `chunk.metadata`):
+
+```ts
+import { getChunkAssetRef } from "@unrag/core";
+
+for (const chunk of result.chunks) {
+  const ref = getChunkAssetRef(chunk);
+  if (ref?.assetKind !== "image") continue;
+
+  // Pseudocode: implement this in your app
+  const bytes = await myAssetStore.getBytes(ref.assetId);
+  console.log("image bytes length", bytes.length);
+}
+```
+
+## The image embedding interface
+
+The multimodal provider adds an `embedImage` function:
+
+```ts
+type ImageEmbeddingInput = {
+  data: Uint8Array | string;  // Image bytes or URL
+  mediaType?: string;         // e.g., "image/jpeg"
+  metadata: Metadata;
+  assetId?: string;
+  sourceId: string;
+  documentId: string;
+};
+
+type EmbeddingProvider = {
+  name: string;
+  dimensions?: number;
+  embed: (input: EmbeddingInput) => Promise<number[]>;
+  embedImage?: (input: ImageEmbeddingInput) => Promise<number[]>;
+};
+```
+
+The ingest pipeline checks for `embedImage` and uses it when processing image assets.
+
+## Customizing image embedding
+
+For advanced use cases, you can customize how image values are formatted for the AI SDK:
+
+```ts
+const embedding = createAiEmbeddingProvider({
+  type: "multimodal",
+  model: "cohere/embed-v4.0",
+  
+  // Custom formatter for image embedding values
+  image: {
+    value: (input) => ({
+      image: [input.data], // Provider-specific; may need a data URL when input.data is bytes
+    }),
+  },
+});
+```
+
+The default behavior works for most providers, but this escape hatch lets you adapt to provider-specific formats.
+
+## Fallback behavior
+
+If your embedding provider doesn't support multimodal (no `embedImage` function), images fall back to caption embedding:
+
+1. Unrag checks if the image has a `text` field (caption/alt text)
+2. If present, the caption is chunked and embedded as text
+3. If not, the image is skipped
+
+This means you can use a text-only embedding model and still get some value from images—as long as they have descriptive captions.
+
+## When to use text-only vs multimodal
+
+**Use text-only (`type: 'text'`)** when:
+- Your content is primarily text
+- You don't need semantic image search
+- You want to minimize embedding costs
+- Your chosen text model produces better results for your domain
+
+**Use multimodal (`type: 'multimodal'`)** when:
+- Your content includes diagrams, charts, or photos
+- You want "show me the architecture diagram" to actually find diagrams
+- Image captions aren't descriptive enough for text search
+- Visual content is as important as text content
+
+## Cost considerations
+
+Multimodal embedding models often cost more per embedding than text-only models. Consider:
+
+- **Image frequency**: How many images are you ingesting?
+- **Query volume**: Every retrieval still embeds the query as text (cheap)
+- **Caption quality**: Could good captions give you 80% of the value at lower cost?
+
+For many use cases, high-quality captions with a text-only model work well. Multimodal is most valuable when images contain information that captions can't capture.
+
+## Complete example
+
+Here's a config that enables multimodal embedding:
+
+```ts
+// unrag.config.ts
+import { defineUnragConfig } from "./lib/unrag/core";
+import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
+import { db } from "./lib/db";
+
+export const unrag = defineUnragConfig({
+  defaults: {
+    chunking: { chunkSize: 200, chunkOverlap: 40 },
+    retrieval: { topK: 8 },
+  },
+  embedding: {
+    provider: "ai",
+    config: {
+    type: "multimodal",
+    model: "cohere/embed-v4.0",
+    timeoutMs: 30_000,
+  },
+  },
+  engine: {
+  // ... other config
+  },
+} as const);
+
+export function createUnragEngine() {
+  const store = createDrizzleVectorStore(db);
+  return unrag.createEngine({ store });
+}
+```
+
+Now when you ingest images, they're embedded directly:
+
+```ts
+await engine.ingest({
+  sourceId: "product:widget-x",
+  content: "The Widget X is our flagship product...",
+  assets: [
+    {
+      assetId: "hero-image",
+      kind: "image",
+      data: { kind: "url", url: "https://..." },
+      // Caption is optional with multimodal—the image itself is embedded
+    },
+  ],
+});
+
+// Later, this query can find the image:
+const result = await engine.retrieve({
+  query: "widget product photo",
+});
+```
+

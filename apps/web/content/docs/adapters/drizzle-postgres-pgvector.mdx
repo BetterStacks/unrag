@@ -144,21 +144,23 @@ export const db = drizzle(pool);
 // In unrag.config.ts
 import { db } from "@/lib/db";  // Your existing Drizzle instance
 import { createDrizzleVectorStore } from "@unrag/store/drizzle";
-import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
-import { createContextEngine, defineConfig } from "@unrag/core";
+import { defineUnragConfig } from "@unrag/core";
 
-const store = createDrizzleVectorStore(db);
+export const unrag = defineUnragConfig({
+  defaults: {
+    chunking: { chunkSize: 200, chunkOverlap: 40 },
+    retrieval: { topK: 8 },
+  },
+  embedding: {
+    provider: "ai",
+    config: { model: "openai/text-embedding-3-small" },
+  },
+  engine: {},
+} as const);
 
 export function createUnragEngine() {
-  return createContextEngine(
-    defineConfig({
-      embedding: createAiEmbeddingProvider({
-        model: "openai/text-embedding-3-small",
-      }),
-      store,
-      defaults: { chunkSize: 200, chunkOverlap: 40 },
-    })
-  );
+  const store = createDrizzleVectorStore(db);
+  return unrag.createEngine({ store });
 }
 ```
 

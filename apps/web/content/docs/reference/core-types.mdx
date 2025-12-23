@@ -15,6 +15,8 @@ type IngestInput = {
   content: string;
   metadata?: Metadata;
   chunking?: { chunkSize?: number; chunkOverlap?: number };
+  assets?: AssetInput[];
+  assetProcessing?: DeepPartial<AssetProcessingConfig>;
 };
 ```
 
@@ -38,8 +40,36 @@ type IngestInput = {
       description: 'Optional per-call chunking override (chunkSize, chunkOverlap).',
       type: 'object',
     },
+    assets: {
+      description:
+        'Optional rich media inputs (images, PDFs, audio, etc.) that can be processed into chunks. Connectors like Notion populate this for you.',
+      type: 'AssetInput[]',
+      default: '[]',
+    },
+    assetProcessing: {
+      description:
+        'Optional per-call override for asset processing behavior (e.g., enable/disable PDF LLM extraction, adjust fetch limits, strict vs skip).',
+      type: 'DeepPartial<AssetProcessingConfig>',
+    },
   }}
 />
+
+## AssetInput
+
+Assets are non-text inputs attached to a document (e.g., a PDF embed in Notion). They can be turned into text chunks (via extraction) or embedded directly (for images when using a multimodal embedding provider).
+
+```ts
+type AssetInput = {
+  assetId: string;
+  kind: "image" | "pdf" | "audio" | "video" | "file";
+  data:
+    | { kind: "url"; url: string; headers?: Record<string, string>; mediaType?: string; filename?: string }
+    | { kind: "bytes"; bytes: Uint8Array; mediaType: string; filename?: string };
+  uri?: string;
+  text?: string; // caption / alt text
+  metadata?: Metadata;
+};
+```
 
 ## IngestResult
 
@@ -50,6 +80,7 @@ type IngestResult = {
   documentId: string;
   chunkCount: number;
   embeddingModel: string;
+  warnings: IngestWarning[];
   durations: { totalMs: number; chunkingMs: number; embeddingMs: number; storageMs: number };
 };
 ```
@@ -68,12 +99,95 @@ type IngestResult = {
       description: 'Which model was used (e.g., "ai-sdk:openai/...").',
       type: 'string',
     },
+    warnings: {
+      description:
+        'Structured warnings emitted during ingestion. This is how you detect skipped rich media (unsupported assets, disabled extraction) without silently missing content.',
+      type: 'IngestWarning[]',
+      default: '[]',
+    },
     durations: {
       description: 'Timing breakdown: totalMs, chunkingMs, embeddingMs, storageMs. Useful for identifying bottlenecks.',
       type: 'object',
     },
   }}
 />
+
+## IngestWarning
+
+Warnings emitted by `engine.ingest()` when rich media assets are skipped or best-effort processing fails (while continuing).
+
+```ts
+type IngestWarning =
+  | {
+      code: "asset_skipped_unsupported_kind";
+      message: string;
+      assetId: string;
+      assetKind: AssetKind;
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
+      code: "asset_skipped_extraction_disabled";
+      message: string;
+      assetId: string;
+      assetKind: AssetKind;
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
+      code: "asset_skipped_pdf_llm_extraction_disabled";
+      message: string;
+      assetId: string;
+      assetKind: "pdf";
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
+      code: "asset_skipped_image_no_multimodal_and_no_caption";
+      message: string;
+      assetId: string;
+      assetKind: "image";
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
+      code: "asset_skipped_pdf_empty_extraction";
+      message: string;
+      assetId: string;
+      assetKind: "pdf";
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
+      code: "asset_skipped_extraction_empty";
+      message: string;
+      assetId: string;
+      assetKind: AssetKind;
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | {
+      code: "asset_processing_error";
+      message: string;
+      assetId: string;
+      assetKind: AssetKind;
+      stage: "fetch" | "extract" | "embed" | "unknown";
+      assetUri?: string;
+      assetMediaType?: string;
+    };
+```
+
+**Recommended practice**: treat warnings as observability signals.
+
+```ts
+const result = await engine.ingest(input);
+if (result.warnings.length > 0) {
+  // Send to logs/metrics/alerts in production
+  console.warn("unrag ingest warnings", result.warnings);
+}
+```
+
+For configuration knobs that control when assets are skipped vs failed, see [Asset Processing Reference](/docs/reference/asset-processing).
 
 ## RetrieveInput
 
@@ -144,11 +258,11 @@ type Chunk = {
   documentId: string;         // UUID of the parent document
   sourceId: string;           // Logical identifier from ingestion
   index: number;              // Position in the original document (0, 1, 2, ...)
-  content: string;            // The chunk's text
+  content: string;            // The chunk's text (may be empty if storage.storeChunkContent is false)
   tokenCount: number;         // Approximate token count
   metadata: Metadata;         // JSON metadata from ingestion
   embedding?: number[];       // Vector (present during upsert, not in query results)
-  documentContent?: string;   // Full document text (during upsert only)
+  documentContent?: string;   // Full document text (during upsert only; may be empty if storage.storeDocumentContent is false)
 };
 ```
 
@@ -223,6 +337,94 @@ type DeleteInput =
   | { sourceIdPrefix: string };
 ```
 
+## AssetExtractor
+
+The interface for extractor modules that process rich media assets into text or embeddings. Extractors are installed via the CLI and registered in your engine configuration.
+
+```ts
+type AssetExtractor = {
+  name: string;
+  supports: (args: { asset: AssetInput; ctx: AssetExtractorContext }) => boolean;
+  extract: (args: { asset: AssetInput; ctx: AssetExtractorContext }) => Promise<{
+    texts: Array<{
+      label: string;
+      content: string;
+      confidence?: number;
+      pageRange?: [number, number];
+      timeRangeSec?: [number, number];
+    }>;
+    skipped?: { code: string; message: string };
+    metadata?: Metadata;
+    diagnostics?: { model?: string; tokens?: number; seconds?: number };
+  }>;
+};
+```
+
+<TypeTable
+  type={{
+    name: {
+      description: 'Unique identifier for the extractor (e.g., "pdf:llm", "ocr:vision"). Stored in chunk.metadata.extractor.',
+      type: 'string',
+    },
+    supports: {
+      description: 'Returns true if this extractor can handle the given asset. Called for each asset to find the right extractor.',
+      type: '({ asset, ctx }) => boolean',
+    },
+    extract: {
+      description: 'Performs extraction and returns text segments with optional metadata and diagnostics.',
+      type: '(args) => Promise<ExtractResult>',
+    },
+  }}
+/>
+
+### Extract result
+
+The `extract` function returns:
+
+| Field | Description |
+|-------|-------------|
+| `texts` | Array of extracted text segments, each with a `label` (e.g., "page-1", "transcription") and `content` |
+| `texts[].confidence` | Optional confidence score (0-1) for the extraction |
+| `texts[].pageRange` | Optional page range `[start, end]` for PDFs |
+| `texts[].timeRangeSec` | Optional time range in seconds for audio/video |
+| `skipped` | Optional structured skip reason (e.g., disabled by config, too-large) |
+| `metadata` | Optional metadata merged into chunks created from this asset |
+| `diagnostics` | Optional diagnostic info (model used, token count, processing time) |
+
+### Example: Custom extractor
+
+```ts
+import type { AssetExtractor } from "@unrag/core";
+
+export function createAudioTranscriptExtractor(): AssetExtractor {
+  return {
+    name: "audio:whisper",
+    
+    supports: ({ asset, ctx }) => {
+      return asset.kind === "audio" && ctx.assetProcessing.audio.transcription.enabled;
+    },
+    
+    extract: async ({ asset, ctx }) => {
+      const audioBytes = asset.data.kind === "bytes" 
+        ? asset.data.bytes 
+        : await fetchAssetBytes(asset.data.url);
+      
+      const transcription = await whisperTranscribe(audioBytes);
+      
+      return {
+        texts: [
+          { label: "transcription", content: transcription.text },
+        ],
+        diagnostics: {
+          model: "whisper-large-v3",
+          seconds: transcription.durationSec,
+        },
+      };
+    },
+  };
+}
+```
+
 ## ContextEngineConfig
 
 The configuration for creating an engine:
@@ -231,6 +433,9 @@ The configuration for creating an engine:
 type ContextEngineConfig = {
   embedding: EmbeddingProvider;
   store: VectorStore;
+  extractors?: AssetExtractor[];
+  assetProcessing?: DeepPartial<AssetProcessingConfig>;
+  storage?: { storeChunkContent?: boolean; storeDocumentContent?: boolean };
   defaults?: Partial<ChunkingOptions>;
   chunker?: Chunker;
   idGenerator?: () => string;
@@ -250,5 +455,41 @@ type ChunkText = {
 };
 ```
 
-Most configurations only specify `embedding`, `store`, and `defaults`. Custom `chunker` and `idGenerator` are optional overrides for advanced use cases.
+<TypeTable
+  type={{
+    embedding: {
+      description: 'The embedding provider for generating vectors.',
+      type: 'EmbeddingProvider',
+    },
+    store: {
+      description: 'The vector store adapter for database operations.',
+      type: 'VectorStore',
+    },
+    extractors: {
+      description: 'Optional array of extractor modules for processing rich media assets. Install via CLI, then register here.',
+      type: 'AssetExtractor[]',
+      default: '[]',
+    },
+    assetProcessing: {
+      description: 'Configuration for how assets are processed (fetch limits, extraction settings, error handling).',
+      type: 'DeepPartial<AssetProcessingConfig>',
+    },
+    storage: {
+      description: 'Controls what content is persisted to the database.',
+      type: 'object',
+    },
+    defaults: {
+      description: 'Default chunking settings (chunkSize, chunkOverlap).',
+      type: 'Partial<ChunkingOptions>',
+    },
+    chunker: {
+      description: 'Optional custom chunking function. Defaults to recursive text splitter.',
+      type: 'Chunker',
+    },
+    idGenerator: {
+      description: 'Optional custom UUID generator.',
+      type: '() => string',
+    },
+  }}
+/>
 

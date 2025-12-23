@@ -13,7 +13,7 @@ This guide walks you through the complete setup from a fresh project to your fir
 Run the CLI with your preferences. For this quickstart, we'll use Drizzle as the store adapter:
 
 ```bash
-bunx unrag init --yes --store drizzle --dir lib/unrag --alias @unrag
+bunx unrag@latest init --yes --store drizzle --dir lib/unrag --alias @unrag
 ```
 
 This creates your configuration file, installs the vendored module code, and adds the necessary dependencies to your `package.json`. Run your package manager to install them:
@@ -208,4 +208,22 @@ Open `unrag.config.ts` to adjust settings. The most common customizations are:
 3. **Embedding model**: Switch to a different model by changing the `model` field. Larger models like `text-embedding-3-large` may give better results at higher cost.
 
 4. **Database connection**: If you already have a database pool or client configured elsewhere in your app, you can modify `createUnragEngine()` to use that instead of creating a new one.
+
+## Going beyond text
+
+Your quickstart used plain text content, but Unrag can handle more. The generated `unrag.config.ts` includes `assetProcessing` settings that enable:
+
+- **PDF extraction**: Send PDFs to an LLM to extract their text content
+- **Image embedding**: Embed images directly (with multimodal models) or use their captions
+
+When you're ready to ingest content with embedded PDFs or images, check out:
+
+<Cards>
+  <Card title="Multimodal Ingestion" href="/docs/concepts/multimodal">
+    How PDFs and images are processed
+  </Card>
+  <Card title="Ingest Rich Media" href="/docs/guides/ingest-rich-media">
+    Practical guide to ingesting assets
+  </Card>
+</Cards>
 

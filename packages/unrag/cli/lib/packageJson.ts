@@ -102,6 +102,69 @@ export function depsForConnector(connector: ConnectorName) {
   return { deps, devDeps };
 }
 
+export type ExtractorName =
+  | "pdf-llm"
+  | "pdf-text-layer"
+  | "pdf-ocr"
+  | "image-ocr"
+  | "image-caption-llm"
+  | "audio-transcribe"
+  | "video-transcribe"
+  | "video-frames"
+  | "file-text"
+  | "file-docx"
+  | "file-pptx"
+  | "file-xlsx";
+
+export function depsForExtractor(extractor: ExtractorName) {
+  const deps: Record<string, string> = {};
+  const devDeps: Record<string, string> = {};
+
+  // pdf-llm uses the AI SDK which is already installed by `unrag init`,
+  // but keep this here in case extractor installs are used independently later.
+  if (extractor === "pdf-llm") {
+    deps["ai"] = "^5.0.113";
+  }
+
+  if (extractor === "pdf-text-layer") {
+    deps["pdfjs-dist"] = "^5.4.149";
+  }
+
+  if (extractor === "pdf-ocr") {
+    // No JS deps. Requires external binaries in worker environments (poppler/tesseract).
+  }
+
+  if (extractor === "image-ocr" || extractor === "image-caption-llm") {
+    deps["ai"] = "^5.0.113";
+  }
+
+  if (extractor === "audio-transcribe" || extractor === "video-transcribe") {
+    deps["ai"] = "^5.0.113";
+  }
+
+  if (extractor === "video-frames") {
+    deps["ai"] = "^5.0.113";
+  }
+
+  if (extractor === "file-text") {
+    // No JS deps.
+  }
+
+  if (extractor === "file-docx") {
+    deps["mammoth"] = "^1.10.0";
+  }
+
+  if (extractor === "file-pptx") {
+    deps["jszip"] = "^3.10.1";
+  }
+
+  if (extractor === "file-xlsx") {
+    deps["xlsx"] = "^0.18.5";
+  }
+
+  return { deps, devDeps };
+}
+
 export function installCmd(pm: PackageManager) {
   if (pm === "bun") return "bun install";
   if (pm === "pnpm") return "pnpm install";

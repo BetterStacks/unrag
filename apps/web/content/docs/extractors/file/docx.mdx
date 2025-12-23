@@ -1,0 +1,100 @@
+---
+title: "file:docx Extractor"
+description: Extract text content from Microsoft Word documents.
+---
+
+The `file:docx` extractor reads Word documents and extracts their text content. It parses the XML structure inside `.docx` files and pulls out readable text from paragraphs, tables, lists, headers, footers, and text boxes. The extracted text flows through your normal chunking and embedding pipeline, making Word documents searchable.
+
+Word documents are everywhere in business—reports, proposals, contracts, memos. Making them searchable means queries about "Q3 revenue" or "payment terms" can surface the relevant sections from the right documents.
+
+## Installation
+
+```bash
+bunx unrag@latest add extractor file-docx
+```
+
+Register in your config:
+
+```ts
+import { createFileDocxExtractor } from "./lib/unrag/extractors/file-docx";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createFileDocxExtractor()],
+  },
+} as const);
+```
+
+## What gets extracted
+
+The extractor walks through the document's XML structure and extracts text from all the standard content areas. Paragraphs become flowing text. Tables extract row by row. Lists preserve their content (though not their bullet styles). Headers and footers are included. Text boxes and floating elements are captured.
+
+What doesn't extract: images, charts, embedded objects, and tracked changes. The extractor captures the current document state as text, not its full history or visual elements. For documents where images carry important information, consider exporting to PDF and using the `pdf:llm` extractor.
+
+## Configuration
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      file: {
+        docx: {
+          enabled: true,
+          maxBytes: 50 * 1024 * 1024,
+          maxOutputChars: 500_000,
+        },
+      },
+    },
+  },
+} as const);
+```
+
+**`maxBytes`** limits file size. Word documents rarely exceed a few megabytes unless they're packed with images, so a 50MB limit is generous.
+
+**`maxOutputChars`** truncates extremely long documents. A 500,000 character limit covers most business documents while preventing runaway ingestion of massive files.
+
+## Usage example
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const docBuffer = await readFile("./documents/proposal.docx");
+
+await engine.ingest({
+  sourceId: "proposals:acme-2024",
+  content: "Acme Corp Partnership Proposal",
+  assets: [
+    {
+      assetId: "proposal-docx",
+      kind: "file",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(docBuffer),
+        mediaType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        filename: "proposal.docx",
+      },
+    },
+  ],
+});
+```
+
+## The `.doc` format
+
+This extractor handles modern `.docx` files (Word 2007 and later). The older binary `.doc` format isn't supported. If you need to process legacy `.doc` files, convert them to `.docx` first using LibreOffice or similar tools. Many organizations still have archives of older documents, so this conversion step might be part of your ingestion pipeline.
+
+## Formatting considerations
+
+Document formatting—bold, italic, fonts, colors—doesn't survive extraction. The extractor produces plain text. This is usually fine for search purposes, since you're searching for content rather than styling.
+
+One edge case: if a document uses formatting to convey meaning (like color-coding status or using bold for key terms), that meaning is lost. The text extracts but the formatting context doesn't. For these documents, the LLM-based PDF extractor might capture more of the intent by "reading" the document visually.
+
+## Tables and structure
+
+Tables extract as text, row by row. The extractor doesn't preserve the tabular structure in a way that maintains relationships between columns. For documents heavy on tabular data, consider whether the spreadsheet extractor on an Excel export might work better.
+
+For most documents with occasional tables (like a report with a summary table), the text extraction is sufficient. Queries about content in the table cells will find them, even without perfect structural preservation.
+

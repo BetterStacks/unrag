@@ -1,0 +1,11 @@
+{
+  "title": "Image",
+  "pages": [
+    "index",
+    "embed",
+    "caption",
+    "ocr",
+    "caption-llm"
+  ]
+}
+

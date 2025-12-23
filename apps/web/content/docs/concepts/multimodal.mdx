@@ -1,0 +1,117 @@
+---
+title: Multimodal Ingestion
+description: How Unrag handles images, PDFs, and other rich media alongside text.
+---
+
+Traditional RAG systems work with text: you chunk documents, embed the chunks, and retrieve similar text. But real-world content isn't just text. Your Notion pages have embedded PDFs. Your documentation includes diagrams. Your knowledge base might contain scanned contracts, audio transcripts, or product screenshots.
+
+Unrag handles this through **multimodal ingestion**—a system that turns rich media into chunks that live alongside your text in a unified embedding space.
+
+## The unified space model
+
+The key insight behind Unrag's multimodal support is simple: **everything becomes chunks with embeddings**. Whether the original content was text, a PDF, or an image, the end result is the same—vectors in your Postgres database that can be retrieved with text queries.
+
+This means:
+
+- A text query like "what are the Q3 revenue figures?" can retrieve chunks from a PDF financial report
+- A question about "the architecture diagram" can find an embedded image with that caption
+- Your retrieval code doesn't need to know whether a chunk came from text or extracted PDF content
+
+The alternative—separate embedding spaces for different modalities—would require multiple searches and complex result merging. Unrag keeps it simple: one space, one query, mixed results.
+
+## How assets flow through the pipeline
+
+When you call `engine.ingest()`, you can include an `assets` array alongside your text content:
+
+```ts
+await engine.ingest({
+  sourceId: "docs:quarterly-report",
+  content: "Q3 2024 Financial Summary...", // Text content
+  assets: [
+    {
+      assetId: "pdf-1",
+      kind: "pdf",
+      data: { kind: "url", url: "https://..." },
+    },
+    {
+      assetId: "chart-1", 
+      kind: "image",
+      data: { kind: "url", url: "https://..." },
+      text: "Revenue growth chart showing 15% YoY increase",
+    },
+  ],
+});
+```
+
+The ingest pipeline processes these in order:
+
+1. **Text chunking**: Your `content` string is chunked and embedded as usual
+2. **Asset processing**: Each asset is processed based on its `kind` and your `assetProcessing` config
+3. **Embedding**: All resulting chunks (text + extracted/embedded assets) go through the embedding provider
+4. **Storage**: Everything lands in your database with metadata indicating the source
+
+Connectors like Notion handle asset extraction automatically—they emit `assets` for you based on the blocks they encounter (images, PDFs, file embeds, etc.).
+
+## Text extraction vs direct embedding
+
+Not all assets are handled the same way:
+
+**PDFs** are turned into text through LLM extraction. By default, Unrag sends the PDF to Gemini (via Vercel AI Gateway) with a prompt asking it to extract all readable text. The extracted text is then chunked and embedded like any other text content.
+
+**Images** can go two routes:
+- If your embedding provider supports multimodal (you've set `type: 'multimodal'`), the image is embedded directly. This means text queries can semantically match against image content.
+- If not, Unrag falls back to embedding any caption or alt text provided with the image.
+
+**Audio, video, and generic files** are not extracted in v1. By default, they're skipped during ingestion. You can configure Unrag to fail ingestion if an unsupported asset is encountered, which is useful for ensuring you don't silently miss content.
+
+## When to use multimodal
+
+Multimodal ingestion shines when your content includes:
+
+- **Documentation with embedded PDFs** — API specs, design docs, legal agreements
+- **Knowledge bases with diagrams** — architecture diagrams, flowcharts, screenshots
+- **Notion workspaces** — where people embed all kinds of media alongside text
+- **Research or reports** — where figures and tables are as important as prose
+
+If your content is pure text (markdown files, plain articles), you don't need to think about this—the text-only path works exactly as before.
+
+## What's supported in v1
+
+| Asset Kind | Extraction Method | Status |
+|------------|-------------------|--------|
+| `pdf` | LLM extraction (Gemini default) | Supported, opt-in |
+| `image` | Direct embedding or caption fallback | Supported |
+| `audio` | Not extracted | Skipped by default |
+| `video` | Not extracted | Skipped by default |
+| `file` | Not extracted | Skipped by default |
+
+The `onUnsupportedAsset` config controls what happens when Unrag encounters an asset kind it can't process: `"skip"` (default) continues without that asset, `"fail"` throws an error.
+
+## Cost considerations
+
+PDF extraction uses LLM API calls, which have costs. A few things to keep in mind:
+
+- **PDF extraction is opt-in** — the library defaults to `enabled: false`. The generated config template turns it on for convenience, but you control this.
+- **Limits are configurable** — you can set `maxBytes` to skip large PDFs, or `maxOutputChars` to cap extraction length.
+- **Per-ingest overrides** — you can disable extraction for bulk imports and enable it for important documents.
+
+For most use cases, the cost is reasonable—a typical PDF extraction is comparable to a short chat completion. But if you're ingesting thousands of PDFs, plan accordingly.
+
+<Callout>
+The generated `unrag.config.ts` enables PDF extraction by default so new installs "just work" with Notion pages that have embedded PDFs. Disable it in the config if you want to start with text-only ingestion.
+</Callout>
+
+## Next steps
+
+<Cards>
+  <Card title="Ingest Rich Media" href="/docs/guides/ingest-rich-media">
+    Practical guide to ingesting PDFs and images
+  </Card>
+  <Card title="Configure Asset Processing" href="/docs/guides/configure-asset-processing">
+    Control extraction behavior, limits, and error handling
+  </Card>
+  <Card title="Multimodal Embeddings" href="/docs/embedding/multimodal-embeddings">
+    Enable direct image embedding with compatible models
+  </Card>
+</Cards>
+

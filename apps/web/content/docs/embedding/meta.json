@@ -2,6 +2,7 @@
   "title": "Embedding",
   "pages": [
     "ai-sdk",
+    "multimodal-embeddings",
     "model-selection",
     "custom-provider"
   ]

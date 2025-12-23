@@ -1,0 +1,195 @@
+---
+title: Extractors Overview
+description: Extract text, metadata, and embeddings from rich media assets.
+---
+
+Extractors transform rich media (currently: PDFs and images) into searchable content. Each asset type has one or more extractors that produce text chunks or direct embeddings.
+
+## How extractors work
+
+When you ingest content with assets, Unrag's ingest pipeline routes each asset to the appropriate extractor based on its `kind`. The extractor produces either:
+
+- **Text chunks**: extracted/transcribed text that's chunked and embedded like normal text
+- **Direct embeddings**: vector representations of the asset itself (e.g., multimodal image embeddings)
+
+The extractor used is recorded in `chunk.metadata.extractor` so you can identify the source during retrieval.
+
+## Extractor metadata
+
+Every chunk produced by an extractor includes metadata fields you can use during retrieval:
+
+```ts
+import { getChunkAssetRef } from "@unrag/core";
+
+const ref = getChunkAssetRef(chunk);
+if (ref) {
+  console.log(ref.assetKind);    // "pdf" | "image"
+  console.log(ref.assetId);      // stable identifier from ingest
+  console.log(ref.extractor);    // "pdf:llm" | "image:embed" | "image:caption" | ...
+  console.log(ref.assetUri);     // optional URL/path
+  console.log(ref.assetMediaType); // optional MIME type
+}
+```
+
+## Configuring extractors
+
+Extractors are configured via `assetProcessing` in your `unrag.config.ts`. See [Asset Processing Reference](/docs/reference/asset-processing) for the full configuration schema.
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+  // ...
+  assetProcessing: {
+    onUnsupportedAsset: "skip",
+    onError: "skip",
+    pdf: {
+      llmExtraction: {
+        enabled: true,
+        model: "google/gemini-2.0-flash",
+        // ...
+      },
+    },
+  },
+  },
+} as const);
+```
+
+## Installing extractors
+
+Extractors are installed as vendored modules via the CLI and registered in your engine configuration.
+
+### Step 1: Install via CLI
+
+```bash
+bunx unrag@latest add extractor pdf-llm
+```
+
+This copies the extractor source files to `lib/unrag/extractors/pdf-llm/` and adds any required dependencies to your `package.json`.
+
+### Step 2: Register in your config
+
+After installation, import and register the extractor in `unrag.config.ts`:
+
+```ts
+import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [
+    createPdfLlmExtractor(),
+    // Add more extractors here as you install them
+    ],
+  },
+} as const);
+```
+
+### Step 3: Configure (optional)
+
+Most extractors are configured via `assetProcessing` in your config. For example, the `pdf-llm` extractor reads its settings from `assetProcessing.pdf.llmExtraction`:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+  assetProcessing: {
+    pdf: {
+      llmExtraction: {
+        enabled: true,
+        model: "google/gemini-2.0-flash",
+        timeoutMs: 60_000,
+        // ... other settings
+      },
+    },
+  },
+  },
+} as const);
+```
+
+### What happens without extractors?
+
+If an asset's kind has no registered extractor:
+
+- The asset is **skipped** (by default, controlled by `onUnsupportedAsset`)
+- A **warning** is emitted in `result.warnings` so you can monitor for missed content
+- Other assets and text content are processed normally
+
+This is intentional—extraction has cost and complexity implications, so you explicitly opt in.
+
+## Available extractor modules
+
+| Module | Install command | Extractor name | Description |
+|--------|-----------------|----------------|-------------|
+| `pdf-text-layer` | `unrag@latest add extractor pdf-text-layer` | `pdf:text-layer` | Extract built-in PDF text layer (fast/cheap) |
+| `pdf-llm` | `unrag@latest add extractor pdf-llm` | `pdf:llm` | Extract text from PDFs using an LLM |
+| `pdf-ocr` | `unrag@latest add extractor pdf-ocr` | `pdf:ocr` | OCR PDFs by rasterizing pages (worker-only) |
+| `image-ocr` | `unrag@latest add extractor image-ocr` | `image:ocr` | OCR images into searchable text |
+| `image-caption-llm` | `unrag@latest add extractor image-caption-llm` | `image:caption-llm` | Generate image captions via LLM |
+| `audio-transcribe` | `unrag@latest add extractor audio-transcribe` | `audio:transcribe` | Transcribe audio into text chunks |
+| `video-transcribe` | `unrag@latest add extractor video-transcribe` | `video:transcribe` | Transcribe video audio track into text chunks |
+| `video-frames` | `unrag@latest add extractor video-frames` | `video:frames` | Sample frames + extract text per frame (worker-only) |
+| `file-text` | `unrag@latest add extractor file-text` | `file:text` | Decode text-ish files (txt/md/html/json/csv) |
+| `file-docx` | `unrag@latest add extractor file-docx` | `file:docx` | Extract raw text from `.docx` |
+| `file-pptx` | `unrag@latest add extractor file-pptx` | `file:pptx` | Extract slide text from `.pptx` |
+| `file-xlsx` | `unrag@latest add extractor file-xlsx` | `file:xlsx` | Extract sheet content from `.xlsx` |
+
+<Callout>
+Image handling (`image:embed` and `image:caption`) is built into the core engine and doesn't require an extractor module. It's controlled by your embedding provider configuration (`type: "multimodal"` vs `type: "text"`). Additional installable image extractors (`image:ocr`, `image:caption-llm`) can produce extra text chunks when enabled.
+</Callout>
+
+## Creating custom extractors
+
+For advanced use cases, you can create custom extractors by implementing the `AssetExtractor` interface:
+
+```ts
+import type { AssetExtractor } from "@unrag/core";
+
+export function createMyExtractor(): AssetExtractor {
+  return {
+    name: "my:custom", // Unique identifier (stored in chunk metadata)
+    
+    supports: ({ asset, ctx }) => {
+      // Return true if this extractor handles this asset
+      return asset.kind === "audio" && ctx.assetProcessing.audio.transcription.enabled;
+    },
+    
+    extract: async ({ asset, ctx }) => {
+      // Perform extraction and return text segments
+      const transcription = await transcribeAudio(asset);
+      
+      return {
+        texts: [
+          {
+            label: "transcription",
+            content: transcription,
+          },
+        ],
+        diagnostics: {
+          model: "whisper-large-v3",
+          seconds: 12.5,
+        },
+      };
+    },
+  };
+}
+```
+
+Then register it like any other extractor:
+
+```ts
+import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createPdfLlmExtractor(), createMyExtractor()],
+  },
+} as const);
+```
+
+See [Core Types Reference](/docs/reference/core-types#assetextractor) for the full `AssetExtractor` interface.
+

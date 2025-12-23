@@ -1,0 +1,128 @@
+---
+title: "image:ocr Extractor"
+description: OCR images into searchable text using a vision-capable model.
+---
+
+The `image:ocr` extractor reads text from images using a vision-capable LLM. Unlike traditional OCR that looks at pixel patterns, this extractor sends images to a model like Gemini that understands context—it knows "Password:" is a label, can handle complex layouts, and works on photos with text on signs or screens.
+
+This is especially valuable for screenshots, charts, UI captures, and any image where important information is text. A screenshot showing an error message becomes searchable by the error text. A chart with axis labels becomes searchable by those labels.
+
+## Installation
+
+```bash
+bunx unrag@latest add extractor image-ocr
+```
+
+Register in your config:
+
+```ts
+import { createImageOcrExtractor } from "./lib/unrag/extractors/image-ocr";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createImageOcrExtractor()],
+  },
+} as const);
+```
+
+## Configuration
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      image: {
+        ocr: {
+          enabled: true,
+          model: "google/gemini-2.0-flash",
+          prompt: "Extract all readable text from this image as faithfully as possible. Output plain text only. Do not add commentary.",
+          timeoutMs: 60_000,
+          maxBytes: 10 * 1024 * 1024,
+          maxOutputChars: 50_000,
+          minChars: 10,
+        },
+      },
+    },
+  },
+} as const);
+```
+
+**`model`** specifies the vision-capable model to use. Gemini Flash is a good default—fast, capable, and cost-effective.
+
+**`prompt`** tells the model what to do. The default extracts all visible text faithfully. You can customize for specific content types: ask for code preservation in screenshots, focus on labels in charts, or extract form fields as key-value pairs.
+
+**`minChars`** sets a threshold below which extraction is considered unsuccessful. Images with very little text (a photo with a small sign, for example) might not produce useful search content.
+
+## How it differs from traditional OCR
+
+Traditional OCR tools like Tesseract analyze pixel patterns to recognize character shapes. They work best on clean, high-contrast text against plain backgrounds.
+
+LLM-based OCR is fundamentally different. The model "sees" the image and understands what it's looking at. It can read text in complex layouts, understand that a chart legend goes with the chart, extract text from photos of whiteboards, and handle handwriting with varying quality.
+
+The tradeoff is cost and speed. Traditional OCR runs locally; LLM OCR requires an API call. For high-volume image processing, this matters. For typical knowledge base scenarios, the quality improvement usually justifies the cost.
+
+## Usage example
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const screenshot = await readFile("./images/error-dialog.png");
+
+await engine.ingest({
+  sourceId: "support:ticket-456",
+  content: "User reported login issue",
+  assets: [
+    {
+      assetId: "error-screenshot",
+      kind: "image",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(screenshot),
+        mediaType: "image/png",
+      },
+    },
+  ],
+});
+```
+
+After ingestion, searches for the error text (say, "Connection timeout") will surface this image.
+
+## Combining with image embedding
+
+If you're using multimodal embedding, images can produce both direct embeddings and OCR text chunks. The same image is findable two ways: through visual similarity ("error dialog") and through text content ("Connection timeout").
+
+```ts
+// A search might return:
+// - Image embedding match (looks like an error dialog)  
+// - OCR chunk match (contains "timeout")
+```
+
+This comprehensive coverage helps when you're not sure how users will search. Some will describe what they're looking for visually; others will remember specific text they saw.
+
+## Customizing the prompt
+
+The default prompt does faithful text extraction. For specific content types, customize:
+
+```ts
+// For code screenshots
+prompt: "Extract the code shown in this screenshot. Preserve formatting and indentation. Output as plain text."
+
+// For charts
+prompt: "Extract all text from this chart: title, axis labels, legend entries, and data values. Format as structured text."
+
+// For forms
+prompt: "Extract form fields and their values as 'Field: Value' pairs."
+```
+
+Keep prompts focused on extraction, not interpretation. Asking the model to "describe" or "summarize" produces inconsistent output that doesn't search as well.
+
+## When OCR adds value
+
+OCR shines when images contain text that matters for search. Screenshots of error messages, UI captures, charts with labels, photos of whiteboards, scanned receipts—these all become searchable through their text content.
+
+OCR adds little value for purely visual content: photos of landscapes, product images without text, abstract diagrams. For these, direct image embedding (if using multimodal) or LLM-generated captions (describing what's shown) work better.
+

@@ -9,7 +9,7 @@ When you install Unrag, you're not adding a dependency that phones home or hides
 
 ## What Unrag installs
 
-After running `bunx unrag init`, your project will contain:
+After running `bunx unrag@latest init`, your project will contain:
 
 <Files>
   <File name="unrag.config.ts" />
@@ -75,4 +75,16 @@ The entire system boils down to two operations:
 **Retrieval** takes a query string, generates an embedding for it, and asks Postgres for the chunks whose embeddings are most similar to your query embedding. You get back the chunks, their similarity scores, and timing information.
 
 Everything else—how you turn those chunks into a prompt, how you call an LLM, how you handle streaming, how you surface results in your UI—is your application's concern. Unrag gives you the retrieval primitive and gets out of your way.
+
+## Beyond text: Multimodal ingestion
+
+Real-world content isn't just text. Your Notion pages have embedded PDFs. Your documentation includes diagrams. Unrag's asset processing system handles this:
+
+**PDFs** can be processed through LLM extraction—Unrag sends the PDF to an LLM (Gemini by default) which extracts the text content. That text is then chunked and embedded like any other document.
+
+**Images** can be embedded directly if you're using a multimodal embedding model, or Unrag falls back to embedding their captions.
+
+**Connectors like Notion** automatically extract these assets from the pages they sync, so you don't have to build the asset list yourself.
+
+Asset processing is opt-in and configurable. The library defaults to skipping expensive operations, but the generated config template enables PDF extraction so new installs work with rich content out of the box. See [Multimodal Ingestion](/docs/concepts/multimodal) for the full picture.
 

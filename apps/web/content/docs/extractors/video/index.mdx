@@ -1,0 +1,115 @@
+---
+title: Video Extractors
+description: Make video content searchable through audio transcription or frame analysis.
+---
+
+Video combines audio and visual information, and there are two fundamentally different approaches to making it searchable. You can extract the audio track and transcribe it, which captures what was said. Or you can sample frames and analyze them visually, which captures what was shown.
+
+Most video search applications care primarily about speech—lectures, interviews, tutorials, meetings. For these, audio transcription is the right tool. Visual analysis matters more for videos where important information appears on screen: diagrams in presentations, code in tutorials, charts in data walkthroughs.
+
+## Two approaches
+
+| Extractor | How it works | Best for |
+|-----------|--------------|----------|
+| [video:transcribe](/docs/extractors/video/transcribe) | Extract audio track, transcribe with Whisper | Lectures, meetings, interviews |
+| [video:frames](/docs/extractors/video/frames) | Sample frames, analyze with vision LLM | Presentations, visual tutorials (worker-only) |
+
+The `video:transcribe` extractor handles most use cases. It pulls the audio track from video files and runs it through the same Whisper-based transcription as audio files. The transcript becomes searchable text.
+
+The `video:frames` extractor is more specialized. It's a worker-only pipeline that extracts frames at intervals and sends them to a vision-capable LLM for analysis. This captures visual content but requires more infrastructure and costs more per video.
+
+## Choosing an approach
+
+For the majority of videos, transcription is sufficient and significantly cheaper. Spoken content tends to be the primary information carrier in most video formats—the presenter explains what's on screen, the speaker describes their process, the interviewer asks questions.
+
+Frame analysis adds value when visual content is genuinely different from spoken content. A screencast where the presenter says "and here you can see the error" benefits from frame analysis that captures what error is actually shown. A talking-head interview gains little from analyzing frames of someone's face.
+
+You can also combine approaches. Run transcription for everything, and selectively run frame analysis on videos where visual content matters. The chunks from each extractor are tagged with their source, so retrieval results show which method surfaced each match.
+
+## Installation
+
+Install the extractor that fits your needs:
+
+```bash
+# For audio transcription (most common)
+bunx unrag@latest add extractor video-transcribe
+
+# For frame analysis (worker-only, requires ffmpeg)
+bunx unrag@latest add extractor video-frames
+```
+
+Register in your config:
+
+```ts
+import { createVideoTranscribeExtractor } from "./lib/unrag/extractors/video-transcribe";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createVideoTranscribeExtractor()],
+  },
+} as const);
+```
+
+## Configuration
+
+Video processing settings live under `assetProcessing.video`:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      video: {
+        transcription: {
+          enabled: true,
+          maxDurationSec: 3600,
+          maxBytes: 100 * 1024 * 1024,
+        },
+        frames: {
+          enabled: false,  // Worker-only
+          intervalSec: 30,
+          maxFrames: 60,
+        },
+      },
+    },
+  },
+} as const);
+```
+
+Transcription settings mirror audio transcription—duration limits, file size caps, language hints. Frame extraction settings control how densely to sample the video and how many frames to analyze.
+
+## Video file handling
+
+Video files are large. A one-hour recording might be several gigabytes. The `maxBytes` setting prevents accidentally processing huge files, but you should also think about where video bytes come from.
+
+For videos stored in cloud storage (S3, GCS), passing a signed URL lets Unrag fetch the file directly rather than loading it into your application's memory first. This is especially important in memory-constrained serverless environments.
+
+```ts
+await engine.ingest({
+  sourceId: "training:onboarding-video",
+  content: "New employee onboarding",
+  assets: [
+    {
+      assetId: "onboarding-mp4",
+      kind: "video",
+      data: {
+        kind: "url",
+        url: presignedUrl,  // Fetch directly from storage
+        mediaType: "video/mp4",
+      },
+    },
+  ],
+});
+```
+
+## Worker considerations
+
+Video processing takes time. Transcribing a 30-minute video might take a minute or more. Frame extraction with LLM analysis takes even longer. For serverless environments, this usually means background jobs.
+
+The `video:frames` extractor has a harder requirement: it needs `ffmpeg` installed, which isn't available in standard serverless runtimes. This extractor only makes sense in a worker environment with native binary support.
+
+See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) for patterns around background video processing.
+

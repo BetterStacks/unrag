@@ -1,0 +1,121 @@
+---
+title: "file:text Extractor"
+description: Extract text from plain text files, markdown, HTML, JSON, and CSV.
+---
+
+The `file:text` extractor handles files that are fundamentally plain text—markdown documents, HTML pages, JSON files, CSV data, and simple `.txt` files. For HTML, it strips the markup and extracts readable text. For everything else, it decodes the bytes as UTF-8 and passes the content through for chunking and embedding.
+
+This is the simplest extractor, but it covers a surprisingly large number of use cases. Configuration files, documentation in markdown, API responses stored as JSON, data exports as CSV—all become searchable content.
+
+## Installation
+
+```bash
+bunx unrag@latest add extractor file-text
+```
+
+Register in your config:
+
+```ts
+import { createFileTextExtractor } from "./lib/unrag/extractors/file-text";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [createFileTextExtractor()],
+  },
+} as const);
+```
+
+## Supported formats
+
+The extractor matches files by media type and filename extension. It handles `text/plain`, `text/markdown`, `text/html`, `application/json`, `text/csv`, `text/xml`, and `text/yaml`, along with their common filename extensions.
+
+Files with unknown media types but recognized extensions will also match. A file with extension `.md` extracts as markdown even if the media type isn't set correctly.
+
+## Configuration
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      file: {
+        text: {
+          enabled: true,
+          maxBytes: 5 * 1024 * 1024,
+          maxOutputChars: 200_000,
+          minChars: 50,
+        },
+      },
+    },
+  },
+} as const);
+```
+
+**`maxBytes`** sets the maximum file size to process. Very large text files might be data dumps or logs that shouldn't become search content.
+
+**`maxOutputChars`** truncates extracted text beyond this length. This protects against accidentally ingesting enormous files that would produce thousands of chunks.
+
+**`minChars`** skips files that produce fewer characters than this threshold. Very short files might be placeholders or config stubs that don't add search value.
+
+## Usage example
+
+```ts
+import { readFile } from "node:fs/promises";
+
+const markdown = await readFile("./docs/api-reference.md");
+
+await engine.ingest({
+  sourceId: "docs:api-reference",
+  content: "API Reference Documentation",
+  assets: [
+    {
+      assetId: "api-ref-md",
+      kind: "file",
+      data: {
+        kind: "bytes",
+        bytes: new Uint8Array(markdown),
+        mediaType: "text/markdown",
+        filename: "api-reference.md",
+      },
+    },
+  ],
+});
+```
+
+For files available via URL:
+
+```ts
+await engine.ingest({
+  sourceId: "config:deployment",
+  content: "Deployment configuration",
+  assets: [
+    {
+      assetId: "config-json",
+      kind: "file",
+      data: {
+        kind: "url",
+        url: "https://storage.example.com/configs/deploy.json",
+        mediaType: "application/json",
+      },
+    },
+  ],
+});
+```
+
+## HTML handling
+
+For HTML files, the extractor strips tags and extracts text content. A webpage becomes its readable text, without navigation elements, scripts, or styling markup. This is basic extraction—it won't preserve document structure or handle complex layouts intelligently. For high-fidelity HTML extraction, you might want a custom extractor that uses a proper HTML parser.
+
+## When to use plain content instead
+
+If you're already reading text files in your code, you can pass the content directly to `engine.ingest()` without using the file extractor. The extractor is most useful when text files arrive as assets from connectors or when you want consistent handling across multiple file types.
+
+Both approaches produce the same searchable chunks. It's a matter of where the file-reading logic lives and whether you want asset-level metadata on the resulting chunks.
+
+## Encoding considerations
+
+The extractor assumes UTF-8 encoding. Files in other encodings (Latin-1, Windows-1252, etc.) may produce garbled text. If you're processing legacy files with non-UTF-8 encoding, convert them to UTF-8 before ingestion.
+

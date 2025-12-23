@@ -1,0 +1,114 @@
+---
+title: File Extractors
+description: Extract searchable text from common document formats.
+---
+
+File extractors handle the everyday documents that end up in knowledge bases—Word documents, Excel spreadsheets, PowerPoint presentations, and plain text files like markdown and JSON. These formats contain structured or semi-structured text that becomes valuable search content once extracted.
+
+The extraction approach is straightforward: parse the file format, pull out the text content, and pass it through your normal chunking and embedding pipeline. A Word document becomes searchable text. A spreadsheet becomes searchable rows. A slide deck becomes searchable slides.
+
+## Available file extractors
+
+| Extractor | Formats | Best for |
+|-----------|---------|----------|
+| [file:text](/docs/extractors/file/text) | .txt, .md, .html, .json, .csv | Plain text files, configs, markdown docs |
+| [file:docx](/docs/extractors/file/docx) | .docx | Word documents |
+| [file:pptx](/docs/extractors/file/pptx) | .pptx | PowerPoint presentations |
+| [file:xlsx](/docs/extractors/file/xlsx) | .xlsx | Excel spreadsheets |
+
+Each extractor understands its file format and extracts text appropriately. A Word document's paragraphs become flowing text. A spreadsheet's rows become structured data. A presentation's slides stay organized.
+
+## Installation
+
+Install the extractors for the file types you need:
+
+```bash
+bunx unrag@latest add extractor file-text
+bunx unrag@latest add extractor file-docx
+bunx unrag@latest add extractor file-pptx
+bunx unrag@latest add extractor file-xlsx
+```
+
+Register them in your config:
+
+```ts
+import { createFileTextExtractor } from "./lib/unrag/extractors/file-text";
+import { createFileDocxExtractor } from "./lib/unrag/extractors/file-docx";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [
+      createFileTextExtractor(),
+      createFileDocxExtractor(),
+    ],
+  },
+} as const);
+```
+
+## Configuration
+
+File extraction settings live under `assetProcessing.file`:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      file: {
+        text: {
+          enabled: true,
+          maxBytes: 5 * 1024 * 1024,
+        },
+        docx: {
+          enabled: true,
+          maxBytes: 50 * 1024 * 1024,
+        },
+        pptx: {
+          enabled: true,
+          includeNotes: true,
+        },
+        xlsx: {
+          enabled: true,
+          treatFirstRowAsHeader: true,
+          format: "text",
+        },
+      },
+    },
+  },
+} as const);
+```
+
+Each extractor has format-specific settings. PowerPoint lets you include or exclude speaker notes. Excel lets you choose how to format the extracted data. See each extractor's page for the full options.
+
+## When to use file extractors vs. plain content
+
+If you're reading files yourself and passing their contents to `engine.ingest()`, you don't strictly need file extractors. You could read the file, extract text in your own code, and pass it as the `content` field.
+
+File extractors are useful when files arrive as assets—attached to documents from connectors, uploaded through your application, or referenced by URL. The connector delivers the file as an asset, and the extractor handles the format-specific parsing.
+
+File extractors also provide consistent metadata. Chunks from file extraction include `metadata.assetKind` and `metadata.extractor`, which helps you understand where content came from when debugging retrieval results.
+
+## Handling unsupported formats
+
+If a file arrives with a format no extractor handles, Unrag skips it and emits a warning. The warning includes the file's media type and extension, helping you identify what's being missed.
+
+```ts
+const result = await engine.ingest({
+  sourceId: "docs:mixed-content",
+  content: "Department files",
+  assets: [
+    { assetId: "doc1", kind: "file", data: { /* .docx - will extract */ } },
+    { assetId: "doc2", kind: "file", data: { /* .rtf - will skip */ } },
+  ],
+});
+
+for (const w of result.warnings) {
+  console.log(`Skipped: ${w.assetId} - ${w.message}`);
+}
+```
+
+You can add support for more formats by implementing custom extractors. The existing extractors provide examples of the pattern.
+

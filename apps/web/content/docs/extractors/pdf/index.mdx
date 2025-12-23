@@ -1,0 +1,104 @@
+---
+title: PDF Extractors
+description: Extract searchable text from PDF documents.
+---
+
+PDFs are everywhere—contracts, reports, research papers, invoices—and making them searchable is one of the most common extraction tasks. But PDFs are deceptively complex. A single document might mix digital text, scanned pages, tables, multi-column layouts, and embedded images. There's no one-size-fits-all solution.
+
+Unrag provides multiple PDF extractors, each optimized for different scenarios. The right choice depends on your documents and your constraints around cost, speed, and quality.
+
+| Extractor | How it works | Best for |
+|-----------|--------------|----------|
+| [pdf:text-layer](/docs/extractors/pdf/text-layer) | Extracts built-in text layer | Digital PDFs, fast and free |
+| [pdf:llm](/docs/extractors/pdf/llm) | Sends PDF to a vision-capable LLM | Complex layouts, scanned docs |
+| [pdf:ocr](/docs/extractors/pdf/ocr) | Renders pages and runs OCR | Scanned PDFs without LLM costs (worker-only) |
+
+## Choosing an approach
+
+Most teams should start with a fallback chain: try `pdf:text-layer` first, which is fast and free, then fall back to `pdf:llm` when text extraction doesn't produce enough content. This gives you the best of both worlds—fast extraction for digital PDFs, LLM quality for everything else.
+
+```ts
+extractors: [
+  createPdfTextLayerExtractor(),  // Try text layer first
+  createPdfLlmExtractor(),        // Fall back to LLM
+],
+```
+
+The text layer extractor works well for born-digital PDFs—documents created in Word, Google Docs, or any text-aware application. These have embedded text that extracts quickly and accurately.
+
+The LLM extractor handles what text-layer can't: scanned documents, complex layouts, PDFs where text extraction produces garbled results. It sends the PDF to a vision-capable model that "reads" the document visually and returns text.
+
+The OCR extractor offers a middle ground—scanned document support without per-document LLM costs. But it requires native dependencies and is only practical in worker environments.
+
+## Installation
+
+Install the extractors you need:
+
+```bash
+bunx unrag@latest add extractor pdf-text-layer
+bunx unrag@latest add extractor pdf-llm
+bunx unrag@latest add extractor pdf-ocr
+```
+
+Register them in your config. The order matters for fallback chains:
+
+```ts
+import { createPdfTextLayerExtractor } from "./lib/unrag/extractors/pdf-text-layer";
+import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
+
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [
+      createPdfTextLayerExtractor(),
+      createPdfLlmExtractor(),
+    ],
+  },
+} as const);
+```
+
+## Configuration
+
+Each extractor has its own configuration section under `assetProcessing.pdf`:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    assetProcessing: {
+      pdf: {
+        textLayer: {
+          enabled: true,
+          maxBytes: 15 * 1024 * 1024,
+          minChars: 200,  // Fall back if less than this
+        },
+        llmExtraction: {
+          enabled: true,
+          model: "google/gemini-2.0-flash",
+          timeoutMs: 60_000,
+        },
+        ocr: {
+          enabled: false,  // Worker-only
+        },
+      },
+    },
+  },
+} as const);
+```
+
+The `minChars` setting on `textLayer` is particularly important. It determines when extraction is considered successful. A scanned PDF might have a few characters of embedded text (watermarks, headers) but not the actual content. Setting `minChars: 200` ensures these fall through to the next extractor.
+
+## Fallback behavior
+
+When multiple PDF extractors are registered, Unrag tries them in order. The first extractor processes the PDF. If it produces enough text (above `minChars` for extractors that support it), extraction is complete. If it fails or produces insufficient text, the next extractor tries.
+
+This chain continues until one succeeds or all are exhausted. A PDF that fails all extractors produces a warning but doesn't fail the overall ingestion.
+
+## Cost considerations
+
+The extractors have very different cost profiles. Text-layer extraction is effectively free—it runs locally with no API calls. LLM extraction costs money per document, scaling with document length. OCR has no per-document API cost but requires infrastructure that can run native binaries.
+
+For high-volume PDF processing, the fallback chain approach minimizes cost. Digital PDFs extract for free. Only the documents that need it pay for LLM extraction.
+
