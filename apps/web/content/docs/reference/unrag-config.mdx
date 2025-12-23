@@ -7,7 +7,7 @@ The `unrag.config.ts` file is the central place to configure Unrag. It's generat
 
 ## Structure overview
 
-A typical generated config looks like:
+The generated config varies based on your choices during `init`. Here's what a basic text-only setup looks like (the default when you don't enable rich media):
 
 ```ts
 import { defineUnragConfig } from "./lib/unrag/core";
@@ -40,20 +40,10 @@ export const unrag = defineUnragConfig({
     },
     extractors: [],
   assetProcessing: {
+    // All extraction disabled by default for cost safety
     onUnsupportedAsset: "skip",
     onError: "skip",
-    concurrency: 4,
-    fetch: { enabled: true, maxBytes: 15 * 1024 * 1024, timeoutMs: 20_000 },
-    pdf: {
-      llmExtraction: {
-        enabled: true, // template default (library default is false)
-        model: "google/gemini-2.0-flash",
-        prompt: "Extract all readable text from this PDF as faithfully as possible...",
-        timeoutMs: 60_000,
-        maxBytes: 15 * 1024 * 1024,
-        maxOutputChars: 200_000,
-      },
-    },
+    // ...
   },
   },
 } as const);
@@ -73,6 +63,8 @@ export function createUnragEngine() {
   return unrag.createEngine({ store });
 }
 ```
+
+If you ran `init --rich-media`, the config includes additional extractor imports, a populated `extractors` array, `embedding.config.type: "multimodal"`, and enabled `assetProcessing` flags for your selected extractors.
 
 ## The unrag config
 
@@ -134,7 +126,7 @@ Controls what Unrag persists to your database.
 
 ### embedding
 
-Configuration for the embedding provider. See [AI SDK Embeddings](/docs/embedding/ai-sdk) and [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) for more.
+Configuration for the embedding provider. If you ran `init --rich-media`, the CLI sets `type: "multimodal"` and picks a compatible model. See [AI SDK Embeddings](/docs/embedding/ai-sdk) and [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) for more.
 
 <TypeTable
   type={{
@@ -195,7 +187,7 @@ Controls how PDFs, images, and other rich media are processed during ingestion. 
       typeDescriptionLink: '/docs/reference/asset-processing#pdftextlayerconfig',
     },
     "pdf.llmExtraction": {
-      description: 'PDF text extraction via LLM. Key setting: enabled (template: true, library: false).',
+      description: 'PDF text extraction via LLM. Enabled by default only if you ran `init --rich-media` and selected pdf-llm.',
       type: 'PdfLlmExtractionConfig',
       typeDescriptionLink: '/docs/reference/asset-processing#pdfllmextractionconfig',
     },

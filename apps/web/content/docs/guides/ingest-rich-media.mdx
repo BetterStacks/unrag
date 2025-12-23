@@ -5,6 +5,18 @@ description: Ingest PDFs, images, and other assets into your Unrag store.
 
 Unrag can process more than just text. When your content includes PDFs, images, or other media, you can include them as `assets` during ingestion. This guide shows you how.
 
+## Quick setup
+
+The fastest way to get rich media working is to enable it during initialization:
+
+```bash
+bunx unrag@latest init --rich-media
+```
+
+This prompts you to select extractors (PDF, image, audio, video, files) and configures everything automatically—multimodal embeddings, extractor registration, and the right `assetProcessing` flags. If you've already run `init`, you can re-run with `--rich-media` to add support.
+
+If you prefer manual configuration, or want to understand what the CLI does, read on.
+
 ## The basics
 
 The `engine.ingest()` method accepts an optional `assets` array alongside your text content:
@@ -72,15 +84,15 @@ assetProcessing: {
 
 Enabling `pdf.llmExtraction.enabled` controls *whether PDFs should be processed*, but the actual extraction work is performed by an **extractor module**.
 
-Install the Gemini PDF extractor:
+If you ran `init --rich-media` and selected a PDF extractor, this is already done. Otherwise, install it manually:
 
 ```bash
 bunx unrag@latest add extractor pdf-llm --yes
 ```
 
-Then register it in `createUnragEngine()` by importing it and adding it to the engine’s `extractors` array.
+Then register it in your config by importing it and adding it to the engine's `extractors` array, and enable `assetProcessing.pdf.llmExtraction.enabled`.
 
-If you enable PDF extraction but don’t install/register a PDF extractor, ingestion will emit warnings so you don’t silently miss content.
+If you enable PDF extraction but don't install/register a PDF extractor, ingestion will emit warnings so you don't silently miss content.
 
 ### What to expect
 

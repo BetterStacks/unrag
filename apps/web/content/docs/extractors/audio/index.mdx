@@ -19,11 +19,21 @@ This means transcription quality matters a lot. A good transcript captures not j
 
 ## Installation
 
+The easiest way to install audio transcription is during setup:
+
+```bash
+bunx unrag@latest init --rich-media
+```
+
+Select `audio-transcribe` from the list and the CLI handles everything. If you've already run `init`, you can re-run with `--rich-media` to add audio support.
+
+### Manual installation
+
 ```bash
 bunx unrag@latest add extractor audio-transcribe
 ```
 
-Register the extractor in your config:
+Register the extractor in your config and enable `assetProcessing.audio.transcription.enabled`:
 
 ```ts
 import { createAudioTranscribeExtractor } from "./lib/unrag/extractors/audio-transcribe";

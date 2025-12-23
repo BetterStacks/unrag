@@ -33,6 +33,10 @@ bunx unrag@latest add extractor pdf-llm
 
 This installs the extractor source files under `lib/unrag/extractors/<name>` and adds any required dependencies.
 
+<Callout>
+If you ran `unrag init --rich-media` or selected extractors during setup, they're already installed and configured. You only need `add extractor` when adding more extractors later.
+</Callout>
+
 ### Available extractors
 
 | Name | Description | Dependencies |
@@ -50,9 +54,9 @@ This installs the extractor source files under `lib/unrag/extractors/<name>` and
 | `file-pptx` | Extract slide text from `.pptx` | `jszip` |
 | `file-xlsx` | Extract sheet content from `.xlsx` | `xlsx` |
 
-### Registering extractors
+### Registering extractors manually
 
-After installing, you need to register the extractor in your `unrag.config.ts`:
+If you installed an extractor with `add extractor` (rather than during `init --rich-media`), you need to register it in your `unrag.config.ts`:
 
 ```ts
 import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
@@ -65,6 +69,8 @@ export const unrag = defineUnragConfig({
   },
 } as const);
 ```
+
+You'll also need to enable the corresponding `assetProcessing` flag. For example, `pdf-llm` requires `assetProcessing.pdf.llmExtraction.enabled: true`.
 
 <Callout>
 Without registering the extractor, assets of that type will be skipped during ingestion (with warnings emitted). This is by design—you explicitly opt into extraction capabilities.
@@ -108,12 +114,52 @@ Set the TypeScript path alias prefix. The default is `@unrag`, which means you'l
 bunx unrag@latest init --alias @myproject/rag
 ```
 
-## Full example
+**`--rich-media`**
 
-A complete non-interactive invocation:
+Enable rich media ingestion during setup. This turns on multimodal embeddings (so images can be embedded directly) and prompts you to select which extractors to install.
+
+```bash
+bunx unrag@latest init --rich-media
+```
+
+When combined with `--yes`, the CLI uses a sensible default preset of extractors (`pdf-text-layer` and `file-text`) without prompting.
+
+**`--no-rich-media`**
+
+Explicitly disable rich media ingestion. This is the default when running non-interactively with `--yes`, but you can use this flag to be explicit about your intent.
+
+```bash
+bunx unrag@latest init --yes --no-rich-media
+```
+
+**`--extractors <list>`**
+
+Specify exactly which extractors to install, as a comma-separated list. This implies `--rich-media`.
+
+```bash
+bunx unrag@latest init --yes --extractors pdf-text-layer,pdf-llm,file-text
+```
+
+Available extractor names: `pdf-text-layer`, `pdf-llm`, `pdf-ocr`, `image-ocr`, `image-caption-llm`, `audio-transcribe`, `video-transcribe`, `video-frames`, `file-text`, `file-docx`, `file-pptx`, `file-xlsx`.
+
+## Full examples
+
+A complete non-interactive invocation with text-only setup:
 
 ```bash
 bunx unrag@latest init --yes --store drizzle --dir lib/unrag --alias @unrag
+```
+
+Enable rich media with default extractors:
+
+```bash
+bunx unrag@latest init --yes --store drizzle --rich-media
+```
+
+Enable rich media with specific extractors:
+
+```bash
+bunx unrag@latest init --yes --store drizzle --extractors pdf-text-layer,pdf-llm,image-ocr
 ```
 
 ## Files created

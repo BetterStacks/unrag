@@ -28,6 +28,16 @@ You can also combine approaches. Run transcription for everything, and selective
 
 ## Installation
 
+The easiest way to install video extractors is during setup:
+
+```bash
+bunx unrag@latest init --rich-media
+```
+
+Select `video-transcribe` and/or `video-frames` from the list. If you've already run `init`, you can re-run with `--rich-media` to add video support.
+
+### Manual installation
+
 Install the extractor that fits your needs:
 
 ```bash
@@ -38,7 +48,7 @@ bunx unrag@latest add extractor video-transcribe
 bunx unrag@latest add extractor video-frames
 ```
 
-Register in your config:
+Register in your config and enable the corresponding `assetProcessing.video.*` flags:
 
 ```ts
 import { createVideoTranscribeExtractor } from "./lib/unrag/extractors/video-transcribe";

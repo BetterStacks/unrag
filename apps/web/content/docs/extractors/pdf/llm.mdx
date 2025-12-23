@@ -7,13 +7,23 @@ The `pdf:llm` extractor sends PDF files to a vision-capable LLM (like Google's G
 
 ## Installation
 
-Install the extractor module via CLI:
+The easiest way to install this extractor is during setup:
+
+```bash
+bunx unrag@latest init --rich-media
+```
+
+Select `pdf-llm` from the list and the CLI handles everything—installation, registration, and enabling the right `assetProcessing` flags.
+
+### Manual installation
+
+If you prefer to install it separately:
 
 ```bash
 bunx unrag@latest add extractor pdf-llm
 ```
 
-Then register it in your `unrag.config.ts`:
+Then register it in your `unrag.config.ts` and enable the `assetProcessing.pdf.llmExtraction.enabled` flag:
 
 ```ts
 import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
@@ -71,7 +81,7 @@ export const unrag = defineUnragConfig({
     enabled: {
       description: 'Whether to process PDFs with LLM extraction.',
       type: 'boolean',
-      default: 'false (library) / true (generated template)',
+      default: 'false (enabled automatically if you selected pdf-llm during init --rich-media)',
     },
     model: {
       description: 'AI Gateway model ID. Must support file inputs.',
