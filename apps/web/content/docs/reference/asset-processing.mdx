@@ -139,6 +139,52 @@ type AssetProcessingConfig = {
   }}
 />
 
+## AssetProcessingEvent
+
+`assetProcessing.hooks.onEvent` receives a structured union type you can log/pipe into metrics.
+
+```ts
+export type AssetProcessingEvent =
+  | {
+      type: "asset:start";
+      sourceId: string;
+      documentId: string;
+      assetId: string;
+      assetKind: AssetKind;
+      assetUri?: string;
+      assetMediaType?: string;
+    }
+  | ({ type: "asset:skipped"; sourceId: string; documentId: string } & IngestWarning)
+  | {
+      type: "extractor:start";
+      sourceId: string;
+      documentId: string;
+      assetId: string;
+      assetKind: AssetKind;
+      extractor: string;
+    }
+  | {
+      type: "extractor:success";
+      sourceId: string;
+      documentId: string;
+      assetId: string;
+      assetKind: AssetKind;
+      extractor: string;
+      durationMs: number;
+      textItemCount: number;
+    }
+  | {
+      type: "extractor:error";
+      sourceId: string;
+      documentId: string;
+      assetId: string;
+      assetKind: AssetKind;
+      extractor: string;
+      durationMs: number;
+      errorMessage: string;
+    };
+```
+
 ## FetchConfig
 
 Controls how Unrag fetches assets when they're provided as URLs.
