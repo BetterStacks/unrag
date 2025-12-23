@@ -9,6 +9,7 @@ import {
   flexRender,
   createColumnHelper,
   type ColumnFiltersState,
+  type FilterFn,
 } from '@tanstack/react-table';
 import { ArrowSquareOut } from '@phosphor-icons/react';
 import {
@@ -378,6 +379,72 @@ const providers: Provider[] = [
 // Helper Components
 // ─────────────────────────────────────────────────────────────────────────────
 
+function toSearchableText(value: unknown, { withDotPrefixes }: { withDotPrefixes?: boolean } = {}) {
+  if (value === null || value === undefined) return '';
+
+  if (Array.isArray(value)) {
+    const parts = value
+      .flatMap((v) => {
+        if (v === null || v === undefined) return [];
+        const s = String(v);
+        if (!s) return [];
+        return withDotPrefixes ? [s, s.startsWith('.') ? s : `.${s}`] : [s];
+      })
+      .filter(Boolean);
+    return parts.join(' ');
+  }
+
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    const s = String(value);
+    if (!withDotPrefixes) return s;
+    return [s, s.startsWith('.') ? s : `.${s}`].join(' ');
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function normalizeSearchTerms(filterValue: unknown) {
+  const rawSearch = String(filterValue ?? '').trim().toLowerCase();
+  if (!rawSearch) return [];
+  return rawSearch.split(/\s+/).filter(Boolean);
+}
+
+const extractorGlobalFilter: FilterFn<Extractor> = (row, _columnId, filterValue) => {
+  const terms = normalizeSearchTerms(filterValue);
+  if (terms.length === 0) return true;
+
+  const e = row.original;
+  const haystack = [
+    e.name,
+    toSearchableText(e.fileTypes, { withDotPrefixes: true }),
+    toSearchableText(e.inputMode),
+    e.output,
+    e.configComplexity,
+  ]
+    .join(' ')
+    .toLowerCase()
+    .trim();
+
+  return terms.every((t) => haystack.includes(t));
+};
+
+const connectorGlobalFilter: FilterFn<Connector> = (row, _columnId, filterValue) => {
+  const terms = normalizeSearchTerms(filterValue);
+  if (terms.length === 0) return true;
+
+  const c = row.original;
+  const haystack = [c.id, c.displayName, toSearchableText(c.types), c.status, c.description]
+    .join(' ')
+    .toLowerCase()
+    .trim();
+
+  return terms.every((t) => haystack.includes(t));
+};
+
 function ConfigBadge({ complexity }: { complexity: Extractor['configComplexity'] }) {
   const config: Record<typeof complexity, { label: string; color: string }> = {
     'zero-config': { label: 'Zero config', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' },
@@ -505,6 +572,8 @@ function ExtractorsTable() {
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: extractorGlobalFilter,
+    getColumnCanGlobalFilter: (column) => column.id === 'name',
   });
 
   const allFileTypes = useMemo(() => {
@@ -684,6 +753,8 @@ function ConnectorsTable() {
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: connectorGlobalFilter,
+    getColumnCanGlobalFilter: (column) => column.id === 'displayName',
   });
 
   const allConnectorTypes = useMemo(() => {

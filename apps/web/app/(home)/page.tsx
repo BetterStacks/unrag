@@ -9,6 +9,7 @@ import { GITHUB_REPO } from '@/constants';
 import { GlowingStarsBackground } from './components/glowing-stars-background';
 import { RegistrySection } from './components/registry-section';
 import bannerImg from '@/public/banner.png'
+import FeatureAnnouncement from "@/app/(home)/components/feature-announcement";
 
 const CODE_EXAMPLE = `import { createUnragEngine } from "@unrag/config";
 
@@ -82,6 +83,8 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,hsl(0,0%,2%)_70%)] opacity-45 pointer-events-none" />
 
         <div className="relative z-10 max-w-4xl mx-auto text-center translate-y-[-10%]">
+          <FeatureAnnouncement href="/docs/embedding/multimodal-embeddings" className="mb-6" content="Multi-modal embedding" />
+
           {/* Headline */}
           <h1
             className="unrag-reveal text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold tracking-tight bg-gradient-to-b from-white to-white/55 bg-clip-text text-transparent mb-6 leading-[1]"
