@@ -5,7 +5,7 @@
   "bin": {
     "unrag": "./dist/cli/index.js"
   },
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": false,
   "license": "Apache-2.0",
   "devDependencies": {

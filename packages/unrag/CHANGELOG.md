@@ -1,5 +1,27 @@
 # unrag
 
+## 0.2.3
+
+### Minor Changes
+
+- **Multi-modal ingestion**: The engine now processes images, PDFs, audio, video, and documents alongside text within a unified embedding space. Text queries can retrieve content from any modality.
+- **Extractor modules system**: Added 12 extractors installable via `unrag add extractor:<name>`:
+  - **PDF**: `pdf-llm` (LLM-based extraction), `pdf-ocr` (OCR fallback), `pdf-text-layer` (native text layer)
+  - **Image**: `image-caption-llm` (LLM captioning), `image-ocr` (text extraction)
+  - **Audio**: `audio-transcribe` (speech-to-text transcription)
+  - **Video**: `video-frames` (frame extraction + analysis), `video-transcribe` (audio track transcription)
+  - **Files**: `file-docx`, `file-pptx`, `file-xlsx`, `file-text` (document parsing)
+- **Asset processing pipeline**: New `assetProcessing` config for routing assets to extractors with support for fallback chains, size limits, and per-kind strategies.
+- **`getAssetFromChunk()` helper**: Resolve asset URLs from retrieved chunks to display original media alongside extracted text.
+- **Redesigned config API**: More ergonomic configuration structure with optional storage of content in document and embedding tables.
+
+### Patch Changes
+
+- Added default multi-modal model configuration so extraction works out of the box.
+- Extractor-produced metadata (e.g., page numbers, confidence scores) now preserved as first-class metadata keys on chunks.
+- Added ingestion warnings for skipped assets with clear reasons (unsupported kind, size limits, missing extractor).
+- Added `repository` field to CLI's `package.json` for better npm discoverability.
+
 ## 0.2.2
 
 ### Patch Changes
