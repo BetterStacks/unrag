@@ -54,7 +54,7 @@ The ingest pipeline processes these in order:
 3. **Embedding**: All resulting chunks (text + extracted/embedded assets) go through the embedding provider
 4. **Storage**: Everything lands in your database with metadata indicating the source
 
-Connectors like Notion handle asset extraction automatically—they emit `assets` for you based on the blocks they encounter (images, PDFs, file embeds, etc.).
+Connectors like Notion and Google Drive handle asset extraction automatically—they emit `assets` for you based on the content they encounter (images, PDFs, file embeds, etc.).
 
 ## Text extraction vs direct embedding
 

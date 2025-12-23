@@ -35,7 +35,7 @@ For example, with a chunk size of 200 words and 40-word overlap, a 500-word docu
 
 ### Asset processing (optional)
 
-If you provide `assets` (or a connector like Notion does), Unrag can also turn rich media into chunks:
+If you provide `assets` (or a connector like Notion or Google Drive does), Unrag can also turn rich media into chunks:
 
 - **PDFs**: if enabled via `assetProcessing.pdf.llmExtraction.enabled`, Unrag sends the PDF to an LLM (default: Gemini via AI Gateway) to extract text, then chunks and embeds that extracted text like any other content.
 - **Images**: if your embedding provider supports image embeddings (`embedImage`), Unrag can embed the image directly in the same vector space as text queries. If not, it falls back to embedding captions when available.

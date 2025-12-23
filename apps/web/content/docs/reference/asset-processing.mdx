@@ -492,7 +492,7 @@ type AssetData =
     };
 ```
 
-**URL-based data** is fetched during ingestion (subject to `fetch` config). This is common for connectors like Notion where assets are hosted externally.
+**URL-based data** is fetched during ingestion (subject to `fetch` config). This is common for connectors like Notion where assets are hosted externally. The Google Drive connector downloads files directly and uses **bytes-based data** instead.
 
 **Bytes-based data** is used directly without fetching. Use this when you already have the file contents in memory.
 

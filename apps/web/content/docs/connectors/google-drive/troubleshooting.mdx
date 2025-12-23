@@ -1,0 +1,314 @@
+---
+title: Troubleshooting
+description: Common issues with the Google Drive connector and how to resolve them.
+---
+
+Most problems with the Google Drive connector come down to authentication, permissions, or file type handling. This page covers the common failure modes and how to diagnose them.
+
+## Authentication errors
+
+### "Google Drive auth is required"
+
+You passed `undefined` or an empty object as the `auth` parameter. Make sure you're constructing a valid auth object:
+
+```ts
+// Wrong: undefined auth
+await syncGoogleDriveFiles({
+  engine,
+  auth: undefined, // This will throw
+  fileIds,
+});
+
+// Correct: provide auth credentials
+await syncGoogleDriveFiles({
+  engine,
+  auth: {
+    kind: "service_account",
+    credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
+  },
+  fileIds,
+});
+```
+
+### "Unknown Google Drive auth kind"
+
+The `kind` field in your auth object must be `"oauth"`, `"service_account"`, or `"google_auth"`. Check for typos:
+
+```ts
+// Wrong: typo in kind
+auth: { kind: "service-account", ... } // hyphen instead of underscore
+
+// Correct
+auth: { kind: "service_account", ... }
+```
+
+### "Service account credentials must include client_email and private_key"
+
+Your service account JSON is missing required fields. This usually means:
+
+1. You passed the wrong JSON (maybe OAuth credentials instead of service account)
+2. The JSON is truncated or malformed
+3. You're passing the file path instead of the file contents
+
+The `credentialsJson` should be either a JSON string or a parsed object containing at least `client_email` and `private_key`:
+
+```ts
+// If reading from a file
+const json = await fs.readFile("service-account.json", "utf-8");
+auth: { kind: "service_account", credentialsJson: json }
+
+// If using an environment variable
+auth: { kind: "service_account", credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON }
+```
+
+### "OAuth2 requires either oauthClient or OAuth credentials"
+
+For OAuth authentication, you need to provide either a pre-built OAuth2 client or all four credential fields. Check that none of them are undefined:
+
+```ts
+// Make sure all fields are present
+auth: {
+  kind: "oauth",
+  clientId: process.env.GOOGLE_CLIENT_ID!,      // Check this isn't undefined
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+  redirectUri: process.env.GOOGLE_REDIRECT_URI!,
+  refreshToken: userRefreshToken,               // Must come from your OAuth flow
+}
+```
+
+### 401 Unauthorized / "invalid_grant"
+
+The OAuth refresh token has expired or been revoked. This happens when:
+
+- The user revoked access to your app in their Google account settings
+- The refresh token was issued more than 6 months ago and hasn't been used
+- The OAuth consent screen is in "testing" mode and the token expired after 7 days
+- You rotated your OAuth client secret
+
+For testing mode apps, tokens expire quickly. Either move to "production" status in Google Cloud Console, or implement a re-authentication flow.
+
+For revoked tokens, prompt the user to reconnect their Google account.
+
+## Permission errors
+
+### 403 Forbidden / "The user does not have sufficient permissions"
+
+The authenticated user (or service account) doesn't have access to the file. For OAuth, this means the user who authorized your app can't view that file. For service accounts:
+
+1. **Direct access**: Make sure the file or its parent folder is shared with the service account's email address
+2. **DWD**: Make sure the `subject` email is a user who can access the file, and that DWD is properly configured in your Workspace admin console
+
+To verify sharing, try accessing the file manually with the service account's email, or check the file's sharing settings in Drive.
+
+### 404 Not Found / "File not found"
+
+Either the file ID is wrong, or the authenticated identity can't see the file. Common causes:
+
+- Typo in the file ID
+- File was deleted or moved to trash
+- File is in a different Google account than the one authenticated
+- For service accounts without DWD: file isn't shared with the service account
+- For DWD: the `subject` user can't see the file
+
+Double-check the file ID by extracting it from the Drive URL again. If the ID is correct, verify permissions using the Drive web interface while signed in as the relevant account.
+
+### "Missing Google Drive connector dependencies"
+
+You haven't installed the connector's dependencies. Run:
+
+```bash
+bunx unrag@latest add google-drive
+```
+
+Then install packages:
+
+```bash
+bun install   # or npm install / pnpm install / yarn
+```
+
+The connector needs `googleapis` and `google-auth-library` to function.
+
+## File handling issues
+
+### "Skipping folder (v1: files-only connector)"
+
+You passed a folder ID to `fileIds`. The v1 connector syncs individual files, not folders. If you want to sync a folder's contents, list the files first:
+
+```ts
+const { drive } = await createGoogleDriveClient({ auth });
+
+const files = await drive.files.list({
+  q: `'${folderId}' in parents and trashed = false`,
+  fields: "files(id)",
+  supportsAllDrives: true,
+});
+
+const fileIds = files.data.files?.map((f: any) => f.id) ?? [];
+await syncGoogleDriveFiles({ engine, auth, fileIds });
+```
+
+### "Skipping Google-native file type because it has no supported export plan"
+
+The file is a Google-native type (like Google Forms or Sites) that the connector can't export to a useful format. Currently supported Google-native types are:
+
+- Google Docs → plain text
+- Google Sheets → CSV
+- Google Slides → plain text (with PPTX fallback)
+- Google Drawings → PNG image
+
+Other Google-native types are skipped. If you need to ingest them, you'll need to export them manually or extend the connector's export plan.
+
+### "Skipping file because it exceeds maxBytesPerFile"
+
+The file is larger than the configured limit (default 15MB). You can increase the limit:
+
+```ts
+await syncGoogleDriveFiles({
+  engine,
+  auth,
+  fileIds,
+  options: {
+    maxBytesPerFile: 50 * 1024 * 1024, // 50MB
+  },
+});
+```
+
+Be aware that very large files may cause memory issues or timeouts. Consider whether you actually need to ingest them.
+
+### "Skipping shortcut because target could not be resolved"
+
+The file is a Drive shortcut, but the connector couldn't resolve it to the target file. This happens when:
+
+- The target file was deleted
+- The authenticated identity doesn't have access to the target
+- The shortcut forms a circular reference
+
+Check the original shortcut in Drive to see what it points to and whether the target is accessible.
+
+### Google Slides export fails
+
+Some Slides presentations with complex layouts don't export cleanly to plain text. By default, the connector falls back to exporting a PPTX file and emitting it as an asset.
+
+If you want strict text-only export (fail instead of falling back), set `strictNativeExport`:
+
+```ts
+await syncGoogleDriveFiles({
+  engine,
+  auth,
+  fileIds,
+  options: {
+    strictNativeExport: true,
+  },
+});
+```
+
+If the PPTX fallback isn't being processed, make sure you have a file extractor installed that handles PPTX files.
+
+## Rate limiting
+
+### "Rate Limit Exceeded" / 429 errors
+
+You're hitting Google's API quota. This typically happens when syncing many files quickly. Add delays between batches:
+
+```ts
+const BATCH_SIZE = 20;
+const PAUSE_MS = 2000;
+
+for (let i = 0; i < fileIds.length; i += BATCH_SIZE) {
+  const batch = fileIds.slice(i, i + BATCH_SIZE);
+  await syncGoogleDriveFiles({ engine, auth, fileIds: batch });
+  
+  if (i + BATCH_SIZE < fileIds.length) {
+    await new Promise((r) => setTimeout(r, PAUSE_MS));
+  }
+}
+```
+
+You can also request a quota increase in the Google Cloud Console if you have a legitimate need for higher throughput.
+
+## Domain-wide delegation issues
+
+### "Not authorized to access this resource/api" with DWD
+
+DWD isn't working. Common causes:
+
+1. **DWD not enabled**: In Google Cloud Console, go to your service account and enable "Domain-wide delegation"
+2. **Scopes not authorized**: In Workspace Admin Console → Security → API controls → Domain-wide delegation, add the service account's client ID with the required scopes:
+   - `https://www.googleapis.com/auth/drive.readonly`
+   - `https://www.googleapis.com/auth/drive.metadata.readonly`
+3. **Wrong subject**: The `subject` email must be a user in your Workspace domain
+4. **Propagation delay**: Changes to DWD settings can take up to 24 hours to propagate (usually faster)
+
+To test DWD, try a simple Drive API call with the impersonated user before running the full sync.
+
+### "Invalid subject claim"
+
+The `subject` email you're trying to impersonate isn't valid. This could mean:
+
+- The email doesn't exist in your Workspace domain
+- You're trying to impersonate a consumer Gmail account (DWD only works with Workspace)
+- There's a typo in the email
+
+## Debugging tips
+
+### Enable verbose logging
+
+Use the `onProgress` callback to see what's happening:
+
+```ts
+await syncGoogleDriveFiles({
+  engine,
+  auth,
+  fileIds,
+  onProgress: (event) => {
+    console.log(JSON.stringify(event, null, 2));
+  },
+});
+```
+
+### Test with a single file
+
+Before syncing many files, test with one file you know is accessible:
+
+```ts
+const result = await syncGoogleDriveFiles({
+  engine,
+  auth,
+  fileIds: ["known-accessible-file-id"],
+});
+
+console.log(result);
+```
+
+### Verify auth independently
+
+Test that authentication works before involving the connector:
+
+```ts
+import { createGoogleDriveClient } from "@unrag/connectors/google-drive";
+
+const { drive } = await createGoogleDriveClient({ auth });
+
+// Try a simple API call
+const about = await drive.about.get({ fields: "user" });
+console.log("Authenticated as:", about.data.user?.emailAddress);
+```
+
+### Check file metadata
+
+Fetch file metadata to understand what the connector sees:
+
+```ts
+const { drive } = await createGoogleDriveClient({ auth });
+
+const file = await drive.files.get({
+  fileId: "your-file-id",
+  fields: "id, name, mimeType, size, permissions",
+  supportsAllDrives: true,
+});
+
+console.log(file.data);
+```
+
+This helps diagnose whether the issue is permissions, file type, or something else.
+
