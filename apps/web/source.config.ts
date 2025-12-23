@@ -4,7 +4,11 @@ import {
   frontmatterSchema,
   metaSchema,
 } from 'fumadocs-mdx/config';
-import { rehypeCode, type RehypeCodeOptions } from 'fumadocs-core/mdx-plugins';
+import {
+  rehypeCode,
+  remarkMdxMermaid,
+  type RehypeCodeOptions,
+} from 'fumadocs-core/mdx-plugins';
 
 // Code syntax highlighting theme configuration
 const rehypeCodeOptions: RehypeCodeOptions = {
@@ -31,6 +35,7 @@ export const docs = defineDocs({
 
 export default defineConfig({
   mdxOptions: {
+    remarkPlugins: [remarkMdxMermaid],
     rehypePlugins: [[rehypeCode, rehypeCodeOptions]],
   },
 });

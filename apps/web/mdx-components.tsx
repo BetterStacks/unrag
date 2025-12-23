@@ -6,6 +6,7 @@ import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
 import { File, Folder, Files } from 'fumadocs-ui/components/files';
 import { TypeTable } from 'fumadocs-ui/components/type-table';
 import type { MDXComponents } from 'mdx/types';
+import { Mermaid } from './components/mdx/mermaid';
 
 export function getMDXComponents(components?: MDXComponents): MDXComponents {
   return {
@@ -20,6 +21,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     Folder,
     Files,
     TypeTable,
+    Mermaid,
     img: (props) => <ImageZoom {...(props as any)} />,
     ...components,
   };
