@@ -203,6 +203,16 @@ const connectors: Connector[] = [
     docUrl: '/docs/connectors/notion',
   },
   {
+    id: 'google-drive',
+    displayName: 'Google Drive',
+    types: ['files', 'docs'],
+    description: 'Ingest Docs/Sheets exports and shared folders',
+    installCmd: 'bunx unrag@latest add connector google-drive',
+    status: 'available',
+    logo: GoogleDrive,
+    docUrl: '/docs/connectors/google-drive',
+  },
+  {
     id: 'github',
     displayName: 'GitHub',
     types: ['code', 'docs'],
@@ -217,14 +227,6 @@ const connectors: Connector[] = [
     description: 'Ingest repos + wiki pages for self-hosted documentation',
     status: 'coming-soon',
     logo: GitLab,
-  },
-  {
-    id: 'google-drive',
-    displayName: 'Google Drive',
-    types: ['files', 'docs'],
-    description: 'Ingest Docs/Sheets exports and shared folders',
-    status: 'coming-soon',
-    logo: GoogleDrive,
   },
   {
     id: 'slack',
@@ -1022,7 +1024,7 @@ export function RegistrySection() {
     return {
       title: 'Bring your own model',
       description:
-        'Swap embedding and LLM providers without changing your code. OpenAI today, local models tomorrow—your choice.',
+        'Swap embedding and LLM providers without changing your code. OpenAI today, local models tomorrow, your choice.',
       docLink: undefined,
       ctaLabel: undefined,
     };
