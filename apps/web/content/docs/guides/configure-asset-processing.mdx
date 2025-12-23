@@ -5,6 +5,10 @@ description: Control how Unrag handles PDFs, images, and other media during inge
 
 Unrag's asset processing system is fully configurable. You can control which assets get processed, how extraction works, safety limits, and error handling behavior.
 
+<Callout>
+If you ran `bunx unrag@latest init --rich-media`, most of this is already configured. The CLI enables multimodal embeddings, registers your selected extractors, and turns on the appropriate `assetProcessing` flags. This guide explains how to customize that configuration or set things up manually.
+</Callout>
+
 ## Configuration levels
 
 Asset processing can be configured at two levels:

@@ -7,6 +7,10 @@ Traditional RAG systems work with text: you chunk documents, embed the chunks, a
 
 Unrag handles this through **multimodal ingestion**—a system that turns rich media into chunks that live alongside your text in a unified embedding space.
 
+<Callout>
+The easiest way to enable multimodal capabilities is during setup. Run `bunx unrag@latest init --rich-media` and the CLI will configure everything—multimodal embeddings, extractors, and the right `assetProcessing` flags. If you've already run `init`, you can re-run it with `--rich-media` to add multimodal support.
+</Callout>
+
 ## The unified space model
 
 The key insight behind Unrag's multimodal support is simple: **everything becomes chunks with embeddings**. Whether the original content was text, a PDF, or an image, the end result is the same—vectors in your Postgres database that can be retrieved with text queries.
@@ -91,14 +95,14 @@ The `onUnsupportedAsset` config controls what happens when Unrag encounters an a
 
 PDF extraction uses LLM API calls, which have costs. A few things to keep in mind:
 
-- **PDF extraction is opt-in** — the library defaults to `enabled: false`. The generated config template turns it on for convenience, but you control this.
+- **Rich media is opt-in** — if you run `init` without `--rich-media`, the generated config is cost-safe: text-only embeddings, no extractors registered, all `assetProcessing` flags disabled.
 - **Limits are configurable** — you can set `maxBytes` to skip large PDFs, or `maxOutputChars` to cap extraction length.
 - **Per-ingest overrides** — you can disable extraction for bulk imports and enable it for important documents.
 
 For most use cases, the cost is reasonable—a typical PDF extraction is comparable to a short chat completion. But if you're ingesting thousands of PDFs, plan accordingly.
 
 <Callout>
-The generated `unrag.config.ts` enables PDF extraction by default so new installs "just work" with Notion pages that have embedded PDFs. Disable it in the config if you want to start with text-only ingestion.
+When you run `init --rich-media`, the CLI enables multimodal embeddings and configures the extractors you selected. If you want to start cost-safe and add rich media later, just run `init` without the flag—you can always re-run with `--rich-media` later.
 </Callout>
 
 ## Next steps

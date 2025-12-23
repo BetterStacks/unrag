@@ -192,6 +192,64 @@ describe("unrag@latest init", () => {
     expect(tsconfig.compilerOptions.paths["@rag/*"]).toEqual(["./lib/unrag/*"]);
     expect(tsconfig.compilerOptions.paths["@rag/config"]).toEqual(["./unrag.config.ts"]);
   });
+
+  test("can enable rich media + selected extractors non-interactively", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "proj",
+      private: true,
+      type: "module",
+      dependencies: {},
+    });
+
+    process.chdir(runDir);
+    await initCommand([
+      "--yes",
+      "--store",
+      "drizzle",
+      "--dir",
+      "lib/unrag",
+      "--rich-media",
+      "--extractors",
+      "pdf-text-layer,file-text",
+    ]);
+
+    const cfg = await readFile(path.join(runDir, "unrag.config.ts"), "utf8");
+    expect(cfg).toContain('type: "multimodal"');
+    expect(cfg).toContain('model: "cohere/embed-v4.0"');
+    expect(cfg).toContain('createPdfTextLayerExtractor');
+    expect(cfg).toContain('createFileTextExtractor');
+    expect(cfg).toContain('extractors: [');
+    expect(cfg).toContain("createPdfTextLayerExtractor()");
+    expect(cfg).toContain("createFileTextExtractor()");
+
+    // Enabled flags should be toggled on.
+    expect(cfg).toContain("textLayer: {");
+    expect(cfg).toContain("enabled: true,");
+    expect(cfg).toContain("file: {");
+    expect(cfg).toContain("text: {");
+
+    // Extractor modules should be vendored.
+    expect(
+      await pathExists(
+        path.join(runDir, "lib/unrag", "extractors", "pdf-text-layer", "index.ts")
+      )
+    ).toBe(true);
+    expect(
+      await pathExists(
+        path.join(runDir, "lib/unrag", "extractors", "file-text", "index.ts")
+      )
+    ).toBe(true);
+
+    const unragJson = await readJson<any>(path.join(runDir, "unrag.json"));
+    expect(unragJson.extractors).toEqual(["file-text", "pdf-text-layer"]);
+
+    const pkg = await readJson<{
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    }>(path.join(runDir, "package.json"));
+    expect(pkg.dependencies?.ai).toBeTruthy();
+    expect(pkg.dependencies?.["pdfjs-dist"]).toBeTruthy();
+  });
 });
 
 

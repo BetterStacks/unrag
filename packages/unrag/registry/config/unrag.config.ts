@@ -11,6 +11,8 @@
  * treated like vendored source code.
  */
 
+// @ts-nocheck
+
 // __UNRAG_IMPORTS__
 
 export const unrag = defineUnragConfig({
@@ -26,8 +28,8 @@ export const unrag = defineUnragConfig({
   embedding: {
     provider: "ai",
     config: {
-      type: "text",
-      model: "openai/text-embedding-3-small",
+      type: "text", // __UNRAG_EMBEDDING_TYPE__
+      model: "openai/text-embedding-3-small", // __UNRAG_EMBEDDING_MODEL__
       timeoutMs: 15_000,
     },
   },
@@ -52,13 +54,15 @@ export const unrag = defineUnragConfig({
      * - `import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";`
      * - `extractors: [createPdfLlmExtractor()]`
      */
-    extractors: [],
+    extractors: [
+      // __UNRAG_EXTRACTORS__
+    ],
   /**
    * Rich media processing controls.
    *
    * Notes:
-   * - The library defaults are cost-safe (PDF LLM extraction is off).
-   * - This generated config opts you into PDF extraction for convenience.
+   * - This generated config is cost-safe by default (all extraction is off).
+   * - `unrag init` can enable rich media + multimodal embeddings for you.
    * - Tighten fetch allowlists/limits in production if you ingest URL-based assets.
    */
   assetProcessing: {
@@ -74,14 +78,14 @@ export const unrag = defineUnragConfig({
     pdf: {
       // Fast/cheap text-layer extraction (requires installing a PDF text-layer extractor module).
       textLayer: {
-        enabled: false,
+        enabled: false, // __UNRAG_FLAG_pdf_textLayer__
         maxBytes: 15 * 1024 * 1024,
         maxOutputChars: 200_000,
         minChars: 200,
         // maxPages: 200,
       },
       llmExtraction: {
-        enabled: true,
+        enabled: false, // __UNRAG_FLAG_pdf_llmExtraction__
         model: "google/gemini-2.0-flash",
         prompt:
           "Extract all readable text from this PDF as faithfully as possible. Preserve structure with headings and lists when obvious. Output plain text or markdown only. Do not add commentary.",
@@ -91,7 +95,7 @@ export const unrag = defineUnragConfig({
       },
       // Worker-only OCR pipelines typically require native binaries (poppler/tesseract) or external services.
       ocr: {
-        enabled: false,
+        enabled: false, // __UNRAG_FLAG_pdf_ocr__
         maxBytes: 15 * 1024 * 1024,
         maxOutputChars: 200_000,
         minChars: 200,
@@ -104,7 +108,7 @@ export const unrag = defineUnragConfig({
     },
     image: {
       ocr: {
-        enabled: false,
+        enabled: false, // __UNRAG_FLAG_image_ocr__
         model: "google/gemini-2.0-flash",
         prompt:
           "Extract all readable text from this image as faithfully as possible. Output plain text only. Do not add commentary.",
@@ -113,7 +117,7 @@ export const unrag = defineUnragConfig({
         maxOutputChars: 50_000,
       },
       captionLlm: {
-        enabled: false,
+        enabled: false, // __UNRAG_FLAG_image_captionLlm__
         model: "google/gemini-2.0-flash",
         prompt:
           "Write a concise, information-dense caption for this image. Include names, numbers, and labels if visible. Output plain text only.",
@@ -124,7 +128,7 @@ export const unrag = defineUnragConfig({
     },
     audio: {
       transcription: {
-        enabled: false,
+        enabled: false, // __UNRAG_FLAG_audio_transcription__
         model: "openai/whisper-1",
         timeoutMs: 120_000,
         maxBytes: 25 * 1024 * 1024,
@@ -132,13 +136,13 @@ export const unrag = defineUnragConfig({
     },
     video: {
       transcription: {
-        enabled: false,
+        enabled: false, // __UNRAG_FLAG_video_transcription__
         model: "openai/whisper-1",
         timeoutMs: 120_000,
         maxBytes: 50 * 1024 * 1024,
       },
       frames: {
-        enabled: false,
+        enabled: false, // __UNRAG_FLAG_video_frames__
         sampleFps: 0.2,
         maxFrames: 50,
         // ffmpegPath: "/usr/bin/ffmpeg",
@@ -151,10 +155,30 @@ export const unrag = defineUnragConfig({
       },
     },
     file: {
-      text: { enabled: false, maxBytes: 5 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
-      docx: { enabled: false, maxBytes: 15 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
-      pptx: { enabled: false, maxBytes: 30 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
-      xlsx: { enabled: false, maxBytes: 30 * 1024 * 1024, maxOutputChars: 200_000, minChars: 50 },
+      text: {
+        enabled: false, // __UNRAG_FLAG_file_text__
+        maxBytes: 5 * 1024 * 1024,
+        maxOutputChars: 200_000,
+        minChars: 50,
+      },
+      docx: {
+        enabled: false, // __UNRAG_FLAG_file_docx__
+        maxBytes: 15 * 1024 * 1024,
+        maxOutputChars: 200_000,
+        minChars: 50,
+      },
+      pptx: {
+        enabled: false, // __UNRAG_FLAG_file_pptx__
+        maxBytes: 30 * 1024 * 1024,
+        maxOutputChars: 200_000,
+        minChars: 50,
+      },
+      xlsx: {
+        enabled: false, // __UNRAG_FLAG_file_xlsx__
+        maxBytes: 30 * 1024 * 1024,
+        maxOutputChars: 200_000,
+        minChars: 50,
+      },
     },
   },
   },

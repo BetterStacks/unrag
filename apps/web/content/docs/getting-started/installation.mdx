@@ -21,10 +21,19 @@ This will prompt you for:
 
 3. **Import alias base** — the TypeScript path alias for importing Unrag. The default is `@unrag`, which means you'll import from `@unrag/core`, `@unrag/config`, etc. If you already have an `@unrag` alias or prefer something else, you can change it.
 
+4. **Rich media ingestion** — whether to enable multimodal capabilities for PDFs, images, audio, video, and other files. If you say yes, the CLI presents a list of extractors to install (with sensible defaults pre-selected) and configures everything for you. This is optional—you can always enable it later by re-running `init --rich-media` or editing `unrag.config.ts` directly.
+
 If you want to skip the prompts—useful in CI or when scripting—pass the `--yes` flag along with your choices:
 
 ```bash
 bunx unrag@latest init --yes --store drizzle --dir lib/unrag --alias @unrag
+```
+
+To enable rich media non-interactively, add `--rich-media` (uses default extractors) or `--extractors` (with a comma-separated list):
+
+```bash
+bunx unrag@latest init --yes --store drizzle --rich-media
+bunx unrag@latest init --yes --store drizzle --extractors pdf-text-layer,file-text
 ```
 
 ## What the CLI creates
@@ -53,13 +62,15 @@ After initialization completes, your project will have several new files:
   <File name="unrag.json" />
 </Files>
 
-**`unrag.config.ts`** is where you configure the embedding provider, database connection, and default settings. The CLI generates this file with working code for your chosen adapter—you can use it immediately or customize it.
+If you enabled rich media during setup, you'll also see an `extractors/` folder containing the extractor modules you selected.
+
+**`unrag.config.ts`** is where you configure the embedding provider, database connection, and default settings. The CLI generates this file with working code for your chosen adapter—you can use it immediately or customize it. If you enabled rich media, this file already has the extractors registered and the relevant `assetProcessing` flags enabled.
 
 **`lib/unrag/`** contains the vendored module code including the core engine, your chosen store adapter, and the default embedding provider. These files are yours to read and modify.
 
 **`lib/unrag/unrag.md`** contains setup documentation specific to your choices—the exact SQL schema, environment variables, and adapter notes.
 
-**`unrag.json`** records your installation choices for future `unrag@latest init` runs.
+**`unrag.json`** records your installation choices (including which extractors you installed) for future `unrag@latest init` runs.
 
 ## Changes to existing files
 

@@ -20,6 +20,16 @@ Each extractor understands its file format and extracts text appropriately. A Wo
 
 ## Installation
 
+The easiest way to install file extractors is during setup:
+
+```bash
+bunx unrag@latest init --rich-media
+```
+
+Select the file extractors you need from the list. The `file-text` extractor is included in the CLI's default preset. If you've already run `init`, you can re-run with `--rich-media` to add file support.
+
+### Manual installation
+
 Install the extractors for the file types you need:
 
 ```bash
@@ -29,7 +39,7 @@ bunx unrag@latest add extractor file-pptx
 bunx unrag@latest add extractor file-xlsx
 ```
 
-Register them in your config:
+Register them in your config and enable the corresponding `assetProcessing.file.*` flags:
 
 ```ts
 import { createFileTextExtractor } from "./lib/unrag/extractors/file-text";

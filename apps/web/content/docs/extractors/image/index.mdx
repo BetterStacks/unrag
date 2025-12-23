@@ -51,6 +51,16 @@ Good captions describe what the image shows, provide context not visible in the 
 
 ## Configuring your approach
 
+The easiest way to enable image handling is during setup:
+
+```bash
+bunx unrag@latest init --rich-media
+```
+
+This enables multimodal embeddings (so images can be embedded directly) and lets you select image extractors like `image-ocr` or `image-caption-llm`. If you've already run `init`, you can re-run with `--rich-media` to add image support.
+
+### Manual configuration
+
 Your embedding model configuration determines the primary approach:
 
 ```ts

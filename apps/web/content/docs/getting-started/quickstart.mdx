@@ -211,10 +211,15 @@ Open `unrag.config.ts` to adjust settings. The most common customizations are:
 
 ## Going beyond text
 
-Your quickstart used plain text content, but Unrag can handle more. The generated `unrag.config.ts` includes `assetProcessing` settings that enable:
+Your quickstart used plain text content, but Unrag can handle more. If you didn't enable rich media during `init`, you can add it now by re-running the initializer:
 
-- **PDF extraction**: Send PDFs to an LLM to extract their text content
-- **Image embedding**: Embed images directly (with multimodal models) or use their captions
+```bash
+bunx unrag@latest init --rich-media
+```
+
+This presents a list of extractors to install (PDF, image, audio, video, files) and configures your `unrag.config.ts` with multimodal embeddings enabled. The CLI handles all the wiring—registering extractors, enabling the right `assetProcessing` flags, and switching your embedding provider to a multimodal model.
+
+If you prefer to configure things manually, the generated `unrag.config.ts` includes `assetProcessing` settings you can edit directly.
 
 When you're ready to ingest content with embedded PDFs or images, check out:
 

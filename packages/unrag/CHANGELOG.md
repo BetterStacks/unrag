@@ -1,5 +1,14 @@
 # unrag
 
+## 0.2.4
+
+### Patch Changes
+
+- New `--rich-media` flag enables multimodal embeddings and prompts for extractor selection
+- New `--extractors <list>` flag to specify extractors directly (e.g., `pdf-text-layer,image-ocr`)
+- Interactive grouped extractor picker (PDF, Image, Audio, Video, Files)
+- Default preset (`pdf-text-layer`, `file-text`) for non-interactive mode with `--yes --rich-media`
+
 ## 0.2.3
 
 ### Minor Changes

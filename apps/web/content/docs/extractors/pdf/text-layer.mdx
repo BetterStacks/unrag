@@ -17,11 +17,21 @@ Complex layouts can also cause problems. Multi-column documents, sidebars, and t
 
 ## Installation
 
+The easiest way to install this extractor is during setup:
+
+```bash
+bunx unrag@latest init --rich-media
+```
+
+Select `pdf-text-layer` from the list and the CLI handles everything. This is the default PDF extractor selected by the CLI's preset.
+
+### Manual installation
+
 ```bash
 bunx unrag@latest add extractor pdf-text-layer
 ```
 
-Register in your config:
+Then register in your config and enable the `assetProcessing.pdf.textLayer.enabled` flag:
 
 ```ts
 import { createPdfTextLayerExtractor } from "./lib/unrag/extractors/pdf-text-layer";
