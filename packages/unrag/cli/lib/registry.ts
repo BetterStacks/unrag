@@ -2,6 +2,7 @@ import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { confirm, isCancel, cancel } from "@clack/prompts";
 import { ensureDir, exists, listFilesRecursive } from "./fs";
+import type { ExtractorName } from "./packageJson";
 
 export type RegistrySelection = {
   projectRoot: string;
@@ -9,6 +10,10 @@ export type RegistrySelection = {
   installDir: string; // project-relative posix
   storeAdapter: "drizzle" | "prisma" | "raw-sql";
   aliasBase: string; // e.g. "@unrag"
+  richMedia?: {
+    enabled: boolean;
+    extractors: ExtractorName[];
+  };
 };
 
 type FileMapping = {
@@ -24,8 +29,44 @@ const writeText = async (filePath: string, content: string) => {
   await writeFile(filePath, content, "utf8");
 };
 
+const EXTRACTOR_FACTORY: Record<ExtractorName, string> = {
+  "pdf-llm": "createPdfLlmExtractor",
+  "pdf-text-layer": "createPdfTextLayerExtractor",
+  "pdf-ocr": "createPdfOcrExtractor",
+  "image-ocr": "createImageOcrExtractor",
+  "image-caption-llm": "createImageCaptionLlmExtractor",
+  "audio-transcribe": "createAudioTranscribeExtractor",
+  "video-transcribe": "createVideoTranscribeExtractor",
+  "video-frames": "createVideoFramesExtractor",
+  "file-text": "createFileTextExtractor",
+  "file-docx": "createFileDocxExtractor",
+  "file-pptx": "createFilePptxExtractor",
+  "file-xlsx": "createFileXlsxExtractor",
+};
+
+const EXTRACTOR_FLAG_KEYS: Record<ExtractorName, string[]> = {
+  "pdf-text-layer": ["pdf_textLayer"],
+  "pdf-llm": ["pdf_llmExtraction"],
+  "pdf-ocr": ["pdf_ocr"],
+  "image-ocr": ["image_ocr"],
+  "image-caption-llm": ["image_captionLlm"],
+  "audio-transcribe": ["audio_transcription"],
+  "video-transcribe": ["video_transcription"],
+  "video-frames": ["video_frames"],
+  "file-text": ["file_text"],
+  "file-docx": ["file_docx"],
+  "file-pptx": ["file_pptx"],
+  "file-xlsx": ["file_xlsx"],
+};
+
+const ALL_FLAG_KEYS = Array.from(
+  new Set(Object.values(EXTRACTOR_FLAG_KEYS).flat())
+).sort();
+
 const renderUnragConfig = (content: string, selection: RegistrySelection) => {
   const installImportBase = `./${selection.installDir.replace(/\\/g, "/")}`;
+  const richMedia = selection.richMedia ?? { enabled: false, extractors: [] as ExtractorName[] };
+  const selectedExtractors = Array.from(new Set(richMedia.extractors ?? [])).sort();
 
   const baseImports = [
     `import { defineUnragConfig } from "${installImportBase}/core";`,
@@ -78,7 +119,19 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
     );
   }
 
-  const importsBlock = [...baseImports, ...storeImports].join("\n");
+  const extractorImports: string[] = [];
+  if (richMedia.enabled && selectedExtractors.length > 0) {
+    for (const ex of selectedExtractors) {
+      const factory = EXTRACTOR_FACTORY[ex];
+      extractorImports.push(
+        `import { ${factory} } from "${installImportBase}/extractors/${ex}";`
+      );
+    }
+  }
+
+  const importsBlock = [...baseImports, ...storeImports, ...extractorImports].join(
+    "\n"
+  );
 
   const createEngineBlock = [
     `export function createUnragEngine() {`,
@@ -86,16 +139,48 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
     ``,
     `  return unrag.createEngine({ store });`,
     `}`,
-    ``,
-    `export async function retrieve(query: string) {`,
-    `  const engine = createUnragEngine();`,
-    `  return engine.retrieve({ query, topK: unrag.defaults.retrieval.topK });`,
-    `}`,
   ].join("\n");
 
-  return content
+  let out = content
     .replace("// __UNRAG_IMPORTS__", importsBlock)
     .replace("// __UNRAG_CREATE_ENGINE__", createEngineBlock);
+
+  // Cleanly rewrite embedding mode + model (without leaving marker comments).
+  out = out
+    .replace(
+      'type: "text", // __UNRAG_EMBEDDING_TYPE__',
+      richMedia.enabled ? 'type: "multimodal",' : 'type: "text",'
+    )
+    .replace(
+      'model: "openai/text-embedding-3-small", // __UNRAG_EMBEDDING_MODEL__',
+      richMedia.enabled ? 'model: "cohere/embed-v4.0",' : 'model: "openai/text-embedding-3-small",'
+    );
+
+  // Enable/disable assetProcessing flags, stripping marker comments in either case.
+  const enabledFlagKeys = new Set<string>();
+  if (richMedia.enabled) {
+    for (const ex of selectedExtractors) {
+      for (const k of EXTRACTOR_FLAG_KEYS[ex] ?? []) {
+        enabledFlagKeys.add(k);
+      }
+    }
+  }
+
+  for (const k of ALL_FLAG_KEYS) {
+    out = out.replace(
+      `enabled: false, // __UNRAG_FLAG_${k}__`,
+      `enabled: ${enabledFlagKeys.has(k) ? "true" : "false"},`
+    );
+  }
+
+  // Inject extractor list (or remove placeholder) without leaving marker comments.
+  const extractorLines =
+    richMedia.enabled && selectedExtractors.length > 0
+      ? selectedExtractors.map((ex) => `      ${EXTRACTOR_FACTORY[ex]}(),`).join("\n")
+      : "";
+  out = out.replace("      // __UNRAG_EXTRACTORS__", extractorLines);
+
+  return out;
 };
 
 const renderDocs = (content: string, selection: RegistrySelection) => {
@@ -400,6 +485,31 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
 
   const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY;
 
+  const shouldWrite = async (src: string, dest: string): Promise<boolean> => {
+    if (!(await exists(dest))) return true;
+
+    // In non-interactive mode we never overwrite existing files.
+    if (nonInteractive) return false;
+
+    // If the contents are identical, don't prompt.
+    try {
+      const [srcRaw, destRaw] = await Promise.all([readText(src), readText(dest)]);
+      if (srcRaw === destRaw) return false;
+    } catch {
+      // If reads fail for any reason, fall back to prompting.
+    }
+
+    const answer = await confirm({
+      message: `Overwrite ${path.relative(selection.projectRoot, dest)}?`,
+      initialValue: false,
+    });
+    if (isCancel(answer)) {
+      cancel("Cancelled.");
+      return false;
+    }
+    return Boolean(answer);
+  };
+
   // Copy extractor files.
   for (const src of extractorFiles) {
     if (!(await exists(src))) {
@@ -408,24 +518,7 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
 
     const rel = path.relative(extractorRegistryAbs, src);
     const dest = path.join(destRootAbs, rel);
-
-    if (await exists(dest)) {
-      if (nonInteractive) {
-        continue;
-      }
-
-      const answer = await confirm({
-        message: `Overwrite ${path.relative(selection.projectRoot, dest)}?`,
-        initialValue: false,
-      });
-      if (isCancel(answer)) {
-        cancel("Cancelled.");
-        return;
-      }
-      if (!answer) {
-        continue;
-      }
-    }
+    if (!(await shouldWrite(src, dest))) continue;
 
     const raw = await readText(src);
     await writeText(dest, raw);
@@ -439,24 +532,7 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
 
     const rel = path.relative(sharedRegistryAbs, src);
     const dest = path.join(sharedDestRootAbs, rel);
-
-    if (await exists(dest)) {
-      if (nonInteractive) {
-        continue;
-      }
-
-      const answer = await confirm({
-        message: `Overwrite ${path.relative(selection.projectRoot, dest)}?`,
-        initialValue: false,
-      });
-      if (isCancel(answer)) {
-        cancel("Cancelled.");
-        return;
-      }
-      if (!answer) {
-        continue;
-      }
-    }
+    if (!(await shouldWrite(src, dest))) continue;
 
     const raw = await readText(src);
     await writeText(dest, raw);
