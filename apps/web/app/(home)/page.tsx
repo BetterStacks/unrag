@@ -30,13 +30,13 @@ const result = await engine.retrieve({
 console.log(result.chunks);`;
 
 export const metadata: Metadata = {
-  title: 'Unrag | Install RAG as source files, not dependencies',
+  title: 'Unrag - RAG primitives you own and understand',
   description:
-    'Unrag vendors small, auditable ingest/retrieve primitives into your codebase as source you own. Two methods: ingest() and retrieve(). Built for Postgres + pgvector.',
+    'When you can read the code, you can trust it. Unrag installs small TypeScript primitives for vector storage and retrieval directly into your codebase, no framework to outgrow, no service to depend on, just source files that ship with your app.',
   openGraph: {
-    title: 'Unrag | Install RAG as source files, not dependencies',
+    title: 'Unrag - RAG primitives you own and understand',
     description:
-      'Unrag vendors small, auditable ingest/retrieve primitives into your codebase as source you own. Two methods: ingest() and retrieve(). Built for Postgres + pgvector.',
+      'When you can read the code, you can trust it. Unrag installs small TypeScript primitives for vector storage and retrieval directly into your codebase—no framework to outgrow, no service to depend on, just source files that ship with your app.',
     url: '/',
     siteName: 'Unrag',
     type: 'website',
@@ -51,12 +51,12 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Unrag | Install RAG as source files, not dependencies',
+    title: 'Unrag - RAG primitives you own and understand',
     description:
-      'Unrag vendors small, auditable ingest/retrieve primitives into your codebase as source you own. Two methods: ingest() and retrieve(). Built for Postgres + pgvector.',
+      'When you can read the code, you can trust it. Unrag installs small TypeScript primitives for vector storage and retrieval directly into your codebase—no framework to outgrow, no service to depend on, just source files that ship with your app.',
     images: ['/twitter-image.png'],
   },
-  keywords: ['RAG', 'retrieval augmented generation', 'pgvector', 'Postgres', 'TypeScript', 'ingest', 'retrieve'],
+  keywords: ['RAG', 'vector search', 'embeddings', 'TypeScript', 'code ownership', 'pgvector', 'open source'],
 };
 
 export default function HomePage() {
