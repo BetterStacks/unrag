@@ -152,11 +152,11 @@ export default function HomePage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-[var(--color-fd-foreground)] mb-4">
-              Two methods. That's it.
+              Two methods. That&#39;s it.
             </h2>
             <p className="text-[var(--color-fd-muted-foreground)] text-lg max-w-2xl mx-auto">
-              This isn't a simplified demo—it's the actual API. Ingest your content, retrieve what's relevant.
-              No hidden complexity, no configuration mazes, no abstractions you'll need to fight later.
+              This isn&#39;t a simplified demo—it&#39;s the actual API. Ingest your content, retrieve what&#39;s relevant.
+              No hidden complexity, no configuration mazes, no abstractions you&#39;ll need to fight later.
               Just a few hundred lines of TypeScript you can read, understand, and make your own.
             </p>
           </div>
