@@ -1,0 +1,66 @@
+---
+title: Connectors Overview
+description: Ingest content from external services like Notion and Google Drive into your Unrag store.
+---
+
+Connectors bring external content into Unrag. They fetch data from services like Notion or Google Drive, normalize it into a format the engine understands, and hand it off for ingestion. You get searchable, embedded content from sources that live outside your codebase.
+
+## How connectors work
+
+Each connector is a small, vendored module that knows how to talk to one external service. When you run a sync function, the connector authenticates with the service, fetches the content you specify, and calls `engine.ingest()` under the hood. The result is the same as if you'd manually built the documents and passed them to the engine yourself.
+
+The key thing connectors handle is format translation. Notion pages become text with structured metadata. Google Docs get exported and converted. PDFs and images become assets that flow through your extractors. The connector does the service-specific work so your ingestion pipeline stays consistent regardless of where content originates.
+
+## What connectors produce
+
+A sync operation returns an ingest result—the same structure you'd get from calling `engine.ingest()` directly. This includes counts of documents and chunks written, any warnings from the process, and details about asset extraction if you have extractors configured.
+
+Each document gets a stable `sourceId` derived from the external service's identifier (page ID, file ID, etc.). This means you can run syncs repeatedly without creating duplicates. If the content changed since the last sync, the existing document gets updated. If it's the same, the operation is effectively a no-op.
+
+## Vendored by design
+
+Connectors aren't published as packages you import from npm. Instead, the CLI copies the connector source code into your project—typically at `lib/unrag/connectors/<name>/`. This is intentional.
+
+You can read every line of connector code. You can modify it. If a service's API changes or you need custom behavior, you're not waiting for a library update. The connector is just TypeScript in your repo, like any other module.
+
+This also means connectors don't add hidden dependencies. When you install a connector, the CLI tells you exactly which packages it adds (like `@notionhq/client` for Notion or `googleapis` for Google Drive). You control the versions.
+
+## Installing connectors
+
+The CLI handles installation. From your project root:
+
+```bash
+bunx unrag@latest add connector notion
+```
+
+This copies the connector files into your Unrag directory and adds any required dependencies to your `package.json`. After installation, you import from the local path:
+
+```ts
+import { syncNotionPages } from "@unrag/connectors/notion";
+```
+
+The exact import path depends on your project structure and any `--dir` flag you passed during `unrag init`.
+
+## Server-only usage
+
+Connectors deal with credentials—API tokens, OAuth secrets, service account keys. These must never run in the browser. Treat all connector sync operations as backend concerns: route handlers, server actions, cron jobs, or standalone scripts.
+
+## Rich media handling
+
+When connectors encounter embedded images, PDFs, audio, or other media, they emit these as `assets` in the ingest payload. What happens next depends on your engine configuration.
+
+If you have extractors set up (PDF → text via LLM, image OCR, audio transcription), those extractors process the assets and produce additional searchable content. If you don't, assets are skipped by default. The connector doesn't make assumptions about what you want to do with rich media—it just surfaces it for your pipeline to handle.
+
+## Available connectors
+
+<Cards>
+  <Card title="Notion" href="/docs/connectors/notion">
+    Ingest pages, databases, and blocks from Notion workspaces
+  </Card>
+  <Card title="Google Drive" href="/docs/connectors/google-drive">
+    Ingest Docs, Sheets, Slides, and files from Google Drive
+  </Card>
+</Cards>
+
+More connectors are on the roadmap—GitHub, Slack, Linear, and others. The architecture makes it straightforward to add new ones as the need arises. If you're building a custom connector for an internal service, the existing connectors serve as reference implementations.
+

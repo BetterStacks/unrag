@@ -1,6 +1,7 @@
 {
   "title": "Connectors",
   "pages": [
+    "index",
     "notion",
     "google-drive"
   ]
