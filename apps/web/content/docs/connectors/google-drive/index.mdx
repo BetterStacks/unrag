@@ -1,0 +1,179 @@
+---
+title: Google Drive Connector
+description: Ingest specific Google Drive files into Unrag by file ID with support for OAuth and service accounts.
+---
+
+The Google Drive connector installs a small, vendored module into your project that fetches files from Google Drive and ingests them into your Unrag store.
+
+This connector follows the same philosophy as the Notion connector: you decide exactly which files matter by passing their file IDs, and Unrag ingests those files into your existing vector tables. The goal is to make sync predictable, safe to run repeatedly, and idempotent.
+
+## Authentication models
+
+Unlike Notion which uses a single integration token, Google Drive supports two authentication models—and the connector supports both with a plug-and-play API. You pick the one that fits your use case, and the connector handles the rest.
+
+**OAuth2** is what you use when your application lets users connect their own Google accounts. The user goes through a consent flow, and you get tokens that let you access their files. This is the right choice for consumer apps or any situation where users control which files they share.
+
+**Service accounts** are for server-to-server access. You create a service account in Google Cloud Console, and that account can access files shared with it directly—or, if you're on Google Workspace with domain-wide delegation enabled, it can impersonate users across your organization. This is the right choice for internal tools, org-wide ingestion, or situations where you control the Google environment.
+
+The connector doesn't force you to choose upfront. You pass an `auth` object that describes how you want to authenticate, and the connector constructs the appropriate client.
+
+## Setting up Google Cloud access
+
+Before using the connector, you need a Google Cloud project with the Drive API enabled and credentials configured for your chosen auth model.
+
+### Creating a Google Cloud project
+
+Go to the [Google Cloud Console](https://console.cloud.google.com/), create a new project (or use an existing one), and enable the Google Drive API under **APIs & Services → Library**.
+
+If you're new to Drive API setup, Google's guide is a good reference: [Enable the Google Drive API](https://developers.google.com/drive/api/guides/enable-drive-api).
+
+### Setting up OAuth2 credentials
+
+If you're building an app where users connect their own Drive accounts, create OAuth credentials under **APIs & Services → Credentials → Create Credentials → OAuth client ID**. Choose "Web application" as the application type and configure your redirect URIs.
+
+You'll get a client ID and client secret. Store these securely:
+
+```bash
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+GOOGLE_REDIRECT_URI="https://your-app.com/auth/google/callback"
+```
+
+After the user completes the OAuth flow, you'll have a refresh token that the connector uses to maintain access.
+
+If you're implementing OAuth end-to-end, Google's overview is helpful: [Using OAuth 2.0 to Access Google APIs](https://developers.google.com/identity/protocols/oauth2).
+
+### Setting up a service account
+
+For server-to-server access, create a service account under **IAM & Admin → Service Accounts**. Generate a JSON key file for the account.
+
+The simplest setup is to share specific files or folders with the service account's email address (something like `my-service@project-id.iam.gserviceaccount.com`). The service account can then access those files directly.
+
+For Google Workspace organizations, you can enable domain-wide delegation (DWD) to let the service account impersonate any user in your domain. This requires Workspace admin setup but gives you access to all files in the organization without explicit sharing.
+
+For the official references, see:
+
+- [Create and manage service account keys](https://cloud.google.com/iam/docs/keys-create-delete)
+- [Delegate domain-wide authority to a service account](https://developers.google.com/identity/protocols/oauth2/service-account#delegatingauthority)
+
+### Choosing which files to ingest
+
+You pass file IDs to the connector—not URLs or file paths. You can find a file's ID in its Google Drive URL:
+
+```
+https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs/view
+                               ↑ this is the file ID
+```
+
+For Google-native files (Docs, Sheets, Slides), the ID is in the URL similarly:
+
+```
+https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs/edit
+                                   ↑ file ID
+```
+
+## Installing the connector
+
+From your project root (where `unrag.json` exists), run:
+
+```bash
+bunx unrag@latest add google-drive
+```
+
+This installs the connector source files into your Unrag install directory—so you can read and change them like any other code:
+
+- `lib/unrag/connectors/google-drive/**` (or your chosen `--dir`)
+
+It also adds the `googleapis` and `google-auth-library` dependencies to your project.
+
+## Quickstart with OAuth2
+
+If your app has users connecting their own Google accounts:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+
+export async function syncUserDriveFiles(userRefreshToken: string, fileIds: string[]) {
+  const engine = createUnragEngine();
+
+  return await syncGoogleDriveFiles({
+    engine,
+    auth: {
+      kind: "oauth",
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      redirectUri: process.env.GOOGLE_REDIRECT_URI!,
+      refreshToken: userRefreshToken,
+    },
+    fileIds,
+  });
+}
+```
+
+## Quickstart with service account
+
+For server-to-server access where files are shared with the service account:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+
+export async function syncSharedDriveFiles(fileIds: string[]) {
+  const engine = createUnragEngine();
+
+  return await syncGoogleDriveFiles({
+    engine,
+    auth: {
+      kind: "service_account",
+      credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
+    },
+    fileIds,
+  });
+}
+```
+
+### With Workspace domain-wide delegation
+
+If you've set up DWD in your Workspace admin console, you can impersonate users to access their files without explicit sharing:
+
+```ts
+await syncGoogleDriveFiles({
+  engine,
+  auth: {
+    kind: "service_account",
+    credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
+    subject: "user@yourcompany.com", // Impersonate this user
+  },
+  fileIds,
+});
+```
+
+## Server-only usage
+
+Both OAuth tokens and service account credentials are sensitive and must never run in the browser. Treat Drive sync as a backend concern: run it from a route handler, server action, cron/worker job, or a Node script.
+
+## What it ingests
+
+Each file becomes one logical document in your store. The connector handles different file types intelligently:
+
+**Google Docs and Sheets** are exported to plain text (Docs) or CSV (Sheets) and stored as the document's `content`. This matches how Notion pages become text—the searchable content is the extracted text, not a binary blob.
+
+**Google Slides** are exported to plain text when possible. If text export fails (some Slides with complex layouts don't export cleanly), the connector falls back to exporting a PPTX file and emitting it as an asset for your file extractors to process.
+
+**Google Drawings** are exported as PNG images and emitted as `assets`. If you have multimodal embeddings enabled, they'll be embedded directly; otherwise, any alt text or caption you provide will be used.
+
+**Binary files** (PDFs, images, Office documents, etc.) are downloaded and emitted as `assets`. Whether those assets become searchable content depends on your engine's `assetProcessing` config—PDF extraction via LLM, image embedding, and file-extractor processing all happen at the engine level, not in the connector.
+
+The connector attaches metadata including the `connector` name (`"google-drive"`), `kind`, `fileId`, `name`, `mimeType`, `modifiedTime`, and available Drive links.
+
+The `sourceId` is stable by file ID (`gdrive:file:<fileId>`), so repeated runs update the same logical document rather than creating duplicates.
+
+## Where to go next
+
+If you want to understand the surface area and copy-paste patterns, start with the [API](/docs/connectors/google-drive/api) page.
+
+After that, the [Best practices](/docs/connectors/google-drive/best-practices) page is a good read before you run this on a schedule in production.
+
+If you hit permission or authentication issues, the [Troubleshooting](/docs/connectors/google-drive/troubleshooting) page covers the common failure modes.
+

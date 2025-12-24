@@ -50,6 +50,8 @@ const AVAILABLE_EXTRACTORS: ExtractorName[] = [
   "file-xlsx",
 ];
 
+const AVAILABLE_CONNECTORS: ConnectorName[] = ["notion", "google-drive"];
+
 const parseAddArgs = (args: string[]): ParsedAddArgs => {
   const out: ParsedAddArgs = {};
 
@@ -96,7 +98,7 @@ export async function addCommand(args: string[]) {
         "  unrag add <connector>",
         "  unrag add extractor <name>",
         "",
-        "Available connectors: notion",
+        `Available connectors: ${AVAILABLE_CONNECTORS.join(", ")}`,
         `Available extractors: ${AVAILABLE_EXTRACTORS.join(", ")}`,
       ].join("\n")
     );
@@ -121,8 +123,10 @@ export async function addCommand(args: string[]) {
 
   if (kind === "connector") {
     const connector = name as ConnectorName | undefined;
-    if (connector !== "notion") {
-      outro(`Unknown connector: ${name}\n\nAvailable connectors: notion`);
+    if (!connector || !AVAILABLE_CONNECTORS.includes(connector)) {
+      outro(
+        `Unknown connector: ${name}\n\nAvailable connectors: ${AVAILABLE_CONNECTORS.join(", ")}`
+      );
       return;
     }
 
@@ -158,7 +162,11 @@ export async function addCommand(args: string[]) {
           : "Added deps: none",
         nonInteractive
           ? ""
-          : "Tip: keep NOTION_TOKEN server-side only (env var).",
+          : connector === "notion"
+            ? "Tip: keep NOTION_TOKEN server-side only (env var)."
+            : connector === "google-drive"
+              ? "Tip: keep Google OAuth refresh tokens and service account keys server-side only."
+              : "",
       ]
         .filter(Boolean)
         .join("\n")

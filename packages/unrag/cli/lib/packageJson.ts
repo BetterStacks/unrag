@@ -89,7 +89,7 @@ export function depsForAdapter(adapter: "drizzle" | "prisma" | "raw-sql") {
   return { deps, devDeps };
 }
 
-export type ConnectorName = "notion";
+export type ConnectorName = "notion" | "google-drive";
 
 export function depsForConnector(connector: ConnectorName) {
   const deps: Record<string, string> = {};
@@ -97,6 +97,12 @@ export function depsForConnector(connector: ConnectorName) {
 
   if (connector === "notion") {
     deps["@notionhq/client"] = "^2.2.16";
+  }
+
+  if (connector === "google-drive") {
+    // Keep these as direct deps so they work under strict node_modules layouts (e.g. pnpm).
+    deps["googleapis"] = "^148.0.0";
+    deps["google-auth-library"] = "^10.0.0";
   }
 
   return { deps, devDeps };

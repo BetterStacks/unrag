@@ -195,7 +195,7 @@ For production on Vercel, run extraction in a background job (QStash/BullMQ/Inng
 
 ## Working with connectors
 
-When using connectors like Notion, you don't need to build the `assets` array yourself. The connector extracts assets from the content automatically:
+When using connectors like Notion or Google Drive, you don't need to build the `assets` array yourself. The connector extracts assets from the content automatically:
 
 ```ts
 import { syncNotionPages } from "@unrag/connectors/notion";
@@ -208,7 +208,21 @@ await syncNotionPages({
 });
 ```
 
-Notion blocks like `image`, `pdf`, `file`, `audio`, and `video` are converted to `AssetInput` objects and included in the ingest call.
+```ts
+import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+
+await syncGoogleDriveFiles({
+  engine,
+  auth: {
+    kind: "service_account",
+    credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
+  },
+  fileIds: ["..."],
+  // PDFs, images, and other files are emitted as assets automatically
+});
+```
+
+Notion blocks like `image`, `pdf`, `file`, `audio`, and `video` are converted to `AssetInput` objects and included in the ingest call. Google Drive files are downloaded and emitted based on their MIME type—PDFs become `kind: "pdf"`, images become `kind: "image"`, and so on.
 
 ## Building assets manually
 
