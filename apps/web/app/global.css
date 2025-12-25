@@ -140,6 +140,47 @@
   animation: unrag-fade-in 220ms ease-out both;
 }
 
+/*
+  Sidebar badges ("New" pill)
+
+  We decorate page-tree node names with a badge element in `lib/source.ts`, but we only
+  want it to show in the sidebar (not breadcrumbs, mobile menus, etc). So we default to
+  hiding the badge, and only enable + right-align it under `#nd-sidebar`.
+*/
+.unrag-sidebar-badge {
+  display: none;
+}
+
+/* In the sidebar, we want the badge to participate in the existing flex row of the item
+   (link/button). `display: contents` makes the text + badge become direct flex children. */
+#nd-sidebar .unrag-nav-label {
+  display: contents;
+}
+
+#nd-sidebar .unrag-nav-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#nd-sidebar .unrag-sidebar-badge {
+  display: inline-flex;
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  background: var(--color-fd-muted);
+  color: var(--color-fd-muted-foreground);
+  border: 1px solid var(--color-fd-border);
+}
+
 @keyframes unrag-reveal-up {
   from {
     opacity: 0;
