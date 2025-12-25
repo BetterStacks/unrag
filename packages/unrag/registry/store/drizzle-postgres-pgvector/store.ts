@@ -113,7 +113,7 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
 
     const vectorLiteral = `[${embedding.join(",")}]`;
 
-    const rows = await db.execute(
+    const result = await db.execute(
       sql`
         select
           c.id,
@@ -132,6 +132,10 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
         limit ${topK}
       `
     );
+
+    const rows = Array.isArray(result)
+      ? result
+      : ((result as { rows?: unknown[] }).rows ?? []);
 
     return (rows as Array<Record<string, unknown>>).map((row) => ({
       id: String(row.id),
@@ -156,5 +160,4 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
       .where(like(documents.sourceId, input.sourceIdPrefix + "%"));
   },
 });
-
 
