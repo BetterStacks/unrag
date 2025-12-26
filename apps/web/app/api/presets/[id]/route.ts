@@ -7,9 +7,9 @@ function isSafeId(id: string) {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await params;
   if (!isSafeId(id)) {
     return NextResponse.json({ error: "Invalid preset id" }, { status: 400 });
   }
