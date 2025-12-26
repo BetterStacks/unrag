@@ -11,18 +11,23 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   copyExtractorFiles,
+  copyConnectorFiles,
   copyRegistryFiles,
   type RegistrySelection,
 } from "../lib/registry";
 import { readJsonFile, writeJsonFile } from "../lib/json";
 import { findUp, normalizePosixPath, tryFindProjectRoot } from "../lib/fs";
+import { readRegistryManifest } from "../lib/manifest";
+import { fetchPreset, type PresetPayloadV1 } from "../lib/preset";
 import {
   depsForAdapter,
+  depsForConnector,
   depsForExtractor,
   detectPackageManager,
   installCmd,
   mergeDeps,
   readPackageJson,
+  type ConnectorName,
   type ExtractorName,
   type EmbeddingProviderName,
   depsForEmbeddingProvider,
@@ -54,6 +59,8 @@ type ParsedInitArgs = {
   richMedia?: boolean;
   extractors?: string[];
   provider?: EmbeddingProviderName;
+  preset?: string;
+  overwrite?: "skip" | "force";
 };
 
 const parseInitArgs = (args: string[]): ParsedInitArgs => {
@@ -129,97 +136,36 @@ const parseInitArgs = (args: string[]): ParsedInitArgs => {
       }
       continue;
     }
+    if (a === "--preset") {
+      const v = args[i + 1];
+      if (v) {
+        out.preset = v;
+        i++;
+      }
+      continue;
+    }
+    if (a === "--overwrite") {
+      const v = args[i + 1];
+      if (v === "skip" || v === "force") {
+        out.overwrite = v;
+        i++;
+      }
+      continue;
+    }
   }
 
   return out;
 };
 
-const DEFAULT_RICH_MEDIA_EXTRACTORS: ExtractorName[] = ["pdf-text-layer", "file-text"];
+const toExtractors = (xs: string[] | undefined): ExtractorName[] =>
+  (Array.isArray(xs) ? xs : [])
+    .map((s) => String(s).trim())
+    .filter(Boolean) as ExtractorName[];
 
-const EXTRACTOR_OPTIONS: Array<{
-  group: string;
-  value: ExtractorName;
-  label: string;
-  hint?: string;
-}> = [
-  // PDF
-  {
-    group: "PDF",
-    value: "pdf-text-layer",
-    label: `pdf-text-layer (Fast/cheap extraction via PDF text layer)`,
-    hint: "recommended",
-  },
-  {
-    group: "PDF",
-    value: "pdf-llm",
-    label: `pdf-llm (LLM-based PDF extraction; higher cost)`,
-  },
-  {
-    group: "PDF",
-    value: "pdf-ocr",
-    label: `pdf-ocr (OCR scanned PDFs; requires native binaries)`,
-    hint: "worker-only",
-  },
-
-  // Image
-  {
-    group: "Image",
-    value: "image-ocr",
-    label: `image-ocr (Extract text from images via vision LLM)`,
-  },
-  {
-    group: "Image",
-    value: "image-caption-llm",
-    label: `image-caption-llm (Generate captions for images via vision LLM)`,
-  },
-
-  // Audio
-  {
-    group: "Audio",
-    value: "audio-transcribe",
-    label: `audio-transcribe (Speech-to-text transcription)`,
-  },
-
-  // Video
-  {
-    group: "Video",
-    value: "video-transcribe",
-    label: `video-transcribe (Transcribe video audio track)`,
-  },
-  {
-    group: "Video",
-    value: "video-frames",
-    label: `video-frames (Sample frames + analyze via vision LLM; requires ffmpeg)`,
-    hint: "worker-only",
-  },
-
-  // Files
-  {
-    group: "Files",
-    value: "file-text",
-    label: `file-text (Extract text/markdown/json/html from common text files)`,
-    hint: "recommended",
-  },
-  {
-    group: "Files",
-    value: "file-docx",
-    label: `file-docx (Extract text from .docx files)`,
-  },
-  {
-    group: "Files",
-    value: "file-pptx",
-    label: `file-pptx (Extract text from .pptx slides)`,
-  },
-  {
-    group: "Files",
-    value: "file-xlsx",
-    label: `file-xlsx (Extract tables from .xlsx spreadsheets)`,
-  },
-];
-
-const AVAILABLE_EXTRACTORS = new Set<ExtractorName>(
-  EXTRACTOR_OPTIONS.map((o) => o.value)
-);
+const toConnectors = (xs: string[] | undefined): ConnectorName[] =>
+  (Array.isArray(xs) ? xs : [])
+    .map((s) => String(s).trim())
+    .filter(Boolean) as ConnectorName[];
 
 export async function initCommand(args: string[]) {
   const root = await tryFindProjectRoot(process.cwd());
@@ -232,19 +178,81 @@ export async function initCommand(args: string[]) {
     throw new Error("Could not locate CLI package root (package.json not found).");
   }
   const registryRoot = path.join(cliPackageRoot, "registry");
+  const manifest = await readRegistryManifest(registryRoot);
+
+  const extractorOptions = manifest.extractors.map((ex) => {
+    const value = ex.id as ExtractorName;
+    const label = ex.description
+      ? `${ex.label} (${ex.description})`
+      : ex.label;
+    return {
+      group: ex.group,
+      value,
+      label,
+      hint: ex.hint,
+      defaultSelected: Boolean(ex.defaultSelected),
+    };
+  });
+
+  const availableExtractors = new Set<ExtractorName>(
+    extractorOptions.map((o) => o.value)
+  );
+
+  const defaultRichMediaExtractors: ExtractorName[] = extractorOptions
+    .filter((o) => o.defaultSelected)
+    .map((o) => o.value)
+    .sort();
 
   const existing = await readJsonFile<InitConfig>(path.join(root, CONFIG_FILE));
 
   const parsed = parseInitArgs(args);
 
+  const preset: PresetPayloadV1 | null = parsed.preset
+    ? await fetchPreset(parsed.preset)
+    : null;
+
+  if (preset) {
+    const hasOtherChoices =
+      Boolean(parsed.installDir) ||
+      Boolean(parsed.storeAdapter) ||
+      Boolean(parsed.aliasBase) ||
+      typeof parsed.richMedia === "boolean" ||
+      (parsed.extractors ?? []).length > 0;
+    if (hasOtherChoices) {
+      throw new Error(
+        'When using "--preset", do not pass other init preference flags (--store/--dir/--alias/--rich-media/--extractors).'
+      );
+    }
+  }
+
+  const presetEmbeddingProvider = (() => {
+    const v = (preset as any)?.config?.embedding?.provider as unknown;
+    return v === "ai" ||
+      v === "openai" ||
+      v === "google" ||
+      v === "openrouter" ||
+      v === "azure" ||
+      v === "vertex" ||
+      v === "bedrock" ||
+      v === "cohere" ||
+      v === "mistral" ||
+      v === "together" ||
+      v === "ollama" ||
+      v === "voyage" ||
+      v === "custom"
+      ? (v as EmbeddingProviderName)
+      : undefined;
+  })();
+
   const defaults = {
-    installDir: existing?.installDir ?? "lib/unrag",
-    storeAdapter: existing?.storeAdapter ?? "drizzle",
-    aliasBase: existing?.aliasBase ?? "@unrag",
-    embeddingProvider: existing?.embeddingProvider ?? "ai",
+    installDir: preset?.install?.installDir ?? existing?.installDir ?? "lib/unrag",
+    storeAdapter: preset?.install?.storeAdapter ?? existing?.storeAdapter ?? "drizzle",
+    aliasBase: preset?.install?.aliasBase ?? existing?.aliasBase ?? "@unrag",
+    embeddingProvider: parsed.provider ?? presetEmbeddingProvider ?? existing?.embeddingProvider ?? "ai",
   } as const;
 
-  const nonInteractive = parsed.yes || !process.stdin.isTTY;
+  const nonInteractive = Boolean(parsed.yes) || Boolean(preset) || !process.stdin.isTTY;
+  const overwritePolicy = parsed.overwrite ?? "skip";
 
   const installDirAnswer = parsed.installDir
     ? parsed.installDir
@@ -337,9 +345,18 @@ export async function initCommand(args: string[]) {
     throw new Error('Cannot use "--no-rich-media" together with "--extractors".');
   }
 
-  const extractorsFromArgs = (parsed.extractors ?? [])
-    .filter((x): x is ExtractorName => AVAILABLE_EXTRACTORS.has(x as ExtractorName))
+  const extractorsFromArgs = (preset ? toExtractors(preset.modules?.extractors) : parsed.extractors ?? [])
+    .filter((x): x is ExtractorName => availableExtractors.has(x as ExtractorName))
     .sort();
+
+  if (preset) {
+    const unknown = toExtractors(preset.modules?.extractors).filter(
+      (x) => !availableExtractors.has(x)
+    );
+    if (unknown.length > 0) {
+      throw new Error(`Preset contains unknown extractors: ${unknown.join(", ")}`);
+    }
+  }
 
   const richMediaAnswer =
     extractorsFromArgs.length > 0
@@ -364,10 +381,12 @@ export async function initCommand(args: string[]) {
       ? nonInteractive
         ? (extractorsFromArgs.length > 0
             ? extractorsFromArgs
-            : DEFAULT_RICH_MEDIA_EXTRACTORS) // default preset
+            : defaultRichMediaExtractors.length > 0
+              ? defaultRichMediaExtractors
+              : (["pdf-text-layer", "file-text"] as ExtractorName[])) // fallback preset
         : await groupMultiselect<ExtractorName>({
             message: "Select extractors to enable (space to toggle, enter to confirm)",
-            options: EXTRACTOR_OPTIONS.reduce<Record<string, any[]>>((acc, opt) => {
+            options: extractorOptions.reduce<Record<string, any[]>>((acc, opt) => {
               acc[opt.group] ??= [];
               acc[opt.group]!.push({
                 value: opt.value,
@@ -379,7 +398,9 @@ export async function initCommand(args: string[]) {
             initialValues:
               extractorsFromArgs.length > 0
                 ? extractorsFromArgs
-                : DEFAULT_RICH_MEDIA_EXTRACTORS,
+                : defaultRichMediaExtractors.length > 0
+                  ? defaultRichMediaExtractors
+                  : (["pdf-text-layer", "file-text"] as ExtractorName[]),
             required: false,
           })
       : [];
@@ -404,6 +425,9 @@ export async function initCommand(args: string[]) {
     registryRoot,
     aliasBase,
     embeddingProvider,
+    yes: nonInteractive,
+    overwrite: overwritePolicy,
+    presetConfig: (preset?.config as any) ?? undefined,
     richMedia: richMediaEnabled
       ? {
           enabled: true,
@@ -423,6 +447,7 @@ export async function initCommand(args: string[]) {
         installDir,
         extractor,
         yes: nonInteractive,
+        overwrite: overwritePolicy,
       });
     }
   }
@@ -437,10 +462,46 @@ export async function initCommand(args: string[]) {
     Object.assign(extractorDeps, r.deps);
     Object.assign(extractorDevDeps, r.devDeps);
   }
+
+  const connectorsFromPreset = preset ? toConnectors(preset.modules?.connectors) : [];
+  const availableConnectorIds = new Set(
+    (manifest.connectors ?? [])
+      .filter((c: any) => c.status === "available")
+      .map((c: any) => String(c.id)) as ConnectorName[]
+  );
+  if (preset) {
+    const unknown = connectorsFromPreset.filter((c) => !availableConnectorIds.has(c));
+    if (unknown.length > 0) {
+      throw new Error(`Preset contains unknown/unavailable connectors: ${unknown.join(", ")}`);
+    }
+  }
+
+  // Install connector modules (vendor code) before updating deps.
+  if (connectorsFromPreset.length > 0) {
+    for (const connector of connectorsFromPreset) {
+      await copyConnectorFiles({
+        projectRoot: root,
+        registryRoot,
+        installDir,
+        connector,
+        yes: nonInteractive,
+        overwrite: overwritePolicy,
+      });
+    }
+  }
+
+  const connectorDeps: Record<string, string> = {};
+  const connectorDevDeps: Record<string, string> = {};
+  for (const c of connectorsFromPreset) {
+    const r = depsForConnector(c);
+    Object.assign(connectorDeps, r.deps);
+    Object.assign(connectorDevDeps, r.devDeps);
+  }
+
   const merged = mergeDeps(
     pkg,
-    { ...deps, ...embeddingDeps.deps, ...extractorDeps },
-    { ...devDeps, ...embeddingDeps.devDeps, ...extractorDevDeps }
+    { ...deps, ...embeddingDeps.deps, ...extractorDeps, ...connectorDeps },
+    { ...devDeps, ...embeddingDeps.devDeps, ...extractorDevDeps, ...connectorDevDeps }
   );
   if (merged.changes.length > 0) {
     await writePackageJson(root, merged.pkg);
@@ -452,7 +513,9 @@ export async function initCommand(args: string[]) {
     aliasBase,
     embeddingProvider,
     version: CONFIG_VERSION,
-    connectors: existing?.connectors ?? [],
+    connectors: Array.from(
+      new Set([...(existing?.connectors ?? []), ...connectorsFromPreset])
+    ).sort(),
     extractors: Array.from(
       new Set([
         ...(existing?.extractors ?? []),

@@ -18,18 +18,18 @@
 export const unrag = defineUnragConfig({
   defaults: {
   chunking: {
-    chunkSize: 200,
-    chunkOverlap: 40,
+    chunkSize: 200, // __UNRAG_DEFAULT_chunkSize__
+    chunkOverlap: 40, // __UNRAG_DEFAULT_chunkOverlap__
   },
   retrieval: {
-    topK: 8,
+    topK: 8, // __UNRAG_DEFAULT_topK__
   },
   },
   embedding: {
     provider: "ai",
     config: {
       model: "openai/text-embedding-3-small", // __UNRAG_EMBEDDING_MODEL__
-      timeoutMs: 15_000,
+      timeoutMs: 15_000, // __UNRAG_EMBEDDING_TIMEOUT__
     },
   },
   engine: {
@@ -40,8 +40,8 @@ export const unrag = defineUnragConfig({
    * - storeDocumentContent: whether the full original document text is stored in `documents.content`.
    */
   storage: {
-    storeChunkContent: true,
-    storeDocumentContent: true,
+    storeChunkContent: true, // __UNRAG_STORAGE_storeChunkContent__
+    storeDocumentContent: true, // __UNRAG_STORAGE_storeDocumentContent__
   },
     /**
      * Optional extractor modules that can process non-text assets into text outputs.
@@ -64,6 +64,7 @@ export const unrag = defineUnragConfig({
    * - `unrag init --rich-media` can enable rich media ingestion for you (extractors + assetProcessing flags).
    * - Tighten fetch allowlists/limits in production if you ingest URL-based assets.
    */
+  // __UNRAG_ASSET_PROCESSING_BLOCK_START__
   assetProcessing: {
     onUnsupportedAsset: "skip",
     onError: "skip",
@@ -180,6 +181,7 @@ export const unrag = defineUnragConfig({
       },
     },
   },
+  // __UNRAG_ASSET_PROCESSING_BLOCK_END__
   },
 } as const);
 

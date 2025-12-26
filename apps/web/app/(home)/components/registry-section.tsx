@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useMemo, type ComponentType, type SVGProps } from 'react';
+import { useEffect, useMemo, useState, type ComponentType, type SVGProps } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -44,6 +44,7 @@ import {
   XAIDark
 } from '@ridemountainpig/svgl-react';
 import { CopyButton } from './copy-button';
+import { Button } from '@/components/ui/button';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -92,203 +93,40 @@ const VoyageLogo = (props: SVGProps<SVGSVGElement>) => (
 // Data
 // ─────────────────────────────────────────────────────────────────────────────
 
-const extractors: Extractor[] = [
-  {
-    name: 'pdf:llm',
-    fileTypes: ['pdf'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'text (markdown)',
-    configComplexity: 'needs-api-key',
-    installCmd: 'bunx unrag@latest add extractor pdf-llm',
-    docUrl: '/docs/extractors/pdf/llm',
-  },
-  {
-    name: 'pdf:text-layer',
-    fileTypes: ['pdf'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'text',
-    configComplexity: 'needs-dep',
-    installCmd: 'bunx unrag@latest add extractor pdf-text-layer',
-    docUrl: '/docs/extractors/pdf/text-layer',
-  },
-  {
-    name: 'pdf:ocr',
-    fileTypes: ['pdf'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'text',
-    configComplexity: 'needs-api-key',
-    installCmd: 'bunx unrag@latest add extractor pdf-ocr',
-    docUrl: '/docs/extractors/pdf/ocr',
-  },
-  {
-    name: 'image:ocr',
-    fileTypes: ['jpg', 'png', 'webp', 'gif'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'text',
-    configComplexity: 'needs-api-key',
-    installCmd: 'bunx unrag@latest add extractor image-ocr',
-    docUrl: '/docs/extractors/image/ocr',
-  },
-  {
-    name: 'image:caption-llm',
-    fileTypes: ['jpg', 'png', 'webp', 'gif'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'caption',
-    configComplexity: 'needs-api-key',
-    installCmd: 'bunx unrag@latest add extractor image-caption-llm',
-    docUrl: '/docs/extractors/image/caption-llm',
-  },
-  {
-    name: 'audio:transcribe',
-    fileTypes: ['mp3', 'wav', 'ogg', 'm4a'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'transcript',
-    configComplexity: 'needs-api-key',
-    installCmd: 'bunx unrag@latest add extractor audio-transcribe',
-    docUrl: '/docs/extractors/audio/transcribe',
-  },
-  {
-    name: 'video:transcribe',
-    fileTypes: ['mp4', 'webm', 'mov'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'transcript',
-    configComplexity: 'needs-api-key',
-    installCmd: 'bunx unrag@latest add extractor video-transcribe',
-    docUrl: '/docs/extractors/video/transcribe',
-  },
-  {
-    name: 'video:frames',
-    fileTypes: ['mp4', 'webm', 'mov'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'frame descriptions',
-    configComplexity: 'advanced',
-    installCmd: 'bunx unrag@latest add extractor video-frames',
-    docUrl: '/docs/extractors/video/frames',
-  },
-  {
-    name: 'file:docx',
-    fileTypes: ['docx'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'text',
-    configComplexity: 'needs-dep',
-    installCmd: 'bunx unrag@latest add extractor file-docx',
-    docUrl: '/docs/extractors/file/docx',
-  },
-  {
-    name: 'file:pptx',
-    fileTypes: ['pptx'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'text',
-    configComplexity: 'needs-dep',
-    installCmd: 'bunx unrag@latest add extractor file-pptx',
-    docUrl: '/docs/extractors/file/pptx',
-  },
-  {
-    name: 'file:xlsx',
-    fileTypes: ['xlsx'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'text (csv)',
-    configComplexity: 'needs-dep',
-    installCmd: 'bunx unrag@latest add extractor file-xlsx',
-    docUrl: '/docs/extractors/file/xlsx',
-  },
-  {
-    name: 'file:text',
-    fileTypes: ['txt', 'md', 'json', 'csv'],
-    inputMode: ['file', 'url', 'buffer'],
-    output: 'text',
-    configComplexity: 'zero-config',
-    installCmd: 'bunx unrag@latest add extractor file-text',
-    docUrl: '/docs/extractors/file/text',
-  },
-];
+type RegistryManifest = {
+  version: number;
+  extractors: Array<{
+    id: string;
+    extractorName?: string;
+    fileTypes?: string[];
+    inputModes?: string[];
+    output?: string;
+    configComplexity?: Extractor['configComplexity'];
+    docsPath?: string | null;
+  }>;
+  connectors: Array<{
+    id: string;
+    displayName: string;
+    types?: string[];
+    description?: string;
+    status?: Connector['status'];
+    docsPath?: string | null;
+  }>;
+};
 
-const connectors: Connector[] = [
-  {
-    id: 'notion',
-    displayName: 'Notion',
-    types: ['docs', 'wiki', 'db'],
-    description: 'Sync pages, databases, and blocks from Notion workspaces',
-    installCmd: 'bunx unrag@latest add connector notion',
-    status: 'available',
-    logo: Notion,
-    docUrl: '/docs/connectors/notion',
-  },
-  {
-    id: 'google-drive',
-    displayName: 'Google Drive',
-    types: ['files', 'docs'],
-    description: 'Ingest Docs/Sheets exports and shared folders',
-    installCmd: 'bunx unrag@latest add connector google-drive',
-    status: 'available',
-    logo: GoogleDrive,
-    docUrl: '/docs/connectors/google-drive',
-  },
-  {
-    id: 'github',
-    displayName: 'GitHub',
-    types: ['code', 'docs'],
-    description: 'Ingest repositories (Markdown, READMEs, docs folders) and issues/PRs',
-    status: 'coming-soon',
-    logo: GitHubDark,
-  },
-  {
-    id: 'gitlab',
-    displayName: 'GitLab',
-    types: ['code', 'docs'],
-    description: 'Ingest repos + wiki pages for self-hosted documentation',
-    status: 'coming-soon',
-    logo: GitLab,
-  },
-  {
-    id: 'slack',
-    displayName: 'Slack',
-    types: ['chat'],
-    description: 'Ingest channels (messages + threads) as searchable knowledge',
-    status: 'coming-soon',
-    logo: Slack,
-  },
-  {
-    id: 'discord',
-    displayName: 'Discord',
-    types: ['chat'],
-    description: 'Ingest server channels and threads for community support knowledge',
-    status: 'coming-soon',
-    logo: Discord,
-  },
-  {
-    id: 'linear',
-    displayName: 'Linear',
-    types: ['issues', 'project'],
-    description: 'Ingest issues and project updates for internal knowledge',
-    status: 'coming-soon',
-    logo: Linear,
-  },
-  {
-    id: 'dropbox',
-    displayName: 'Dropbox',
-    types: ['files'],
-    description: 'Ingest shared folders and exported docs/files',
-    status: 'coming-soon',
-    logo: Dropbox,
-  },
-  {
-    id: 'onedrive',
-    displayName: 'OneDrive',
-    types: ['files'],
-    description: 'Ingest files and Office exports from Microsoft 365',
-    status: 'coming-soon',
-    logo: MicrosoftOneDrive,
-  },
-  {
-    id: 'teams',
-    displayName: 'Microsoft Teams',
-    types: ['chat'],
-    description: 'Ingest channels and conversations for internal support knowledge',
-    status: 'coming-soon',
-    logo: MicrosoftTeams,
-  }
-];
+const connectorLogoById: Record<string, ComponentType<any>> = {
+  notion: Notion,
+  'google-drive': GoogleDrive,
+  github: GitHubDark,
+  gitlab: GitLab,
+  slack: Slack,
+  discord: Discord,
+  linear: Linear,
+  dropbox: Dropbox,
+  onedrive: MicrosoftOneDrive,
+  teams: MicrosoftTeams,
+  sharepoint: MicrosoftSharePoint,
+};
 
 const providers: Provider[] = [
   {
@@ -605,12 +443,12 @@ const extractorColumns = [
   }),
 ];
 
-function ExtractorsTable() {
+function ExtractorsTable({ data }: { data: Extractor[] }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
 
   const table = useReactTable({
-    data: extractors,
+    data,
     columns: extractorColumns,
     state: { columnFilters, globalFilter },
     onColumnFiltersChange: setColumnFilters,
@@ -623,9 +461,9 @@ function ExtractorsTable() {
 
   const allFileTypes = useMemo(() => {
     const types = new Set<string>();
-    extractors.forEach((e) => e.fileTypes.forEach((t) => types.add(t)));
+    data.forEach((e) => e.fileTypes.forEach((t) => types.add(t)));
     return Array.from(types).sort();
-  }, []);
+  }, [data]);
 
   const currentFileTypeFilter = columnFilters.find((f) => f.id === 'fileTypes')?.value as string | undefined;
 
@@ -712,7 +550,7 @@ function ExtractorsTable() {
 
       {/* Row count */}
       <div className="text-xs text-white/40 text-right">
-        {table.getFilteredRowModel().rows.length} of {extractors.length} extractors
+        {table.getFilteredRowModel().rows.length} of {data.length} extractors
       </div>
     </div>
   );
@@ -787,11 +625,11 @@ const connectorColumns = [
   }),
 ];
 
-function ConnectorsTable() {
+function ConnectorsTable({ data }: { data: Connector[] }) {
   const [globalFilter, setGlobalFilter] = useState('');
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const table = useReactTable({
-    data: connectors,
+    data,
     columns: connectorColumns,
     state: { globalFilter, columnFilters },
     onGlobalFilterChange: setGlobalFilter,
@@ -804,9 +642,9 @@ function ConnectorsTable() {
 
   const allConnectorTypes = useMemo(() => {
     const types = new Set<string>();
-    connectors.forEach((c) => c.types.forEach((t) => types.add(t)));
+    data.forEach((c) => c.types.forEach((t) => types.add(t)));
     return Array.from(types).sort();
-  }, []);
+  }, [data]);
 
   const currentTypeFilter = columnFilters.find((f) => f.id === 'types')?.value as string | undefined;
 
@@ -893,7 +731,7 @@ function ConnectorsTable() {
 
       {/* Row count */}
       <div className="text-xs text-white/40 text-right">
-        {table.getFilteredRowModel().rows.length} of {connectors.length} connectors
+        {table.getFilteredRowModel().rows.length} of {data.length} connectors
       </div>
     </div>
   );
@@ -1045,6 +883,72 @@ type Tab = 'extractors' | 'connectors' | 'providers';
 
 export function RegistrySection() {
   const [activeTab, setActiveTab] = useState<Tab>('extractors');
+  const [extractors, setExtractors] = useState<Extractor[]>([]);
+  const [connectors, setConnectors] = useState<Connector[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetch('/api/manifest', { cache: 'force-cache' });
+        if (!res.ok) return;
+        const json = (await res.json()) as RegistryManifest;
+
+        const nextExtractors: Extractor[] = (json.extractors ?? []).map((ex) => {
+          const moduleId = String(ex.id);
+          const name = String(ex.extractorName ?? moduleId);
+          const fileTypes = Array.isArray(ex.fileTypes) ? ex.fileTypes.map(String) : [];
+          const inputMode = Array.isArray(ex.inputModes) ? ex.inputModes.map(String) : [];
+          const output = String(ex.output ?? '');
+          const configComplexity =
+            (ex.configComplexity as Extractor['configComplexity'] | undefined) ??
+            'advanced';
+          const docUrl = typeof ex.docsPath === 'string' ? ex.docsPath : undefined;
+
+          return {
+            name,
+            fileTypes,
+            inputMode,
+            output,
+            configComplexity,
+            installCmd: `bunx unrag@latest add extractor ${moduleId}`,
+            ...(docUrl ? { docUrl } : {}),
+          };
+        });
+
+        const nextConnectors: Connector[] = (json.connectors ?? []).map((c) => {
+          const id = String(c.id);
+          const status: Connector['status'] =
+            c.status === 'available' ? 'available' : 'coming-soon';
+          const docUrl =
+            status === 'available' && typeof c.docsPath === 'string' ? c.docsPath : undefined;
+
+          return {
+            id,
+            displayName: String(c.displayName ?? id),
+            types: Array.isArray(c.types) ? c.types.map(String) : [],
+            description: String(c.description ?? ''),
+            status,
+            logo: connectorLogoById[id] ?? GitHubDark,
+            ...(status === 'available' ? { installCmd: `bunx unrag@latest add ${id}` } : {}),
+            ...(docUrl ? { docUrl } : {}),
+          };
+        });
+
+        if (cancelled) return;
+        setExtractors(nextExtractors);
+        setConnectors(nextConnectors);
+      } catch {
+        // ignore
+      }
+    }
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: 'extractors', label: 'Extractors', count: extractors.length },
@@ -1092,19 +996,14 @@ export function RegistrySection() {
             {header.description}
           </p>
           {header.docLink && header.ctaLabel ? (
-            <Link
-              href={header.docLink}
-              className="group relative inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-[hsl(0,0%,8%)] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-              style={{
-                background: 'linear-gradient(to bottom, hsl(0, 0%, 100%) 0%, hsl(0, 0%, 85%) 100%)',
-                boxShadow: 'inset 0 1px 0 0 hsla(0, 0%, 100%, 0.4), 0 1px 2px 0 hsla(0, 0%, 0%, 0.3)',
-              }}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-              {header.ctaLabel}
-            </Link>
+            <Button asChild variant="cta">
+              <Link href={header.docLink}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                {header.ctaLabel}
+              </Link>
+            </Button>
           ) : null}
         </div>
 
@@ -1139,8 +1038,8 @@ export function RegistrySection() {
 
         {/* Tab Content */}
         <div className="min-h-[400px]">
-          {activeTab === 'extractors' && <ExtractorsTable />}
-          {activeTab === 'connectors' && <ConnectorsTable />}
+          {activeTab === 'extractors' && <ExtractorsTable data={extractors} />}
+          {activeTab === 'connectors' && <ConnectorsTable data={connectors} />}
           {activeTab === 'providers' && <ProvidersTab />}
         </div>
       </div>
