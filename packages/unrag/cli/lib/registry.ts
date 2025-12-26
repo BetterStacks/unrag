@@ -349,20 +349,20 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 
   // Enable/disable assetProcessing flags (only when not overriding the whole block).
   if (!(assetProcessingOverride && typeof assetProcessingOverride === "object")) {
-    const enabledFlagKeys = new Set<string>();
-    if (richMedia.enabled) {
-      for (const ex of selectedExtractors) {
-        for (const k of EXTRACTOR_FLAG_KEYS[ex] ?? []) {
-          enabledFlagKeys.add(k);
-        }
+  const enabledFlagKeys = new Set<string>();
+  if (richMedia.enabled) {
+    for (const ex of selectedExtractors) {
+      for (const k of EXTRACTOR_FLAG_KEYS[ex] ?? []) {
+        enabledFlagKeys.add(k);
       }
     }
+  }
 
-    for (const k of ALL_FLAG_KEYS) {
-      out = out.replace(
-        `enabled: false, // __UNRAG_FLAG_${k}__`,
-        `enabled: ${enabledFlagKeys.has(k) ? "true" : "false"},`
-      );
+  for (const k of ALL_FLAG_KEYS) {
+    out = out.replace(
+      `enabled: false, // __UNRAG_FLAG_${k}__`,
+      `enabled: ${enabledFlagKeys.has(k) ? "true" : "false"},`
+    );
     }
   }
 
@@ -685,16 +685,16 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
         // never overwrite in non-interactive mode
         continue;
       } else {
-        const answer = await confirm({
-          message: `Overwrite ${path.relative(selection.projectRoot, mapping.dest)}?`,
-          initialValue: false,
-        });
-        if (isCancel(answer)) {
-          cancel("Cancelled.");
-          return;
-        }
-        if (!answer) {
-          continue;
+      const answer = await confirm({
+        message: `Overwrite ${path.relative(selection.projectRoot, mapping.dest)}?`,
+        initialValue: false,
+      });
+      if (isCancel(answer)) {
+        cancel("Cancelled.");
+        return;
+      }
+      if (!answer) {
+        continue;
         }
       }
     }

@@ -43,6 +43,7 @@ import {
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { NextStepsDialog } from './next-steps-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -464,7 +465,7 @@ function SelectionCard({
           <div className="flex items-center gap-2">
             <span className="font-medium text-white/90">{title}</span>
             {badge && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10 capitalize">
                 {badge}
               </span>
             )}
@@ -529,7 +530,7 @@ function ExtractorCard({
           <div className="flex items-center gap-2">
             <span className="font-mono text-sm text-white/90">{label || id}</span>
             {workerOnly && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400/80 border border-amber-500/20">
+              <span className="text-[9px] px-1.5 py-0.5 rounded capitalize bg-amber-500/10 text-amber-400/80 border border-amber-500/20">
                 worker
               </span>
             )}
@@ -608,7 +609,7 @@ function ConnectorCard({
             <span className="font-medium text-white/90">{displayName || id}</span>
             <span
               className={cn(
-                'text-[10px] px-2 py-0.5 rounded-full border',
+                'text-[10px] px-2 py-0.5 rounded-full border capitalize',
                 isAvailable ? 'bg-emerald-500/10 text-emerald-400/80 border-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10'
               )}
             >
@@ -682,6 +683,7 @@ export default function InstallWizardClient() {
   const [copied, setCopied] = useState<'url' | 'command' | null>(null);
   const [pkgManager, setPkgManager] = useState<'bun' | 'npm' | 'pnpm' | 'yarn'>('bun');
   const [openExtractorGroups, setOpenExtractorGroups] = useState<Record<string, boolean>>({});
+  const [nextStepsOpen, setNextStepsOpen] = useState(false);
 
   // Clear preset ID whenever state changes (preset becomes stale)
   const setState = useCallback(
@@ -734,6 +736,22 @@ export default function InstallWizardClient() {
 
   const availableConnectors = useMemo(() => {
     return (manifest?.connectors ?? []).slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  }, [manifest]);
+
+  const extractorDocsById = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const ex of manifest?.extractors ?? []) {
+      m.set(String(ex.id), ex.docsPath ?? null);
+    }
+    return m;
+  }, [manifest]);
+
+  const connectorDocsById = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const c of manifest?.connectors ?? []) {
+      m.set(String(c.id), c.docsPath ?? null);
+    }
+    return m;
   }, [manifest]);
 
   const embeddingModelOptions = useMemo(() => {
@@ -806,7 +824,7 @@ export default function InstallWizardClient() {
 
   const handleCopy = async (type: 'url' | 'command') => {
     try {
-      const text = type === 'url' ? window.location.href : commandPreview;
+      const text = type === 'url' ? window.location.href : (installCommand ?? commandPreview);
       await navigator.clipboard.writeText(text);
       setCopied(type);
       setTimeout(() => setCopied(null), 2000);
@@ -847,6 +865,14 @@ export default function InstallWizardClient() {
 
   return (
     <div className="min-h-screen bg-[hsl(0,0%,3%)]">
+      {installCommand ? (
+        <NextStepsDialog
+          open={nextStepsOpen}
+          onOpenChange={setNextStepsOpen}
+          state={state}
+          manifest={manifest}
+        />
+      ) : null}
       <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[hsl(0,0%,3%)]/80 backdrop-blur-xl">
         <div className="max-w-[1600px] mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -864,7 +890,7 @@ export default function InstallWizardClient() {
               onClick={() => handleCopy('url')}
               className="text-white/60 hover:text-white hover:bg-white/5"
             >
-              <Share2 className="w-4 h-4 mr-2" />
+              <Share2 className="w-4 h-4" />
               {copied === 'url' ? 'Copied!' : 'Share'}
             </Button>
             <a
@@ -944,36 +970,64 @@ export default function InstallWizardClient() {
                   slideDirection === 'right' ? 'slide-in-from-right-4' : 'slide-in-from-left-4'
                 )}
               >
-                <SectionHeader
-                  title="Project Setup"
-                  description="Configure where Unrag will be installed and how you'll import it."
-                />
-                <div className="space-y-6">
-                  <FieldGroup label="Install directory" hint="Relative to project root">
-                    <Input
-                      value={state.install.installDir}
-                      onChange={(e) =>
-                        setState((prev) => ({
-                          ...prev,
-                          install: { ...prev.install, installDir: e.target.value },
-                        }))
-                      }
-                      className="bg-white/[0.03] border-white/10 text-white placeholder:text-white/30 focus:border-white/20"
-                    />
-                  </FieldGroup>
+                {/* Welcome Hero */}
+                <div className="mb-8">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-white/[0.08] to-white/[0.04] border border-white/[0.08] mb-4">
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-xs font-medium text-white/70">Interactive Setup Wizard</span>
+                  </div>
+                  <h2 className="text-2xl font-semibold text-white/95 mb-2">Configure your RAG pipeline</h2>
+                  <p className="text-white/50 leading-relaxed">
+                    This wizard will guide you through setting up Unrag in your project. Configure your database, embeddings, extractors, and connectors—then generate a single command to install everything.
+                  </p>
+                </div>
 
-                  <FieldGroup label="Import alias" hint="TypeScript path alias">
-                    <Input
-                      value={state.install.aliasBase}
-                      onChange={(e) =>
-                        setState((prev) => ({
-                          ...prev,
-                          install: { ...prev.install, aliasBase: e.target.value },
-                        }))
-                      }
-                      className="bg-white/[0.03] border-white/10 text-white placeholder:text-white/30 focus:border-white/20"
-                    />
-                  </FieldGroup>
+                {/* Project Configuration */}
+                <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Settings2 className="w-4 h-4 text-white/50" />
+                    <span className="text-sm font-medium text-white/70">Project Configuration</span>
+                  </div>
+                  <div className="space-y-5">
+                    <FieldGroup label="Install directory" hint="Relative to project root">
+                      <Input
+                        value={state.install.installDir}
+                        onChange={(e) =>
+                          setState((prev) => ({
+                            ...prev,
+                            install: { ...prev.install, installDir: e.target.value },
+                          }))
+                        }
+                        className="bg-white/[0.03] border-white/10 text-white placeholder:text-white/30 focus:border-white/20"
+                      />
+                    </FieldGroup>
+
+                    <FieldGroup label="Import alias" hint="TypeScript path alias">
+                      <Input
+                        value={state.install.aliasBase}
+                        onChange={(e) =>
+                          setState((prev) => ({
+                            ...prev,
+                            install: { ...prev.install, aliasBase: e.target.value },
+                          }))
+                        }
+                        className="bg-white/[0.03] border-white/10 text-white placeholder:text-white/30 focus:border-white/20"
+                      />
+                    </FieldGroup>
+                  </div>
+                </div>
+
+                {/* Tech Stack badges */}
+                <div className="mt-6 flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-white/30">Built with</span>
+                  {['TypeScript', 'pgvector', 'AI SDK', 'Drizzle / Prisma'].map((tech) => (
+                    <span
+                      key={tech}
+                      className="inline-flex items-center px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06] text-xs font-medium text-white/50"
+                    >
+                      {tech}
+                    </span>
+                  ))}
                 </div>
               </div>
             )}
@@ -1445,19 +1499,46 @@ export default function InstallWizardClient() {
 
                   <div className="rounded-xl border border-white/[0.08] bg-black/40 overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
-                      <span className="text-xs font-medium text-white/40">Install Command</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-white/40">Install Command</span>
+                        <div className="w-px h-4 bg-white/10" />
+                        <div className="flex items-center gap-1.5">
+                          {(['bun', 'pnpm', 'npm', 'yarn'] as const).map((pm) => (
+                            <button
+                              key={pm}
+                              type="button"
+                              onClick={() => setPkgManager(pm)}
+                              className={cn(
+                                'px-2 py-1 text-xs font-medium rounded-md transition-colors',
+                                pkgManager === pm
+                                  ? 'bg-white/10 text-white'
+                                  : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
+                              )}
+                            >
+                              {pm}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleCopy('command')}
-                        className="h-7 px-2 text-white/50 hover:text-white hover:bg-white/5"
+                        disabled={!installCommand}
+                        className="h-7 px-2 text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30"
                       >
                         <Copy className="w-3.5 h-3.5 mr-1.5" />
                         {copied === 'command' ? 'Copied!' : 'Copy'}
                       </Button>
                     </div>
                     <div className="p-4">
-                      <code className="block font-mono text-sm text-white break-all">{commandPreview}</code>
+                      {installCommand ? (
+                        <code className="block font-mono text-sm text-white break-all">{installCommand}</code>
+                      ) : (
+                        <div className="text-sm text-white/45 leading-relaxed">
+                          Create a preset to generate the installation command. This keeps the command fully deterministic and includes all configuration.
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1471,7 +1552,7 @@ export default function InstallWizardClient() {
                           </>
                         ) : (
                           <>
-                            <Zap className="w-4 h-4 mr-2" />
+                            <Zap className="w-4 h-4" />
                             Create Preset
                           </>
                         )}
@@ -1482,22 +1563,36 @@ export default function InstallWizardClient() {
                       onClick={() => handleCopy('url')}
                       className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
                     >
-                      <Share2 className="w-4 h-4 mr-2" />
+                      <Share2 className="w-4 h-4" />
                       {copied === 'url' ? 'Copied!' : 'Share URL'}
                     </Button>
                   </div>
 
                   {presetId && (
-                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-                          <Check className="w-4 h-4 text-emerald-400" />
+                    <div className="rounded-xl border border-white/20 bg-white/[0.03] p-5 shadow-[0_0_24px_-6px_rgba(255,255,255,0.08)]">
+                      <div className="flex items-start gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
+                          <Check className="w-5 h-5 text-white" />
                         </div>
-                        <div>
-                          <div className="font-medium text-emerald-400/90">Preset created!</div>
-                          <div className="mt-1 text-sm text-emerald-400/60">
-                            Your configuration is saved as preset <code className="font-mono text-emerald-400/80">{presetId}</code>. The command above includes this preset ID.
+                        <div className="flex-1 min-w-0">
+                          <div className="text-lg font-semibold text-white">Preset created</div>
+                          <div className="mt-1 text-sm text-white/60">
+                            Your configuration is saved as preset{' '}
+                            <code className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white/90">{presetId}</code>.
+                            The command above includes this preset ID.
                           </div>
+                          {installCommand ? (
+                            <div className="mt-4">
+                              <Button
+                                size="sm"
+                                variant="cta"
+                                onClick={() => setNextStepsOpen(true)}
+                              >
+                                Open next steps
+                                <ChevronRight className="w-4 h-4 ml-2" />
+                              </Button>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -1511,7 +1606,7 @@ export default function InstallWizardClient() {
                 variant="ghost"
                 onClick={() => goToStep(currentStep - 1)}
                 disabled={currentStep === 0}
-                className="text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30"
+                className={cn('text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30', currentStep === 0 && 'invisible')}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Previous
@@ -1534,7 +1629,7 @@ export default function InstallWizardClient() {
               </div>
               <Button
                 onClick={() => goToStep(currentStep + 1)}
-                disabled={currentStep === STEPS.length - 1}
+                className={cn(currentStep === STEPS.length - 1 && 'invisible')}
                 variant="cta"
                 size="sm"
               >
@@ -1604,7 +1699,18 @@ export default function InstallWizardClient() {
               </div>
               <div className="p-3">
                 {installCommand ? (
-                  <code className="block font-mono text-xs text-white break-all leading-relaxed">{installCommand}</code>
+                  <div className="space-y-3">
+                    <code className="block font-mono text-xs text-white break-all leading-relaxed">{installCommand}</code>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setNextStepsOpen(true)}
+                      className="w-full border-white/10 text-white/75 hover:text-white hover:bg-white/5"
+                    >
+                      Next steps
+                      <ChevronRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="text-xs text-white/45 leading-relaxed">
@@ -1624,11 +1730,22 @@ export default function InstallWizardClient() {
                   <div className="mb-4">
                     <div className="text-xs text-white/30 mb-2">Extractors</div>
                     <div className="flex flex-wrap gap-1.5">
-                      {state.modules.extractors.map((id) => (
-                        <span key={id} className="text-xs px-2 py-1 rounded bg-white/5 text-white/60 font-mono">
-                          {id}
-                        </span>
-                      ))}
+                      {state.modules.extractors.map((id) => {
+                        const href = extractorDocsById.get(id) ?? '/docs/extractors';
+                        return (
+                          <Link
+                            key={id}
+                            href={href}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs px-2 py-1 rounded bg-white/5 text-white/60 font-mono transition-colors hover:bg-white/10 hover:text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                            title="Open docs"
+                            aria-label={`Open docs for ${id}`}
+                          >
+                            {id.split('-').join(':')}
+                          </Link>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1636,11 +1753,22 @@ export default function InstallWizardClient() {
                   <div>
                     <div className="text-xs text-white/30 mb-2">Connectors</div>
                     <div className="flex flex-wrap gap-1.5">
-                      {state.modules.connectors.map((id) => (
-                        <span key={id} className="text-xs px-2 py-1 rounded bg-white/5 text-white/60 font-mono">
-                          {id}
-                        </span>
-                      ))}
+                      {state.modules.connectors.map((id) => {
+                        const href = connectorDocsById.get(id) ?? '/docs/connectors';
+                        return (
+                          <Link
+                            key={id}
+                            href={href}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-xs px-2 py-1 rounded bg-white/5 text-white/60 font-mono capitalize transition-colors hover:bg-white/10 hover:text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                            title="Open docs"
+                            aria-label={`Open docs for ${id}`}
+                          >
+                            {id.split('-').join(' ')}
+                          </Link>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
