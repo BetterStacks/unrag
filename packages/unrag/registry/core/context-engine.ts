@@ -3,6 +3,7 @@ import { ingest, planIngest } from "./ingest";
 import { retrieve } from "./retrieve";
 import { defineConfig, resolveConfig } from "./config";
 import { createAiEmbeddingProvider } from "../embedding/ai";
+import { createVoyageEmbeddingProvider } from "../embedding/voyage";
 import type {
   AssetExtractor,
   ContextEngineConfig,
@@ -70,6 +71,11 @@ export const defineUnragConfig = <T extends DefineUnragConfigInput>(config: T) =
       return embeddingProvider;
     }
 
+    if (config.embedding.provider === "voyage") {
+      embeddingProvider = createVoyageEmbeddingProvider(config.embedding.config);
+      return embeddingProvider;
+    }
+
     embeddingProvider = config.embedding.create();
     return embeddingProvider;
   };
@@ -104,5 +110,4 @@ export const defineUnragConfig = <T extends DefineUnragConfigInput>(config: T) =
       new ContextEngine(createEngineConfig(runtime)),
   };
 };
-
 

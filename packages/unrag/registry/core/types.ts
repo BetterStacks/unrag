@@ -671,6 +671,10 @@ export type UnragEmbeddingConfig =
       config?: import("../embedding/ai").AiEmbeddingConfig;
     }
   | {
+      provider: "voyage";
+      config?: import("../embedding/voyage").VoyageEmbeddingConfig;
+    }
+  | {
       provider: "custom";
       /**
        * Escape hatch for bringing your own embedding provider.
@@ -736,5 +740,4 @@ export type ResolvedContextEngineConfig = {
   storage: ContentStorageConfig;
   assetProcessing: AssetProcessingConfig;
 };
-
 
