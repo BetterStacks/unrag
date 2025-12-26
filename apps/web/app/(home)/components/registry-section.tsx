@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useMemo, type ComponentType } from 'react';
+import { useState, useMemo, type ComponentType, type SVGProps } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -14,7 +14,6 @@ import {
 import { ArrowSquareOut } from '@phosphor-icons/react';
 import {
   AmazonWebServicesDark,
-  AnthropicDark,
   CloudflareWorkers,
   Cohere,
   Discord,
@@ -77,6 +76,15 @@ type Provider = {
   description?: string;
   logo: ComponentType<any>;
 };
+
+const VoyageLogo = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="M4.5 6h3.2L12 15.2 16.3 6h3.2L13.3 19h-2.6L4.5 6z"
+      fill="currentColor"
+    />
+  </svg>
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Data
@@ -288,50 +296,50 @@ const providers: Provider[] = [
     logo: VercelDark,
   },
   {
+    name: 'Voyage',
+    status: 'available',
+    description: 'Multimodal embeddings via Voyage AI.',
+    logo: VoyageLogo,
+  },
+  {
     name: 'OpenAI',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Embeddings + LLM calls via OpenAI models.',
     logo: OpenAIDark,
   },
   {
-    name: 'Anthropic',
-    status: 'coming-soon',
-    description: 'LLM calls via Claude models.',
-    logo: AnthropicDark,
-  },
-  {
     name: 'Google Gemini',
-    status: 'coming-soon',
-    description: 'LLM + multimodal extraction via Gemini.',
+    status: 'available',
+    description: 'Embeddings + LLM calls via Gemini.',
     logo: Gemini,
   },
   {
     name: 'OpenRouter',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Unified API for multiple LLM providers and model routing.',
     logo: OpenRouterDark,
   },
   {
     name: 'Azure OpenAI',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Use OpenAI models through Azure deployments.',
     logo: MicrosoftAzure,
   },
   {
     name: 'AWS Bedrock',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Enterprise LLM + embedding access via Bedrock.',
     logo: AmazonWebServicesDark,
   },
   {
     name: 'Google Vertex AI',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Enterprise access to Gemini + embeddings via Google Cloud Vertex AI.',
     logo: GoogleCloud,
   },
   {
     name: 'Ollama',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Local models for dev and private deployments.',
     logo: OllamaDark,
   },
@@ -343,19 +351,19 @@ const providers: Provider[] = [
   },
   {
     name: 'Mistral',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Fast LLM calls via Mistral models.',
     logo: MistralAI,
   },
   {
     name: 'Together AI',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Broad model catalog for LLM calls and embeddings.',
     logo: TogetherAIDark,
   },
   {
     name: 'Cohere',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Embeddings and rerankers for retrieval.',
     logo: Cohere,
   },
@@ -1099,4 +1107,3 @@ export function RegistrySection() {
     </section>
   );
 }
-

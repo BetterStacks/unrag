@@ -1,30 +1,29 @@
 import { embed, embedMany } from "ai";
+import { togetherai } from "@ai-sdk/togetherai";
 import type { EmbeddingProvider } from "../core/types";
 
-type BaseConfig = {
-  /**
-   * AI Gateway model id, e.g. "openai/text-embedding-3-small" or "google/gemini-...".
-   */
+export type TogetherEmbeddingConfig = {
   model?: string;
   timeoutMs?: number;
 };
 
-/**
- * Text-only embedding config for the AI SDK provider.
- */
-export type AiEmbeddingConfig = BaseConfig;
+const DEFAULT_TEXT_MODEL = "togethercomputer/m2-bert-80M-2k-retrieval";
 
-const DEFAULT_TEXT_MODEL = "openai/text-embedding-3-small";
-
-export const createAiEmbeddingProvider = (
-  config: AiEmbeddingConfig = {}
+export const createTogetherEmbeddingProvider = (
+  config: TogetherEmbeddingConfig = {}
 ): EmbeddingProvider => {
   const model =
-    config.model ?? process.env.AI_GATEWAY_MODEL ?? DEFAULT_TEXT_MODEL;
+    config.model ??
+    process.env.TOGETHER_AI_EMBEDDING_MODEL ??
+    DEFAULT_TEXT_MODEL;
   const timeoutMs = config.timeoutMs;
+  const embeddingModel =
+    "embeddingModel" in togetherai
+      ? (togetherai as any).embeddingModel(model)
+      : (togetherai as any).textEmbeddingModel(model);
 
   return {
-    name: `ai-sdk:${model}`,
+    name: `together:${model}`,
     dimensions: undefined,
     embed: async ({ text }) => {
       const abortSignal = timeoutMs
@@ -32,13 +31,13 @@ export const createAiEmbeddingProvider = (
         : undefined;
 
       const result = await embed({
-        model,
+        model: embeddingModel,
         value: text,
         ...(abortSignal ? { abortSignal } : {}),
       });
 
       if (!result.embedding) {
-        throw new Error("Embedding missing from AI SDK response");
+        throw new Error("Embedding missing from Together.ai response");
       }
 
       return result.embedding;
@@ -48,17 +47,16 @@ export const createAiEmbeddingProvider = (
       const abortSignal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined;
 
       const result = await embedMany({
-        model,
+        model: embeddingModel,
         values,
         ...(abortSignal ? { abortSignal } : {}),
       });
 
-      const embeddings = (result as any)?.embeddings as number[][] | undefined;
-      if (!embeddings) {
-        throw new Error("Embeddings missing from AI SDK embedMany response");
+      const { embeddings } = result;
+      if (!Array.isArray(embeddings)) {
+        throw new Error("Embeddings missing from Together.ai embedMany response");
       }
       return embeddings;
     },
   };
 };
-

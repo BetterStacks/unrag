@@ -3,6 +3,16 @@ import { ingest, planIngest } from "./ingest";
 import { retrieve } from "./retrieve";
 import { defineConfig, resolveConfig } from "./config";
 import { createAiEmbeddingProvider } from "../embedding/ai";
+import { createOpenAiEmbeddingProvider } from "../embedding/openai";
+import { createGoogleEmbeddingProvider } from "../embedding/google";
+import { createOpenRouterEmbeddingProvider } from "../embedding/openrouter";
+import { createAzureEmbeddingProvider } from "../embedding/azure";
+import { createVertexEmbeddingProvider } from "../embedding/vertex";
+import { createBedrockEmbeddingProvider } from "../embedding/bedrock";
+import { createCohereEmbeddingProvider } from "../embedding/cohere";
+import { createMistralEmbeddingProvider } from "../embedding/mistral";
+import { createTogetherEmbeddingProvider } from "../embedding/together";
+import { createOllamaEmbeddingProvider } from "../embedding/ollama";
 import { createVoyageEmbeddingProvider } from "../embedding/voyage";
 import type {
   AssetExtractor,
@@ -71,6 +81,56 @@ export const defineUnragConfig = <T extends DefineUnragConfigInput>(config: T) =
       return embeddingProvider;
     }
 
+    if (config.embedding.provider === "openai") {
+      embeddingProvider = createOpenAiEmbeddingProvider(config.embedding.config);
+      return embeddingProvider;
+    }
+
+    if (config.embedding.provider === "google") {
+      embeddingProvider = createGoogleEmbeddingProvider(config.embedding.config);
+      return embeddingProvider;
+    }
+
+    if (config.embedding.provider === "openrouter") {
+      embeddingProvider = createOpenRouterEmbeddingProvider(config.embedding.config);
+      return embeddingProvider;
+    }
+
+    if (config.embedding.provider === "azure") {
+      embeddingProvider = createAzureEmbeddingProvider(config.embedding.config);
+      return embeddingProvider;
+    }
+
+    if (config.embedding.provider === "vertex") {
+      embeddingProvider = createVertexEmbeddingProvider(config.embedding.config);
+      return embeddingProvider;
+    }
+
+    if (config.embedding.provider === "bedrock") {
+      embeddingProvider = createBedrockEmbeddingProvider(config.embedding.config);
+      return embeddingProvider;
+    }
+
+    if (config.embedding.provider === "cohere") {
+      embeddingProvider = createCohereEmbeddingProvider(config.embedding.config);
+      return embeddingProvider;
+    }
+
+    if (config.embedding.provider === "mistral") {
+      embeddingProvider = createMistralEmbeddingProvider(config.embedding.config);
+      return embeddingProvider;
+    }
+
+    if (config.embedding.provider === "together") {
+      embeddingProvider = createTogetherEmbeddingProvider(config.embedding.config);
+      return embeddingProvider;
+    }
+
+    if (config.embedding.provider === "ollama") {
+      embeddingProvider = createOllamaEmbeddingProvider(config.embedding.config);
+      return embeddingProvider;
+    }
+
     if (config.embedding.provider === "voyage") {
       embeddingProvider = createVoyageEmbeddingProvider(config.embedding.config);
       return embeddingProvider;
@@ -110,4 +170,3 @@ export const defineUnragConfig = <T extends DefineUnragConfigInput>(config: T) =
       new ContextEngine(createEngineConfig(runtime)),
   };
 };
-
