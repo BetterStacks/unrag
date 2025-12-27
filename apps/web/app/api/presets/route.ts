@@ -4,6 +4,20 @@ import { redis } from "../_lib/redis";
 
 type StoreAdapter = "drizzle" | "prisma" | "raw-sql";
 type EmbeddingType = "text" | "multimodal";
+type EmbeddingProviderName =
+  | "ai"
+  | "openai"
+  | "google"
+  | "openrouter"
+  | "azure"
+  | "vertex"
+  | "bedrock"
+  | "cohere"
+  | "mistral"
+  | "together"
+  | "ollama"
+  | "voyage"
+  | "custom";
 
 type WizardStateV1 = {
   v: 1;
@@ -23,6 +37,7 @@ type WizardStateV1 = {
   };
   embedding: {
     type: EmbeddingType;
+    provider: EmbeddingProviderName;
     model: string;
     timeoutMs: number;
   };
@@ -53,7 +68,7 @@ type PresetPayloadV1 = {
       retrieval: { topK: number };
     };
     embedding: {
-      provider: "ai";
+      provider: EmbeddingProviderName;
       config: { type: EmbeddingType; model: string; timeoutMs: number };
     };
     engine: {
@@ -98,6 +113,24 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
   const topK = Number(input.defaults.topK) || 8;
 
   const embeddingType = (input.embedding.type ?? "text") as EmbeddingType;
+  const embeddingProvider = (() => {
+    const v = (input.embedding as any)?.provider as unknown;
+    return v === "ai" ||
+      v === "openai" ||
+      v === "google" ||
+      v === "openrouter" ||
+      v === "azure" ||
+      v === "vertex" ||
+      v === "bedrock" ||
+      v === "cohere" ||
+      v === "mistral" ||
+      v === "together" ||
+      v === "ollama" ||
+      v === "voyage" ||
+      v === "custom"
+      ? (v as EmbeddingProviderName)
+      : ("ai" as const);
+  })();
   const model = String(input.embedding.model ?? "");
   const timeoutMs = Number(input.embedding.timeoutMs) || 15_000;
 
@@ -109,7 +142,7 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
     install: { installDir, storeAdapter, aliasBase },
     modules: { extractors, connectors },
     defaults: { chunkSize, chunkOverlap, topK },
-    embedding: { type: embeddingType, model, timeoutMs },
+    embedding: { type: embeddingType, provider: embeddingProvider, model, timeoutMs },
     storage: { storeChunkContent, storeDocumentContent },
   };
 }
@@ -139,7 +172,7 @@ function makePresetFromWizard(state: WizardStateV1): PresetPayloadV1 {
         },
       },
       embedding: {
-        provider: "ai",
+        provider: state.embedding.provider,
         config: {
           type: state.embedding.type,
           model: state.embedding.model,

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState, useCallback, type ComponentType } from 'react';
+import { useEffect, useMemo, useState, useCallback, type ComponentType, type SVGProps } from 'react';
 import { useQueryState, parseAsString } from 'nuqs';
 import {
   Check,
@@ -31,15 +31,21 @@ import {
   GitHubDark,
   GitLab,
   Gemini,
+  GoogleCloud,
   GoogleDrive,
   Linear,
+  MicrosoftAzure,
   MicrosoftOneDrive,
   MicrosoftSharePoint,
   MicrosoftTeams,
   Notion,
+  OllamaDark,
   OpenAIDark,
+  OpenRouterDark,
   Slack,
+  TogetherAIDark,
   VercelDark,
+  MistralAI,
 } from '@ridemountainpig/svgl-react';
 
 import { cn } from '@/lib/utils';
@@ -63,6 +69,20 @@ import {
 
 type StoreAdapter = 'drizzle' | 'prisma' | 'raw-sql';
 type EmbeddingType = 'text' | 'multimodal';
+type EmbeddingProviderName =
+  | 'ai'
+  | 'openai'
+  | 'google'
+  | 'openrouter'
+  | 'azure'
+  | 'vertex'
+  | 'bedrock'
+  | 'cohere'
+  | 'mistral'
+  | 'together'
+  | 'ollama'
+  | 'voyage'
+  | 'custom';
 
 type WizardStateV1 = {
   v: 1;
@@ -82,6 +102,7 @@ type WizardStateV1 = {
   };
   embedding: {
     type: EmbeddingType;
+    provider: EmbeddingProviderName;
     model: string;
     timeoutMs: number;
   };
@@ -150,6 +171,7 @@ const DEFAULT_STATE: WizardStateV1 = {
   },
   embedding: {
     type: 'text',
+    provider: 'ai',
     model: 'openai/text-embedding-3-small',
     timeoutMs: 15_000,
   },
@@ -195,9 +217,15 @@ const EMBEDDING_TYPES: Array<{
   {
     id: 'multimodal',
     name: 'Multimodal',
-    description: 'Text + image embeddings. Required for image-based retrieval.',
+    description: 'Embed text + images into the same vector space (Voyage).',
   },
 ];
+
+const VoyageLogo = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <path d="M4.5 6h3.2L12 15.2 16.3 6h3.2L13.3 19h-2.6L4.5 6z" fill="currentColor" />
+  </svg>
+);
 
 type EmbeddingModelOption = {
   id: string;
@@ -205,52 +233,324 @@ type EmbeddingModelOption = {
   providerLabel: string;
   icon: ComponentType<any>;
   supports: EmbeddingType[]; // what the embedding output can represent
+  recommended?: boolean;
 };
 
-const EMBEDDING_MODEL_OPTIONS: EmbeddingModelOption[] = [
+const DEFAULT_MODEL_BY_PROVIDER: Record<EmbeddingProviderName, string> = {
+  ai: 'openai/text-embedding-3-small',
+  openai: 'text-embedding-3-small',
+  google: 'gemini-embedding-001',
+  openrouter: 'text-embedding-3-small',
+  azure: 'text-embedding-3-small',
+  vertex: 'text-embedding-004',
+  bedrock: 'amazon.titan-embed-text-v2:0',
+  cohere: 'embed-english-v3.0',
+  mistral: 'mistral-embed',
+  together: 'togethercomputer/m2-bert-80M-2k-retrieval',
+  ollama: 'nomic-embed-text',
+  voyage: 'voyage-3.5-lite',
+  custom: 'openai/text-embedding-3-small',
+};
+
+const DEFAULT_MULTIMODAL_MODEL_BY_PROVIDER: Partial<Record<EmbeddingProviderName, string>> = {
+  // Matches CLI behavior for "ai" multimodal defaults.
+  ai: 'cohere/embed-v4.0',
+  // True multimodal (image embedding) support in Unrag.
+  voyage: 'voyage-multimodal-3',
+};
+
+const MODEL_PLACEHOLDER_BY_PROVIDER: Partial<Record<EmbeddingProviderName, string>> = {
+  ai: 'openai/text-embedding-3-small',
+  openai: 'text-embedding-3-small',
+  google: 'gemini-embedding-001',
+  openrouter: 'text-embedding-3-small',
+  azure: 'text-embedding-3-small',
+  vertex: 'text-embedding-004',
+  bedrock: 'amazon.titan-embed-text-v2:0',
+  cohere: 'embed-english-v3.0',
+  mistral: 'mistral-embed',
+  together: 'togethercomputer/m2-bert-80M-2k-retrieval',
+  ollama: 'nomic-embed-text',
+  voyage: 'voyage-3.5-lite',
+};
+
+const EMBEDDING_PROVIDER_OPTIONS: Array<{
+  id: EmbeddingProviderName;
+  name: string;
+  description: string;
+  docsHref: string;
+  icon: ComponentType<any>;
+  badge?: string;
+}> = [
   {
-    id: 'openai/text-embedding-3-small',
-    label: 'openai/text-embedding-3-small',
-    providerLabel: 'OpenAI',
+    id: 'ai',
+    name: 'Vercel AI Gateway',
+    description: 'Unified gateway for AI SDK models. Great default to start.',
+    docsHref: '/docs/providers/ai-gateway',
+    icon: VercelDark,
+    badge: 'default',
+  },
+  {
+    id: 'voyage',
+    name: 'Voyage AI',
+    description: 'Best-in-class embeddings + the only built-in multimodal provider.',
+    docsHref: '/docs/providers/voyage',
+    icon: VoyageLogo,
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    description: 'Direct OpenAI embeddings via the AI SDK provider.',
+    docsHref: '/docs/providers/openai',
     icon: OpenAIDark,
-    supports: ['text'],
   },
   {
-    id: 'openai/text-embedding-3-large',
-    label: 'openai/text-embedding-3-large',
-    providerLabel: 'OpenAI',
-    icon: OpenAIDark,
-    supports: ['text'],
-  },
-  {
-    id: 'cohere/embed-v4.0',
-    label: 'cohere/embed-v4.0',
-    providerLabel: 'Cohere',
-    icon: Cohere,
-    // Cohere embed-v4 supports both text + image embeddings
-    supports: ['text', 'multimodal'],
-  },
-  {
-    id: 'google/text-embedding-004',
-    label: 'google/text-embedding-004',
-    providerLabel: 'Google',
+    id: 'google',
+    name: 'Google AI (Gemini)',
+    description: 'Gemini embeddings via the AI SDK provider.',
+    docsHref: '/docs/providers/google',
     icon: Gemini,
-    supports: ['text'],
   },
   {
-    id: 'amazon/titan-embed-text-v2',
-    label: 'amazon/titan-embed-text-v2',
-    providerLabel: 'Amazon Web Services',
+    id: 'openrouter',
+    name: 'OpenRouter',
+    description: 'Route across models/providers behind one API.',
+    docsHref: '/docs/providers/openrouter',
+    icon: OpenRouterDark,
+  },
+  {
+    id: 'azure',
+    name: 'Azure OpenAI',
+    description: 'Enterprise-friendly OpenAI deployments on Azure.',
+    docsHref: '/docs/providers/azure',
+    icon: MicrosoftAzure,
+  },
+  {
+    id: 'vertex',
+    name: 'Vertex AI',
+    description: 'Google Cloud Vertex AI embeddings.',
+    docsHref: '/docs/providers/vertex',
+    icon: GoogleCloud,
+  },
+  {
+    id: 'bedrock',
+    name: 'AWS Bedrock',
+    description: 'AWS-native embeddings (Titan, etc).',
+    docsHref: '/docs/providers/bedrock',
     icon: AmazonWebServicesDark,
-    supports: ['text'],
+  },
+  {
+    id: 'cohere',
+    name: 'Cohere',
+    description: 'Cohere embeddings via the AI SDK provider.',
+    docsHref: '/docs/providers/cohere',
+    icon: Cohere,
+  },
+  {
+    id: 'mistral',
+    name: 'Mistral',
+    description: 'Mistral embeddings via the AI SDK provider.',
+    docsHref: '/docs/providers/mistral',
+    icon: MistralAI,
+  },
+  {
+    id: 'together',
+    name: 'Together.ai',
+    description: 'Open models served via Together.',
+    docsHref: '/docs/providers/together',
+    icon: TogetherAIDark,
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama (local)',
+    description: 'Local embeddings for offline/dev workflows.',
+    docsHref: '/docs/providers/ollama',
+    icon: OllamaDark,
   },
 ];
 
-const CUSTOM_MODEL_VALUE = '__custom__';
+const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, EmbeddingModelOption[]>> = {
+  ai: [
+    {
+      id: 'openai/text-embedding-3-small',
+      label: 'openai/text-embedding-3-small',
+      providerLabel: 'OpenAI',
+      icon: OpenAIDark,
+      supports: ['text'],
+      recommended: true,
+    },
+    {
+      id: 'openai/text-embedding-3-large',
+      label: 'openai/text-embedding-3-large',
+      providerLabel: 'OpenAI',
+      icon: OpenAIDark,
+      supports: ['text'],
+    },
+    {
+      id: 'cohere/embed-v4.0',
+      label: 'cohere/embed-v4.0',
+      providerLabel: 'Cohere',
+      icon: Cohere,
+      supports: ['text', 'multimodal'],
+      recommended: true,
+    },
+    {
+      id: 'google/text-embedding-004',
+      label: 'google/text-embedding-004',
+      providerLabel: 'Google',
+      icon: Gemini,
+      supports: ['text'],
+    },
+    {
+      id: 'amazon/titan-embed-text-v2',
+      label: 'amazon/titan-embed-text-v2',
+      providerLabel: 'Amazon Web Services',
+      icon: AmazonWebServicesDark,
+      supports: ['text'],
+    },
+  ],
+  openai: [
+    {
+      id: 'text-embedding-3-small',
+      label: 'text-embedding-3-small',
+      providerLabel: 'OpenAI',
+      icon: OpenAIDark,
+      supports: ['text'],
+      recommended: true,
+    },
+    {
+      id: 'text-embedding-3-large',
+      label: 'text-embedding-3-large',
+      providerLabel: 'OpenAI',
+      icon: OpenAIDark,
+      supports: ['text'],
+    },
+  ],
+  google: [
+    {
+      id: 'gemini-embedding-001',
+      label: 'gemini-embedding-001',
+      providerLabel: 'Google',
+      icon: Gemini,
+      supports: ['text'],
+      recommended: true,
+    },
+  ],
+  openrouter: [
+    {
+      id: 'text-embedding-3-small',
+      label: 'text-embedding-3-small',
+      providerLabel: 'OpenRouter',
+      icon: OpenRouterDark,
+      supports: ['text'],
+      recommended: true,
+    },
+  ],
+  azure: [
+    {
+      id: 'text-embedding-3-small',
+      label: 'text-embedding-3-small',
+      providerLabel: 'Azure OpenAI',
+      icon: MicrosoftAzure,
+      supports: ['text'],
+      recommended: true,
+    },
+  ],
+  vertex: [
+    {
+      id: 'text-embedding-004',
+      label: 'text-embedding-004',
+      providerLabel: 'Vertex AI',
+      icon: GoogleCloud,
+      supports: ['text'],
+      recommended: true,
+    },
+  ],
+  bedrock: [
+    {
+      id: 'amazon.titan-embed-text-v2:0',
+      label: 'amazon.titan-embed-text-v2:0',
+      providerLabel: 'AWS Bedrock',
+      icon: AmazonWebServicesDark,
+      supports: ['text'],
+      recommended: true,
+    },
+  ],
+  cohere: [
+    {
+      id: 'embed-english-v3.0',
+      label: 'embed-english-v3.0',
+      providerLabel: 'Cohere',
+      icon: Cohere,
+      supports: ['text'],
+      recommended: true,
+    },
+  ],
+  mistral: [
+    {
+      id: 'mistral-embed',
+      label: 'mistral-embed',
+      providerLabel: 'Mistral',
+      icon: MistralAI,
+      supports: ['text'],
+      recommended: true,
+    },
+  ],
+  together: [
+    {
+      id: 'togethercomputer/m2-bert-80M-2k-retrieval',
+      label: 'togethercomputer/m2-bert-80M-2k-retrieval',
+      providerLabel: 'Together.ai',
+      icon: TogetherAIDark,
+      supports: ['text'],
+      recommended: true,
+    },
+  ],
+  ollama: [
+    {
+      id: 'nomic-embed-text',
+      label: 'nomic-embed-text',
+      providerLabel: 'Ollama',
+      icon: OllamaDark,
+      supports: ['text'],
+      recommended: true,
+    },
+  ],
+  voyage: [
+    {
+      id: 'voyage-3.5-lite',
+      label: 'voyage-3.5-lite',
+      providerLabel: 'Voyage',
+      icon: VoyageLogo,
+      supports: ['text'],
+      recommended: true,
+    },
+    {
+      id: 'voyage-3',
+      label: 'voyage-3',
+      providerLabel: 'Voyage',
+      icon: VoyageLogo,
+      supports: ['text'],
+    },
+    {
+      id: 'voyage-code-3',
+      label: 'voyage-code-3',
+      providerLabel: 'Voyage',
+      icon: VoyageLogo,
+      supports: ['text'],
+    },
+    {
+      id: 'voyage-multimodal-3',
+      label: 'voyage-multimodal-3',
+      providerLabel: 'Voyage',
+      icon: VoyageLogo,
+      supports: ['multimodal'],
+      recommended: true,
+    },
+  ],
+};
 
-const DEFAULT_MULTIMODAL_MODEL =
-  EMBEDDING_MODEL_OPTIONS.find((m) => m.supports.includes('multimodal'))?.id ??
-  'cohere/embed-v4.0';
+const CUSTOM_MODEL_VALUE = '__custom__';
 
 const RECOMMENDED_DEFAULTS = {
   chunkSize: 200,
@@ -335,6 +635,24 @@ function normalizeState(s: WizardStateV1): WizardStateV1 {
     Number(s.defaults?.chunkOverlap ?? DEFAULT_STATE.defaults.chunkOverlap) || DEFAULT_STATE.defaults.chunkOverlap;
   const topK = Number(s.defaults?.topK ?? DEFAULT_STATE.defaults.topK) || DEFAULT_STATE.defaults.topK;
   const embeddingType = (s.embedding?.type ?? DEFAULT_STATE.embedding.type) as EmbeddingType;
+  const embeddingProvider = (() => {
+    const v = (s.embedding as any)?.provider as unknown;
+    return v === 'ai' ||
+      v === 'openai' ||
+      v === 'google' ||
+      v === 'openrouter' ||
+      v === 'azure' ||
+      v === 'vertex' ||
+      v === 'bedrock' ||
+      v === 'cohere' ||
+      v === 'mistral' ||
+      v === 'together' ||
+      v === 'ollama' ||
+      v === 'voyage' ||
+      v === 'custom'
+      ? (v as EmbeddingProviderName)
+      : DEFAULT_STATE.embedding.provider;
+  })();
   const embeddingModel = String(s.embedding?.model ?? DEFAULT_STATE.embedding.model);
   const embeddingTimeoutMs =
     Number(s.embedding?.timeoutMs ?? DEFAULT_STATE.embedding.timeoutMs) || DEFAULT_STATE.embedding.timeoutMs;
@@ -346,7 +664,7 @@ function normalizeState(s: WizardStateV1): WizardStateV1 {
     install: { installDir, storeAdapter, aliasBase },
     modules: { extractors, connectors },
     defaults: { chunkSize, chunkOverlap, topK },
-    embedding: { type: embeddingType, model: embeddingModel, timeoutMs: embeddingTimeoutMs },
+    embedding: { type: embeddingType, provider: embeddingProvider, model: embeddingModel, timeoutMs: embeddingTimeoutMs },
     storage: { storeChunkContent, storeDocumentContent },
   };
 }
@@ -490,6 +808,60 @@ function SelectionCard({
         </div>
       </div>
     </button>
+  );
+}
+
+function ProviderCard({
+  provider,
+  selected,
+  onSelect,
+}: {
+  provider: (typeof EMBEDDING_PROVIDER_OPTIONS)[number];
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const Icon = provider.icon;
+  return (
+    <ClickableCard
+      onClick={onSelect}
+      className={cn(
+        'rounded-xl border p-4 transition-all duration-200',
+        'hover:border-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
+        selected
+          ? 'border-white/30 bg-white/[0.04]'
+          : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.03]'
+      )}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-white/80">
+            <Icon width={18} height={18} className="text-white/85" aria-label={provider.name} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-white/90">{provider.name}</span>
+              {provider.badge ? (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10 capitalize">
+                  {provider.badge}
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-1 text-sm text-white/50 leading-relaxed">{provider.description}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <DocsIconLink href={provider.docsHref} label={`Open docs for ${provider.name}`} />
+          <div
+            className={cn(
+              'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all',
+              selected ? 'border-white bg-white' : 'border-white/20 group-hover:border-white/30'
+            )}
+          >
+            {selected ? <div className="w-2 h-2 rounded-full bg-black" /> : null}
+          </div>
+        </div>
+      </div>
+    </ClickableCard>
   );
 }
 
@@ -762,18 +1134,21 @@ export default function InstallWizardClient() {
     return m;
   }, [manifest]);
 
+  const embeddingModelOptionsAll = useMemo(() => {
+    return EMBEDDING_MODELS_BY_PROVIDER[state.embedding.provider] ?? [];
+  }, [state.embedding.provider]);
+
   const embeddingModelOptions = useMemo(() => {
-    if (state.embedding.type === 'multimodal') {
-      return EMBEDDING_MODEL_OPTIONS.filter((m) => m.supports.includes('multimodal'));
-    }
-    return EMBEDDING_MODEL_OPTIONS;
-  }, [state.embedding.type]);
+    if (state.embedding.type !== 'multimodal') return embeddingModelOptionsAll;
+    const filtered = embeddingModelOptionsAll.filter((m) => m.supports.includes('multimodal'));
+    return filtered.length > 0 ? filtered : embeddingModelOptionsAll;
+  }, [state.embedding.type, embeddingModelOptionsAll]);
 
   const embeddingModelOptionById = useMemo(() => {
     const m = new Map<string, EmbeddingModelOption>();
-    for (const o of EMBEDDING_MODEL_OPTIONS) m.set(o.id, o);
+    for (const o of embeddingModelOptionsAll) m.set(o.id, o);
     return m;
-  }, []);
+  }, [embeddingModelOptionsAll]);
 
   const selectedEmbeddingModelOption = embeddingModelOptionById.get(state.embedding.model);
   const isCustomEmbeddingModel = forceCustomEmbeddingModel || !selectedEmbeddingModelOption;
@@ -781,15 +1156,16 @@ export default function InstallWizardClient() {
 
   useEffect(() => {
     if (state.embedding.type !== 'multimodal') return;
-    if (!selectedEmbeddingModelOption) return;
-    if (selectedEmbeddingModelOption.supports.includes('multimodal')) return;
+    const desired = DEFAULT_MULTIMODAL_MODEL_BY_PROVIDER[state.embedding.provider];
+    if (!desired) return;
+    if (state.embedding.model === desired) return;
+    if (selectedEmbeddingModelOption?.supports.includes('multimodal')) return;
     setForceCustomEmbeddingModel(false);
     setState((prev) => ({
       ...prev,
-      embedding: { ...prev.embedding, model: DEFAULT_MULTIMODAL_MODEL },
+      embedding: { ...prev.embedding, model: desired },
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.embedding.type]);
+  }, [state.embedding.type, state.embedding.provider, state.embedding.model, selectedEmbeddingModelOption, setState]);
 
   const commandPreview = useMemo(() => {
     if (presetId) {
@@ -825,10 +1201,27 @@ export default function InstallWizardClient() {
     return {
       adapter: STORE_ADAPTERS.find((a) => a.id === state.install.storeAdapter)?.name ?? state.install.storeAdapter,
       embeddingType: state.embedding.type,
+      embeddingProvider:
+        EMBEDDING_PROVIDER_OPTIONS.find((p) => p.id === state.embedding.provider)?.name ?? state.embedding.provider,
       extractorCount: state.modules.extractors.length,
       connectorCount: state.modules.connectors.length,
     };
   }, [state]);
+
+  const requiredEmbeddingEnvVars = useMemo(() => {
+    const p = state.embedding.provider;
+    if (p === 'ai') return ['AI_GATEWAY_API_KEY'];
+    if (p === 'openai') return ['OPENAI_API_KEY'];
+    if (p === 'google') return ['GOOGLE_GENERATIVE_AI_API_KEY'];
+    if (p === 'openrouter') return ['OPENROUTER_API_KEY'];
+    if (p === 'cohere') return ['COHERE_API_KEY'];
+    if (p === 'mistral') return ['MISTRAL_API_KEY'];
+    if (p === 'together') return ['TOGETHER_AI_API_KEY'];
+    if (p === 'voyage') return ['VOYAGE_API_KEY'];
+    if (p === 'azure') return ['AZURE_OPENAI_API_KEY', 'AZURE_RESOURCE_NAME'];
+    if (p === 'bedrock') return ['AWS_REGION'];
+    return [];
+  }, [state.embedding.provider]);
 
   const handleCopy = async (type: 'url' | 'command') => {
     try {
@@ -866,7 +1259,11 @@ export default function InstallWizardClient() {
   };
 
   const currentStepId = STEPS[currentStep]?.id ?? 'install';
-  const embeddingTriggerIcon = isCustomEmbeddingModel ? VercelDark : (selectedEmbeddingModelOption?.icon ?? VercelDark);
+  const embeddingProviderIcon =
+    EMBEDDING_PROVIDER_OPTIONS.find((p) => p.id === state.embedding.provider)?.icon ?? VercelDark;
+  const embeddingTriggerIcon = isCustomEmbeddingModel
+    ? embeddingProviderIcon
+    : (selectedEmbeddingModelOption?.icon ?? embeddingProviderIcon);
   const embeddingTriggerLabel = isCustomEmbeddingModel
     ? (state.embedding.model.trim() ? state.embedding.model : 'Custom model')
     : (selectedEmbeddingModelOption?.label ?? state.embedding.model);
@@ -1134,10 +1531,45 @@ export default function InstallWizardClient() {
 
                 <div className="mt-8 pt-6 border-t border-white/[0.06] space-y-6">
                   <FieldGroup
+                    label="Embedding provider"
+                    hint="This controls which provider Unrag uses for embeddings (and which env vars you’ll need)."
+                  >
+                    <div className="space-y-3">
+                      {EMBEDDING_PROVIDER_OPTIONS.map((p) => (
+                        <ProviderCard
+                          key={p.id}
+                          provider={p}
+                          selected={state.embedding.provider === p.id}
+                          onSelect={() => {
+                            setForceCustomEmbeddingModel(false);
+                            const nextModel =
+                              state.embedding.type === 'multimodal'
+                                ? (DEFAULT_MULTIMODAL_MODEL_BY_PROVIDER[p.id] ?? DEFAULT_MODEL_BY_PROVIDER[p.id])
+                                : DEFAULT_MODEL_BY_PROVIDER[p.id];
+                            setState((prev) => ({
+                              ...prev,
+                              embedding: { ...prev.embedding, provider: p.id, model: nextModel },
+                            }));
+                          }}
+                        />
+                      ))}
+                    </div>
+                    {state.embedding.type === 'multimodal' && state.embedding.provider !== 'voyage' ? (
+                      <div className="mt-3 text-xs text-white/45 leading-relaxed">
+                        Heads up: true multimodal embeddings (image + text in the same vector space) are only supported by the{' '}
+                        <Link href="/docs/providers/voyage" target="_blank" rel="noreferrer" className="text-white/70 hover:text-white">
+                          Voyage provider
+                        </Link>
+                        . With other providers, images are typically indexed via extractors (captions/OCR) as text.
+                      </div>
+                    ) : null}
+                  </FieldGroup>
+
+                  <FieldGroup
                     label="Embedding model"
                     hint={
                       state.embedding.type === 'multimodal'
-                        ? 'Multimodal: only image-capable models shown'
+                        ? 'Multimodal: pick a provider/model that supports image embeddings (Voyage recommended)'
                         : 'Choose a preset or use a custom model id'
                     }
                   >
@@ -1221,13 +1653,15 @@ export default function InstallWizardClient() {
                                 embedding: { ...prev.embedding, model: e.target.value },
                               }));
                             }}
-                            placeholder="provider/model"
+                            placeholder={MODEL_PLACEHOLDER_BY_PROVIDER[state.embedding.provider] ?? 'model-id'}
                             className="bg-white/[0.03] border-white/10 text-white font-mono text-sm placeholder:text-white/30 focus:border-white/20"
                           />
                           <div className="text-xs text-white/40">
                             {state.embedding.type === 'multimodal'
                               ? 'Make sure this model supports image embeddings.'
-                              : 'Tip: this is the AI SDK model id used by the gateway.'}
+                              : state.embedding.provider === 'ai'
+                                ? 'Tip: for AI Gateway, use the AI SDK model id (e.g. openai/text-embedding-3-small).'
+                                : 'Tip: use the provider-native model id (see provider docs).'}
                           </div>
                         </div>
                       ) : null}
@@ -1339,19 +1773,28 @@ export default function InstallWizardClient() {
                     </FieldGroup>
                   </div>
 
-                  <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                        <Sparkles className="w-4 h-4 text-amber-400" />
-                      </div>
-                      <div>
-                        <div className="font-medium text-amber-400/90">Environment variable required</div>
-                        <div className="mt-1 text-sm text-amber-400/60">
-                          Set <code className="font-mono text-amber-400/80">AI_GATEWAY_API_KEY</code> in your environment to use embeddings.
+                  {requiredEmbeddingEnvVars.length > 0 ? (
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                          <Sparkles className="w-4 h-4 text-amber-400" />
+                        </div>
+                        <div>
+                          <div className="font-medium text-amber-400/90">Environment variables required</div>
+                          <div className="mt-1 text-sm text-amber-400/60">
+                            Set{' '}
+                            {requiredEmbeddingEnvVars.map((k, idx) => (
+                              <span key={k}>
+                                <code className="font-mono text-amber-400/80">{k}</code>
+                                {idx < requiredEmbeddingEnvVars.length - 1 ? <span>, </span> : null}
+                              </span>
+                            ))}{' '}
+                            to enable embeddings.
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  ) : null}
                 </div>
               </div>
             )}
@@ -1494,6 +1937,7 @@ export default function InstallWizardClient() {
                     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
                       <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">Embeddings</div>
                       <div className="text-lg font-medium text-white/90 capitalize">{summary.embeddingType}</div>
+                      <div className="mt-1 text-xs text-white/45">{summary.embeddingProvider}</div>
                     </div>
                     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
                       <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">Extractors</div>

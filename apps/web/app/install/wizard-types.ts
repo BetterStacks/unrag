@@ -1,5 +1,19 @@
 export type StoreAdapter = "drizzle" | "prisma" | "raw-sql";
 export type EmbeddingType = "text" | "multimodal";
+export type EmbeddingProviderName =
+  | "ai"
+  | "openai"
+  | "google"
+  | "openrouter"
+  | "azure"
+  | "vertex"
+  | "bedrock"
+  | "cohere"
+  | "mistral"
+  | "together"
+  | "ollama"
+  | "voyage"
+  | "custom";
 export type PackageManager = "bun" | "pnpm" | "npm" | "yarn";
 
 export type WizardStateV1 = {
@@ -20,6 +34,7 @@ export type WizardStateV1 = {
   };
   embedding: {
     type: EmbeddingType;
+    provider: EmbeddingProviderName;
     model: string;
     timeoutMs: number;
   };

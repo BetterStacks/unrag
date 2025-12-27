@@ -19,7 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import type { RegistryManifest, WizardStateV1 } from "./wizard-types";
+import type { EmbeddingProviderName, RegistryManifest, WizardStateV1 } from "./wizard-types";
 
 function DocLink({
   href,
@@ -50,6 +50,205 @@ function adapterLabel(storeAdapter: WizardStateV1["install"]["storeAdapter"]) {
   if (storeAdapter === "drizzle") return "Drizzle ORM";
   if (storeAdapter === "prisma") return "Prisma";
   return "Raw SQL";
+}
+
+function providerDocsHref(provider: EmbeddingProviderName) {
+  if (provider === "ai") return "/docs/providers/ai-gateway";
+  if (provider === "openai") return "/docs/providers/openai";
+  if (provider === "google") return "/docs/providers/google";
+  if (provider === "openrouter") return "/docs/providers/openrouter";
+  if (provider === "azure") return "/docs/providers/azure";
+  if (provider === "vertex") return "/docs/providers/vertex";
+  if (provider === "bedrock") return "/docs/providers/bedrock";
+  if (provider === "cohere") return "/docs/providers/cohere";
+  if (provider === "mistral") return "/docs/providers/mistral";
+  if (provider === "together") return "/docs/providers/together";
+  if (provider === "ollama") return "/docs/providers/ollama";
+  if (provider === "voyage") return "/docs/providers/voyage";
+  return "/docs/providers";
+}
+
+function providerLabel(provider: EmbeddingProviderName) {
+  if (provider === "ai") return "Vercel AI Gateway";
+  if (provider === "openai") return "OpenAI";
+  if (provider === "google") return "Google AI (Gemini)";
+  if (provider === "openrouter") return "OpenRouter";
+  if (provider === "azure") return "Azure OpenAI";
+  if (provider === "vertex") return "Vertex AI";
+  if (provider === "bedrock") return "AWS Bedrock";
+  if (provider === "cohere") return "Cohere";
+  if (provider === "mistral") return "Mistral";
+  if (provider === "together") return "Together.ai";
+  if (provider === "ollama") return "Ollama";
+  if (provider === "voyage") return "Voyage AI";
+  return "Custom";
+}
+
+type EnvVarMeta = {
+  name: string;
+  required: boolean;
+  description: string;
+  docsHref?: string;
+};
+
+function embeddingEnvVars(provider: EmbeddingProviderName): EnvVarMeta[] {
+  const docsHref = providerDocsHref(provider);
+  if (provider === "ai") {
+    return [
+      {
+        name: "AI_GATEWAY_API_KEY",
+        required: true,
+        description: "Required by the AI SDK when using Vercel AI Gateway.",
+        docsHref,
+      },
+      {
+        name: "AI_GATEWAY_MODEL",
+        required: false,
+        description: "Optional override for the embedding model (default: openai/text-embedding-3-small).",
+        docsHref,
+      },
+    ];
+  }
+  if (provider === "openai") {
+    return [
+      { name: "OPENAI_API_KEY", required: true, description: "OpenAI API key.", docsHref },
+      {
+        name: "OPENAI_EMBEDDING_MODEL",
+        required: false,
+        description: "Optional override for the embedding model (default: text-embedding-3-small).",
+        docsHref,
+      },
+    ];
+  }
+  if (provider === "google") {
+    return [
+      { name: "GOOGLE_GENERATIVE_AI_API_KEY", required: true, description: "Google AI Studio API key.", docsHref },
+      {
+        name: "GOOGLE_GENERATIVE_AI_EMBEDDING_MODEL",
+        required: false,
+        description: "Optional override for the embedding model (default: gemini-embedding-001).",
+        docsHref,
+      },
+    ];
+  }
+  if (provider === "openrouter") {
+    return [
+      { name: "OPENROUTER_API_KEY", required: true, description: "OpenRouter API key.", docsHref },
+      {
+        name: "OPENROUTER_EMBEDDING_MODEL",
+        required: false,
+        description: "Optional override for the embedding model (default: text-embedding-3-small).",
+        docsHref,
+      },
+    ];
+  }
+  if (provider === "cohere") {
+    return [
+      { name: "COHERE_API_KEY", required: true, description: "Cohere API key.", docsHref },
+      {
+        name: "COHERE_EMBEDDING_MODEL",
+        required: false,
+        description: "Optional override for the embedding model (default: embed-english-v3.0).",
+        docsHref,
+      },
+    ];
+  }
+  if (provider === "mistral") {
+    return [
+      { name: "MISTRAL_API_KEY", required: true, description: "Mistral API key.", docsHref },
+      {
+        name: "MISTRAL_EMBEDDING_MODEL",
+        required: false,
+        description: "Optional override for the embedding model (default: mistral-embed).",
+        docsHref,
+      },
+    ];
+  }
+  if (provider === "together") {
+    return [
+      { name: "TOGETHER_AI_API_KEY", required: true, description: "Together.ai API key.", docsHref },
+      {
+        name: "TOGETHER_AI_EMBEDDING_MODEL",
+        required: false,
+        description:
+          "Optional override for the embedding model (default: togethercomputer/m2-bert-80M-2k-retrieval).",
+        docsHref,
+      },
+    ];
+  }
+  if (provider === "voyage") {
+    return [
+      { name: "VOYAGE_API_KEY", required: true, description: "Voyage API key.", docsHref },
+      {
+        name: "VOYAGE_MODEL",
+        required: false,
+        description: "Optional override for the embedding model (default: voyage-3.5-lite).",
+        docsHref,
+      },
+    ];
+  }
+  if (provider === "ollama") {
+    return [
+      {
+        name: "OLLAMA_EMBEDDING_MODEL",
+        required: false,
+        description: "Optional override for the embedding model (default: nomic-embed-text).",
+        docsHref,
+      },
+    ];
+  }
+  if (provider === "azure") {
+    return [
+      { name: "AZURE_OPENAI_API_KEY", required: true, description: "Azure OpenAI API key.", docsHref },
+      { name: "AZURE_RESOURCE_NAME", required: true, description: "Azure resource name (e.g. my-resource).", docsHref },
+      {
+        name: "AZURE_EMBEDDING_MODEL",
+        required: false,
+        description: "Optional override for the embedding model/deployment (default: text-embedding-3-small).",
+        docsHref,
+      },
+    ];
+  }
+  if (provider === "vertex") {
+    return [
+      {
+        name: "GOOGLE_APPLICATION_CREDENTIALS",
+        required: false,
+        description: "Service account JSON path (required outside GCP).",
+        docsHref,
+      },
+      {
+        name: "GOOGLE_VERTEX_EMBEDDING_MODEL",
+        required: false,
+        description: "Optional override for the embedding model (default: text-embedding-004).",
+        docsHref,
+      },
+    ];
+  }
+  if (provider === "bedrock") {
+    return [
+      { name: "AWS_REGION", required: true, description: "AWS region for Bedrock.", docsHref },
+      {
+        name: "AWS_ACCESS_KEY_ID",
+        required: false,
+        description: "AWS credentials (required outside AWS).",
+        docsHref,
+      },
+      {
+        name: "AWS_SECRET_ACCESS_KEY",
+        required: false,
+        description: "AWS credentials (required outside AWS).",
+        docsHref,
+      },
+      {
+        name: "BEDROCK_EMBEDDING_MODEL",
+        required: false,
+        description: "Optional override for the embedding model (default: amazon.titan-embed-text-v2:0).",
+        docsHref,
+      },
+    ];
+  }
+  return [];
 }
 
 function getSelectedExtractorInfo(manifest: RegistryManifest | null, ids: string[]) {
@@ -114,6 +313,11 @@ export function NextStepsDialog({
   const extractorInfo = getSelectedExtractorInfo(manifest, state.modules.extractors);
   const connectorInfo = getSelectedConnectorInfo(manifest, state.modules.connectors);
   const connectorsWithEnv = connectorInfo.filter((c) => (c.meta?.envVars?.length ?? 0) > 0);
+  const selectedEmbeddingProvider = state.embedding.provider ?? "ai";
+  const embeddingVars = React.useMemo(
+    () => embeddingEnvVars(selectedEmbeddingProvider),
+    [selectedEmbeddingProvider]
+  );
 
   const selectedExtractorGroups = new Set<string>(
     extractorInfo.map((x) => String(x.meta?.group ?? "")).filter(Boolean)
@@ -126,8 +330,10 @@ export function NextStepsDialog({
 
   const envVarsToCopy = React.useMemo(() => {
     const unique = new Map<string, { required?: boolean }>();
-    unique.set("AI_GATEWAY_API_KEY", { required: true });
     unique.set("DATABASE_URL", { required: true });
+    for (const v of embeddingVars) {
+      unique.set(v.name, { required: v.required });
+    }
     for (const c of connectorsWithEnv) {
       for (const v of c.meta?.envVars ?? []) {
         unique.set(v.name, { required: v.required });
@@ -141,7 +347,7 @@ export function NextStepsDialog({
       return aName.localeCompare(bName);
     });
     return entries.map(([name]) => name);
-  }, [connectorsWithEnv]);
+  }, [connectorsWithEnv, embeddingVars]);
 
   const retrievalSnippet = React.useMemo(() => {
     const topK = state.defaults.topK;
@@ -209,14 +415,38 @@ export async function GET(request: Request) {
             <div className="space-y-2">
               <div className="rounded-lg border border-white/[0.08] bg-black/30 p-3">
                 <div className="flex items-center justify-between gap-3">
-                  <code className="font-mono text-xs text-white/85">AI_GATEWAY_API_KEY</code>
-                  <span className="text-xs text-white/35">required for embeddings</span>
+                  <div className="text-sm font-medium text-white/80">Embedding provider</div>
+                  <DocLink href={providerDocsHref(selectedEmbeddingProvider)}>
+                    {providerLabel(selectedEmbeddingProvider)} docs
+                  </DocLink>
                 </div>
                 <div className="mt-1 text-xs text-white/45">
-                  Configure the AI SDK gateway used by embedding providers.
+                  Your wizard selection uses <span className="text-white/70">{providerLabel(selectedEmbeddingProvider)}</span>.
+                  Set these variables to enable embeddings.
                 </div>
-                <div className="mt-2">
-                  <DocLink href="/docs/embedding/ai-sdk">AI SDK gateway</DocLink>
+                <div className="mt-3 space-y-2">
+                  {embeddingVars.map((v) => (
+                    <div
+                      key={v.name}
+                      className="flex items-start justify-between gap-3 rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <code className="font-mono text-xs text-white/85">{v.name}</code>
+                          {v.required ? (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                              required
+                            </span>
+                          ) : (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10">
+                              optional
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 text-xs text-white/45">{v.description}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
