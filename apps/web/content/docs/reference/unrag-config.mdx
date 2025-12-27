@@ -126,19 +126,43 @@ Controls what Unrag persists to your database.
 
 ### embedding
 
-Configuration for the embedding provider. If you ran `init --rich-media`, the CLI sets `type: "multimodal"` and picks a compatible model. See [AI SDK Embeddings](/docs/embedding/ai-sdk) and [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) for more.
+Configuration for the embedding provider. Unrag supports twelve built-in providers, each with its own configuration options. See [Providers](/docs/providers) for detailed setup instructions for each provider.
+
+The `embedding` field accepts an object with a `provider` field and an optional `config` object:
+
+```ts
+embedding: {
+  provider: "openai",  // or "google", "voyage", "ollama", etc.
+  config: {
+    model: "text-embedding-3-small",
+    timeoutMs: 15_000,
+    // Provider-specific options
+  },
+},
+```
 
 <TypeTable
   type={{
-    type: {
-      description: 'Embedding mode. Use "multimodal" to embed images directly (requires compatible model).',
-      type: '"text" | "multimodal"',
-      default: '"text"',
+    provider: {
+      description: 'Which embedding provider to use.',
+      type: '"openai" | "google" | "azure" | "vertex" | "bedrock" | "cohere" | "mistral" | "together" | "voyage" | "openrouter" | "ollama" | "ai" | "custom"',
+      default: '"openai"',
     },
+    config: {
+      description: 'Provider-specific configuration. See individual provider documentation.',
+      type: 'ProviderConfig',
+      typeDescriptionLink: '/docs/providers',
+    },
+  }}
+/>
+
+Common configuration options available on most providers:
+
+<TypeTable
+  type={{
     model: {
-      description: 'The embedding model identifier. Format: provider/model-name.',
+      description: 'The embedding model to use. Each provider has a different default.',
       type: 'string',
-      default: '"openai/text-embedding-3-small" (text) / "cohere/embed-v4.0" (multimodal)',
     },
     timeoutMs: {
       description: 'Timeout for embedding API responses.',
@@ -147,6 +171,8 @@ Configuration for the embedding provider. If you ran `init --rich-media`, the CL
     },
   }}
 />
+
+For multimodal embeddings (embedding images alongside text), use the Voyage provider with `type: "multimodal"`. See [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) for details.
 
 ### assetProcessing
 
@@ -389,7 +415,9 @@ export async function ingestDocument(
 
 ## Environment variables
 
-The config file expects these environment variables:
+The config file expects these environment variables. The embedding-related variables depend on which provider you're using.
+
+### Required for all setups
 
 <TypeTable
   type={{
@@ -398,18 +426,24 @@ The config file expects these environment variables:
       type: 'string',
       default: 'Required',
     },
-    AI_GATEWAY_API_KEY: {
-      description: 'API key for the embedding provider (typically OpenAI). Used by the AI SDK.',
-      type: 'string',
-      default: 'Required',
-    },
-    AI_GATEWAY_MODEL: {
-      description: 'Override for the embedding model. Takes precedence over config file setting.',
-      type: 'string',
-      default: 'Optional',
-    },
   }}
 />
+
+### Provider-specific environment variables
+
+Each provider requires its own API key and optionally accepts a model override. See the [Providers](/docs/providers) documentation for details on each provider's requirements. Common examples:
+
+| Provider | API Key Variable | Model Override Variable |
+|----------|-----------------|------------------------|
+| OpenAI | `OPENAI_API_KEY` | `OPENAI_EMBEDDING_MODEL` |
+| Google AI | `GOOGLE_GENERATIVE_AI_API_KEY` | `GOOGLE_GENERATIVE_AI_EMBEDDING_MODEL` |
+| Voyage | `VOYAGE_API_KEY` | `VOYAGE_MODEL` |
+| Cohere | `COHERE_API_KEY` | `COHERE_EMBEDDING_MODEL` |
+| Mistral | `MISTRAL_API_KEY` | `MISTRAL_EMBEDDING_MODEL` |
+| Ollama | (none required) | `OLLAMA_EMBEDDING_MODEL` |
+| AI Gateway | `AI_GATEWAY_API_KEY` | `AI_GATEWAY_MODEL` |
+
+Azure, Vertex, and Bedrock use their respective cloud authentication mechanisms (Azure credentials, GCP Application Default Credentials, AWS credentials) rather than API keys.
 
 ## Server-only
 

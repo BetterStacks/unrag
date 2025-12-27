@@ -1,0 +1,104 @@
+---
+title: Google AI
+description: Use Google's Gemini embedding models through the Google AI API.
+---
+
+Google AI provides access to Google's Gemini embedding models through a straightforward API. If you're already using Gemini for chat or other AI features, using Google AI for embeddings keeps everything in one ecosystem with unified billing and API keys.
+
+The `gemini-embedding-001` model produces high-quality embeddings and supports task-type hints that can improve retrieval for specific use cases.
+
+## Setup
+
+Install the Google AI SDK package:
+
+```bash
+bun add @ai-sdk/google
+```
+
+Set your API key in the environment:
+
+```bash
+GOOGLE_GENERATIVE_AI_API_KEY="..."
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "google",
+    config: {
+      model: "gemini-embedding-001",
+      timeoutMs: 15_000,
+    },
+  },
+} as const);
+```
+
+## Configuration options
+
+**`model`** specifies which Google embedding model to use. If not set, the provider checks the `GOOGLE_GENERATIVE_AI_EMBEDDING_MODEL` environment variable, then falls back to `gemini-embedding-001`.
+
+**`timeoutMs`** sets the request timeout in milliseconds.
+
+**`outputDimensionality`** requests a specific number of dimensions in the output. Some models support this for reducing storage costs.
+
+**`taskType`** hints at how the embeddings will be used, which can improve retrieval quality. Google's embedding models can optimize their output based on the intended task.
+
+```ts
+embedding: {
+  provider: "google",
+  config: {
+    model: "gemini-embedding-001",
+    outputDimensionality: 768,
+    taskType: "RETRIEVAL_DOCUMENT",
+    timeoutMs: 20_000,
+  },
+},
+```
+
+## Task types
+
+Google's embedding models support task-type hints that influence how embeddings are generated. Using the right task type can improve retrieval quality.
+
+**`RETRIEVAL_DOCUMENT`**: Use this when embedding documents that will be searched. This is typically what you want for ingestion.
+
+**`RETRIEVAL_QUERY`**: Use this when embedding search queries. Unrag handles this automatically during retrieval.
+
+**`SEMANTIC_SIMILARITY`**: For comparing the semantic similarity of two texts.
+
+**`CLASSIFICATION`**: When embeddings will be used for classification tasks.
+
+**`CLUSTERING`**: When embeddings will be used for clustering similar documents.
+
+**`QUESTION_ANSWERING`**: Optimized for question-answering scenarios.
+
+**`FACT_VERIFICATION`**: For fact-checking and verification tasks.
+
+**`CODE_RETRIEVAL_QUERY`**: Optimized for code search queries.
+
+For typical RAG applications, you'll want `RETRIEVAL_DOCUMENT` when ingesting and `RETRIEVAL_QUERY` when searching. Unrag doesn't currently switch task types automatically between ingest and retrieve, so consider whether this matters for your use case.
+
+## Environment variables
+
+**`GOOGLE_GENERATIVE_AI_API_KEY`** (required): Your Google AI API key. Get one from Google AI Studio.
+
+**`GOOGLE_GENERATIVE_AI_EMBEDDING_MODEL`** (optional): Overrides the model specified in code.
+
+```bash
+# .env
+GOOGLE_GENERATIVE_AI_API_KEY="..."
+GOOGLE_GENERATIVE_AI_EMBEDDING_MODEL="gemini-embedding-001"
+```
+
+## Google AI vs Vertex AI
+
+Google offers two ways to access their AI models: Google AI and Vertex AI. Google AI is the simpler option—you sign up, get an API key, and start making requests. Vertex AI is Google Cloud's enterprise AI platform with tighter GCP integration, IAM controls, and enterprise features.
+
+Use **Google AI** (this provider) when you want a simple API key-based setup without deep GCP integration.
+
+Use **Vertex AI** (the `vertex` provider) when you're running in Google Cloud and want to use GCP authentication, or when you need enterprise features like VPC Service Controls.
+

@@ -1,0 +1,87 @@
+---
+title: Azure OpenAI
+description: Use OpenAI models through Azure's enterprise deployment with compliance and security features.
+---
+
+Azure OpenAI provides access to OpenAI's models through Microsoft's Azure cloud platform. You get the same embedding models as direct OpenAI access, but with Azure's enterprise features: regional deployments, private endpoints, managed identities, and compliance certifications.
+
+If you're already running on Azure or need to meet specific compliance requirements, Azure OpenAI is the natural choice. The models are identical to OpenAI's—same quality, same dimensions—but the infrastructure is Azure's.
+
+## Setup
+
+First, create an Azure OpenAI resource in the Azure portal and deploy an embedding model. Note your resource name and deployment name.
+
+Install the Azure AI SDK package:
+
+```bash
+bun add @ai-sdk/azure
+```
+
+Set your credentials in the environment:
+
+```bash
+AZURE_OPENAI_API_KEY="..."
+AZURE_RESOURCE_NAME="your-resource-name"
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "azure",
+    config: {
+      model: "text-embedding-3-small",  // Your deployment name
+      timeoutMs: 15_000,
+    },
+  },
+} as const);
+```
+
+## Configuration options
+
+**`model`** specifies which deployment to use. This should match the deployment name you created in the Azure portal. If not set, the provider checks the `AZURE_EMBEDDING_MODEL` environment variable, then falls back to `text-embedding-3-small`.
+
+**`timeoutMs`** sets the request timeout in milliseconds.
+
+**`dimensions`** enables dimension truncation for embedding-3 models, same as with direct OpenAI access.
+
+**`user`** is an optional end-user identifier for abuse detection.
+
+```ts
+embedding: {
+  provider: "azure",
+  config: {
+    model: "my-embedding-deployment",
+    dimensions: 1024,
+    timeoutMs: 20_000,
+  },
+},
+```
+
+## Environment variables
+
+**`AZURE_OPENAI_API_KEY`** (required): Your Azure OpenAI API key.
+
+**`AZURE_RESOURCE_NAME`** (required): The name of your Azure OpenAI resource.
+
+**`AZURE_EMBEDDING_MODEL`** (optional): Overrides the deployment name specified in code.
+
+```bash
+# .env
+AZURE_OPENAI_API_KEY="..."
+AZURE_RESOURCE_NAME="my-openai-resource"
+AZURE_EMBEDDING_MODEL="text-embedding-3-small"
+```
+
+## Azure vs direct OpenAI
+
+The models are the same. The difference is infrastructure and compliance.
+
+Use **Azure OpenAI** when you need Azure's compliance certifications (SOC 2, HIPAA, etc.), want to keep all your services in Azure, need private network access, or are required to use Azure for organizational reasons.
+
+Use **direct OpenAI** when you want the simplest setup, don't have Azure requirements, or prefer OpenAI's pricing and terms.
+

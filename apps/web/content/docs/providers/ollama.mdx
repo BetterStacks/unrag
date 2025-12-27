@@ -1,0 +1,152 @@
+---
+title: Ollama
+description: Run embedding models locally for cost control, privacy, and offline operation.
+---
+
+Ollama lets you run embedding models on your own hardware. There are no API calls to external services, no usage fees, and no data leaving your infrastructure. This makes it ideal for privacy-sensitive applications, air-gapped environments, or situations where you want to eliminate ongoing embedding costs.
+
+The tradeoff is that you're responsible for running and maintaining the Ollama service, and the embedding quality may be lower than cloud models for some domains. But for many applications, local models like `nomic-embed-text` produce results that are good enough, and the operational simplicity of "no external dependencies" is worth a lot.
+
+## Setup
+
+First, install and run Ollama on your machine or server. See the [Ollama documentation](https://ollama.ai) for installation instructions.
+
+Pull an embedding model:
+
+```bash
+ollama pull nomic-embed-text
+```
+
+Install the Ollama provider package:
+
+```bash
+bun add ollama-ai-provider-v2
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "ollama",
+    config: {
+      model: "nomic-embed-text",
+      timeoutMs: 30_000,
+    },
+  },
+} as const);
+```
+
+## Configuration options
+
+**`model`** specifies which Ollama model to use. If not set, the provider checks the `OLLAMA_EMBEDDING_MODEL` environment variable, then falls back to `nomic-embed-text`.
+
+**`timeoutMs`** sets the request timeout. Local inference can be slower than cloud APIs, especially on first run when the model is loading, so consider a generous timeout.
+
+**`baseURL`** overrides the Ollama server URL. By default, the provider connects to `http://localhost:11434`. Use this option if Ollama is running on a different host or port.
+
+**`headers`** adds custom headers to requests. This is useful if you're running Ollama behind a reverse proxy that requires authentication.
+
+```ts
+embedding: {
+  provider: "ollama",
+  config: {
+    model: "nomic-embed-text",
+    baseURL: "http://ollama.internal:11434",
+    headers: {
+      "Authorization": "Bearer my-token",
+    },
+    timeoutMs: 60_000,
+  },
+},
+```
+
+## Available models
+
+Ollama supports various embedding models. Here are some popular options:
+
+**`nomic-embed-text`** is a good general-purpose embedding model with 768 dimensions. It's the default because it balances quality and speed well.
+
+**`mxbai-embed-large`** produces 1024-dimensional embeddings and generally scores higher on benchmarks than nomic-embed-text, at the cost of being slightly slower.
+
+**`all-minilm`** is a smaller, faster model with 384 dimensions. Consider it if embedding speed is critical and you can accept some quality reduction.
+
+**`snowflake-arctic-embed`** is another high-quality option, available in different sizes.
+
+Check Ollama's model library for the full list of available embedding models. New models are added regularly.
+
+## Running Ollama
+
+Ollama needs to be running before you can use it. On most systems, you start it with:
+
+```bash
+ollama serve
+```
+
+This starts the Ollama server on `http://localhost:11434`. The server loads models on demand—the first embedding request for a model will be slower while the model loads into memory.
+
+For production deployments, you'll want Ollama running as a service. The installation process on most platforms sets this up automatically.
+
+## Remote Ollama instances
+
+You don't have to run Ollama on the same machine as your application. Point the provider at a remote Ollama server using `baseURL`:
+
+```ts
+config: {
+  model: "nomic-embed-text",
+  baseURL: "http://gpu-server.internal:11434",
+}
+```
+
+This is useful when you have a dedicated machine with a GPU for running models, but your application runs elsewhere.
+
+## Environment variables
+
+**`OLLAMA_EMBEDDING_MODEL`** (optional): Overrides the model specified in code.
+
+Ollama itself doesn't require an API key. Authentication, if needed, is typically handled at the network level or through a reverse proxy.
+
+```bash
+# .env
+OLLAMA_EMBEDDING_MODEL="mxbai-embed-large"
+```
+
+## Performance considerations
+
+Local embedding performance depends on your hardware. A machine with a GPU will embed significantly faster than one relying on CPU. If you're embedding large amounts of content, consider:
+
+- Using a machine with a GPU for Ollama
+- Reducing ingestion concurrency to avoid overwhelming the server
+- Pre-loading the model by running a test embedding on startup
+
+The first embedding request after starting Ollama (or after the model has been unloaded due to inactivity) will be slower because the model needs to load into memory. Subsequent requests are much faster.
+
+## When to use Ollama
+
+Choose Ollama when:
+
+- You want to eliminate ongoing API costs
+- Data privacy is critical and you can't send content to external services
+- You need to work offline or in air-gapped environments
+- You have available compute resources (especially GPUs)
+
+Stick with cloud providers when:
+
+- You don't want to manage infrastructure
+- You need the highest quality embeddings
+- You're embedding infrequently and API costs are negligible
+- You don't have hardware suitable for running models locally
+
+## Troubleshooting
+
+**"Connection refused"**: Ollama isn't running. Start it with `ollama serve`.
+
+**"Model not found"**: You need to pull the model first with `ollama pull <model-name>`.
+
+**Slow first request**: This is normal. The model is loading into memory. Subsequent requests will be faster.
+
+**Out of memory**: The model is too large for your available RAM/VRAM. Try a smaller model like `all-minilm`.
+

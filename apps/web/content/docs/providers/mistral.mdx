@@ -1,0 +1,75 @@
+---
+title: Mistral
+description: European AI provider with data residency options.
+---
+
+Mistral AI is a European AI company that offers embedding models alongside their popular chat models. If you need European data residency for compliance reasons, or if you're already using Mistral's other models, using their embedding model keeps everything in one ecosystem.
+
+## Setup
+
+Install the Mistral SDK package:
+
+```bash
+bun add @ai-sdk/mistral
+```
+
+Set your API key in the environment:
+
+```bash
+MISTRAL_API_KEY="..."
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "mistral",
+    config: {
+      model: "mistral-embed",
+      timeoutMs: 15_000,
+    },
+  },
+} as const);
+```
+
+## Configuration options
+
+**`model`** specifies which Mistral embedding model to use. If not set, the provider checks the `MISTRAL_EMBEDDING_MODEL` environment variable, then falls back to `mistral-embed`.
+
+**`timeoutMs`** sets the request timeout in milliseconds.
+
+```ts
+embedding: {
+  provider: "mistral",
+  config: {
+    model: "mistral-embed",
+    timeoutMs: 20_000,
+  },
+},
+```
+
+## Available models
+
+**`mistral-embed`** is Mistral's embedding model, producing 1024-dimensional vectors. It's designed for retrieval tasks and works well for general-purpose search applications.
+
+## Environment variables
+
+**`MISTRAL_API_KEY`** (required): Your Mistral API key. Get one from the Mistral platform.
+
+**`MISTRAL_EMBEDDING_MODEL`** (optional): Overrides the model specified in code.
+
+```bash
+# .env
+MISTRAL_API_KEY="..."
+```
+
+## When to use Mistral
+
+Choose Mistral when you need European data residency, are already using Mistral for chat models, or prefer working with a European AI provider. The embedding quality is solid and competitive with other providers.
+
+For pure embedding quality without data residency requirements, you might find OpenAI or Cohere models slightly better for some use cases—but the differences are often marginal.
+
