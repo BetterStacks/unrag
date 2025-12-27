@@ -5,6 +5,30 @@ export type Metadata = Record<
   MetadataValue | MetadataValue[] | undefined
 >;
 
+/**
+ * Standard fields for asset-related metadata.
+ * These are added to chunk metadata when chunks are derived from assets.
+ */
+export interface AssetMetadataFields {
+  assetKind?: "image" | "pdf" | "audio" | "video" | "file";
+  assetId?: string;
+  assetUri?: string;
+  assetMediaType?: string;
+  extractor?: string;
+}
+
+/**
+ * Type guard for checking if metadata contains required asset fields.
+ */
+export function hasAssetMetadata(
+  metadata: Metadata
+): metadata is Metadata & Required<Pick<AssetMetadataFields, "assetKind" | "assetId">> {
+  return (
+    typeof metadata.assetKind === "string" &&
+    typeof metadata.assetId === "string"
+  );
+}
+
 export type Chunk = {
   id: string;
   documentId: string;

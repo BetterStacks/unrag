@@ -3,6 +3,13 @@ import { getAssetBytes } from "../_shared/fetch";
 import { extFromFilename, normalizeMediaType } from "../_shared/media";
 import { capText } from "../_shared/text";
 
+/**
+ * Minimal mammoth module interface.
+ */
+interface MammothModule {
+  extractRawText(options: { arrayBuffer: ArrayBuffer }): Promise<{ value?: string }>;
+}
+
 const DOCX_MEDIA =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
@@ -33,7 +40,7 @@ export function createFileDocxExtractor(): AssetExtractor {
       });
 
       // Dynamic import so the core package can be used without mammoth unless this extractor is installed.
-      const mammoth: any = await import("mammoth");
+      const mammoth = (await import("mammoth")) as MammothModule;
       const arrayBuffer = bytes.buffer.slice(
         bytes.byteOffset,
         bytes.byteOffset + bytes.byteLength

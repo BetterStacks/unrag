@@ -1,5 +1,6 @@
-import type { IngestResult } from "../../core";
+import type { IngestResult, Metadata } from "../../core";
 import type { AssetInput } from "../../core/types";
+import type { DriveClient, DriveFile } from "./_api-types";
 import { createGoogleDriveClient } from "./client";
 import {
   assetKindFromMediaType,
@@ -16,6 +17,25 @@ import type {
 } from "./types";
 
 const DEFAULT_MAX_BYTES = 15 * 1024 * 1024; // 15MB
+
+/**
+ * Internal metadata type for Google Drive documents.
+ */
+interface GoogleDriveMetadata extends Metadata {
+  connector: "google-drive";
+  kind: "file" | "folder" | "shortcut";
+  fileId: string;
+  name?: string;
+  mimeType?: string;
+  size?: number;
+  googleNativeKind?: string;
+  unsupportedGoogleMime?: boolean;
+  skippedTooLarge?: boolean;
+  exportedTooLarge?: boolean;
+  shortcutUnresolved?: boolean;
+  exportMimeType?: string;
+  exportFallback?: string;
+}
 
 const joinPrefix = (prefix: string | undefined, rest: string) => {
   const p = (prefix ?? "").trim();
@@ -44,10 +64,10 @@ const asMessage = (err: unknown) => {
   }
 };
 
-const toUint8Array = (data: any): Uint8Array => {
+const toUint8Array = (data: unknown): Uint8Array => {
   if (!data) return new Uint8Array();
   if (data instanceof Uint8Array) return data;
-  if (typeof Buffer !== "undefined" && data instanceof Buffer) {
+  if (typeof Buffer !== "undefined" && Buffer.isBuffer(data)) {
     return new Uint8Array(data);
   }
   if (data instanceof ArrayBuffer) return new Uint8Array(data);
@@ -61,51 +81,54 @@ const toUint8Array = (data: any): Uint8Array => {
   return new Uint8Array();
 };
 
-const bytesToText = (bytes: Uint8Array) => {
+const bytesToText = (bytes: Uint8Array): string => {
   return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
 };
 
-const isNotFound = (err: any, treatForbiddenAsNotFound: boolean) => {
+const isNotFound = (err: unknown, treatForbiddenAsNotFound: boolean): boolean => {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as Record<string, unknown>;
+  const response = e.response as Record<string, unknown> | undefined;
   const status =
-    Number(err?.code ?? err?.status ?? err?.response?.status ?? err?.statusCode) ||
-    Number(err?.response?.status);
+    Number(e.code ?? e.status ?? response?.status ?? e.statusCode ?? 0);
   if (status === 404) return true;
   if (treatForbiddenAsNotFound && status === 403) return true;
   return false;
 };
 
-async function getFileMetadata(drive: any, fileId: string) {
+async function getFileMetadata(drive: DriveClient, fileId: string): Promise<DriveFile> {
   const res = await drive.files.get({
     fileId,
     supportsAllDrives: true,
     fields:
       "id,name,mimeType,size,md5Checksum,modifiedTime,webViewLink,webContentLink,iconLink,shortcutDetails,driveId",
   });
-  return res?.data ?? {};
+  return (res?.data ?? {}) as DriveFile;
 }
 
-async function downloadFileBytes(drive: any, fileId: string): Promise<Uint8Array> {
-  const res = await drive.files.get(
-    { fileId, alt: "media", supportsAllDrives: true },
-    { responseType: "arraybuffer" }
-  );
+async function downloadFileBytes(drive: DriveClient, fileId: string): Promise<Uint8Array> {
+  const res = await drive.files.get({
+    fileId,
+    alt: "media",
+    supportsAllDrives: true,
+  });
   return toUint8Array(res?.data);
 }
 
 async function exportFileBytes(
-  drive: any,
+  drive: DriveClient,
   fileId: string,
   mimeType: string
 ): Promise<Uint8Array> {
-  const res = await drive.files.export(
-    { fileId, mimeType },
-    { responseType: "arraybuffer" }
-  );
+  const res = await drive.files.export({
+    fileId,
+    mimeType,
+  });
   return toUint8Array(res?.data);
 }
 
 export async function loadGoogleDriveFileDocument(args: {
-  drive: any;
+  drive: DriveClient;
   fileId: string;
   sourceIdPrefix?: string;
   options?: {
@@ -128,21 +151,22 @@ export async function loadGoogleDriveFileDocument(args: {
 
   // Handle folders: return a document shape but with no content/assets; callers typically skip.
   if (classification.kind === "folder") {
+    const folderMetadata: GoogleDriveMetadata = {
+      connector: "google-drive",
+      kind: "folder",
+      fileId,
+      name,
+      mimeType: DRIVE_MIME.folder,
+      ...(meta?.webViewLink ? { webViewLink: String(meta.webViewLink) } : {}),
+      ...(meta?.modifiedTime ? { modifiedTime: String(meta.modifiedTime) } : {}),
+    };
     return buildGoogleDriveFileIngestInput({
       fileId,
       sourceIdPrefix: args.sourceIdPrefix,
       content: "",
       assets: [],
-      metadata: {
-        connector: "google-drive",
-        kind: "folder",
-        fileId,
-        name,
-        mimeType: DRIVE_MIME.folder,
-        ...(meta?.webViewLink ? { webViewLink: String(meta.webViewLink) } : {}),
-        ...(meta?.modifiedTime ? { modifiedTime: String(meta.modifiedTime) } : {}),
-      },
-    }) as any;
+      metadata: folderMetadata,
+    });
   }
 
   // Shortcuts: resolve to target if possible (1-level), otherwise let caller decide.
@@ -150,20 +174,21 @@ export async function loadGoogleDriveFileDocument(args: {
     const visited = args._visited ?? new Set<string>();
     if (visited.has(fileId)) {
       // cycle
+      const cycleMetadata: GoogleDriveMetadata = {
+        connector: "google-drive",
+        kind: "shortcut",
+        fileId,
+        name,
+        mimeType: DRIVE_MIME.shortcut,
+        shortcutUnresolved: true,
+      };
       return buildGoogleDriveFileIngestInput({
         fileId,
         sourceIdPrefix: args.sourceIdPrefix,
         content: "",
         assets: [],
-        metadata: {
-          connector: "google-drive",
-          kind: "shortcut",
-          fileId,
-          name,
-          mimeType: DRIVE_MIME.shortcut,
-          shortcutUnresolved: true,
-        },
-      }) as any;
+        metadata: cycleMetadata,
+      });
     }
     visited.add(fileId);
 
@@ -172,20 +197,21 @@ export async function loadGoogleDriveFileDocument(args: {
       : "";
 
     if (!targetId) {
+      const unresolvedMetadata: GoogleDriveMetadata = {
+        connector: "google-drive",
+        kind: "shortcut",
+        fileId,
+        name,
+        mimeType: DRIVE_MIME.shortcut,
+        shortcutUnresolved: true,
+      };
       return buildGoogleDriveFileIngestInput({
         fileId,
         sourceIdPrefix: args.sourceIdPrefix,
         content: "",
         assets: [],
-        metadata: {
-          connector: "google-drive",
-          kind: "shortcut",
-          fileId,
-          name,
-          mimeType: DRIVE_MIME.shortcut,
-          shortcutUnresolved: true,
-        },
-      }) as any;
+        metadata: unresolvedMetadata,
+      });
     }
 
     // Resolve target content/assets but keep sourceId stable to the shortcut file id.
@@ -209,7 +235,7 @@ export async function loadGoogleDriveFileDocument(args: {
     };
   }
 
-  const baseMetadata = {
+  const baseMetadata: Record<string, unknown> = {
     connector: "google-drive",
     kind: "file",
     fileId,
@@ -222,7 +248,7 @@ export async function loadGoogleDriveFileDocument(args: {
     ...(meta?.webContentLink ? { webContentLink: String(meta.webContentLink) } : {}),
     ...(meta?.iconLink ? { iconLink: String(meta.iconLink) } : {}),
     ...(meta?.driveId ? { driveId: String(meta.driveId) } : {}),
-  } as const;
+  };
 
   // Google-native export path
   if (classification.kind === "google_native") {
@@ -238,7 +264,7 @@ export async function loadGoogleDriveFileDocument(args: {
           googleNativeKind: classification.nativeKind,
           unsupportedGoogleMime: true,
         },
-      }) as any;
+      });
     }
 
     // For content export, enforce maxBytesPerFile by bytes length.
@@ -252,7 +278,7 @@ export async function loadGoogleDriveFileDocument(args: {
             content: "",
             assets: [],
             metadata: { ...baseMetadata, exportedTooLarge: true },
-          }) as any;
+          });
         }
         const content = bytesToText(bytes).trim();
         return buildGoogleDriveFileIngestInput({
@@ -261,7 +287,7 @@ export async function loadGoogleDriveFileDocument(args: {
           content,
           assets: [],
           metadata: { ...baseMetadata, googleNativeKind: classification.nativeKind, exportMimeType: plan.mimeType },
-        }) as any;
+        });
       } catch (err) {
         // Slides can fail to export as text; fallback to PPTX unless strict.
         if (classification.nativeKind === "slides" && !strictNativeExport) {
@@ -274,7 +300,7 @@ export async function loadGoogleDriveFileDocument(args: {
                 content: "",
                 assets: [],
                 metadata: { ...baseMetadata, exportedTooLarge: true },
-              }) as any;
+              });
             }
             const asset: AssetInput = {
               assetId: fileId,
@@ -286,7 +312,7 @@ export async function loadGoogleDriveFileDocument(args: {
                 filename: name ? `${name}.pptx` : undefined,
               },
               uri: meta?.webViewLink ? String(meta.webViewLink) : undefined,
-              metadata: { connector: "google-drive", fileId, exportMimeType: EXPORT_MIME.pptx } as any,
+              metadata: { connector: "google-drive", fileId, exportMimeType: EXPORT_MIME.pptx },
             };
             return buildGoogleDriveFileIngestInput({
               fileId,
@@ -294,7 +320,7 @@ export async function loadGoogleDriveFileDocument(args: {
               content: "",
               assets: [asset],
               metadata: { ...baseMetadata, googleNativeKind: "slides", exportFallback: "pptx" },
-            }) as any;
+            });
           } catch {
             // fall through to strict error
           }
@@ -314,7 +340,7 @@ export async function loadGoogleDriveFileDocument(args: {
           content: "",
           assets: [],
           metadata: { ...baseMetadata, exportedTooLarge: true },
-        }) as any;
+        });
       }
 
       const filename = name && plan.filenameExt ? `${name}.${plan.filenameExt}` : name || undefined;
@@ -323,7 +349,7 @@ export async function loadGoogleDriveFileDocument(args: {
         kind: plan.assetKind,
         data: { kind: "bytes", bytes, mediaType: plan.mimeType, ...(filename ? { filename } : {}) },
         uri: meta?.webViewLink ? String(meta.webViewLink) : undefined,
-        metadata: { connector: "google-drive", fileId, exportMimeType: plan.mimeType } as any,
+        metadata: { connector: "google-drive", fileId, exportMimeType: plan.mimeType },
       };
 
       return buildGoogleDriveFileIngestInput({
@@ -332,7 +358,7 @@ export async function loadGoogleDriveFileDocument(args: {
         content: "",
         assets: [asset],
         metadata: { ...baseMetadata, googleNativeKind: classification.nativeKind, exportMimeType: plan.mimeType },
-      }) as any;
+      });
     }
   }
 
@@ -344,7 +370,7 @@ export async function loadGoogleDriveFileDocument(args: {
       content: "",
       assets: [],
       metadata: { ...baseMetadata, skippedTooLarge: true },
-    }) as any;
+    });
   }
 
   const bytes = await downloadFileBytes(args.drive, fileId);
@@ -355,7 +381,7 @@ export async function loadGoogleDriveFileDocument(args: {
       content: "",
       assets: [],
       metadata: { ...baseMetadata, skippedTooLarge: true },
-    }) as any;
+    });
   }
 
   const assetKind = assetKindFromMediaType(mimeType);
@@ -370,7 +396,7 @@ export async function loadGoogleDriveFileDocument(args: {
       ...(filename ? { filename } : {}),
     },
     uri: meta?.webViewLink ? String(meta.webViewLink) : undefined,
-    metadata: { connector: "google-drive", fileId, name, mimeType } as any,
+    metadata: { connector: "google-drive", fileId, name, mimeType },
   };
 
   // For pure binaries, keep content empty; extraction occurs via engine asset processing + extractors.
@@ -379,8 +405,8 @@ export async function loadGoogleDriveFileDocument(args: {
     sourceIdPrefix: args.sourceIdPrefix,
     content: "",
     assets: [asset],
-    metadata: baseMetadata as any,
-  }) as any;
+    metadata: baseMetadata,
+  });
 }
 
 export async function syncGoogleDriveFiles(
@@ -434,8 +460,10 @@ export async function syncGoogleDriveFiles(
         },
       });
 
+      const meta = doc.metadata as Record<string, unknown>;
+
       // Skip folders explicitly (v1).
-      if ((doc.metadata as any)?.kind === "folder") {
+      if (meta.kind === "folder") {
         emit({
           type: "file:skipped",
           fileId,
@@ -446,7 +474,7 @@ export async function syncGoogleDriveFiles(
         continue;
       }
 
-      if ((doc.metadata as any)?.unsupportedGoogleMime) {
+      if (meta.unsupportedGoogleMime) {
         emit({
           type: "file:skipped",
           fileId,
@@ -458,7 +486,7 @@ export async function syncGoogleDriveFiles(
         continue;
       }
 
-      if ((doc.metadata as any)?.skippedTooLarge || (doc.metadata as any)?.exportedTooLarge) {
+      if (meta.skippedTooLarge || meta.exportedTooLarge) {
         emit({
           type: "file:skipped",
           fileId,
@@ -469,7 +497,7 @@ export async function syncGoogleDriveFiles(
         continue;
       }
 
-      if ((doc.metadata as any)?.shortcutUnresolved) {
+      if (meta.shortcutUnresolved) {
         emit({
           type: "file:skipped",
           fileId,
@@ -484,7 +512,7 @@ export async function syncGoogleDriveFiles(
         sourceId: doc.sourceId,
         content: doc.content,
         assets: doc.assets,
-        metadata: doc.metadata as any,
+        metadata: doc.metadata,
       });
 
       succeeded += 1;
