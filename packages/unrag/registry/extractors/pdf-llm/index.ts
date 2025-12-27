@@ -1,8 +1,13 @@
-import { generateText } from "ai";
+import { generateText, type LanguageModel } from "ai";
 import type { AssetData, AssetExtractor, AssetFetchConfig } from "../../core/types";
 import { getAssetBytes } from "../_shared/fetch";
 import { normalizeMediaType } from "../_shared/media";
 import { capText } from "../_shared/text";
+
+/**
+ * Model reference type that accepts both string gateway IDs and LanguageModel instances.
+ */
+type ModelRef = string | LanguageModel;
 
 async function getPdfBytes(args: {
   data: AssetData;
@@ -49,8 +54,8 @@ export function createPdfLlmExtractor(): AssetExtractor {
       const abortSignal = AbortSignal.timeout(llm.timeoutMs);
 
       const result = await generateText({
-        // Intentionally allow string model ids for AI Gateway usage.
-        model: llm.model as any,
+        // String model IDs are supported for AI Gateway routing.
+        model: llm.model as ModelRef,
         abortSignal,
         messages: [
           {
@@ -68,7 +73,7 @@ export function createPdfLlmExtractor(): AssetExtractor {
         ],
       });
 
-      const text = String((result as any)?.text ?? "").trim();
+      const text = (result.text ?? "").trim();
       if (!text) return { texts: [], diagnostics: { model: llm.model } };
 
       const capped = capText(text, llm.maxOutputChars);

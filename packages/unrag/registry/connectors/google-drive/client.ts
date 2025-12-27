@@ -1,4 +1,11 @@
-import type { GoogleDriveAuth } from "./types";
+import type { DriveClient, AuthClient } from "./_api-types";
+import type {
+  GoogleDriveAuth,
+  GoogleDriveOAuthAuth,
+  GoogleDriveServiceAccountAuth,
+  GoogleDriveGoogleAuthAuth,
+  ServiceAccountCredentials,
+} from "./types";
 
 export const DEFAULT_DRIVE_SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",
@@ -17,36 +24,51 @@ type NormalizedAuth =
     }
   | {
       kind: "service_account";
-      credentials: Record<string, any>;
+      credentials: ServiceAccountCredentials;
       subject?: string;
     }
   | { kind: "google_auth"; auth: unknown };
+
+/**
+ * Type guard for service account auth.
+ */
+function isServiceAccountAuth(auth: GoogleDriveAuth): auth is GoogleDriveServiceAccountAuth {
+  return auth.kind === "service_account";
+}
+
+/**
+ * Type guard for google auth.
+ */
+function isGoogleAuth(auth: GoogleDriveAuth): auth is GoogleDriveGoogleAuthAuth {
+  return auth.kind === "google_auth";
+}
+
+/**
+ * Type guard for oauth.
+ */
+function isOAuthAuth(auth: GoogleDriveAuth): auth is GoogleDriveOAuthAuth {
+  return auth.kind === "oauth";
+}
 
 export function normalizeGoogleDriveAuth(auth: GoogleDriveAuth): NormalizedAuth {
   if (!auth || typeof auth !== "object") {
     throw new Error("Google Drive auth is required");
   }
 
-  const kind = (auth as any).kind;
-  if (kind !== "oauth" && kind !== "service_account" && kind !== "google_auth") {
-    throw new Error(`Unknown Google Drive auth kind: ${String(kind)}`);
+  if (isGoogleAuth(auth)) {
+    if (!auth.auth) throw new Error('Google Drive auth.kind="google_auth" requires auth');
+    return { kind: "google_auth", auth: auth.auth };
   }
 
-  if (kind === "google_auth") {
-    const a = (auth as any).auth;
-    if (!a) throw new Error('Google Drive auth.kind="google_auth" requires auth');
-    return { kind: "google_auth", auth: a };
-  }
-
-  if (kind === "service_account") {
-    const raw = (auth as any).credentialsJson;
+  if (isServiceAccountAuth(auth)) {
+    const raw = auth.credentialsJson;
     if (!raw) {
       throw new Error(
         'Google Drive auth.kind="service_account" requires credentialsJson'
       );
     }
-    const credentials =
-      typeof raw === "string" ? (JSON.parse(raw) as Record<string, any>) : (raw as any);
+    const credentials: ServiceAccountCredentials =
+      typeof raw === "string" ? (JSON.parse(raw) as ServiceAccountCredentials) : raw;
     if (!credentials?.client_email || !credentials?.private_key) {
       throw new Error(
         'Google Drive service account credentials must include "client_email" and "private_key".'
@@ -55,29 +77,33 @@ export function normalizeGoogleDriveAuth(auth: GoogleDriveAuth): NormalizedAuth 
     return {
       kind: "service_account",
       credentials,
-      subject: (auth as any).subject ? String((auth as any).subject) : undefined,
+      subject: auth.subject ? String(auth.subject) : undefined,
     };
   }
 
-  // oauth
-  if ((auth as any).oauthClient) {
-    return { kind: "oauth_client", oauthClient: (auth as any).oauthClient };
+  if (isOAuthAuth(auth)) {
+    // oauth
+    if (auth.oauthClient) {
+      return { kind: "oauth_client", oauthClient: auth.oauthClient };
+    }
+
+    const { clientId, clientSecret, redirectUri, refreshToken, accessToken } = auth;
+    if (!clientId || !clientSecret || !redirectUri || !refreshToken) {
+      throw new Error(
+        'Google Drive auth.kind="oauth" requires either oauthClient or { clientId, clientSecret, redirectUri, refreshToken }'
+      );
+    }
+    return {
+      kind: "oauth_config",
+      clientId: String(clientId),
+      clientSecret: String(clientSecret),
+      redirectUri: String(redirectUri),
+      refreshToken: String(refreshToken),
+      ...(accessToken ? { accessToken: String(accessToken) } : {}),
+    };
   }
 
-  const { clientId, clientSecret, redirectUri, refreshToken, accessToken } = auth as any;
-  if (!clientId || !clientSecret || !redirectUri || !refreshToken) {
-    throw new Error(
-      'Google Drive auth.kind="oauth" requires either oauthClient or { clientId, clientSecret, redirectUri, refreshToken }'
-    );
-  }
-  return {
-    kind: "oauth_config",
-    clientId: String(clientId),
-    clientSecret: String(clientSecret),
-    redirectUri: String(redirectUri),
-    refreshToken: String(refreshToken),
-    ...(accessToken ? { accessToken: String(accessToken) } : {}),
-  };
+  throw new Error(`Unknown Google Drive auth kind: ${String((auth as Record<string, unknown>).kind)}`);
 }
 
 const asMessage = (err: unknown) => {
@@ -90,6 +116,41 @@ const asMessage = (err: unknown) => {
 };
 
 /**
+ * Google Auth Library module shape for dynamic import.
+ */
+interface GoogleAuthLibraryModule {
+  OAuth2Client?: new (
+    clientId: string,
+    clientSecret: string,
+    redirectUri: string
+  ) => {
+    setCredentials(credentials: Record<string, string>): void;
+  };
+  OAuth2?: new (
+    clientId: string,
+    clientSecret: string,
+    redirectUri: string
+  ) => {
+    setCredentials(credentials: Record<string, string>): void;
+  };
+  JWT?: new (options: {
+    email: string;
+    key: string;
+    scopes: string[];
+    subject?: string;
+  }) => unknown;
+}
+
+/**
+ * Googleapis module shape for dynamic import.
+ */
+interface GoogleApisModule {
+  google: {
+    drive(options: { version: string; auth: unknown }): DriveClient;
+  };
+}
+
+/**
  * Creates a Google Drive API client from a plug-and-play auth input.
  *
  * Note: This uses dynamic imports so the core Unrag package does not require
@@ -98,11 +159,11 @@ const asMessage = (err: unknown) => {
 export async function createGoogleDriveClient(args: {
   auth: GoogleDriveAuth;
   scopes?: string[];
-}): Promise<{ drive: any; authClient: any }> {
+}): Promise<{ drive: DriveClient; authClient: AuthClient }> {
   const normalized = normalizeGoogleDriveAuth(args.auth);
   const scopes = (args.scopes?.length ? args.scopes : DEFAULT_DRIVE_SCOPES) as string[];
 
-  let authClient: any;
+  let authClient: unknown;
 
   try {
     if (normalized.kind === "oauth_client") {
@@ -111,7 +172,7 @@ export async function createGoogleDriveClient(args: {
       authClient = normalized.auth;
     } else {
       // google-auth-library (dynamic)
-      const gal: any = await import("google-auth-library");
+      const gal = (await import("google-auth-library")) as GoogleAuthLibraryModule;
 
       if (normalized.kind === "oauth_config") {
         const OAuth2Client = gal.OAuth2Client ?? gal.OAuth2;
@@ -143,7 +204,7 @@ export async function createGoogleDriveClient(args: {
       }
     }
 
-    const { google }: any = await import("googleapis");
+    const { google } = (await import("googleapis")) as GoogleApisModule;
     if (!google?.drive) {
       throw new Error("googleapis.google.drive not found");
     }
@@ -153,7 +214,7 @@ export async function createGoogleDriveClient(args: {
       auth: authClient,
     });
 
-    return { drive, authClient };
+    return { drive, authClient: authClient as AuthClient };
   } catch (err) {
     const msg = asMessage(err);
     if (

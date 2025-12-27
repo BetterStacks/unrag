@@ -1,6 +1,15 @@
-import { embed, embedMany } from "ai";
+import { embed, embedMany, type EmbeddingModel } from "ai";
 import type { EmbeddingProvider } from "../core/types";
 import { requireOptional } from "./_shared";
+
+/**
+ * Mistral provider module interface.
+ */
+interface MistralModule {
+  mistral: {
+    embedding: (model: string) => EmbeddingModel<string>;
+  };
+}
 
 export type MistralEmbeddingConfig = {
   model?: string;
@@ -12,7 +21,7 @@ const DEFAULT_TEXT_MODEL = "mistral-embed";
 export const createMistralEmbeddingProvider = (
   config: MistralEmbeddingConfig = {}
 ): EmbeddingProvider => {
-  const { mistral } = requireOptional<any>({
+  const { mistral } = requireOptional<MistralModule>({
     id: "@ai-sdk/mistral",
     installHint: "bun add @ai-sdk/mistral",
     providerName: "mistral",

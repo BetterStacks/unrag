@@ -1,6 +1,15 @@
-import { embed, embedMany } from "ai";
+import { embed, embedMany, type EmbeddingModel } from "ai";
 import type { EmbeddingProvider } from "../core/types";
 import { requireOptional } from "./_shared";
+
+/**
+ * OpenAI provider module interface.
+ */
+interface OpenAiModule {
+  openai: {
+    embedding: (model: string) => EmbeddingModel<string>;
+  };
+}
 
 export type OpenAiEmbeddingConfig = {
   model?: string;
@@ -26,7 +35,7 @@ const buildProviderOptions = (config: OpenAiEmbeddingConfig) => {
 export const createOpenAiEmbeddingProvider = (
   config: OpenAiEmbeddingConfig = {}
 ): EmbeddingProvider => {
-  const { openai } = requireOptional<any>({
+  const { openai } = requireOptional<OpenAiModule>({
     id: "@ai-sdk/openai",
     installHint: "bun add @ai-sdk/openai",
     providerName: "openai",

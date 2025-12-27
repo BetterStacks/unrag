@@ -1,6 +1,15 @@
-import { embed, embedMany } from "ai";
+import { embed, embedMany, type EmbeddingModel } from "ai";
 import type { EmbeddingProvider } from "../core/types";
 import { requireOptional } from "./_shared";
+
+/**
+ * Cohere provider module interface.
+ */
+interface CohereModule {
+  cohere: {
+    embedding: (model: string) => EmbeddingModel<string>;
+  };
+}
 
 export type CohereEmbeddingConfig = {
   model?: string;
@@ -26,7 +35,7 @@ const buildProviderOptions = (config: CohereEmbeddingConfig) => {
 export const createCohereEmbeddingProvider = (
   config: CohereEmbeddingConfig = {}
 ): EmbeddingProvider => {
-  const { cohere } = requireOptional<any>({
+  const { cohere } = requireOptional<CohereModule>({
     id: "@ai-sdk/cohere",
     installHint: "bun add @ai-sdk/cohere",
     providerName: "cohere",

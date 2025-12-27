@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateText, type LanguageModel } from "ai";
 import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -6,6 +6,11 @@ import path from "node:path";
 import type { AssetExtractor } from "../../core/types";
 import { getAssetBytes } from "../_shared/fetch";
 import { capText } from "../_shared/text";
+
+/**
+ * Model reference type that accepts both string gateway IDs and LanguageModel instances.
+ */
+type ModelRef = string | LanguageModel;
 
 const run = async (cmd: string, args: string[], opts: { cwd: string }) => {
   return await new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
@@ -87,7 +92,7 @@ export function createVideoFramesExtractor(): AssetExtractor {
 
           const imgBytes = await readFile(path.join(tmpDir, f));
           const result = await generateText({
-            model: cfg.model as any,
+            model: cfg.model as ModelRef,
             abortSignal: abortPerFrame(cfg.timeoutMs),
             messages: [
               {
@@ -100,7 +105,7 @@ export function createVideoFramesExtractor(): AssetExtractor {
             ],
           });
 
-          const t = String((result as any)?.text ?? "").trim();
+          const t = (result.text ?? "").trim();
           if (!t) continue;
 
           const capped = capText(t, cfg.maxOutputChars - totalChars);

@@ -11,6 +11,49 @@ export type OpenRouterEmbeddingConfig = {
   title?: string;
 };
 
+/**
+ * OpenRouter embedding result item.
+ */
+interface EmbeddingDataItem {
+  embedding?: number[];
+}
+
+/**
+ * OpenRouter embedding response.
+ */
+interface EmbeddingResponse {
+  data?: EmbeddingDataItem[];
+  embedding?: number[];
+}
+
+/**
+ * OpenRouter client embeddings interface.
+ */
+interface EmbeddingsClient {
+  generate(
+    params: { input: string | string[]; model: string },
+    options?: { fetchOptions?: { signal?: AbortSignal } }
+  ): Promise<EmbeddingResponse>;
+}
+
+/**
+ * OpenRouter client interface.
+ */
+interface OpenRouterClient {
+  embeddings: EmbeddingsClient;
+}
+
+/**
+ * OpenRouter SDK module interface.
+ */
+interface OpenRouterModule {
+  OpenRouter: new (config: {
+    apiKey: string;
+    baseURL?: string;
+    headers?: Record<string, string>;
+  }) => OpenRouterClient;
+}
+
 const DEFAULT_TEXT_MODEL = "text-embedding-3-small";
 
 const buildHeaders = (config: OpenRouterEmbeddingConfig) => {
@@ -23,7 +66,7 @@ const buildHeaders = (config: OpenRouterEmbeddingConfig) => {
 export const createOpenRouterEmbeddingProvider = (
   config: OpenRouterEmbeddingConfig = {}
 ): EmbeddingProvider => {
-  const { OpenRouter } = requireOptional<any>({
+  const { OpenRouter } = requireOptional<OpenRouterModule>({
     id: "@openrouter/sdk",
     installHint: "bun add @openrouter/sdk",
     providerName: "openrouter",
@@ -37,7 +80,7 @@ export const createOpenRouterEmbeddingProvider = (
     apiKey: config.apiKey ?? process.env.OPENROUTER_API_KEY ?? "",
     ...(config.baseURL ? { baseURL: config.baseURL } : {}),
     ...(Object.keys(headers).length ? { headers } : {}),
-  } as any);
+  });
 
   return {
     name: `openrouter:${model}`,
@@ -47,35 +90,34 @@ export const createOpenRouterEmbeddingProvider = (
         ? AbortSignal.timeout(timeoutMs)
         : undefined;
 
-      const result = await (client as any).embeddings.generate(
+      const result = await client.embeddings.generate(
         { input: text, model },
         abortSignal ? { fetchOptions: { signal: abortSignal } } : undefined
       );
 
       const embedding =
-        (result as any)?.data?.[0]?.embedding ??
-        (result as any)?.embedding ??
-        (result as any)?.data?.embedding;
+        result.data?.[0]?.embedding ??
+        result.embedding;
       if (!embedding) {
         throw new Error("Embedding missing from OpenRouter response");
       }
 
-      return embedding as number[];
+      return embedding;
     },
     embedMany: async (inputs) => {
       const values = inputs.map((i) => i.text);
       const abortSignal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined;
 
-      const result = await (client as any).embeddings.generate(
+      const result = await client.embeddings.generate(
         { input: values, model },
         abortSignal ? { fetchOptions: { signal: abortSignal } } : undefined
       );
 
-      const embeddings = (result as any)?.data?.map(
-        (item: { embedding?: number[] }) => item.embedding
+      const embeddings = result.data?.map(
+        (item) => item.embedding
       );
 
-      if (!Array.isArray(embeddings) || embeddings.some((e) => !Array.isArray(e))) {
+      if (!embeddings || embeddings.some((e) => !Array.isArray(e))) {
         throw new Error("Embeddings missing from OpenRouter response");
       }
 

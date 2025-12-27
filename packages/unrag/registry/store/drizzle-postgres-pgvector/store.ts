@@ -1,9 +1,26 @@
 import { documents, chunks, embeddings } from "./schema";
 import type { Chunk, VectorStore } from "../../core/types";
 import { eq, like, sql, type SQL } from "drizzle-orm";
-import type { PgDatabase } from "drizzle-orm/pg-core";
+import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 
-type DrizzleDb = PgDatabase<any, any, any>;
+/**
+ * Accepts any Drizzle Postgres database instance regardless of schema type.
+ */
+type DrizzleDb = PgDatabase<PgQueryResultHKT, Record<string, unknown>>;
+
+/**
+ * Query row type for vector similarity search results.
+ */
+interface QueryRow {
+  id: string;
+  document_id: string;
+  source_id: string;
+  idx: number;
+  content: string;
+  token_count: number;
+  metadata: Record<string, unknown> | null;
+  score: number;
+}
 
 const sanitizeMetadata = (metadata: unknown) => {
   if (metadata === undefined) {
@@ -133,11 +150,11 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
       `
     );
 
-    const rows = Array.isArray(result)
-      ? result
-      : ((result as { rows?: unknown[] }).rows ?? []);
+    const rows: QueryRow[] = Array.isArray(result)
+      ? (result as QueryRow[])
+      : ((result as { rows?: QueryRow[] }).rows ?? []);
 
-    return (rows as Array<Record<string, unknown>>).map((row) => ({
+    return rows.map((row) => ({
       id: String(row.id),
       documentId: String(row.document_id),
       sourceId: String(row.source_id),

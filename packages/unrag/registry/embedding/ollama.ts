@@ -1,6 +1,21 @@
-import { embed, embedMany } from "ai";
+import { embed, embedMany, type EmbeddingModel } from "ai";
 import type { EmbeddingProvider } from "../core/types";
 import { requireOptional } from "./_shared";
+
+/**
+ * Ollama provider instance interface.
+ */
+interface OllamaProvider {
+  textEmbeddingModel: (model: string) => EmbeddingModel<string>;
+}
+
+/**
+ * Ollama provider module interface.
+ */
+interface OllamaModule {
+  createOllama: (config: { baseURL?: string; headers?: Record<string, string> }) => OllamaProvider;
+  ollama: OllamaProvider;
+}
 
 export type OllamaEmbeddingConfig = {
   model?: string;
@@ -11,8 +26,8 @@ export type OllamaEmbeddingConfig = {
 
 const DEFAULT_TEXT_MODEL = "nomic-embed-text";
 
-const resolveProvider = (config: OllamaEmbeddingConfig) => {
-  const { createOllama, ollama } = requireOptional<any>({
+const resolveProvider = (config: OllamaEmbeddingConfig): OllamaProvider => {
+  const { createOllama, ollama } = requireOptional<OllamaModule>({
     id: "ollama-ai-provider-v2",
     installHint: "bun add ollama-ai-provider-v2",
     providerName: "ollama",

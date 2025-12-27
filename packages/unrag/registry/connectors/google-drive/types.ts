@@ -1,6 +1,79 @@
 import type { ContextEngine, AssetInput, IngestInput } from "../../core";
 
 /**
+ * Service account credentials structure.
+ */
+export interface ServiceAccountCredentials {
+  client_email: string;
+  private_key: string;
+  [key: string]: unknown;
+}
+
+/**
+ * OAuth auth with an existing client instance.
+ */
+export type GoogleDriveOAuthClientAuth = {
+  /** Use an existing OAuth2 client instance (recommended if your app already has one). */
+  kind: "oauth";
+  oauthClient: unknown;
+  clientId?: never;
+  clientSecret?: never;
+  redirectUri?: never;
+  refreshToken?: never;
+  accessToken?: never;
+};
+
+/**
+ * OAuth auth with credentials for building a client.
+ */
+export type GoogleDriveOAuthConfigAuth = {
+  /**
+   * Convenience form for OAuth2: the connector will construct an OAuth2 client
+   * and set credentials including the refresh token.
+   */
+  kind: "oauth";
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
+  refreshToken: string;
+  /** Optional access token if you already have one. */
+  accessToken?: string;
+  oauthClient?: never;
+};
+
+/**
+ * OAuth auth (either form).
+ */
+export type GoogleDriveOAuthAuth = GoogleDriveOAuthClientAuth | GoogleDriveOAuthConfigAuth;
+
+/**
+ * Service account auth.
+ */
+export type GoogleDriveServiceAccountAuth = {
+  /**
+   * Service account credentials. This supports both:
+   * - direct service-account access (files must be shared to the service account)
+   * - Workspace domain-wide delegation (DWD) when `subject` is provided
+   */
+  kind: "service_account";
+  credentialsJson: string | ServiceAccountCredentials;
+  /**
+   * DWD impersonation subject email (Workspace only).
+   * When provided, the service account will impersonate this user.
+   */
+  subject?: string;
+};
+
+/**
+ * Google Auth escape hatch.
+ */
+export type GoogleDriveGoogleAuthAuth = {
+  /** Escape hatch: provide a pre-configured GoogleAuth (or equivalent) instance. */
+  kind: "google_auth";
+  auth: unknown;
+};
+
+/**
  * A plug-and-play auth input for Google Drive.
  *
  * This is intentionally structural (no hard dependency on google-auth-library types),
@@ -8,43 +81,9 @@ import type { ContextEngine, AssetInput, IngestInput } from "../../core";
  * by the CLI (`unrag add google-drive`).
  */
 export type GoogleDriveAuth =
-  | {
-      /** Use an existing OAuth2 client instance (recommended if your app already has one). */
-      kind: "oauth";
-      oauthClient: unknown;
-    }
-  | {
-      /**
-       * Convenience form for OAuth2: the connector will construct an OAuth2 client
-       * and set credentials including the refresh token.
-       */
-      kind: "oauth";
-      clientId: string;
-      clientSecret: string;
-      redirectUri: string;
-      refreshToken: string;
-      /** Optional access token if you already have one. */
-      accessToken?: string;
-    }
-  | {
-      /**
-       * Service account credentials. This supports both:
-       * - direct service-account access (files must be shared to the service account)
-       * - Workspace domain-wide delegation (DWD) when `subject` is provided
-       */
-      kind: "service_account";
-      credentialsJson: string | Record<string, unknown>;
-      /**
-       * DWD impersonation subject email (Workspace only).
-       * When provided, the service account will impersonate this user.
-       */
-      subject?: string;
-    }
-  | {
-      /** Escape hatch: provide a pre-configured GoogleAuth (or equivalent) instance. */
-      kind: "google_auth";
-      auth: unknown;
-    };
+  | GoogleDriveOAuthAuth
+  | GoogleDriveServiceAccountAuth
+  | GoogleDriveGoogleAuthAuth;
 
 export type GoogleDriveSyncProgressEvent =
   | { type: "file:start"; fileId: string; sourceId: string }

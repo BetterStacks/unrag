@@ -1,13 +1,18 @@
-import { generateText } from "ai";
+import { generateText, type LanguageModel } from "ai";
 import type { AssetExtractor } from "../../core/types";
 import { getAssetBytes } from "../_shared/fetch";
 import { normalizeMediaType } from "../_shared/media";
 import { capText } from "../_shared/text";
 
 /**
+ * Model reference type that accepts both string gateway IDs and LanguageModel instances.
+ */
+type ModelRef = string | LanguageModel;
+
+/**
  * Image OCR via a vision-capable LLM.
  *
- * This extractor is intended for screenshots, charts, diagrams, and any image with embedded text.
+ * This extractor is intended for screenshots, charts, diagrams, and images with embedded text.
  */
 export function createImageOcrExtractor(): AssetExtractor {
   return {
@@ -29,7 +34,7 @@ export function createImageOcrExtractor(): AssetExtractor {
       const abortSignal = AbortSignal.timeout(cfg.timeoutMs);
 
       const result = await generateText({
-        model: cfg.model as any,
+        model: cfg.model as ModelRef,
         abortSignal,
         messages: [
           {
@@ -46,7 +51,7 @@ export function createImageOcrExtractor(): AssetExtractor {
         ],
       });
 
-      const text = String((result as any)?.text ?? "").trim();
+      const text = (result.text ?? "").trim();
       if (!text) return { texts: [], diagnostics: { model: cfg.model } };
 
       return {

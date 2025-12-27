@@ -2,7 +2,12 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 
-export function requireOptional<T = any>(args: {
+/**
+ * Dynamically require an optional dependency with type-safe return.
+ *
+ * @template T - The expected module type (callers must define this)
+ */
+export function requireOptional<T>(args: {
   id: string;
   installHint: string;
   providerName: string;

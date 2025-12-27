@@ -53,11 +53,10 @@ export const createAiEmbeddingProvider = (
         ...(abortSignal ? { abortSignal } : {}),
       });
 
-      const embeddings = (result as any)?.embeddings as number[][] | undefined;
-      if (!embeddings) {
+      if (!result.embeddings || result.embeddings.length === 0) {
         throw new Error("Embeddings missing from AI SDK embedMany response");
       }
-      return embeddings;
+      return result.embeddings;
     },
   };
 };

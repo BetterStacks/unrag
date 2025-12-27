@@ -3,10 +3,10 @@ import type {
   ContextEngineConfig,
   ResolvedContextEngineConfig,
   AssetProcessingConfig,
-  DeepPartial,
   ContentStorageConfig,
 } from "./types";
 import { defaultChunker, resolveChunkingOptions } from "./chunking";
+import { mergeDeep } from "./deep-merge";
 
 export const defineConfig = (config: ContextEngineConfig): ContextEngineConfig =>
   config;
@@ -121,32 +121,6 @@ export const defaultAssetProcessingConfig: AssetProcessingConfig = {
 export const defaultContentStorageConfig: ContentStorageConfig = {
   storeChunkContent: true,
   storeDocumentContent: true,
-};
-
-const mergeDeep = <T extends Record<string, any>>(
-  base: T,
-  overrides: DeepPartial<T> | undefined
-): T => {
-  if (!overrides) return base;
-  const out: any = Array.isArray(base) ? [...base] : { ...base };
-  for (const key of Object.keys(overrides) as Array<keyof T>) {
-    const nextVal = overrides[key];
-    if (nextVal === undefined) continue;
-    const baseVal = base[key];
-    if (
-      baseVal &&
-      typeof baseVal === "object" &&
-      !Array.isArray(baseVal) &&
-      nextVal &&
-      typeof nextVal === "object" &&
-      !Array.isArray(nextVal)
-    ) {
-      out[key] = mergeDeep(baseVal, nextVal as any);
-    } else {
-      out[key] = nextVal as any;
-    }
-  }
-  return out as T;
 };
 
 export const resolveAssetProcessingConfig = (

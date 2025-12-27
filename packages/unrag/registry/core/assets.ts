@@ -1,4 +1,5 @@
 import type { AssetKind, Chunk } from "./types";
+import { hasAssetMetadata } from "./types";
 
 export type ChunkAssetRef = {
   assetId: string;
@@ -21,26 +22,26 @@ const assetKinds = new Set<AssetKind>(["image", "pdf", "audio", "video", "file"]
 export function getChunkAssetRef(
   chunk: Pick<Chunk, "metadata">
 ): ChunkAssetRef | null {
-  const meta = chunk.metadata as any;
-  const kind = meta?.assetKind;
-  const id = meta?.assetId;
+  const meta = chunk.metadata;
 
-  if (typeof kind !== "string" || !assetKinds.has(kind as AssetKind)) {
-    return null;
-  }
-  if (typeof id !== "string" || !id) {
+  if (!hasAssetMetadata(meta)) {
     return null;
   }
 
-  const assetUri = typeof meta?.assetUri === "string" ? meta.assetUri : undefined;
+  const kind = meta.assetKind;
+  if (!assetKinds.has(kind)) {
+    return null;
+  }
+
+  const assetUri = typeof meta.assetUri === "string" ? meta.assetUri : undefined;
   const assetMediaType =
-    typeof meta?.assetMediaType === "string" ? meta.assetMediaType : undefined;
+    typeof meta.assetMediaType === "string" ? meta.assetMediaType : undefined;
   const extractor =
-    typeof meta?.extractor === "string" ? meta.extractor : undefined;
+    typeof meta.extractor === "string" ? meta.extractor : undefined;
 
   return {
-    assetId: id,
-    assetKind: kind as AssetKind,
+    assetId: meta.assetId,
+    assetKind: kind,
     ...(assetUri ? { assetUri } : {}),
     ...(assetMediaType ? { assetMediaType } : {}),
     ...(extractor ? { extractor } : {}),
