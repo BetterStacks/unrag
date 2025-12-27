@@ -1,5 +1,24 @@
 # unrag
 
+## 0.2.6
+
+### Patch Changes
+
+- Add `--preset` flag to `init` command for preset-based installation from URL or preset ID
+- Add `--provider` flag to `init` command to select embedding provider during initialization
+- Add `--overwrite` flag to `init` command with `skip` or `force` options for controlling file overwrite behavior
+- Support 12 embedding providers with automatic peer dependency installation: OpenAI, Google AI, Azure OpenAI, Vertex AI, AWS Bedrock, Cohere, Mistral, Together.ai, Voyage, OpenRouter, Ollama, and AI Gateway
+- Read available extractors and connectors from registry manifest instead of hardcoded lists
+- Generate `unrag.config.ts` with preset-configurable defaults for chunkSize, chunkOverlap, topK, embedding model, type, and timeout
+
+### Fixes and improvements
+
+- Fix drizzle pgvector store adapter to handle both array and object return types from `db.execute()`
+- Upgrade AI SDK dependency from ^5.0.113 to ^6.0.3
+- Refactor `add` command to use registry manifest for available extractors and connectors
+- Add new CLI library modules for manifest reading and preset fetching
+- Include embedding provider SDK as a dependency when provider is selected during init
+
 ## 0.2.5
 
 ### Patch Changes
