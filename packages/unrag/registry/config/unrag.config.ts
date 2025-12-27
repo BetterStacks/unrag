@@ -28,7 +28,6 @@ export const unrag = defineUnragConfig({
   embedding: {
     provider: "ai",
     config: {
-      type: "text", // __UNRAG_EMBEDDING_TYPE__
       model: "openai/text-embedding-3-small", // __UNRAG_EMBEDDING_MODEL__
       timeoutMs: 15_000,
     },
@@ -62,7 +61,7 @@ export const unrag = defineUnragConfig({
    *
    * Notes:
    * - This generated config is cost-safe by default (all extraction is off).
-   * - `unrag init` can enable rich media + multimodal embeddings for you.
+   * - `unrag init --rich-media` can enable rich media ingestion for you (extractors + assetProcessing flags).
    * - Tighten fetch allowlists/limits in production if you ingest URL-based assets.
    */
   assetProcessing: {

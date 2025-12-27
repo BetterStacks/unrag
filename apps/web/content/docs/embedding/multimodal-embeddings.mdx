@@ -3,12 +3,12 @@ title: Multimodal Embeddings
 description: Embed images directly alongside text in the same vector space.
 ---
 
-By default, Unrag's embedding provider handles text only. But some embedding models can embed both text and images into the same vector space—meaning a text query can semantically match image content.
+By default, Unrag's embedding providers handle text only. But some embedding models can embed both text and images into the same vector space—meaning a text query can semantically match image content.
 
-This page explains how to enable and use multimodal embeddings.
+This page explains how multimodal embeddings work and how to enable them.
 
 <Callout>
-The fastest way to enable multimodal embeddings is during setup. Run `bunx unrag@latest init --rich-media` and the CLI configures your embedding provider with `type: "multimodal"` and a compatible model. If you've already run `init`, you can re-run with `--rich-media` to enable it, or follow the manual steps below.
+The fastest way to enable multimodal embeddings is during setup. Run `bunx unrag@latest init --rich-media` and the CLI configures your embedding provider with multimodal support. If you've already run `init`, you can re-run with `--rich-media` to enable it, or follow the manual steps below.
 </Callout>
 
 ## What multimodal means
@@ -23,30 +23,39 @@ This means a query like "architecture diagram" can retrieve an actual architectu
 
 ## Enabling multimodal mode
 
-Set `type: 'multimodal'` when creating your embedding provider:
+Currently, [Voyage AI](/docs/providers/voyage) is the only built-in provider with multimodal support. Configure it with `type: "multimodal"`:
 
 ```ts
-import { createAiEmbeddingProvider } from "@unrag/embedding/ai";
+import { defineUnragConfig } from "./lib/unrag/core";
 
-const embedding = createAiEmbeddingProvider({
-  type: "multimodal",
-  model: "cohere/embed-v4.0", // Example multimodal model
-  timeoutMs: 30_000,
-});
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "voyage",
+    config: {
+      type: "multimodal",
+      model: "voyage-multimodal-3",
+      timeoutMs: 30_000,
+    },
+  },
+} as const);
 ```
 
 With multimodal enabled, the provider exposes an `embedImage` function that the ingest pipeline uses for image assets.
 
 ## Which models support multimodal
 
-Not all embedding models support images. Check your provider's documentation. Some examples:
+Not all embedding models support images. Among Unrag's built-in providers, only Voyage currently offers multimodal embedding:
 
 | Provider | Model | Multimodal |
-|----------|-------|------------|
-| Voyage | voyage-multimodal-3 | Yes |
-| OpenAI | text-embedding-3-small | No |
-| OpenAI | text-embedding-3-large | No |
-| Cohere | embed-v4.0 | Yes |
+|----------|-------|:----------:|
+| Voyage | voyage-multimodal-3 | ✓ |
+| OpenAI | text-embedding-3-small | — |
+| OpenAI | text-embedding-3-large | — |
+| Google | gemini-embedding-001 | — |
+| Cohere | embed-english-v3.0 | — |
+
+If you need multimodal embeddings with a different provider, you can implement a [custom provider](/docs/providers/custom) that supports the `embedImage` interface.
 
 <Callout type="warn">
 The embedding model must embed both text and images into the same space. Using different models for text and images would create incompatible embedding spaces—retrieval wouldn't work correctly.
@@ -72,7 +81,7 @@ Retrieval returns standard chunks. For image matches, Unrag stores **references*
 - optional `chunk.metadata.assetUri` / `chunk.metadata.assetMediaType`
 - `chunk.metadata.extractor === "image:embed"`
 
-`chunk.content` will be the image caption/alt text (if provided) and may be an empty string (for example if you didn’t provide a caption, or if you disabled `storage.storeChunkContent`).
+`chunk.content` will be the image caption/alt text (if provided) and may be an empty string (for example if you didn't provide a caption, or if you disabled `storage.storeChunkContent`).
 
 To get the actual image, resolve it via your asset store:
 
@@ -94,7 +103,7 @@ for (const chunk of result.chunks) {
 
 ### Example: resolve bytes from a retrieved asset chunk (URL-based)
 
-This pattern works when `assetUri` is a stable, fetchable URL (or a signed URL that hasn’t expired):
+This pattern works when `assetUri` is a stable, fetchable URL (or a signed URL that hasn't expired):
 
 ```ts
 import { getChunkAssetRef, type ChunkAssetRef } from "@unrag/core";
@@ -159,23 +168,26 @@ The ingest pipeline checks for `embedImage` and uses it when processing image as
 
 ## Customizing image embedding
 
-For advanced use cases, you can customize how image values are formatted for the AI SDK:
+For advanced use cases with Voyage's multimodal mode, you can customize how image values are formatted:
 
 ```ts
-const embedding = createAiEmbeddingProvider({
-  type: "multimodal",
-  model: "cohere/embed-v4.0",
-  
-  // Custom formatter for image embedding values
-  image: {
-    value: (input) => ({
-      image: [input.data], // Provider-specific; may need a data URL when input.data is bytes
-    }),
+embedding: {
+  provider: "voyage",
+  config: {
+    type: "multimodal",
+    model: "voyage-multimodal-3",
+    
+    // Custom formatter for image embedding values
+    image: {
+      value: (input) => ({
+        image: [input.data], // Provider-specific format
+      }),
+    },
   },
-});
+},
 ```
 
-The default behavior works for most providers, but this escape hatch lets you adapt to provider-specific formats.
+The default behavior works for most cases, but this escape hatch lets you adapt to API changes or special requirements.
 
 ## Fallback behavior
 
@@ -183,19 +195,19 @@ If your embedding provider doesn't support multimodal (no `embedImage` function)
 
 1. Unrag checks if the image has a `text` field (caption/alt text)
 2. If present, the caption is chunked and embedded as text
-3. If not, the image is skipped
+3. If not, the image is skipped with a warning
 
 This means you can use a text-only embedding model and still get some value from images—as long as they have descriptive captions.
 
 ## When to use text-only vs multimodal
 
-**Use text-only (`type: 'text'`)** when:
+**Use text-only** when:
 - Your content is primarily text
 - You don't need semantic image search
 - You want to minimize embedding costs
 - Your chosen text model produces better results for your domain
 
-**Use multimodal (`type: 'multimodal'`)** when:
+**Use multimodal** when:
 - Your content includes diagrams, charts, or photos
 - You want "show me the architecture diagram" to actually find diagrams
 - Image captions aren't descriptive enough for text search
@@ -213,13 +225,14 @@ For many use cases, high-quality captions with a text-only model work well. Mult
 
 ## Complete example
 
-Here's a config that enables multimodal embedding:
+Here's a config that enables multimodal embedding with Voyage:
 
 ```ts
 // unrag.config.ts
 import { defineUnragConfig } from "./lib/unrag/core";
 import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
-import { db } from "./lib/db";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
 
 export const unrag = defineUnragConfig({
   defaults: {
@@ -227,19 +240,21 @@ export const unrag = defineUnragConfig({
     retrieval: { topK: 8 },
   },
   embedding: {
-    provider: "ai",
+    provider: "voyage",
     config: {
-    type: "multimodal",
-    model: "cohere/embed-v4.0",
-    timeoutMs: 30_000,
-  },
+      type: "multimodal",
+      model: "voyage-multimodal-3",
+      timeoutMs: 30_000,
+    },
   },
   engine: {
-  // ... other config
+    // ... other config
   },
 } as const);
 
 export function createUnragEngine() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const db = drizzle(pool);
   const store = createDrizzleVectorStore(db);
   return unrag.createEngine({ store });
 }
@@ -267,3 +282,6 @@ const result = await engine.retrieve({
 });
 ```
 
+<Callout title="More on Voyage">
+See [Voyage AI Provider](/docs/providers/voyage) for complete configuration options and available models.
+</Callout>

@@ -1,0 +1,110 @@
+---
+title: Cohere
+description: Specialized embedding models with strong multilingual support and search optimization.
+---
+
+Cohere builds AI models with a particular focus on enterprise search and retrieval. Their embedding models are designed specifically for search applications, with features like input type hints that let you tell the model whether you're embedding a document or a query. This can improve retrieval quality compared to general-purpose models.
+
+Cohere's multilingual models are especially strong if you're working with content in multiple languages—they produce embeddings that work across languages, so a query in English can match documents in French or Japanese.
+
+## Setup
+
+Install the Cohere SDK package:
+
+```bash
+bun add @ai-sdk/cohere
+```
+
+Set your API key in the environment:
+
+```bash
+COHERE_API_KEY="..."
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "cohere",
+    config: {
+      model: "embed-english-v3.0",
+      timeoutMs: 15_000,
+    },
+  },
+} as const);
+```
+
+## Configuration options
+
+**`model`** specifies which Cohere embedding model to use. If not set, the provider checks the `COHERE_EMBEDDING_MODEL` environment variable, then falls back to `embed-english-v3.0`.
+
+**`timeoutMs`** sets the request timeout in milliseconds.
+
+**`inputType`** tells Cohere what kind of content you're embedding. This helps the model produce better embeddings for your specific use case.
+
+**`truncate`** controls how the model handles input that exceeds its context window.
+
+```ts
+embedding: {
+  provider: "cohere",
+  config: {
+    model: "embed-multilingual-v3.0",
+    inputType: "search_document",
+    truncate: "END",
+    timeoutMs: 20_000,
+  },
+},
+```
+
+## Input types
+
+Cohere's embedding models support input type hints that optimize the embeddings for specific use cases:
+
+**`search_document`**: Use this when embedding documents that will be searched. This is typically what you want for ingestion.
+
+**`search_query`**: Use this when embedding search queries. The model optimizes for matching against documents.
+
+**`classification`**: When embeddings will be used for classification tasks.
+
+**`clustering`**: When embeddings will be used for clustering similar documents.
+
+For RAG applications, you ideally want `search_document` when ingesting and `search_query` when retrieving. Unrag doesn't currently switch input types automatically, so the ingestion input type will be used for both.
+
+## Truncation options
+
+**`NONE`**: Don't truncate. The API will return an error if the input is too long.
+
+**`START`**: Truncate from the beginning of the input.
+
+**`END`**: Truncate from the end of the input (most common choice).
+
+## Available models
+
+**`embed-english-v3.0`** is optimized for English text. It produces 1024-dimensional embeddings and is the best choice for English-only applications.
+
+**`embed-multilingual-v3.0`** supports over 100 languages and produces embeddings that work across languages. A query in one language can match documents in another.
+
+**`embed-english-light-v3.0`** and **`embed-multilingual-light-v3.0`** are smaller, faster versions with slightly lower quality. Consider these if embedding speed is critical.
+
+## Environment variables
+
+**`COHERE_API_KEY`** (required): Your Cohere API key. Get one from the Cohere dashboard.
+
+**`COHERE_EMBEDDING_MODEL`** (optional): Overrides the model specified in code.
+
+```bash
+# .env
+COHERE_API_KEY="..."
+COHERE_EMBEDDING_MODEL="embed-multilingual-v3.0"
+```
+
+## When to use Cohere
+
+Choose Cohere when you're building search applications and want models designed specifically for retrieval, or when you need strong multilingual support. Their input type hints and search-focused optimization can give you an edge in retrieval quality.
+
+Consider other providers when you're already invested in a different ecosystem or when you need multimodal embeddings (use Voyage instead).
+

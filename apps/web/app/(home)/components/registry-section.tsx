@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useMemo, type ComponentType } from 'react';
+import { useState, useMemo, type ComponentType, type SVGProps } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -14,7 +14,6 @@ import {
 import { ArrowSquareOut } from '@phosphor-icons/react';
 import {
   AmazonWebServicesDark,
-  AnthropicDark,
   CloudflareWorkers,
   Cohere,
   Discord,
@@ -76,7 +75,18 @@ type Provider = {
   status: 'available' | 'coming-soon';
   description?: string;
   logo: ComponentType<any>;
+  installCmd?: string;
+  docUrl?: string;
 };
+
+const VoyageLogo = (props: SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+    <path
+      d="M4.5 6h3.2L12 15.2 16.3 6h3.2L13.3 19h-2.6L4.5 6z"
+      fill="currentColor"
+    />
+  </svg>
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Data
@@ -286,78 +296,96 @@ const providers: Provider[] = [
     status: 'available',
     description: 'Unified gateway for LLM and embedding providers.',
     logo: VercelDark,
+    installCmd: 'bun add ai',
+    docUrl: '/docs/providers/ai-gateway',
+  },
+  {
+    name: 'Voyage',
+    status: 'available',
+    description: 'Multimodal embeddings via Voyage AI.',
+    logo: VoyageLogo,
+    installCmd: 'bun add voyage-ai-provider',
+    docUrl: '/docs/providers/voyage',
   },
   {
     name: 'OpenAI',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Embeddings + LLM calls via OpenAI models.',
     logo: OpenAIDark,
-  },
-  {
-    name: 'Anthropic',
-    status: 'coming-soon',
-    description: 'LLM calls via Claude models.',
-    logo: AnthropicDark,
+    installCmd: 'bun add @ai-sdk/openai',
+    docUrl: '/docs/providers/openai',
   },
   {
     name: 'Google Gemini',
-    status: 'coming-soon',
-    description: 'LLM + multimodal extraction via Gemini.',
+    status: 'available',
+    description: 'Embeddings + LLM calls via Gemini.',
     logo: Gemini,
+    installCmd: 'bun add @ai-sdk/google',
+    docUrl: '/docs/providers/google',
   },
   {
     name: 'OpenRouter',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Unified API for multiple LLM providers and model routing.',
     logo: OpenRouterDark,
+    installCmd: 'bun add @openrouter/sdk',
+    docUrl: '/docs/providers/openrouter',
   },
   {
     name: 'Azure OpenAI',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Use OpenAI models through Azure deployments.',
     logo: MicrosoftAzure,
+    installCmd: 'bun add @ai-sdk/azure',
+    docUrl: '/docs/providers/azure',
   },
   {
     name: 'AWS Bedrock',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Enterprise LLM + embedding access via Bedrock.',
     logo: AmazonWebServicesDark,
+    installCmd: 'bun add @ai-sdk/amazon-bedrock',
+    docUrl: '/docs/providers/bedrock',
   },
   {
     name: 'Google Vertex AI',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Enterprise access to Gemini + embeddings via Google Cloud Vertex AI.',
     logo: GoogleCloud,
+    installCmd: 'bun add @ai-sdk/google-vertex',
+    docUrl: '/docs/providers/vertex',
   },
   {
     name: 'Ollama',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Local models for dev and private deployments.',
     logo: OllamaDark,
-  },
-  {
-    name: 'Groq',
-    status: 'coming-soon',
-    description: 'Low-latency inference for supported models.',
-    logo: Groq,
+    installCmd: 'bun add ollama-ai-provider-v2',
+    docUrl: '/docs/providers/ollama',
   },
   {
     name: 'Mistral',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Fast LLM calls via Mistral models.',
     logo: MistralAI,
+    installCmd: 'bun add @ai-sdk/mistral',
+    docUrl: '/docs/providers/mistral',
   },
   {
     name: 'Together AI',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Broad model catalog for LLM calls and embeddings.',
     logo: TogetherAIDark,
+    installCmd: 'bun add @ai-sdk/togetherai',
+    docUrl: '/docs/providers/together',
   },
   {
     name: 'Cohere',
-    status: 'coming-soon',
+    status: 'available',
     description: 'Embeddings and rerankers for retrieval.',
     logo: Cohere,
+    installCmd: 'bun add @ai-sdk/cohere',
+    docUrl: '/docs/providers/cohere',
   },
   {
     name: 'Cloudflare Workers AI',
@@ -442,6 +470,19 @@ const connectorGlobalFilter: FilterFn<Connector> = (row, _columnId, filterValue)
 
   const c = row.original;
   const haystack = [c.id, c.displayName, toSearchableText(c.types), c.status, c.description]
+    .join(' ')
+    .toLowerCase()
+    .trim();
+
+  return terms.every((t) => haystack.includes(t));
+};
+
+const providerGlobalFilter: FilterFn<Provider> = (row, _columnId, filterValue) => {
+  const terms = normalizeSearchTerms(filterValue);
+  if (terms.length === 0) return true;
+
+  const p = row.original;
+  const haystack = [p.name, p.status, p.description ?? '']
     .join(' ')
     .toLowerCase()
     .trim();
@@ -878,6 +919,11 @@ const providerColumns = [
           />
         </div>
         <span className="font-mono text-sm text-white">{info.getValue()}</span>
+        <RowActions
+          copyText={info.row.original.installCmd}
+          docHref={info.row.original.docUrl}
+          docLabel={`${info.getValue()} docs`}
+        />
       </div>
     ),
   }),
@@ -916,6 +962,8 @@ function ProvidersTab() {
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
+    globalFilterFn: providerGlobalFilter,
+    getColumnCanGlobalFilter: (column) => column.id === 'name',
   });
 
   return (
@@ -1027,8 +1075,8 @@ export function RegistrySection() {
       title: 'Bring your own model',
       description:
         'Swap embedding and LLM providers without changing your code. OpenAI today, local models tomorrow, your choice.',
-      docLink: undefined,
-      ctaLabel: undefined,
+      docLink: '/docs/providers',
+      ctaLabel: 'Explore providers',
     };
   })();
 
@@ -1099,4 +1147,3 @@ export function RegistrySection() {
     </section>
   );
 }
-

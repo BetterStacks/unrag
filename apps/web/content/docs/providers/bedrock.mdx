@@ -1,0 +1,98 @@
+---
+title: AWS Bedrock
+description: Use Amazon's Titan embedding models and other models through AWS Bedrock.
+---
+
+Amazon Bedrock is AWS's managed AI service that provides access to foundation models from Amazon and other providers. If you're running on AWS and want embeddings that integrate with your existing infrastructure—IAM roles, VPCs, CloudWatch—Bedrock is the natural choice.
+
+The default model is Amazon's Titan embedding model, but Bedrock also provides access to Cohere and other models through a unified API.
+
+## Setup
+
+You'll need an AWS account with Bedrock enabled in your region and model access granted for the embedding models you want to use. Authentication uses standard AWS credentials.
+
+Install the Bedrock SDK package:
+
+```bash
+bun add @ai-sdk/amazon-bedrock
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "bedrock",
+    config: {
+      model: "amazon.titan-embed-text-v2:0",
+      timeoutMs: 15_000,
+    },
+  },
+} as const);
+```
+
+## Configuration options
+
+**`model`** specifies which Bedrock model to use. If not set, the provider checks the `BEDROCK_EMBEDDING_MODEL` environment variable, then falls back to `amazon.titan-embed-text-v2:0`.
+
+**`timeoutMs`** sets the request timeout in milliseconds.
+
+**`dimensions`** requests a specific number of dimensions for models that support it.
+
+**`normalize`** controls whether the output vectors are normalized. Normalized vectors have unit length, which can improve similarity calculations.
+
+```ts
+embedding: {
+  provider: "bedrock",
+  config: {
+    model: "amazon.titan-embed-text-v2:0",
+    dimensions: 512,
+    normalize: true,
+    timeoutMs: 20_000,
+  },
+},
+```
+
+## Available models
+
+**Amazon Titan Embed Text v2** (`amazon.titan-embed-text-v2:0`) is Amazon's latest embedding model. It supports multiple output dimensions (256, 512, or 1024) and optional normalization.
+
+**Cohere models** are also available through Bedrock if you've enabled them in your AWS account. Use the Bedrock model IDs like `cohere.embed-english-v3`.
+
+Check the AWS Bedrock console for the full list of available embedding models in your region.
+
+## Authentication
+
+Bedrock uses standard AWS authentication. The SDK automatically uses the credential chain, which means:
+
+**On AWS**: When running on EC2, Lambda, ECS, or other AWS services, the SDK uses the attached IAM role automatically.
+
+**Locally**: Configure credentials via the AWS CLI (`aws configure`), environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`), or a credentials file.
+
+No explicit API key is needed—authentication is handled through AWS IAM.
+
+## Environment variables
+
+**`AWS_ACCESS_KEY_ID`** and **`AWS_SECRET_ACCESS_KEY`**: Standard AWS credentials when running outside of AWS.
+
+**`AWS_REGION`**: The AWS region to use for Bedrock requests.
+
+**`BEDROCK_EMBEDDING_MODEL`** (optional): Overrides the model specified in code.
+
+```bash
+# .env (when running outside AWS)
+AWS_ACCESS_KEY_ID="..."
+AWS_SECRET_ACCESS_KEY="..."
+AWS_REGION="us-east-1"
+BEDROCK_EMBEDDING_MODEL="amazon.titan-embed-text-v2:0"
+```
+
+## When to use Bedrock
+
+Choose Bedrock when you're already on AWS and want your AI workloads to integrate with your existing infrastructure. You get IAM-based access control, CloudWatch logging, and the ability to keep all your services within AWS.
+
+If you're not on AWS, the setup overhead probably isn't worth it—use a simpler provider like OpenAI or Cohere directly.
+

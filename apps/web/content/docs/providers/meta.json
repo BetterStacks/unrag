@@ -1,0 +1,21 @@
+{
+  "title": "Providers",
+  "badge": "New",
+  "pages": [
+    "index",
+    "openai",
+    "google",
+    "azure",
+    "vertex",
+    "bedrock",
+    "cohere",
+    "mistral",
+    "together",
+    "voyage",
+    "openrouter",
+    "ollama",
+    "ai-gateway",
+    "custom"
+  ]
+}
+

@@ -1,0 +1,81 @@
+---
+title: Together.ai
+description: Access to open-source embedding models with cost-effective pricing.
+---
+
+Together.ai provides API access to open-source models, including various embedding models. If you want to use open-source embedding models without running them yourself, Together offers a convenient middle ground—better quality control than running Ollama locally, but with the cost efficiency of open-source models.
+
+## Setup
+
+Install the Together SDK package:
+
+```bash
+bun add @ai-sdk/togetherai
+```
+
+Set your API key in the environment:
+
+```bash
+TOGETHER_AI_API_KEY="..."
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "together",
+    config: {
+      model: "togethercomputer/m2-bert-80M-2k-retrieval",
+      timeoutMs: 15_000,
+    },
+  },
+} as const);
+```
+
+## Configuration options
+
+**`model`** specifies which Together embedding model to use. If not set, the provider checks the `TOGETHER_AI_EMBEDDING_MODEL` environment variable, then falls back to `togethercomputer/m2-bert-80M-2k-retrieval`.
+
+**`timeoutMs`** sets the request timeout in milliseconds.
+
+```ts
+embedding: {
+  provider: "together",
+  config: {
+    model: "BAAI/bge-large-en-v1.5",
+    timeoutMs: 20_000,
+  },
+},
+```
+
+## Available models
+
+Together hosts various open-source embedding models. Some popular options:
+
+**`togethercomputer/m2-bert-80M-2k-retrieval`** is a small, fast retrieval model from Together's own research.
+
+**`BAAI/bge-large-en-v1.5`** and **`BAAI/bge-base-en-v1.5`** are popular open-source embedding models that score well on retrieval benchmarks.
+
+Check Together's documentation for the current list of available embedding models—the selection changes as new models are added.
+
+## Environment variables
+
+**`TOGETHER_AI_API_KEY`** (required): Your Together API key.
+
+**`TOGETHER_AI_EMBEDDING_MODEL`** (optional): Overrides the model specified in code.
+
+```bash
+# .env
+TOGETHER_AI_API_KEY="..."
+```
+
+## When to use Together
+
+Choose Together when you want access to open-source embedding models without the overhead of running them yourself. It's a good option for cost-sensitive applications where you want better than commodity pricing without sacrificing too much quality.
+
+If you want to run models completely locally, use Ollama instead. If you want the highest quality regardless of cost, consider OpenAI or Cohere.
+

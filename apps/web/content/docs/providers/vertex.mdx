@@ -1,0 +1,93 @@
+---
+title: Vertex AI
+description: Use Google's embedding models through Vertex AI with enterprise GCP integration.
+---
+
+Vertex AI is Google Cloud's enterprise AI platform. It provides access to Google's embedding models with the full suite of GCP features: IAM authentication, VPC Service Controls, audit logging, and regional deployments. If you're running on Google Cloud and want tight integration with your existing infrastructure, Vertex AI is the way to go.
+
+The embedding models available through Vertex AI include Google's latest text embedding models, which support task-type hints and dimension configuration.
+
+## Setup
+
+You'll need a Google Cloud project with the Vertex AI API enabled. Authentication typically uses Application Default Credentials (ADC), which the SDK picks up automatically when running on GCP or when you've configured `gcloud auth application-default login` locally.
+
+Install the Vertex AI SDK package:
+
+```bash
+bun add @ai-sdk/google-vertex
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "vertex",
+    config: {
+      model: "text-embedding-004",
+      timeoutMs: 15_000,
+    },
+  },
+} as const);
+```
+
+## Configuration options
+
+**`model`** specifies which Vertex AI embedding model to use. If not set, the provider checks the `GOOGLE_VERTEX_EMBEDDING_MODEL` environment variable, then falls back to `text-embedding-004`.
+
+**`timeoutMs`** sets the request timeout in milliseconds.
+
+**`outputDimensionality`** requests a specific number of dimensions in the output.
+
+**`taskType`** hints at how the embeddings will be used. See the Google AI provider documentation for the full list of task types.
+
+**`title`** is an optional title for the content being embedded, which some models use to improve embedding quality.
+
+**`autoTruncate`** controls whether the model automatically truncates input that exceeds its context window. Defaults to true.
+
+```ts
+embedding: {
+  provider: "vertex",
+  config: {
+    model: "text-embedding-004",
+    outputDimensionality: 768,
+    taskType: "RETRIEVAL_DOCUMENT",
+    autoTruncate: true,
+    timeoutMs: 20_000,
+  },
+},
+```
+
+## Authentication
+
+Vertex AI uses Google Cloud authentication. The SDK automatically uses Application Default Credentials, which means:
+
+**On GCP**: When running on Compute Engine, Cloud Run, GKE, or other GCP services, the SDK uses the service's attached service account automatically.
+
+**Locally**: Run `gcloud auth application-default login` to authenticate with your user credentials, or set the `GOOGLE_APPLICATION_CREDENTIALS` environment variable to point to a service account key file.
+
+No explicit API key is needed—authentication is handled through GCP's IAM system.
+
+## Environment variables
+
+**`GOOGLE_VERTEX_EMBEDDING_MODEL`** (optional): Overrides the model specified in code.
+
+**`GOOGLE_APPLICATION_CREDENTIALS`** (optional): Path to a service account key file for authentication outside of GCP.
+
+```bash
+# .env (when running outside GCP)
+GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
+GOOGLE_VERTEX_EMBEDDING_MODEL="text-embedding-004"
+```
+
+## Vertex AI vs Google AI
+
+Both provide access to Google's embedding models. The difference is the authentication model and available features.
+
+Use **Vertex AI** when you're running on GCP, need IAM-based authentication, or require enterprise features like VPC Service Controls.
+
+Use **Google AI** when you want simple API key authentication and don't need deep GCP integration.
+

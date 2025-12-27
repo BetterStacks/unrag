@@ -1,0 +1,200 @@
+---
+title: Voyage AI
+description: High-quality embeddings with native multimodal support for text and images.
+---
+
+Voyage AI specializes in embedding models, and it shows. Their models consistently rank among the best on retrieval benchmarks, and they're the only built-in Unrag provider that supports multimodal embeddings—embedding both text and images into the same vector space.
+
+If you need to search across documents that include diagrams, charts, screenshots, or other visual content, Voyage is your best option. Their `voyage-multimodal-3` model embeds images directly, so a query like "system architecture" can match an actual architecture diagram, not just text that mentions one.
+
+## Setup
+
+Install the Voyage SDK package:
+
+```bash
+bun add voyage-ai-provider
+```
+
+Set your API key in the environment:
+
+```bash
+VOYAGE_API_KEY="pa-..."
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "voyage",
+    config: {
+      type: "text",  // or "multimodal"
+      model: "voyage-3.5-lite",
+      timeoutMs: 15_000,
+    },
+  },
+} as const);
+```
+
+## Text vs multimodal mode
+
+Voyage offers both text-only and multimodal models. The provider's `type` field determines which mode you're using.
+
+**Text mode** (`type: "text"`) uses Voyage's text embedding models. These are optimized for text retrieval and don't support image embedding. This is the default mode.
+
+**Multimodal mode** (`type: "multimodal"`) uses Voyage's multimodal embedding model, which can embed both text and images into the same vector space. When you enable this mode, Unrag's ingest pipeline will embed image assets directly rather than falling back to caption-based embedding.
+
+```ts
+// Text-only mode (default)
+embedding: {
+  provider: "voyage",
+  config: {
+    type: "text",
+    model: "voyage-3.5-lite",
+  },
+},
+
+// Multimodal mode
+embedding: {
+  provider: "voyage",
+  config: {
+    type: "multimodal",
+    model: "voyage-multimodal-3",
+  },
+},
+```
+
+## Configuration options
+
+**`type`** controls the embedding mode. Use `"text"` for text-only embedding or `"multimodal"` for text and image embedding. Defaults to `"text"`.
+
+**`model`** specifies which Voyage model to use. If not set, the provider checks the `VOYAGE_MODEL` environment variable, then falls back to `voyage-3.5-lite` for text mode or `voyage-multimodal-3` for multimodal mode.
+
+**`timeoutMs`** sets the request timeout in milliseconds.
+
+**`text.value`** (multimodal mode only) is an optional function that customizes how text is formatted for the multimodal model. The default works for most cases, but this escape hatch lets you adapt to API changes or special requirements.
+
+**`image.value`** (multimodal mode only) is an optional function that customizes how images are formatted for embedding. The default converts image bytes to data URLs.
+
+## Available models
+
+**Text models:**
+
+**`voyage-3.5-lite`** is a fast, cost-effective model suitable for most text retrieval applications. It's a good starting point.
+
+**`voyage-3`** is Voyage's flagship text model with higher quality embeddings. Use this when retrieval accuracy is critical.
+
+**`voyage-code-3`** is optimized for code retrieval. Consider it if your content is primarily source code.
+
+**Multimodal models:**
+
+**`voyage-multimodal-3`** embeds both text and images into the same 1024-dimensional vector space. This is currently the only Voyage model that supports image embedding.
+
+## Multimodal embeddings in detail
+
+When you configure Voyage in multimodal mode, the Unrag ingest pipeline gains the ability to embed images directly. Here's what happens when you ingest a document with image assets:
+
+1. Text content is chunked and embedded as usual
+2. Image assets are passed to Voyage's multimodal model
+3. The resulting image vectors are stored alongside text chunk vectors
+4. During retrieval, your text query is embedded and compared against all vectors—both text and image
+
+This means a semantic query can find visually relevant content. If someone searches for "pie chart showing revenue breakdown", the retrieval can surface an actual pie chart image, not just text that mentions pie charts.
+
+```ts
+// Ingest with image assets (multimodal mode)
+await engine.ingest({
+  sourceId: "report:q4-2024",
+  content: "Quarterly financial report...",
+  assets: [
+    {
+      assetId: "revenue-chart",
+      kind: "image",
+      data: { kind: "url", url: "https://..." },
+    },
+  ],
+});
+
+// Query can match the image
+const result = await engine.retrieve({
+  query: "revenue breakdown chart",
+});
+// result.chunks may include the image asset
+```
+
+<Callout>
+Image embeddings are stored as chunks with `metadata.assetKind === "image"` and `metadata.extractor === "image:embed"`. The chunk's `content` field will contain the image caption if one was provided, or be empty otherwise. To display the image, resolve it via `metadata.assetUri` or your own asset store.
+</Callout>
+
+## Environment variables
+
+**`VOYAGE_API_KEY`** (required): Your Voyage API key. Get one from the Voyage AI dashboard.
+
+**`VOYAGE_MODEL`** (optional): Overrides the model specified in code.
+
+```bash
+# .env
+VOYAGE_API_KEY="pa-..."
+VOYAGE_MODEL="voyage-multimodal-3"
+```
+
+## When to use Voyage
+
+Choose Voyage when:
+
+- You need multimodal embeddings (text + images in the same space)
+- Retrieval quality is a priority and you're willing to pay for better models
+- Your content includes visual elements that carry semantic meaning
+
+Stick with other providers when:
+
+- You're embedding text only and cost is a concern
+- You already have infrastructure with another provider (Azure, AWS, GCP)
+- You want to run embeddings locally (use Ollama instead)
+
+## Complete multimodal example
+
+Here's a full configuration for multimodal embedding with Voyage:
+
+```ts
+// unrag.config.ts
+import { defineUnragConfig } from "./lib/unrag/core";
+import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { Pool } from "pg";
+
+export const unrag = defineUnragConfig({
+  defaults: {
+    chunking: { chunkSize: 200, chunkOverlap: 40 },
+    retrieval: { topK: 8 },
+  },
+  embedding: {
+    provider: "voyage",
+    config: {
+      type: "multimodal",
+      model: "voyage-multimodal-3",
+      timeoutMs: 30_000,
+    },
+  },
+  engine: {
+    // Asset processing for images
+    assetProcessing: {
+      onUnsupportedAsset: "skip",
+      onError: "skip",
+    },
+  },
+} as const);
+
+export function createUnragEngine() {
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const db = drizzle(pool);
+  const store = createDrizzleVectorStore(db);
+  return unrag.createEngine({ store });
+}
+```
+
+With this configuration, ingesting documents that contain images will embed those images directly into your vector store, making them searchable alongside text content.
+

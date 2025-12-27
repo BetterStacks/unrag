@@ -1,30 +1,29 @@
 import { embed, embedMany } from "ai";
 import type { EmbeddingProvider } from "../core/types";
+import { requireOptional } from "./_shared";
 
-type BaseConfig = {
-  /**
-   * AI Gateway model id, e.g. "openai/text-embedding-3-small" or "google/gemini-...".
-   */
+export type MistralEmbeddingConfig = {
   model?: string;
   timeoutMs?: number;
 };
 
-/**
- * Text-only embedding config for the AI SDK provider.
- */
-export type AiEmbeddingConfig = BaseConfig;
+const DEFAULT_TEXT_MODEL = "mistral-embed";
 
-const DEFAULT_TEXT_MODEL = "openai/text-embedding-3-small";
-
-export const createAiEmbeddingProvider = (
-  config: AiEmbeddingConfig = {}
+export const createMistralEmbeddingProvider = (
+  config: MistralEmbeddingConfig = {}
 ): EmbeddingProvider => {
+  const { mistral } = requireOptional<any>({
+    id: "@ai-sdk/mistral",
+    installHint: "bun add @ai-sdk/mistral",
+    providerName: "mistral",
+  });
   const model =
-    config.model ?? process.env.AI_GATEWAY_MODEL ?? DEFAULT_TEXT_MODEL;
+    config.model ?? process.env.MISTRAL_EMBEDDING_MODEL ?? DEFAULT_TEXT_MODEL;
   const timeoutMs = config.timeoutMs;
+  const embeddingModel = mistral.embedding(model);
 
   return {
-    name: `ai-sdk:${model}`,
+    name: `mistral:${model}`,
     dimensions: undefined,
     embed: async ({ text }) => {
       const abortSignal = timeoutMs
@@ -32,13 +31,13 @@ export const createAiEmbeddingProvider = (
         : undefined;
 
       const result = await embed({
-        model,
+        model: embeddingModel,
         value: text,
         ...(abortSignal ? { abortSignal } : {}),
       });
 
       if (!result.embedding) {
-        throw new Error("Embedding missing from AI SDK response");
+        throw new Error("Embedding missing from Mistral response");
       }
 
       return result.embedding;
@@ -48,17 +47,16 @@ export const createAiEmbeddingProvider = (
       const abortSignal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined;
 
       const result = await embedMany({
-        model,
+        model: embeddingModel,
         values,
         ...(abortSignal ? { abortSignal } : {}),
       });
 
-      const embeddings = (result as any)?.embeddings as number[][] | undefined;
-      if (!embeddings) {
-        throw new Error("Embeddings missing from AI SDK embedMany response");
+      const { embeddings } = result;
+      if (!Array.isArray(embeddings)) {
+        throw new Error("Embeddings missing from Mistral embedMany response");
       }
       return embeddings;
     },
   };
 };
-

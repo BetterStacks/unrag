@@ -1,0 +1,241 @@
+---
+title: Custom Provider
+description: Implement your own embedding provider for models or services not covered by the built-in providers.
+---
+
+Unrag ships with twelve built-in embedding providers, but you might need something different. Maybe you're using a model that doesn't have an official SDK, running a self-hosted embedding service, or want to add caching or logging around embedding calls. The embedding provider interface is simple enough that building your own takes only a few lines of code.
+
+## The EmbeddingProvider interface
+
+An embedding provider is an object with a name, optional dimensions, and one or more embedding functions:
+
+```ts
+import type { EmbeddingProvider } from "@unrag/core/types";
+
+export const myProvider: EmbeddingProvider = {
+  name: "my-embeddings:v1",
+  dimensions: 1024,
+  embed: async ({ text, metadata, position, sourceId, documentId }) => {
+    // Return a number array representing the text's embedding
+    return [0.1, -0.2, 0.3, /* ... */];
+  },
+};
+```
+
+**`name`** identifies this provider. It appears in ingest and retrieve responses, helping you debug and verify which model was used. Use a format like `vendor:model-name` or `local:model-id`.
+
+**`dimensions`** optionally declares the expected embedding size. Unrag stores the actual dimension alongside each embedding in the database, so this is mainly for documentation and validation.
+
+**`embed`** is the function that does the work. It receives context about what's being embedded and returns a vector (array of numbers).
+
+**`embedMany`** (optional) allows batch embedding for performance. When present, Unrag may pass multiple texts in a single call. If omitted, Unrag falls back to calling `embed` repeatedly.
+
+**`embedImage`** (optional) enables multimodal embedding. When present and you ingest image assets, Unrag uses this function to embed images directly.
+
+## Using a custom provider
+
+Wire your custom provider into `unrag.config.ts` using the `custom` provider type:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+import { myProvider } from "./my-embedding-provider";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "custom",
+    create: () => myProvider,
+  },
+} as const);
+```
+
+The `create` function is called once to create the provider instance. The engine doesn't care where embeddings come from—it just needs an object that matches the interface.
+
+## Example: wrapping a REST API
+
+Here's a provider that calls a self-hosted embedding service:
+
+```ts
+import type { EmbeddingProvider } from "@unrag/core/types";
+
+export const createLocalEmbeddingProvider = (
+  baseUrl: string
+): EmbeddingProvider => ({
+  name: "local:custom-model",
+  dimensions: 768,
+  embed: async ({ text }) => {
+    const response = await fetch(`${baseUrl}/embed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Embedding failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.embedding;
+  },
+});
+
+// Usage in unrag.config.ts
+embedding: {
+  provider: "custom",
+  create: () => createLocalEmbeddingProvider("http://localhost:8080"),
+},
+```
+
+## Example: adding caching
+
+Embedding the same text twice is wasteful. Here's a wrapper that adds caching:
+
+```ts
+import type { EmbeddingProvider } from "@unrag/core/types";
+
+export const withCache = (
+  provider: EmbeddingProvider,
+  cache: Map<string, number[]> = new Map()
+): EmbeddingProvider => ({
+  name: `cached:${provider.name}`,
+  dimensions: provider.dimensions,
+  embed: async (input) => {
+    const cached = cache.get(input.text);
+    if (cached) {
+      return cached;
+    }
+
+    const embedding = await provider.embed(input);
+    cache.set(input.text, embedding);
+    return embedding;
+  },
+});
+```
+
+For production, replace the simple `Map` with Redis or another distributed cache.
+
+## Example: adding logging
+
+Track embedding calls for debugging or cost monitoring:
+
+```ts
+import type { EmbeddingProvider } from "@unrag/core/types";
+
+export const withLogging = (provider: EmbeddingProvider): EmbeddingProvider => ({
+  name: provider.name,
+  dimensions: provider.dimensions,
+  embed: async (input) => {
+    const start = performance.now();
+
+    try {
+      const result = await provider.embed(input);
+      const duration = performance.now() - start;
+
+      console.log({
+        event: "embedding",
+        model: provider.name,
+        textLength: input.text.length,
+        dimensions: result.length,
+        durationMs: duration,
+        sourceId: input.sourceId,
+      });
+
+      return result;
+    } catch (error) {
+      console.error({
+        event: "embedding_error",
+        model: provider.name,
+        error: (error as Error).message,
+        sourceId: input.sourceId,
+      });
+      throw error;
+    }
+  },
+});
+```
+
+## Example: retry logic
+
+API calls fail. Here's exponential backoff:
+
+```ts
+import type { EmbeddingProvider } from "@unrag/core/types";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export const withRetry = (
+  provider: EmbeddingProvider,
+  maxAttempts: number = 3,
+  baseDelayMs: number = 1000
+): EmbeddingProvider => ({
+  name: provider.name,
+  dimensions: provider.dimensions,
+  embed: async (input) => {
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await provider.embed(input);
+      } catch (error) {
+        lastError = error as Error;
+
+        if (attempt < maxAttempts) {
+          const delay = baseDelayMs * Math.pow(2, attempt - 1);
+          console.warn(`Embedding attempt ${attempt} failed, retrying in ${delay}ms`);
+          await sleep(delay);
+        }
+      }
+    }
+
+    throw lastError;
+  },
+});
+```
+
+## Composing wrappers
+
+The wrapper patterns compose nicely:
+
+```ts
+import { createOpenAiEmbeddingProvider } from "@unrag/embedding/openai";
+
+const baseProvider = createOpenAiEmbeddingProvider({
+  model: "text-embedding-3-small",
+});
+
+// Stack behaviors: cache -> retry -> log -> base
+const provider = withCache(
+  withRetry(
+    withLogging(baseProvider)
+  )
+);
+
+// Use as custom provider
+embedding: {
+  provider: "custom",
+  create: () => provider,
+},
+```
+
+Each wrapper adds a capability without modifying the underlying provider. This makes it easy to enable or disable features.
+
+## Implementing multimodal
+
+To support image embedding, add an `embedImage` function:
+
+```ts
+const multimodalProvider: EmbeddingProvider = {
+  name: "my-multimodal",
+  dimensions: 1024,
+  embed: async ({ text }) => {
+    // Embed text
+  },
+  embedImage: async ({ data, mediaType, metadata }) => {
+    // data is Uint8Array or URL string
+    // Return embedding vector for the image
+  },
+};
+```
+
+When `embedImage` is present, Unrag's ingest pipeline will use it for image assets instead of falling back to caption embedding.
+

@@ -5,6 +5,10 @@ description: Choosing an embedding model and understanding the tradeoffs.
 
 The embedding model you choose affects retrieval quality, latency, and cost. There's no universally best model—the right choice depends on your content, query patterns, and budget. Here's how to think about the decision.
 
+<Callout>
+This page covers the conceptual considerations for choosing a model. For setup instructions for specific providers, see [Providers](/docs/providers).
+</Callout>
+
 ## The key tradeoffs
 
 **Dimensions vs. performance**: Higher-dimensional embeddings capture more nuance but require more storage and slightly slower similarity calculations. OpenAI's text-embedding-3-small produces 1536-dimensional vectors; text-embedding-3-large produces 3072 dimensions. For most use cases, the quality difference doesn't justify doubling your storage.
@@ -24,11 +28,11 @@ For documentation, articles, and support content:
 export const unrag = defineUnragConfig({
   // ...
   embedding: {
-    provider: "ai",
+    provider: "openai",
     config: {
-    model: "openai/text-embedding-3-small",
-    timeoutMs: 15_000,
-  },
+      model: "text-embedding-3-small",
+      timeoutMs: 15_000,
+    },
   },
 } as const);
 ```
@@ -44,37 +48,36 @@ When quality is paramount or you have multilingual content:
 export const unrag = defineUnragConfig({
   // ...
   embedding: {
-    provider: "ai",
+    provider: "cohere",
     config: {
-    model: "openai/text-embedding-3-large",
-    timeoutMs: 20_000,
-  },
+      model: "embed-multilingual-v3.0",
+      timeoutMs: 20_000,
+    },
   },
 } as const);
 ```
 
-The larger model handles multiple languages better and captures finer semantic distinctions.
+Cohere's multilingual model handles multiple languages well and is optimized for retrieval tasks.
 
 </Tab>
 <Tab value="Local / Private">
 
-For cost control or privacy requirements:
+For cost control or privacy requirements, use Ollama:
 
 ```ts
-const localEmbedding: EmbeddingProvider = {
-  name: "local:all-MiniLM-L6-v2",
-  dimensions: 384,
-  embed: async ({ text }) => {
-    const res = await fetch("http://localhost:8080/embed", {
-      method: "POST",
-      body: JSON.stringify({ text }),
-    });
-    return (await res.json()).embedding;
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "ollama",
+    config: {
+      model: "nomic-embed-text",
+      timeoutMs: 30_000,
+    },
   },
-};
+} as const);
 ```
 
-Eliminates API costs, reduces latency, and keeps data private.
+Eliminates API costs, reduces latency, and keeps data private. See [Ollama Provider](/docs/providers/ollama) for setup instructions.
 
 </Tab>
 </Tabs>
@@ -102,7 +105,7 @@ Unrag tracks the embedding model name in every response:
 ```ts
 const result = await engine.ingest({ sourceId: "doc-1", content: "..." });
 console.log(result.embeddingModel);
-// "ai-sdk:openai/text-embedding-3-small"
+// "openai:text-embedding-3-small"
 
 const retrieved = await engine.retrieve({ query: "test" });
 console.log(retrieved.embeddingModel);
@@ -163,55 +166,49 @@ Build a set of representative queries and track whether the expected documents a
 
 ## Dimension truncation
 
-Some embedding models support dimension truncation—you can request fewer dimensions to save space while retaining most of the semantic information. OpenAI's text-embedding-3 models support this:
+Some embedding models support dimension truncation—you can request fewer dimensions to save space while retaining most of the semantic information. OpenAI's text-embedding-3 models support this through the `dimensions` config option:
 
 ```ts
-// Using the OpenAI API directly (not via AI SDK)
-const response = await openai.embeddings.create({
-  model: "text-embedding-3-small",
-  input: "Your text",
-  dimensions: 512,  // Truncate from 1536 to 512
-});
+embedding: {
+  provider: "openai",
+  config: {
+    model: "text-embedding-3-small",
+    dimensions: 512,  // Truncate from 1536 to 512
+  },
+},
 ```
 
-This isn't exposed through the default AI SDK provider, but you can implement a custom provider that supports it. Truncation can reduce storage by 60-70% with a modest quality tradeoff.
+Truncation can reduce storage by 60-70% with a modest quality tradeoff. If you use dimension truncation, make sure your database column is sized appropriately and that you're consistent—all vectors in your store should have the same dimensionality.
 
 ## Local embedding models
 
-For cost control or privacy requirements, consider running embedding models locally. Models like `sentence-transformers/all-MiniLM-L6-v2` run on modest hardware and produce reasonable results:
+For cost control or privacy requirements, consider running embedding models locally with Ollama. Models like `nomic-embed-text` run on modest hardware and produce reasonable results:
 
 ```ts
-// Example with a local model server
-const localEmbedding: EmbeddingProvider = {
-  name: "local:all-MiniLM-L6-v2",
-  dimensions: 384,
-  embed: async ({ text }) => {
-    const res = await fetch("http://localhost:8080/embed", {
-      method: "POST",
-      body: JSON.stringify({ text }),
-    });
-    return (await res.json()).embedding;
+embedding: {
+  provider: "ollama",
+  config: {
+    model: "nomic-embed-text",
   },
-};
+},
 ```
 
-Local models eliminate API costs entirely, reduce latency (no network round-trip), and keep your data private. The quality may be lower than OpenAI's models for some use cases, but it's often sufficient.
+Local models eliminate API costs entirely, reduce latency (no network round-trip), and keep your data private. The quality may be lower than cloud models for some use cases, but it's often sufficient. See [Ollama Provider](/docs/providers/ollama) for details.
 
 ## Multimodal embedding models
 
 When your content includes images that carry semantic meaning (diagrams, charts, screenshots), consider a multimodal embedding model. These models embed both text and images into the same vector space, allowing text queries to match image content directly.
 
+Currently, [Voyage](/docs/providers/voyage) is the only built-in provider with multimodal support:
+
 ```ts
-export const unrag = defineUnragConfig({
-  // ...
-  embedding: {
-    provider: "ai",
-    config: {
+embedding: {
+  provider: "voyage",
+  config: {
     type: "multimodal",
-    model: "cohere/embed-v4.0",
+    model: "voyage-multimodal-3",
   },
-  },
-} as const);
+},
 ```
 
 <Callout>
@@ -233,4 +230,3 @@ Stick with text-only when:
 ### Fallback behavior
 
 If you use a text-only embedding provider but your ingest includes images, Unrag falls back to embedding image captions. This works well when images have descriptive alt text or captions. See [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) for details.
-

@@ -1,0 +1,111 @@
+---
+title: Embedding Providers
+description: Unrag supports multiple embedding providers out of the box. Choose the one that fits your infrastructure, budget, and requirements.
+---
+
+Embedding is the heart of semantic search. When you ingest a document, Unrag splits it into chunks and converts each chunk into a vector—a list of numbers that captures the semantic meaning of the text. When you retrieve, Unrag converts your query into a vector using the same model and finds the chunks whose vectors are most similar.
+
+The embedding provider is the module that performs this text-to-vector conversion. Different providers use different models, have different pricing, and offer different capabilities. Unrag ships with built-in support for twelve providers, covering cloud APIs, enterprise deployments, and local inference.
+
+## Choosing a provider
+
+The right provider depends on your situation. Here's how to think about the decision.
+
+**If you're just getting started**, use OpenAI. Their `text-embedding-3-small` model is fast, cheap, and produces excellent results for most use cases. It's the default for a reason.
+
+**If you need multimodal embeddings** (embedding images alongside text in the same vector space), use Voyage. Their `voyage-multimodal-3` model can embed both text and images, enabling queries like "architecture diagram" to match actual diagrams rather than just text mentioning them. Voyage is currently the only built-in provider with multimodal support.
+
+**If you're running in an enterprise environment** with existing cloud infrastructure, use the provider that matches your stack. Azure OpenAI for Azure shops, Vertex AI or Google AI for GCP, and Bedrock for AWS. These integrate with your existing authentication and compliance setup.
+
+**If you want to run locally** for cost control, privacy, or offline operation, use Ollama. It runs embedding models on your own hardware with no API calls or usage fees. The quality may be lower than cloud models for some domains, but it's often sufficient and gives you complete control.
+
+**If you want access to multiple models through a single API**, consider OpenRouter. It acts as a proxy to various embedding providers, letting you switch models without changing credentials.
+
+## Available providers
+
+| Provider | Default Model | Multimodal | Best For |
+|----------|---------------|:----------:|----------|
+| [OpenAI](/docs/providers/openai) | `text-embedding-3-small` | — | General purpose, getting started |
+| [Google AI](/docs/providers/google) | `gemini-embedding-001` | — | GCP users, Gemini ecosystem |
+| [Azure OpenAI](/docs/providers/azure) | `text-embedding-3-small` | — | Enterprise Azure deployments |
+| [Vertex AI](/docs/providers/vertex) | `text-embedding-004` | — | Enterprise GCP deployments |
+| [Bedrock](/docs/providers/bedrock) | `amazon.titan-embed-text-v2:0` | — | Enterprise AWS deployments |
+| [Cohere](/docs/providers/cohere) | `embed-english-v3.0` | — | Multilingual, search optimization |
+| [Mistral](/docs/providers/mistral) | `mistral-embed` | — | European data residency |
+| [Together](/docs/providers/together) | `m2-bert-80M-2k-retrieval` | — | Open-source models, cost efficiency |
+| [Voyage](/docs/providers/voyage) | `voyage-3.5-lite` | ✓ | Multimodal, high quality |
+| [OpenRouter](/docs/providers/openrouter) | `text-embedding-3-small` | — | Model flexibility, single API |
+| [Ollama](/docs/providers/ollama) | `nomic-embed-text` | — | Local inference, privacy |
+| [AI Gateway](/docs/providers/ai-gateway) | `openai/text-embedding-3-small` | — | Vercel AI Gateway, custom proxies |
+
+## Configuration
+
+Providers are configured in your `unrag.config.ts` file through the `embedding` field. Each provider has its own configuration options, but they all follow the same pattern:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "openai",  // or "google", "voyage", "ollama", etc.
+    config: {
+      model: "text-embedding-3-small",
+      timeoutMs: 15_000,
+      // Provider-specific options go here
+    },
+  },
+} as const);
+```
+
+The `provider` field determines which embedding module Unrag uses. The `config` object is passed to that provider's factory function. Each provider's documentation page details its available options.
+
+## Environment variables
+
+Each provider reads credentials and optional configuration from environment variables. The specific variables depend on the provider—OpenAI uses `OPENAI_API_KEY`, Google uses `GOOGLE_GENERATIVE_AI_API_KEY`, and so on.
+
+Most providers also support an environment variable to override the model, which lets you change models between environments (staging vs production) without modifying code. See each provider's documentation for the exact variable names.
+
+## Peer dependencies
+
+Providers that use the Vercel AI SDK require their corresponding SDK package to be installed. When you configure a provider, make sure you have the right package:
+
+| Provider | Required Package |
+|----------|------------------|
+| OpenAI | <PackageInstall pkg="@ai-sdk/openai" /> |
+| Google AI | <PackageInstall pkg="@ai-sdk/google" /> |
+| Azure | <PackageInstall pkg="@ai-sdk/azure" /> |
+| Vertex | <PackageInstall pkg="@ai-sdk/google-vertex" /> |
+| Bedrock | <PackageInstall pkg="@ai-sdk/amazon-bedrock" /> |
+| Cohere | <PackageInstall pkg="@ai-sdk/cohere" /> |
+| Mistral | <PackageInstall pkg="@ai-sdk/mistral" /> |
+| Together | <PackageInstall pkg="@ai-sdk/togetherai" /> |
+| Voyage | <PackageInstall pkg="voyage-ai-provider" /> |
+| OpenRouter | <PackageInstall pkg="@openrouter/sdk" /> |
+| Ollama | <PackageInstall pkg="ollama-ai-provider-v2" /> |
+| AI Gateway | <PackageInstall pkg="ai" installCmd="bun add ai" /> |
+
+These are listed as peer dependencies of Unrag. Install the one you need:
+
+```bash
+bun add @ai-sdk/openai
+```
+
+## Switching providers
+
+Changing providers is straightforward—update the `embedding.provider` field in your config and set the appropriate environment variables. However, there's a critical consideration: **all vectors in your database must come from the same embedding model**.
+
+Different models produce vectors in different semantic spaces. A query embedded with OpenAI's model cannot meaningfully compare to chunks embedded with Cohere's model. The similarity scores would be mathematically valid but semantically meaningless.
+
+This means if you switch providers (or even switch models within the same provider), you need to re-embed all your existing content. Delete the old embeddings and run your ingestion pipeline again with the new provider. For large datasets, plan this carefully—re-embedding takes time and costs money.
+
+<Callout type="warn">
+Unrag tracks which embedding model was used in every response (the `embeddingModel` field). If you're seeing unexpected retrieval results after a provider change, verify that your stored embeddings match your current provider.
+</Callout>
+
+## Custom providers
+
+If none of the built-in providers fit your needs, you can implement your own. The `EmbeddingProvider` interface is simple: a `name`, optional `dimensions`, an `embed` function, and optionally `embedMany` and `embedImage` functions.
+
+See [Custom Provider](/docs/providers/custom) for implementation details.
+

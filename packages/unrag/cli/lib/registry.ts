@@ -10,6 +10,7 @@ export type RegistrySelection = {
   installDir: string; // project-relative posix
   storeAdapter: "drizzle" | "prisma" | "raw-sql";
   aliasBase: string; // e.g. "@unrag"
+  embeddingProvider?: import("./packageJson").EmbeddingProviderName;
   richMedia?: {
     enabled: boolean;
     extractors: ExtractorName[];
@@ -67,6 +68,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
   const installImportBase = `./${selection.installDir.replace(/\\/g, "/")}`;
   const richMedia = selection.richMedia ?? { enabled: false, extractors: [] as ExtractorName[] };
   const selectedExtractors = Array.from(new Set(richMedia.extractors ?? [])).sort();
+  const embeddingProvider = selection.embeddingProvider ?? "ai";
 
   const baseImports = [
     `import { defineUnragConfig } from "${installImportBase}/core";`,
@@ -145,16 +147,29 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
     .replace("// __UNRAG_IMPORTS__", importsBlock)
     .replace("// __UNRAG_CREATE_ENGINE__", createEngineBlock);
 
-  // Cleanly rewrite embedding mode + model (without leaving marker comments).
-  out = out
-    .replace(
-      'type: "text", // __UNRAG_EMBEDDING_TYPE__',
-      richMedia.enabled ? 'type: "multimodal",' : 'type: "text",'
-    )
-    .replace(
-      'model: "openai/text-embedding-3-small", // __UNRAG_EMBEDDING_MODEL__',
-      richMedia.enabled ? 'model: "cohere/embed-v4.0",' : 'model: "openai/text-embedding-3-small",'
-    );
+  // Rewrite embedding provider + model. Rich media does NOT imply multimodal embeddings.
+  const providerLine = `    provider: "${embeddingProvider}",`;
+  out = out.replace(/^\s*provider:\s*".*?",\s*$/m, providerLine);
+
+  const defaultModelByProvider: Record<string, string> = {
+    ai: "openai/text-embedding-3-small",
+    openai: "text-embedding-3-small",
+    google: "gemini-embedding-001",
+    openrouter: "text-embedding-3-small",
+    azure: "text-embedding-3-small",
+    vertex: "text-embedding-004",
+    bedrock: "amazon.titan-embed-text-v2:0",
+    cohere: "embed-english-v3.0",
+    mistral: "mistral-embed",
+    together: "togethercomputer/m2-bert-80M-2k-retrieval",
+    ollama: "nomic-embed-text",
+    voyage: "voyage-3.5-lite",
+  };
+  const nextModel = defaultModelByProvider[embeddingProvider] ?? "openai/text-embedding-3-small";
+  out = out.replace(
+    'model: "openai/text-embedding-3-small", // __UNRAG_EMBEDDING_MODEL__',
+    `model: "${nextModel}",`
+  );
 
   // Enable/disable assetProcessing flags, stripping marker comments in either case.
   const enabledFlagKeys = new Set<string>();
@@ -185,6 +200,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 
 const renderDocs = (content: string, selection: RegistrySelection) => {
   const notes: string[] = [];
+  const embeddingProvider = selection.embeddingProvider ?? "ai";
 
   if (selection.storeAdapter === "drizzle") {
     notes.push(
@@ -222,7 +238,81 @@ const renderDocs = (content: string, selection: RegistrySelection) => {
     );
   }
 
-  const withNotes = content.replace("<!-- __UNRAG_ADAPTER_NOTES__ -->", notes.join("\n"));
+  const envLines: string[] = [
+    "## Environment variables",
+    "",
+    "Add these to your environment:",
+    "- `DATABASE_URL` (Postgres connection string)",
+  ];
+
+  if (embeddingProvider === "ai") {
+    envLines.push(
+      "- `AI_GATEWAY_API_KEY` (required by the AI SDK when using Vercel AI Gateway)",
+      "- Optional: `AI_GATEWAY_MODEL` (defaults to `openai/text-embedding-3-small`)"
+    );
+  } else if (embeddingProvider === "openai") {
+    envLines.push(
+      "- `OPENAI_API_KEY`",
+      "- Optional: `OPENAI_EMBEDDING_MODEL` (defaults to `text-embedding-3-small`)"
+    );
+  } else if (embeddingProvider === "google") {
+    envLines.push(
+      "- `GOOGLE_GENERATIVE_AI_API_KEY`",
+      "- Optional: `GOOGLE_GENERATIVE_AI_EMBEDDING_MODEL` (defaults to `gemini-embedding-001`)"
+    );
+  } else if (embeddingProvider === "openrouter") {
+    envLines.push(
+      "- `OPENROUTER_API_KEY`",
+      "- Optional: `OPENROUTER_EMBEDDING_MODEL` (defaults to `text-embedding-3-small`)"
+    );
+  } else if (embeddingProvider === "cohere") {
+    envLines.push(
+      "- `COHERE_API_KEY`",
+      "- Optional: `COHERE_EMBEDDING_MODEL` (defaults to `embed-english-v3.0`)"
+    );
+  } else if (embeddingProvider === "mistral") {
+    envLines.push(
+      "- `MISTRAL_API_KEY`",
+      "- Optional: `MISTRAL_EMBEDDING_MODEL` (defaults to `mistral-embed`)"
+    );
+  } else if (embeddingProvider === "together") {
+    envLines.push(
+      "- `TOGETHER_AI_API_KEY`",
+      "- Optional: `TOGETHER_AI_EMBEDDING_MODEL` (defaults to `togethercomputer/m2-bert-80M-2k-retrieval`)"
+    );
+  } else if (embeddingProvider === "voyage") {
+    envLines.push(
+      "- `VOYAGE_API_KEY`",
+      "- Optional: `VOYAGE_MODEL` (defaults to `voyage-3.5-lite`)"
+    );
+  } else if (embeddingProvider === "ollama") {
+    envLines.push("- Optional: `OLLAMA_EMBEDDING_MODEL` (defaults to `nomic-embed-text`)");
+  } else if (embeddingProvider === "azure") {
+    envLines.push(
+      "- `AZURE_OPENAI_API_KEY`",
+      "- `AZURE_RESOURCE_NAME`",
+      "- Optional: `AZURE_EMBEDDING_MODEL` (defaults to `text-embedding-3-small`)"
+    );
+  } else if (embeddingProvider === "vertex") {
+    envLines.push(
+      "- `GOOGLE_APPLICATION_CREDENTIALS` (when running outside GCP)",
+      "- Optional: `GOOGLE_VERTEX_EMBEDDING_MODEL` (defaults to `text-embedding-004`)"
+    );
+  } else if (embeddingProvider === "bedrock") {
+    envLines.push(
+      "- `AWS_REGION`",
+      "- AWS credentials (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`) when running outside AWS",
+      "- Optional: `BEDROCK_EMBEDDING_MODEL` (defaults to `amazon.titan-embed-text-v2:0`)"
+    );
+  }
+
+  // Replace the template env vars section with the provider-specific one.
+  const withEnv = content.replace(
+    /## Environment variables[\s\S]*?## Database requirements/,
+    `${envLines.join("\n")}\n\n## Database requirements`
+  );
+
+  const withNotes = withEnv.replace("<!-- __UNRAG_ADAPTER_NOTES__ -->", notes.join("\n"));
   return withNotes
     .replaceAll("@unrag/config", `${selection.aliasBase}/config`)
     .replaceAll("`@unrag/*`", `\`${selection.aliasBase}/*\``);
@@ -287,8 +377,56 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
 
     // embedding
     {
+      src: path.join(selection.registryRoot, "embedding/_shared.ts"),
+      dest: path.join(installBaseAbs, "embedding/_shared.ts"),
+    },
+    {
       src: path.join(selection.registryRoot, "embedding/ai.ts"),
       dest: path.join(installBaseAbs, "embedding/ai.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/openai.ts"),
+      dest: path.join(installBaseAbs, "embedding/openai.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/google.ts"),
+      dest: path.join(installBaseAbs, "embedding/google.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/openrouter.ts"),
+      dest: path.join(installBaseAbs, "embedding/openrouter.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/azure.ts"),
+      dest: path.join(installBaseAbs, "embedding/azure.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/vertex.ts"),
+      dest: path.join(installBaseAbs, "embedding/vertex.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/bedrock.ts"),
+      dest: path.join(installBaseAbs, "embedding/bedrock.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/cohere.ts"),
+      dest: path.join(installBaseAbs, "embedding/cohere.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/mistral.ts"),
+      dest: path.join(installBaseAbs, "embedding/mistral.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/together.ts"),
+      dest: path.join(installBaseAbs, "embedding/together.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/ollama.ts"),
+      dest: path.join(installBaseAbs, "embedding/ollama.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/voyage.ts"),
+      dest: path.join(installBaseAbs, "embedding/voyage.ts"),
     },
   ];
 
