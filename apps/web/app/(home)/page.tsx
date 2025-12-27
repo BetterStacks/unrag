@@ -5,6 +5,7 @@ import { TerminalWindow } from './components/terminal-window';
 import { AnimatedInstall } from './components/animated-install';
 import { CodeBlock } from './components/code-block';
 import { CopyButton } from './components/copy-button';
+import { Button } from '@/components/ui/button';
 import { GITHUB_REPO } from '@/constants';
 import { GlowingStarsBackground } from './components/glowing-stars-background';
 import { RegistrySection } from './components/registry-section';
@@ -118,19 +119,14 @@ export default function HomePage() {
 
           {/* CTA Buttons */}
           <div className="unrag-reveal flex flex-col sm:flex-row gap-4 justify-center items-center" style={reveal(560)}>
-            <Link
-              href="/docs"
-              className="group relative inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-[hsl(0,0%,8%)] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-              style={{
-                background: 'linear-gradient(to bottom, hsl(0, 0%, 100%) 0%, hsl(0, 0%, 85%) 100%)',
-                boxShadow: 'inset 0 1px 0 0 hsla(0, 0%, 100%, 0.4), 0 1px 2px 0 hsla(0, 0%, 0%, 0.3)',
-              }}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-              Get started
-            </Link>
+            <Button asChild variant="cta">
+              <Link href="/install">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                Get started
+              </Link>
+            </Button>
             <Link
               href="/docs/getting-started/quickstart"
               className="group inline-flex items-center gap-2 px-4 py-2.5 text-[var(--color-fd-muted-foreground)] font-medium text-sm hover:text-[var(--color-fd-foreground)] transition-colors"
