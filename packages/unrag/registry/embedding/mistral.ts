@@ -1,6 +1,6 @@
 import { embed, embedMany } from "ai";
-import { mistral } from "@ai-sdk/mistral";
 import type { EmbeddingProvider } from "../core/types";
+import { requireOptional } from "./_shared";
 
 export type MistralEmbeddingConfig = {
   model?: string;
@@ -12,6 +12,11 @@ const DEFAULT_TEXT_MODEL = "mistral-embed";
 export const createMistralEmbeddingProvider = (
   config: MistralEmbeddingConfig = {}
 ): EmbeddingProvider => {
+  const { mistral } = requireOptional<any>({
+    id: "@ai-sdk/mistral",
+    installHint: "bun add @ai-sdk/mistral",
+    providerName: "mistral",
+  });
   const model =
     config.model ?? process.env.MISTRAL_EMBEDDING_MODEL ?? DEFAULT_TEXT_MODEL;
   const timeoutMs = config.timeoutMs;

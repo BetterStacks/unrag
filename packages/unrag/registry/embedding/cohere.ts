@@ -1,6 +1,6 @@
 import { embed, embedMany } from "ai";
-import { cohere } from "@ai-sdk/cohere";
 import type { EmbeddingProvider } from "../core/types";
+import { requireOptional } from "./_shared";
 
 export type CohereEmbeddingConfig = {
   model?: string;
@@ -26,6 +26,11 @@ const buildProviderOptions = (config: CohereEmbeddingConfig) => {
 export const createCohereEmbeddingProvider = (
   config: CohereEmbeddingConfig = {}
 ): EmbeddingProvider => {
+  const { cohere } = requireOptional<any>({
+    id: "@ai-sdk/cohere",
+    installHint: "bun add @ai-sdk/cohere",
+    providerName: "cohere",
+  });
   const model =
     config.model ?? process.env.COHERE_EMBEDDING_MODEL ?? DEFAULT_TEXT_MODEL;
   const timeoutMs = config.timeoutMs;

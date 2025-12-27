@@ -1,6 +1,6 @@
 import { embed, embedMany } from "ai";
-import { togetherai } from "@ai-sdk/togetherai";
 import type { EmbeddingProvider } from "../core/types";
+import { requireOptional } from "./_shared";
 
 export type TogetherEmbeddingConfig = {
   model?: string;
@@ -12,6 +12,11 @@ const DEFAULT_TEXT_MODEL = "togethercomputer/m2-bert-80M-2k-retrieval";
 export const createTogetherEmbeddingProvider = (
   config: TogetherEmbeddingConfig = {}
 ): EmbeddingProvider => {
+  const { togetherai } = requireOptional<any>({
+    id: "@ai-sdk/togetherai",
+    installHint: "bun add @ai-sdk/togetherai",
+    providerName: "together",
+  });
   const model =
     config.model ??
     process.env.TOGETHER_AI_EMBEDDING_MODEL ??

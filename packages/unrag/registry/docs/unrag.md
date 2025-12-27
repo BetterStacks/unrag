@@ -8,8 +8,13 @@ Unrag installs a small RAG module into your codebase with:
 
 Add these to your environment:
 - `DATABASE_URL` (Postgres connection string)
-- `AI_GATEWAY_API_KEY` (required by the `ai` SDK when using Vercel AI Gateway)
+- (Embedding) set the environment variables required by your selected provider.
+
+If you used the default provider (Vercel AI Gateway):
+- `AI_GATEWAY_API_KEY`
 - Optional: `AI_GATEWAY_MODEL` (defaults to `openai/text-embedding-3-small`)
+
+If you picked a different provider (OpenAI / Google / Voyage / etc.), see the installed provider docs under your Unrag docs site (`/docs/providers/*`).
 
 ## Database requirements
 

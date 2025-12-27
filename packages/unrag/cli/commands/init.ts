@@ -24,6 +24,8 @@ import {
   mergeDeps,
   readPackageJson,
   type ExtractorName,
+  type EmbeddingProviderName,
+  depsForEmbeddingProvider,
   writePackageJson,
 } from "../lib/packageJson";
 import { patchTsconfigPaths } from "../lib/tsconfig";
@@ -32,6 +34,7 @@ type InitConfig = {
   installDir: string;
   storeAdapter: "drizzle" | "prisma" | "raw-sql";
   aliasBase?: string;
+  embeddingProvider?: EmbeddingProviderName;
   version: number;
   connectors?: string[];
   extractors?: string[];
@@ -50,6 +53,7 @@ type ParsedInitArgs = {
   yes?: boolean;
   richMedia?: boolean;
   extractors?: string[];
+  provider?: EmbeddingProviderName;
 };
 
 const parseInitArgs = (args: string[]): ParsedInitArgs => {
@@ -100,6 +104,27 @@ const parseInitArgs = (args: string[]): ParsedInitArgs => {
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean);
+        i++;
+      }
+      continue;
+    }
+    if (a === "--provider") {
+      const v = args[i + 1] as EmbeddingProviderName | undefined;
+      if (
+        v === "ai" ||
+        v === "openai" ||
+        v === "google" ||
+        v === "openrouter" ||
+        v === "azure" ||
+        v === "vertex" ||
+        v === "bedrock" ||
+        v === "cohere" ||
+        v === "mistral" ||
+        v === "together" ||
+        v === "ollama" ||
+        v === "voyage"
+      ) {
+        out.provider = v;
         i++;
       }
       continue;
@@ -216,6 +241,7 @@ export async function initCommand(args: string[]) {
     installDir: existing?.installDir ?? "lib/unrag",
     storeAdapter: existing?.storeAdapter ?? "drizzle",
     aliasBase: existing?.aliasBase ?? "@unrag",
+    embeddingProvider: existing?.embeddingProvider ?? "ai",
   } as const;
 
   const nonInteractive = parsed.yes || !process.stdin.isTTY;
@@ -279,6 +305,34 @@ export async function initCommand(args: string[]) {
   }
   const aliasBase = String(aliasAnswer).trim();
 
+  const embeddingProviderAnswer = parsed.provider
+    ? parsed.provider
+    : nonInteractive
+      ? defaults.embeddingProvider
+      : await select({
+          message: "Embedding provider",
+          initialValue: defaults.embeddingProvider,
+          options: [
+            { value: "ai", label: "Vercel AI Gateway (AI SDK)", hint: "default" },
+            { value: "openai", label: "OpenAI" },
+            { value: "google", label: "Google AI (Gemini)" },
+            { value: "openrouter", label: "OpenRouter" },
+            { value: "azure", label: "Azure OpenAI" },
+            { value: "vertex", label: "Google Vertex AI" },
+            { value: "bedrock", label: "AWS Bedrock" },
+            { value: "cohere", label: "Cohere" },
+            { value: "mistral", label: "Mistral" },
+            { value: "together", label: "Together.ai" },
+            { value: "ollama", label: "Ollama (local)" },
+            { value: "voyage", label: "Voyage AI" },
+          ],
+        });
+  if (isCancel(embeddingProviderAnswer)) {
+    cancel("Cancelled.");
+    return;
+  }
+  const embeddingProvider = embeddingProviderAnswer as EmbeddingProviderName;
+
   if (parsed.richMedia === false && (parsed.extractors ?? []).length > 0) {
     throw new Error('Cannot use "--no-rich-media" together with "--extractors".');
   }
@@ -296,7 +350,7 @@ export async function initCommand(args: string[]) {
           ? false
           : await confirm({
               message:
-                'Enable rich media ingestion (PDF/images/audio/video/files)? This also enables multimodal image embeddings (you can change this later).',
+                "Enable rich media ingestion (PDF/images/audio/video/files)? This enables extractor modules and assetProcessing (you can change this later).",
               initialValue: false,
             });
   if (isCancel(richMediaAnswer)) {
@@ -349,6 +403,7 @@ export async function initCommand(args: string[]) {
     projectRoot: root,
     registryRoot,
     aliasBase,
+    embeddingProvider,
     richMedia: richMediaEnabled
       ? {
           enabled: true,
@@ -374,6 +429,7 @@ export async function initCommand(args: string[]) {
 
   const pkg = await readPackageJson(root);
   const { deps, devDeps } = depsForAdapter(storeAdapterAnswer);
+  const embeddingDeps = depsForEmbeddingProvider(embeddingProvider);
   const extractorDeps: Record<string, string> = {};
   const extractorDevDeps: Record<string, string> = {};
   for (const ex of selectedExtractors) {
@@ -383,8 +439,8 @@ export async function initCommand(args: string[]) {
   }
   const merged = mergeDeps(
     pkg,
-    { ...deps, ...extractorDeps },
-    { ...devDeps, ...extractorDevDeps }
+    { ...deps, ...embeddingDeps.deps, ...extractorDeps },
+    { ...devDeps, ...embeddingDeps.devDeps, ...extractorDevDeps }
   );
   if (merged.changes.length > 0) {
     await writePackageJson(root, merged.pkg);
@@ -394,6 +450,7 @@ export async function initCommand(args: string[]) {
     installDir,
     storeAdapter: storeAdapterAnswer,
     aliasBase,
+    embeddingProvider,
     version: CONFIG_VERSION,
     connectors: existing?.connectors ?? [],
     extractors: Array.from(
@@ -419,6 +476,104 @@ export async function initCommand(args: string[]) {
     ? await patchTsconfigPaths({ projectRoot: root, installDir, aliasBase })
     : { changed: false as const };
 
+  const envHint = (() => {
+    if (embeddingProvider === "ai") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- AI_GATEWAY_API_KEY=...",
+        "- (optional) AI_GATEWAY_MODEL=openai/text-embedding-3-small",
+      ];
+    }
+    if (embeddingProvider === "openai") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- OPENAI_API_KEY=...",
+        "- (optional) OPENAI_EMBEDDING_MODEL=text-embedding-3-small",
+      ];
+    }
+    if (embeddingProvider === "google") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- GOOGLE_GENERATIVE_AI_API_KEY=...",
+        "- (optional) GOOGLE_GENERATIVE_AI_EMBEDDING_MODEL=gemini-embedding-001",
+      ];
+    }
+    if (embeddingProvider === "openrouter") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- OPENROUTER_API_KEY=...",
+        "- (optional) OPENROUTER_EMBEDDING_MODEL=text-embedding-3-small",
+      ];
+    }
+    if (embeddingProvider === "cohere") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- COHERE_API_KEY=...",
+        "- (optional) COHERE_EMBEDDING_MODEL=embed-english-v3.0",
+      ];
+    }
+    if (embeddingProvider === "mistral") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- MISTRAL_API_KEY=...",
+        "- (optional) MISTRAL_EMBEDDING_MODEL=mistral-embed",
+      ];
+    }
+    if (embeddingProvider === "together") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- TOGETHER_AI_API_KEY=...",
+        "- (optional) TOGETHER_AI_EMBEDDING_MODEL=togethercomputer/m2-bert-80M-2k-retrieval",
+      ];
+    }
+    if (embeddingProvider === "voyage") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- VOYAGE_API_KEY=...",
+        "- (optional) VOYAGE_MODEL=voyage-3.5-lite",
+      ];
+    }
+    if (embeddingProvider === "ollama") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- (optional) OLLAMA_EMBEDDING_MODEL=nomic-embed-text",
+      ];
+    }
+    if (embeddingProvider === "azure") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- AZURE_OPENAI_API_KEY=...",
+        "- AZURE_RESOURCE_NAME=...",
+        "- (optional) AZURE_EMBEDDING_MODEL=text-embedding-3-small",
+      ];
+    }
+    if (embeddingProvider === "vertex") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- GOOGLE_APPLICATION_CREDENTIALS=... (when outside GCP)",
+        "- (optional) GOOGLE_VERTEX_EMBEDDING_MODEL=text-embedding-004",
+      ];
+    }
+    return [
+      "Env:",
+      "- DATABASE_URL=...",
+      "- AWS_REGION=... (Bedrock)",
+      "- AWS credentials (when outside AWS)",
+      "- (optional) BEDROCK_EMBEDDING_MODEL=amazon.titan-embed-text-v2:0",
+    ];
+  })();
+
   outro(
     [
       "Installed Unrag.",
@@ -429,9 +584,7 @@ export async function initCommand(args: string[]) {
       `- Imports: ${aliasBase}/* and ${aliasBase}/config`,
       "",
       `- Rich media: ${richMediaEnabled ? "enabled" : "disabled"}`,
-      richMediaEnabled
-        ? `- Embeddings: multimodal enabled (images can be embedded directly)`
-        : `- Embeddings: text-only (no direct image embedding)`,
+      `- Embedding provider: ${embeddingProvider}`,
       richMediaEnabled
         ? `- Extractors: ${selectedExtractors.length > 0 ? selectedExtractors.join(", ") : "none"}`
         : "",
@@ -448,6 +601,8 @@ export async function initCommand(args: string[]) {
         ? `Added deps: ${merged.changes.map((c) => c.name).join(", ")}`
         : "Added deps: none",
       installLine,
+      "",
+      ...envHint,
       "",
       `Saved ${CONFIG_FILE}.`,
     ].join("\n")

@@ -1,6 +1,6 @@
 import { embed, embedMany } from "ai";
-import { openai } from "@ai-sdk/openai";
 import type { EmbeddingProvider } from "../core/types";
+import { requireOptional } from "./_shared";
 
 export type OpenAiEmbeddingConfig = {
   model?: string;
@@ -26,6 +26,11 @@ const buildProviderOptions = (config: OpenAiEmbeddingConfig) => {
 export const createOpenAiEmbeddingProvider = (
   config: OpenAiEmbeddingConfig = {}
 ): EmbeddingProvider => {
+  const { openai } = requireOptional<any>({
+    id: "@ai-sdk/openai",
+    installHint: "bun add @ai-sdk/openai",
+    providerName: "openai",
+  });
   const model =
     config.model ?? process.env.OPENAI_EMBEDDING_MODEL ?? DEFAULT_TEXT_MODEL;
   const timeoutMs = config.timeoutMs;

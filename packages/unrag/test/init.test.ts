@@ -214,8 +214,8 @@ describe("unrag@latest init", () => {
     ]);
 
     const cfg = await readFile(path.join(runDir, "unrag.config.ts"), "utf8");
-    expect(cfg).toContain('type: "multimodal"');
-    expect(cfg).toContain('model: "cohere/embed-v4.0"');
+    // Rich media enables extractors/assetProcessing only. It should NOT flip embedding into multimodal mode.
+    expect(cfg).not.toContain('type: "multimodal"');
     expect(cfg).toContain('createPdfTextLayerExtractor');
     expect(cfg).toContain('createFileTextExtractor');
     expect(cfg).toContain('extractors: [');
@@ -249,6 +249,36 @@ describe("unrag@latest init", () => {
     }>(path.join(runDir, "package.json"));
     expect(pkg.dependencies?.ai).toBeTruthy();
     expect(pkg.dependencies?.["pdfjs-dist"]).toBeTruthy();
+  });
+
+  test("can select a provider non-interactively and installs its dep", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "proj",
+      private: true,
+      type: "module",
+      dependencies: {},
+    });
+
+    process.chdir(runDir);
+    await initCommand([
+      "--yes",
+      "--store",
+      "drizzle",
+      "--dir",
+      "lib/unrag",
+      "--provider",
+      "openai",
+    ]);
+
+    const cfg = await readFile(path.join(runDir, "unrag.config.ts"), "utf8");
+    expect(cfg).toContain('provider: "openai"');
+
+    const pkg = await readJson<{
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    }>(path.join(runDir, "package.json"));
+    expect(pkg.dependencies?.ai).toBeTruthy();
+    expect(pkg.dependencies?.["@ai-sdk/openai"]).toBeTruthy();
   });
 });
 

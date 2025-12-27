@@ -1,5 +1,5 @@
-import { OpenRouter } from "@openrouter/sdk";
 import type { EmbeddingProvider } from "../core/types";
+import { requireOptional } from "./_shared";
 
 export type OpenRouterEmbeddingConfig = {
   model?: string;
@@ -23,6 +23,11 @@ const buildHeaders = (config: OpenRouterEmbeddingConfig) => {
 export const createOpenRouterEmbeddingProvider = (
   config: OpenRouterEmbeddingConfig = {}
 ): EmbeddingProvider => {
+  const { OpenRouter } = requireOptional<any>({
+    id: "@openrouter/sdk",
+    installHint: "bun add @openrouter/sdk",
+    providerName: "openrouter",
+  });
   const model =
     config.model ?? process.env.OPENROUTER_EMBEDDING_MODEL ?? DEFAULT_TEXT_MODEL;
   const timeoutMs = config.timeoutMs;

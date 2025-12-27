@@ -1,6 +1,6 @@
 import { embed, embedMany } from "ai";
-import { createOllama, ollama } from "ollama-ai-provider-v2";
 import type { EmbeddingProvider } from "../core/types";
+import { requireOptional } from "./_shared";
 
 export type OllamaEmbeddingConfig = {
   model?: string;
@@ -12,6 +12,11 @@ export type OllamaEmbeddingConfig = {
 const DEFAULT_TEXT_MODEL = "nomic-embed-text";
 
 const resolveProvider = (config: OllamaEmbeddingConfig) => {
+  const { createOllama, ollama } = requireOptional<any>({
+    id: "ollama-ai-provider-v2",
+    installHint: "bun add ollama-ai-provider-v2",
+    providerName: "ollama",
+  });
   if (config.baseURL || config.headers) {
     return createOllama({
       ...(config.baseURL ? { baseURL: config.baseURL } : {}),

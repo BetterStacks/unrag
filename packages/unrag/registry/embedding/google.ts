@@ -1,6 +1,6 @@
 import { embed, embedMany } from "ai";
-import { google } from "@ai-sdk/google";
 import type { EmbeddingProvider } from "../core/types";
+import { requireOptional } from "./_shared";
 
 export type GoogleEmbeddingTaskType =
   | "SEMANTIC_SIMILARITY"
@@ -38,6 +38,11 @@ const buildProviderOptions = (config: GoogleEmbeddingConfig) => {
 export const createGoogleEmbeddingProvider = (
   config: GoogleEmbeddingConfig = {}
 ): EmbeddingProvider => {
+  const { google } = requireOptional<any>({
+    id: "@ai-sdk/google",
+    installHint: "bun add @ai-sdk/google",
+    providerName: "google",
+  });
   const model =
     config.model ??
     process.env.GOOGLE_GENERATIVE_AI_EMBEDDING_MODEL ??

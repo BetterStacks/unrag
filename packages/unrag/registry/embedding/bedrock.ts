@@ -1,6 +1,6 @@
 import { embed, embedMany } from "ai";
-import { bedrock } from "@ai-sdk/amazon-bedrock";
 import type { EmbeddingProvider } from "../core/types";
+import { requireOptional } from "./_shared";
 
 export type BedrockEmbeddingConfig = {
   model?: string;
@@ -26,6 +26,11 @@ const buildProviderOptions = (config: BedrockEmbeddingConfig) => {
 export const createBedrockEmbeddingProvider = (
   config: BedrockEmbeddingConfig = {}
 ): EmbeddingProvider => {
+  const { bedrock } = requireOptional<any>({
+    id: "@ai-sdk/amazon-bedrock",
+    installHint: "bun add @ai-sdk/amazon-bedrock",
+    providerName: "bedrock",
+  });
   const model =
     config.model ?? process.env.BEDROCK_EMBEDDING_MODEL ?? DEFAULT_TEXT_MODEL;
   const timeoutMs = config.timeoutMs;

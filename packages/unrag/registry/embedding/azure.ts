@@ -1,6 +1,6 @@
 import { embed, embedMany } from "ai";
-import { azure } from "@ai-sdk/azure";
 import type { EmbeddingProvider } from "../core/types";
+import { requireOptional } from "./_shared";
 
 export type AzureEmbeddingConfig = {
   model?: string;
@@ -26,6 +26,11 @@ const buildProviderOptions = (config: AzureEmbeddingConfig) => {
 export const createAzureEmbeddingProvider = (
   config: AzureEmbeddingConfig = {}
 ): EmbeddingProvider => {
+  const { azure } = requireOptional<any>({
+    id: "@ai-sdk/azure",
+    installHint: "bun add @ai-sdk/azure",
+    providerName: "azure",
+  });
   const model =
     config.model ?? process.env.AZURE_EMBEDDING_MODEL ?? DEFAULT_TEXT_MODEL;
   const timeoutMs = config.timeoutMs;

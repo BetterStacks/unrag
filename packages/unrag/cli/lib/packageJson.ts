@@ -65,7 +65,7 @@ export function mergeDeps(
 
 export function depsForAdapter(adapter: "drizzle" | "prisma" | "raw-sql") {
   const deps: Record<string, string> = {
-    ai: "^5.0.113",
+    ai: "^6.0.3",
   };
 
   const devDeps: Record<string, string> = {};
@@ -129,7 +129,7 @@ export function depsForExtractor(extractor: ExtractorName) {
   // pdf-llm uses the AI SDK which is already installed by `unrag init`,
   // but keep this here in case extractor installs are used independently later.
   if (extractor === "pdf-llm") {
-    deps["ai"] = "^5.0.113";
+    deps["ai"] = "^6.0.3";
   }
 
   if (extractor === "pdf-text-layer") {
@@ -141,15 +141,15 @@ export function depsForExtractor(extractor: ExtractorName) {
   }
 
   if (extractor === "image-ocr" || extractor === "image-caption-llm") {
-    deps["ai"] = "^5.0.113";
+    deps["ai"] = "^6.0.3";
   }
 
   if (extractor === "audio-transcribe" || extractor === "video-transcribe") {
-    deps["ai"] = "^5.0.113";
+    deps["ai"] = "^6.0.3";
   }
 
   if (extractor === "video-frames") {
-    deps["ai"] = "^5.0.113";
+    deps["ai"] = "^6.0.3";
   }
 
   if (extractor === "file-text") {
@@ -167,6 +167,41 @@ export function depsForExtractor(extractor: ExtractorName) {
   if (extractor === "file-xlsx") {
     deps["xlsx"] = "^0.18.5";
   }
+
+  return { deps, devDeps };
+}
+
+export type EmbeddingProviderName =
+  | "ai"
+  | "openai"
+  | "google"
+  | "openrouter"
+  | "azure"
+  | "vertex"
+  | "bedrock"
+  | "cohere"
+  | "mistral"
+  | "together"
+  | "ollama"
+  | "voyage";
+
+export function depsForEmbeddingProvider(provider: EmbeddingProviderName) {
+  const deps: Record<string, string> = {};
+  const devDeps: Record<string, string> = {};
+
+  // Note: `ai` (core package) is installed via depsForAdapter() for all setups.
+  // Provider-specific packages are optional and only needed when that provider is selected.
+  if (provider === "openai") deps["@ai-sdk/openai"] = "^3.0.1";
+  if (provider === "google") deps["@ai-sdk/google"] = "^3.0.1";
+  if (provider === "azure") deps["@ai-sdk/azure"] = "^3.0.1";
+  if (provider === "vertex") deps["@ai-sdk/google-vertex"] = "^3.0.1";
+  if (provider === "bedrock") deps["@ai-sdk/amazon-bedrock"] = "^3.0.72";
+  if (provider === "cohere") deps["@ai-sdk/cohere"] = "^3.0.1";
+  if (provider === "mistral") deps["@ai-sdk/mistral"] = "^3.0.1";
+  if (provider === "together") deps["@ai-sdk/togetherai"] = "^3.0.1";
+  if (provider === "openrouter") deps["@openrouter/sdk"] = "^0.3.10";
+  if (provider === "ollama") deps["ollama-ai-provider-v2"] = "^2.0.0";
+  if (provider === "voyage") deps["voyage-ai-provider"] = "^3.0.0";
 
   return { deps, devDeps };
 }
