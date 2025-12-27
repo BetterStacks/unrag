@@ -24,6 +24,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import {
+  AmazonWebServicesDark,
   Cohere,
   Discord,
   Dropbox,
@@ -234,6 +235,13 @@ const EMBEDDING_MODEL_OPTIONS: EmbeddingModelOption[] = [
     label: 'google/text-embedding-004',
     providerLabel: 'Google',
     icon: Gemini,
+    supports: ['text'],
+  },
+  {
+    id: 'amazon/titan-embed-text-v2',
+    label: 'amazon/titan-embed-text-v2',
+    providerLabel: 'Amazon Web Services',
+    icon: AmazonWebServicesDark,
     supports: ['text'],
   },
 ];
@@ -1527,13 +1535,13 @@ export default function InstallWizardClient() {
                         disabled={!installCommand}
                         className="h-7 px-2 text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30"
                       >
-                        <Copy className="w-3.5 h-3.5 mr-1.5" />
+                        <Copy className="w-3.5 h-3.5" />
                         {copied === 'command' ? 'Copied!' : 'Copy'}
                       </Button>
                     </div>
                     <div className="p-4">
                       {installCommand ? (
-                        <code className="block font-mono text-sm text-white break-all">{installCommand}</code>
+                        <code className="block font-mono text-sm text-lime-400 break-all">{installCommand}</code>
                       ) : (
                         <div className="text-sm text-white/45 leading-relaxed">
                           Create a preset to generate the installation command. This keeps the command fully deterministic and includes all configuration.
@@ -1700,7 +1708,7 @@ export default function InstallWizardClient() {
               <div className="p-3">
                 {installCommand ? (
                   <div className="space-y-3">
-                    <code className="block font-mono text-xs text-white break-all leading-relaxed">{installCommand}</code>
+                    <code className="block font-mono text-xs text-lime-400 break-all leading-relaxed">{installCommand}</code>
                     <Button
                       size="sm"
                       variant="outline"
