@@ -3,6 +3,7 @@ import './global.css';
 import { Geist, Geist_Mono } from 'next/font/google';
 import type { Metadata } from 'next';
 import { Analytics } from "@vercel/analytics/next"
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -35,7 +36,7 @@ export default function Layout({ children }: LayoutProps<'/'>) {
             enabled: false,
           }}
         >
-          {children}
+          <NuqsAdapter>{children}</NuqsAdapter>
 
           <Analytics />
         </RootProvider>

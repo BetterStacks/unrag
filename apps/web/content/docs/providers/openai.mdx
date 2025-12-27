@@ -1,0 +1,112 @@
+---
+title: OpenAI
+description: Use OpenAI's embedding models directly through their official SDK.
+---
+
+OpenAI's embedding models are the most widely used in the industry. Their `text-embedding-3-small` model offers an excellent balance of quality, speed, and cost, making it the default choice for most Unrag installations. For applications that need higher accuracy and can afford the extra cost, `text-embedding-3-large` provides state-of-the-art results.
+
+## Setup
+
+Install the OpenAI SDK package:
+
+```bash
+bun add @ai-sdk/openai
+```
+
+Set your API key in the environment:
+
+```bash
+OPENAI_API_KEY="sk-..."
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "openai",
+    config: {
+      model: "text-embedding-3-small",
+      timeoutMs: 15_000,
+    },
+  },
+} as const);
+```
+
+## Configuration options
+
+The OpenAI provider accepts these configuration options:
+
+**`model`** specifies which embedding model to use. If not set, the provider checks the `OPENAI_EMBEDDING_MODEL` environment variable, then falls back to `text-embedding-3-small`.
+
+**`timeoutMs`** sets how long to wait for an embedding response before failing. The default behavior is no timeout, but setting one (like 15 seconds) prevents requests from hanging indefinitely on network issues.
+
+**`dimensions`** enables dimension truncation for the embedding-3 models. OpenAI's newer models support returning fewer dimensions than their native size, which reduces storage costs while retaining most of the semantic information. For example, you can request 512 dimensions from `text-embedding-3-small` (which natively produces 1536) and still get useful embeddings.
+
+**`user`** is an optional identifier representing your end-user. OpenAI uses this for abuse detection and doesn't affect the embedding output.
+
+```ts
+embedding: {
+  provider: "openai",
+  config: {
+    model: "text-embedding-3-large",
+    dimensions: 1024,  // Truncate from 3072 to 1024
+    timeoutMs: 20_000,
+    user: "user-123",
+  },
+},
+```
+
+## Available models
+
+OpenAI offers three embedding models:
+
+**`text-embedding-3-small`** produces 1536-dimensional vectors. It's fast, cheap, and works well for most applications. This is what you should start with unless you have specific needs for higher quality.
+
+**`text-embedding-3-large`** produces 3072-dimensional vectors. It captures finer semantic distinctions and performs better on challenging retrieval tasks, but costs more and requires more storage. Consider this when retrieval quality directly impacts your product and cost is less of a concern.
+
+**`text-embedding-ada-002`** is the legacy model, producing 1536-dimensional vectors. It's still available but the embedding-3 models are strictly better. There's no reason to use ada-002 for new projects.
+
+## Dimension truncation
+
+The embedding-3 models support a feature called dimension truncation. You can request fewer dimensions than the model natively produces, and OpenAI returns a shorter vector that preserves the most important semantic information.
+
+This is useful when you want to reduce storage costs or speed up similarity calculations. The tradeoff is some loss of precision, but for many applications the difference is negligible.
+
+```ts
+// Request 256 dimensions instead of the native 1536
+config: {
+  model: "text-embedding-3-small",
+  dimensions: 256,
+}
+```
+
+If you use dimension truncation, make sure your database column is sized appropriately and that you're consistent—all vectors in your store should have the same dimensionality.
+
+## Environment variables
+
+**`OPENAI_API_KEY`** (required): Your OpenAI API key. Get one from the OpenAI dashboard.
+
+**`OPENAI_EMBEDDING_MODEL`** (optional): Overrides the model specified in code. This lets you change models between environments without modifying your configuration.
+
+```bash
+# .env
+OPENAI_API_KEY="sk-..."
+OPENAI_EMBEDDING_MODEL="text-embedding-3-large"
+```
+
+## Error handling
+
+Common failures you might encounter:
+
+**Rate limits**: OpenAI has rate limits on embedding requests. If you're ingesting large amounts of content, you may hit these limits. Implement backoff and retry logic in your application, or reduce your ingestion concurrency.
+
+**Invalid API key**: Double-check that `OPENAI_API_KEY` is set correctly and that the key has embedding permissions.
+
+**Network timeouts**: If requests are timing out, increase `timeoutMs` or check your network connectivity. OpenAI's API is generally fast, so persistent timeouts usually indicate a network issue on your side.
+
+**Model not found**: Verify the model name is spelled correctly. The embedding models don't follow the same naming as chat models.
+

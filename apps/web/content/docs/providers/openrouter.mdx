@@ -1,0 +1,91 @@
+---
+title: OpenRouter
+description: A unified API that routes to multiple embedding providers.
+---
+
+OpenRouter is a meta-API that provides access to models from multiple providers through a single interface. You can use OpenAI, Cohere, and other models without separate accounts for each—just one API key and one billing relationship. This is useful when you want flexibility to switch models without changing credentials, or when you want to compare different providers.
+
+OpenRouter uses its own SDK rather than the AI SDK, so the setup is slightly different from other providers.
+
+## Setup
+
+Install the OpenRouter SDK package:
+
+```bash
+bun add @openrouter/sdk
+```
+
+Set your API key in the environment:
+
+```bash
+OPENROUTER_API_KEY="..."
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "openrouter",
+    config: {
+      model: "text-embedding-3-small",
+      timeoutMs: 15_000,
+    },
+  },
+} as const);
+```
+
+## Configuration options
+
+**`model`** specifies which model to use. OpenRouter routes your request to the appropriate provider. If not set, the provider checks the `OPENROUTER_EMBEDDING_MODEL` environment variable, then falls back to `text-embedding-3-small`.
+
+**`timeoutMs`** sets the request timeout in milliseconds.
+
+**`apiKey`** optionally sets the API key in code rather than through environment variables.
+
+**`baseURL`** overrides the OpenRouter API URL.
+
+**`headers`** adds custom headers to requests.
+
+**`referer`** sets the HTTP-Referer header. OpenRouter uses this for analytics and rate limiting.
+
+**`title`** sets a title for your application, which appears in OpenRouter's dashboard.
+
+```ts
+embedding: {
+  provider: "openrouter",
+  config: {
+    model: "text-embedding-3-small",
+    referer: "https://myapp.com",
+    title: "MyApp Search",
+    timeoutMs: 20_000,
+  },
+},
+```
+
+## Available models
+
+OpenRouter provides access to embedding models from various providers. The specific models available depend on OpenRouter's current offerings—check their documentation for the current list.
+
+Common choices include OpenAI's embedding models (`text-embedding-3-small`, `text-embedding-3-large`) routed through OpenRouter's infrastructure.
+
+## Environment variables
+
+**`OPENROUTER_API_KEY`** (required): Your OpenRouter API key.
+
+**`OPENROUTER_EMBEDDING_MODEL`** (optional): Overrides the model specified in code.
+
+```bash
+# .env
+OPENROUTER_API_KEY="..."
+```
+
+## When to use OpenRouter
+
+Choose OpenRouter when you want a single API key that provides access to multiple providers, or when you're experimenting with different models and want easy switching. It's also useful if you prefer OpenRouter's pricing or billing model.
+
+For production applications with stable model choices, you might prefer going directly to the provider for simpler infrastructure and potentially lower latency.
+

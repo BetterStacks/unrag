@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findUp, tryFindProjectRoot } from "../lib/fs";
 import { readJsonFile, writeJsonFile } from "../lib/json";
+import { readRegistryManifest } from "../lib/manifest";
 import { copyConnectorFiles, copyExtractorFiles } from "../lib/registry";
 import {
   depsForConnector,
@@ -34,23 +35,6 @@ type ParsedAddArgs = {
   name?: string;
   yes?: boolean;
 };
-
-const AVAILABLE_EXTRACTORS: ExtractorName[] = [
-  "pdf-llm",
-  "pdf-text-layer",
-  "pdf-ocr",
-  "image-ocr",
-  "image-caption-llm",
-  "audio-transcribe",
-  "video-transcribe",
-  "video-frames",
-  "file-text",
-  "file-docx",
-  "file-pptx",
-  "file-xlsx",
-];
-
-const AVAILABLE_CONNECTORS: ConnectorName[] = ["notion", "google-drive"];
 
 const parseAddArgs = (args: string[]): ParsedAddArgs => {
   const out: ParsedAddArgs = {};
@@ -91,20 +75,6 @@ export async function addCommand(args: string[]) {
   const kind = parsed.kind ?? "connector";
   const name = parsed.name;
 
-  if (!name) {
-    outro(
-      [
-        "Usage:",
-        "  unrag add <connector>",
-        "  unrag add extractor <name>",
-        "",
-        `Available connectors: ${AVAILABLE_CONNECTORS.join(", ")}`,
-        `Available extractors: ${AVAILABLE_EXTRACTORS.join(", ")}`,
-      ].join("\n")
-    );
-    return;
-  }
-
   const configPath = path.join(root, CONFIG_FILE);
   const config = await readJsonFile<InitConfig>(configPath);
   if (!config?.installDir) {
@@ -116,6 +86,29 @@ export async function addCommand(args: string[]) {
     throw new Error("Could not locate CLI package root (package.json not found).");
   }
   const registryRoot = path.join(cliPackageRoot, "registry");
+  const manifest = await readRegistryManifest(registryRoot);
+  const availableExtractors = new Set(
+    manifest.extractors.map((e) => e.id as ExtractorName)
+  );
+  const availableConnectors = new Set(
+    manifest.connectors
+      .filter((c) => c.status === "available")
+      .map((c) => c.id as ConnectorName)
+  );
+
+  if (!name) {
+    outro(
+      [
+        "Usage:",
+        "  unrag add <connector>",
+        "  unrag add extractor <name>",
+        "",
+        `Available connectors: ${Array.from(availableConnectors).join(", ")}`,
+        `Available extractors: ${Array.from(availableExtractors).join(", ")}`,
+      ].join("\n")
+    );
+    return;
+  }
 
   const nonInteractive = parsed.yes || !process.stdin.isTTY;
 
@@ -123,9 +116,9 @@ export async function addCommand(args: string[]) {
 
   if (kind === "connector") {
     const connector = name as ConnectorName | undefined;
-    if (!connector || !AVAILABLE_CONNECTORS.includes(connector)) {
+    if (!connector || !availableConnectors.has(connector)) {
       outro(
-        `Unknown connector: ${name}\n\nAvailable connectors: ${AVAILABLE_CONNECTORS.join(", ")}`
+        `Unknown connector: ${name}\n\nAvailable connectors: ${Array.from(availableConnectors).join(", ")}`
       );
       return;
     }
@@ -177,9 +170,9 @@ export async function addCommand(args: string[]) {
 
   // Extractors
   const extractor = name as ExtractorName | undefined;
-  if (!extractor || !AVAILABLE_EXTRACTORS.includes(extractor)) {
+  if (!extractor || !availableExtractors.has(extractor)) {
     outro(
-      `Unknown extractor: ${name}\n\nAvailable extractors: ${AVAILABLE_EXTRACTORS.join(", ")}`
+      `Unknown extractor: ${name}\n\nAvailable extractors: ${Array.from(availableExtractors).join(", ")}`
     );
     return;
   }

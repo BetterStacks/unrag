@@ -1,0 +1,112 @@
+---
+title: AI Gateway
+description: A generic provider for Vercel AI Gateway and custom proxy endpoints.
+---
+
+The AI Gateway provider is a generic wrapper around the Vercel AI SDK's embedding functionality. Instead of using provider-specific SDKs, it uses the AI SDK's model string format (like `openai/text-embedding-3-small`) to route requests.
+
+This provider is useful when you're using Vercel's AI Gateway, when you have a custom proxy that implements the AI SDK's model interface, or when you want a generic fallback that doesn't require provider-specific setup.
+
+For most use cases, you'll get better type safety and more configuration options by using the provider-specific modules (OpenAI, Google, etc.) directly. The AI Gateway provider is the legacy default from earlier Unrag versions, kept for backwards compatibility and edge cases.
+
+## Setup
+
+The AI Gateway provider uses the core `ai` package, which is already a dependency of Unrag.
+
+Set your credentials in the environment:
+
+```bash
+AI_GATEWAY_API_KEY="..."
+```
+
+Configure the provider in your `unrag.config.ts`:
+
+```ts
+import { defineUnragConfig } from "./lib/unrag/core";
+
+export const unrag = defineUnragConfig({
+  // ...
+  embedding: {
+    provider: "ai",
+    config: {
+      model: "openai/text-embedding-3-small",
+      timeoutMs: 15_000,
+    },
+  },
+} as const);
+```
+
+## Configuration options
+
+**`model`** specifies the model using the AI SDK's string format: `provider/model-name`. If not set, the provider checks the `AI_GATEWAY_MODEL` environment variable, then falls back to `openai/text-embedding-3-small`.
+
+**`timeoutMs`** sets the request timeout in milliseconds.
+
+```ts
+embedding: {
+  provider: "ai",
+  config: {
+    model: "openai/text-embedding-3-large",
+    timeoutMs: 20_000,
+  },
+},
+```
+
+## Model string format
+
+The AI Gateway uses a `provider/model` string format:
+
+- `openai/text-embedding-3-small`
+- `openai/text-embedding-3-large`
+- `cohere/embed-english-v3.0`
+- `google/gemini-embedding-001`
+
+This format is resolved by the AI SDK at runtime. The exact providers available depend on which AI SDK packages you have installed and configured.
+
+## Environment variables
+
+**`AI_GATEWAY_API_KEY`** (required): The API key passed to the AI SDK. Which provider this authenticates with depends on your model string.
+
+**`AI_GATEWAY_MODEL`** (optional): Overrides the model specified in code.
+
+```bash
+# .env
+AI_GATEWAY_API_KEY="sk-..."
+AI_GATEWAY_MODEL="openai/text-embedding-3-small"
+```
+
+## When to use AI Gateway
+
+Use the AI Gateway provider when:
+
+- You're using Vercel's AI Gateway infrastructure
+- You have a custom proxy that implements the AI SDK's model interface
+- You're migrating from an older Unrag setup and don't want to change your config
+- You need to dynamically switch between providers using model strings
+
+For new projects, we recommend using the provider-specific modules (OpenAI, Google, Cohere, etc.) instead. They offer better type safety, more configuration options, and clearer dependencies.
+
+## Migrating to provider-specific modules
+
+If you're currently using the AI Gateway provider and want to switch to a provider-specific module, the migration is straightforward:
+
+```ts
+// Before (AI Gateway)
+embedding: {
+  provider: "ai",
+  config: {
+    model: "openai/text-embedding-3-small",
+  },
+},
+
+// After (OpenAI provider)
+embedding: {
+  provider: "openai",
+  config: {
+    model: "text-embedding-3-small",
+  },
+},
+```
+
+Make sure to install the provider's SDK package and update your environment variables to match the provider's expectations.
+

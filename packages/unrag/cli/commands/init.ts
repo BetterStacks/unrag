@@ -11,19 +11,26 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   copyExtractorFiles,
+  copyConnectorFiles,
   copyRegistryFiles,
   type RegistrySelection,
 } from "../lib/registry";
 import { readJsonFile, writeJsonFile } from "../lib/json";
 import { findUp, normalizePosixPath, tryFindProjectRoot } from "../lib/fs";
+import { readRegistryManifest } from "../lib/manifest";
+import { fetchPreset, type PresetPayloadV1 } from "../lib/preset";
 import {
   depsForAdapter,
+  depsForConnector,
   depsForExtractor,
   detectPackageManager,
   installCmd,
   mergeDeps,
   readPackageJson,
+  type ConnectorName,
   type ExtractorName,
+  type EmbeddingProviderName,
+  depsForEmbeddingProvider,
   writePackageJson,
 } from "../lib/packageJson";
 import { patchTsconfigPaths } from "../lib/tsconfig";
@@ -32,6 +39,7 @@ type InitConfig = {
   installDir: string;
   storeAdapter: "drizzle" | "prisma" | "raw-sql";
   aliasBase?: string;
+  embeddingProvider?: EmbeddingProviderName;
   version: number;
   connectors?: string[];
   extractors?: string[];
@@ -50,6 +58,9 @@ type ParsedInitArgs = {
   yes?: boolean;
   richMedia?: boolean;
   extractors?: string[];
+  provider?: EmbeddingProviderName;
+  preset?: string;
+  overwrite?: "skip" | "force";
 };
 
 const parseInitArgs = (args: string[]): ParsedInitArgs => {
@@ -104,97 +115,57 @@ const parseInitArgs = (args: string[]): ParsedInitArgs => {
       }
       continue;
     }
+    if (a === "--provider") {
+      const v = args[i + 1] as EmbeddingProviderName | undefined;
+      if (
+        v === "ai" ||
+        v === "openai" ||
+        v === "google" ||
+        v === "openrouter" ||
+        v === "azure" ||
+        v === "vertex" ||
+        v === "bedrock" ||
+        v === "cohere" ||
+        v === "mistral" ||
+        v === "together" ||
+        v === "ollama" ||
+        v === "voyage"
+      ) {
+        out.provider = v;
+        i++;
+      }
+      continue;
+    }
+    if (a === "--preset") {
+      const v = args[i + 1];
+      if (v) {
+        out.preset = v;
+        i++;
+      }
+      continue;
+    }
+    if (a === "--overwrite") {
+      const v = args[i + 1];
+      if (v === "skip" || v === "force") {
+        out.overwrite = v;
+        i++;
+      }
+      continue;
+    }
   }
 
   return out;
 };
 
-const DEFAULT_RICH_MEDIA_EXTRACTORS: ExtractorName[] = ["pdf-text-layer", "file-text"];
+const toExtractors = (xs: string[] | undefined): ExtractorName[] =>
+  (Array.isArray(xs) ? xs : [])
+    .map((s) => String(s).trim())
+    .filter(Boolean) as ExtractorName[];
 
-const EXTRACTOR_OPTIONS: Array<{
-  group: string;
-  value: ExtractorName;
-  label: string;
-  hint?: string;
-}> = [
-  // PDF
-  {
-    group: "PDF",
-    value: "pdf-text-layer",
-    label: `pdf-text-layer (Fast/cheap extraction via PDF text layer)`,
-    hint: "recommended",
-  },
-  {
-    group: "PDF",
-    value: "pdf-llm",
-    label: `pdf-llm (LLM-based PDF extraction; higher cost)`,
-  },
-  {
-    group: "PDF",
-    value: "pdf-ocr",
-    label: `pdf-ocr (OCR scanned PDFs; requires native binaries)`,
-    hint: "worker-only",
-  },
-
-  // Image
-  {
-    group: "Image",
-    value: "image-ocr",
-    label: `image-ocr (Extract text from images via vision LLM)`,
-  },
-  {
-    group: "Image",
-    value: "image-caption-llm",
-    label: `image-caption-llm (Generate captions for images via vision LLM)`,
-  },
-
-  // Audio
-  {
-    group: "Audio",
-    value: "audio-transcribe",
-    label: `audio-transcribe (Speech-to-text transcription)`,
-  },
-
-  // Video
-  {
-    group: "Video",
-    value: "video-transcribe",
-    label: `video-transcribe (Transcribe video audio track)`,
-  },
-  {
-    group: "Video",
-    value: "video-frames",
-    label: `video-frames (Sample frames + analyze via vision LLM; requires ffmpeg)`,
-    hint: "worker-only",
-  },
-
-  // Files
-  {
-    group: "Files",
-    value: "file-text",
-    label: `file-text (Extract text/markdown/json/html from common text files)`,
-    hint: "recommended",
-  },
-  {
-    group: "Files",
-    value: "file-docx",
-    label: `file-docx (Extract text from .docx files)`,
-  },
-  {
-    group: "Files",
-    value: "file-pptx",
-    label: `file-pptx (Extract text from .pptx slides)`,
-  },
-  {
-    group: "Files",
-    value: "file-xlsx",
-    label: `file-xlsx (Extract tables from .xlsx spreadsheets)`,
-  },
-];
-
-const AVAILABLE_EXTRACTORS = new Set<ExtractorName>(
-  EXTRACTOR_OPTIONS.map((o) => o.value)
-);
+const toConnectors = (xs: string[] | undefined): ConnectorName[] =>
+  (Array.isArray(xs) ? xs : [])
+    .map((s) => String(s).trim())
+    .filter(Boolean) as ConnectorName[];
 
 export async function initCommand(args: string[]) {
   const root = await tryFindProjectRoot(process.cwd());
@@ -207,18 +178,81 @@ export async function initCommand(args: string[]) {
     throw new Error("Could not locate CLI package root (package.json not found).");
   }
   const registryRoot = path.join(cliPackageRoot, "registry");
+  const manifest = await readRegistryManifest(registryRoot);
+
+  const extractorOptions = manifest.extractors.map((ex) => {
+    const value = ex.id as ExtractorName;
+    const label = ex.description
+      ? `${ex.label} (${ex.description})`
+      : ex.label;
+    return {
+      group: ex.group,
+      value,
+      label,
+      hint: ex.hint,
+      defaultSelected: Boolean(ex.defaultSelected),
+    };
+  });
+
+  const availableExtractors = new Set<ExtractorName>(
+    extractorOptions.map((o) => o.value)
+  );
+
+  const defaultRichMediaExtractors: ExtractorName[] = extractorOptions
+    .filter((o) => o.defaultSelected)
+    .map((o) => o.value)
+    .sort();
 
   const existing = await readJsonFile<InitConfig>(path.join(root, CONFIG_FILE));
 
   const parsed = parseInitArgs(args);
 
+  const preset: PresetPayloadV1 | null = parsed.preset
+    ? await fetchPreset(parsed.preset)
+    : null;
+
+  if (preset) {
+    const hasOtherChoices =
+      Boolean(parsed.installDir) ||
+      Boolean(parsed.storeAdapter) ||
+      Boolean(parsed.aliasBase) ||
+      typeof parsed.richMedia === "boolean" ||
+      (parsed.extractors ?? []).length > 0;
+    if (hasOtherChoices) {
+      throw new Error(
+        'When using "--preset", do not pass other init preference flags (--store/--dir/--alias/--rich-media/--extractors).'
+      );
+    }
+  }
+
+  const presetEmbeddingProvider = (() => {
+    const v = (preset as any)?.config?.embedding?.provider as unknown;
+    return v === "ai" ||
+      v === "openai" ||
+      v === "google" ||
+      v === "openrouter" ||
+      v === "azure" ||
+      v === "vertex" ||
+      v === "bedrock" ||
+      v === "cohere" ||
+      v === "mistral" ||
+      v === "together" ||
+      v === "ollama" ||
+      v === "voyage" ||
+      v === "custom"
+      ? (v as EmbeddingProviderName)
+      : undefined;
+  })();
+
   const defaults = {
-    installDir: existing?.installDir ?? "lib/unrag",
-    storeAdapter: existing?.storeAdapter ?? "drizzle",
-    aliasBase: existing?.aliasBase ?? "@unrag",
+    installDir: preset?.install?.installDir ?? existing?.installDir ?? "lib/unrag",
+    storeAdapter: preset?.install?.storeAdapter ?? existing?.storeAdapter ?? "drizzle",
+    aliasBase: preset?.install?.aliasBase ?? existing?.aliasBase ?? "@unrag",
+    embeddingProvider: parsed.provider ?? presetEmbeddingProvider ?? existing?.embeddingProvider ?? "ai",
   } as const;
 
-  const nonInteractive = parsed.yes || !process.stdin.isTTY;
+  const nonInteractive = Boolean(parsed.yes) || Boolean(preset) || !process.stdin.isTTY;
+  const overwritePolicy = parsed.overwrite ?? "skip";
 
   const installDirAnswer = parsed.installDir
     ? parsed.installDir
@@ -279,13 +313,50 @@ export async function initCommand(args: string[]) {
   }
   const aliasBase = String(aliasAnswer).trim();
 
+  const embeddingProviderAnswer = parsed.provider
+    ? parsed.provider
+    : nonInteractive
+      ? defaults.embeddingProvider
+      : await select({
+          message: "Embedding provider",
+          initialValue: defaults.embeddingProvider,
+          options: [
+            { value: "ai", label: "Vercel AI Gateway (AI SDK)", hint: "default" },
+            { value: "openai", label: "OpenAI" },
+            { value: "google", label: "Google AI (Gemini)" },
+            { value: "openrouter", label: "OpenRouter" },
+            { value: "azure", label: "Azure OpenAI" },
+            { value: "vertex", label: "Google Vertex AI" },
+            { value: "bedrock", label: "AWS Bedrock" },
+            { value: "cohere", label: "Cohere" },
+            { value: "mistral", label: "Mistral" },
+            { value: "together", label: "Together.ai" },
+            { value: "ollama", label: "Ollama (local)" },
+            { value: "voyage", label: "Voyage AI" },
+          ],
+        });
+  if (isCancel(embeddingProviderAnswer)) {
+    cancel("Cancelled.");
+    return;
+  }
+  const embeddingProvider = embeddingProviderAnswer as EmbeddingProviderName;
+
   if (parsed.richMedia === false && (parsed.extractors ?? []).length > 0) {
     throw new Error('Cannot use "--no-rich-media" together with "--extractors".');
   }
 
-  const extractorsFromArgs = (parsed.extractors ?? [])
-    .filter((x): x is ExtractorName => AVAILABLE_EXTRACTORS.has(x as ExtractorName))
+  const extractorsFromArgs = (preset ? toExtractors(preset.modules?.extractors) : parsed.extractors ?? [])
+    .filter((x): x is ExtractorName => availableExtractors.has(x as ExtractorName))
     .sort();
+
+  if (preset) {
+    const unknown = toExtractors(preset.modules?.extractors).filter(
+      (x) => !availableExtractors.has(x)
+    );
+    if (unknown.length > 0) {
+      throw new Error(`Preset contains unknown extractors: ${unknown.join(", ")}`);
+    }
+  }
 
   const richMediaAnswer =
     extractorsFromArgs.length > 0
@@ -296,7 +367,7 @@ export async function initCommand(args: string[]) {
           ? false
           : await confirm({
               message:
-                'Enable rich media ingestion (PDF/images/audio/video/files)? This also enables multimodal image embeddings (you can change this later).',
+                "Enable rich media ingestion (PDF/images/audio/video/files)? This enables extractor modules and assetProcessing (you can change this later).",
               initialValue: false,
             });
   if (isCancel(richMediaAnswer)) {
@@ -310,10 +381,12 @@ export async function initCommand(args: string[]) {
       ? nonInteractive
         ? (extractorsFromArgs.length > 0
             ? extractorsFromArgs
-            : DEFAULT_RICH_MEDIA_EXTRACTORS) // default preset
+            : defaultRichMediaExtractors.length > 0
+              ? defaultRichMediaExtractors
+              : (["pdf-text-layer", "file-text"] as ExtractorName[])) // fallback preset
         : await groupMultiselect<ExtractorName>({
             message: "Select extractors to enable (space to toggle, enter to confirm)",
-            options: EXTRACTOR_OPTIONS.reduce<Record<string, any[]>>((acc, opt) => {
+            options: extractorOptions.reduce<Record<string, any[]>>((acc, opt) => {
               acc[opt.group] ??= [];
               acc[opt.group]!.push({
                 value: opt.value,
@@ -325,7 +398,9 @@ export async function initCommand(args: string[]) {
             initialValues:
               extractorsFromArgs.length > 0
                 ? extractorsFromArgs
-                : DEFAULT_RICH_MEDIA_EXTRACTORS,
+                : defaultRichMediaExtractors.length > 0
+                  ? defaultRichMediaExtractors
+                  : (["pdf-text-layer", "file-text"] as ExtractorName[]),
             required: false,
           })
       : [];
@@ -349,6 +424,10 @@ export async function initCommand(args: string[]) {
     projectRoot: root,
     registryRoot,
     aliasBase,
+    embeddingProvider,
+    yes: nonInteractive,
+    overwrite: overwritePolicy,
+    presetConfig: (preset?.config as any) ?? undefined,
     richMedia: richMediaEnabled
       ? {
           enabled: true,
@@ -368,12 +447,14 @@ export async function initCommand(args: string[]) {
         installDir,
         extractor,
         yes: nonInteractive,
+        overwrite: overwritePolicy,
       });
     }
   }
 
   const pkg = await readPackageJson(root);
   const { deps, devDeps } = depsForAdapter(storeAdapterAnswer);
+  const embeddingDeps = depsForEmbeddingProvider(embeddingProvider);
   const extractorDeps: Record<string, string> = {};
   const extractorDevDeps: Record<string, string> = {};
   for (const ex of selectedExtractors) {
@@ -381,10 +462,46 @@ export async function initCommand(args: string[]) {
     Object.assign(extractorDeps, r.deps);
     Object.assign(extractorDevDeps, r.devDeps);
   }
+
+  const connectorsFromPreset = preset ? toConnectors(preset.modules?.connectors) : [];
+  const availableConnectorIds = new Set(
+    (manifest.connectors ?? [])
+      .filter((c: any) => c.status === "available")
+      .map((c: any) => String(c.id)) as ConnectorName[]
+  );
+  if (preset) {
+    const unknown = connectorsFromPreset.filter((c) => !availableConnectorIds.has(c));
+    if (unknown.length > 0) {
+      throw new Error(`Preset contains unknown/unavailable connectors: ${unknown.join(", ")}`);
+    }
+  }
+
+  // Install connector modules (vendor code) before updating deps.
+  if (connectorsFromPreset.length > 0) {
+    for (const connector of connectorsFromPreset) {
+      await copyConnectorFiles({
+        projectRoot: root,
+        registryRoot,
+        installDir,
+        connector,
+        yes: nonInteractive,
+        overwrite: overwritePolicy,
+      });
+    }
+  }
+
+  const connectorDeps: Record<string, string> = {};
+  const connectorDevDeps: Record<string, string> = {};
+  for (const c of connectorsFromPreset) {
+    const r = depsForConnector(c);
+    Object.assign(connectorDeps, r.deps);
+    Object.assign(connectorDevDeps, r.devDeps);
+  }
+
   const merged = mergeDeps(
     pkg,
-    { ...deps, ...extractorDeps },
-    { ...devDeps, ...extractorDevDeps }
+    { ...deps, ...embeddingDeps.deps, ...extractorDeps, ...connectorDeps },
+    { ...devDeps, ...embeddingDeps.devDeps, ...extractorDevDeps, ...connectorDevDeps }
   );
   if (merged.changes.length > 0) {
     await writePackageJson(root, merged.pkg);
@@ -394,8 +511,11 @@ export async function initCommand(args: string[]) {
     installDir,
     storeAdapter: storeAdapterAnswer,
     aliasBase,
+    embeddingProvider,
     version: CONFIG_VERSION,
-    connectors: existing?.connectors ?? [],
+    connectors: Array.from(
+      new Set([...(existing?.connectors ?? []), ...connectorsFromPreset])
+    ).sort(),
     extractors: Array.from(
       new Set([
         ...(existing?.extractors ?? []),
@@ -419,6 +539,104 @@ export async function initCommand(args: string[]) {
     ? await patchTsconfigPaths({ projectRoot: root, installDir, aliasBase })
     : { changed: false as const };
 
+  const envHint = (() => {
+    if (embeddingProvider === "ai") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- AI_GATEWAY_API_KEY=...",
+        "- (optional) AI_GATEWAY_MODEL=openai/text-embedding-3-small",
+      ];
+    }
+    if (embeddingProvider === "openai") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- OPENAI_API_KEY=...",
+        "- (optional) OPENAI_EMBEDDING_MODEL=text-embedding-3-small",
+      ];
+    }
+    if (embeddingProvider === "google") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- GOOGLE_GENERATIVE_AI_API_KEY=...",
+        "- (optional) GOOGLE_GENERATIVE_AI_EMBEDDING_MODEL=gemini-embedding-001",
+      ];
+    }
+    if (embeddingProvider === "openrouter") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- OPENROUTER_API_KEY=...",
+        "- (optional) OPENROUTER_EMBEDDING_MODEL=text-embedding-3-small",
+      ];
+    }
+    if (embeddingProvider === "cohere") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- COHERE_API_KEY=...",
+        "- (optional) COHERE_EMBEDDING_MODEL=embed-english-v3.0",
+      ];
+    }
+    if (embeddingProvider === "mistral") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- MISTRAL_API_KEY=...",
+        "- (optional) MISTRAL_EMBEDDING_MODEL=mistral-embed",
+      ];
+    }
+    if (embeddingProvider === "together") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- TOGETHER_AI_API_KEY=...",
+        "- (optional) TOGETHER_AI_EMBEDDING_MODEL=togethercomputer/m2-bert-80M-2k-retrieval",
+      ];
+    }
+    if (embeddingProvider === "voyage") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- VOYAGE_API_KEY=...",
+        "- (optional) VOYAGE_MODEL=voyage-3.5-lite",
+      ];
+    }
+    if (embeddingProvider === "ollama") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- (optional) OLLAMA_EMBEDDING_MODEL=nomic-embed-text",
+      ];
+    }
+    if (embeddingProvider === "azure") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- AZURE_OPENAI_API_KEY=...",
+        "- AZURE_RESOURCE_NAME=...",
+        "- (optional) AZURE_EMBEDDING_MODEL=text-embedding-3-small",
+      ];
+    }
+    if (embeddingProvider === "vertex") {
+      return [
+        "Env:",
+        "- DATABASE_URL=...",
+        "- GOOGLE_APPLICATION_CREDENTIALS=... (when outside GCP)",
+        "- (optional) GOOGLE_VERTEX_EMBEDDING_MODEL=text-embedding-004",
+      ];
+    }
+    return [
+      "Env:",
+      "- DATABASE_URL=...",
+      "- AWS_REGION=... (Bedrock)",
+      "- AWS credentials (when outside AWS)",
+      "- (optional) BEDROCK_EMBEDDING_MODEL=amazon.titan-embed-text-v2:0",
+    ];
+  })();
+
   outro(
     [
       "Installed Unrag.",
@@ -429,9 +647,7 @@ export async function initCommand(args: string[]) {
       `- Imports: ${aliasBase}/* and ${aliasBase}/config`,
       "",
       `- Rich media: ${richMediaEnabled ? "enabled" : "disabled"}`,
-      richMediaEnabled
-        ? `- Embeddings: multimodal enabled (images can be embedded directly)`
-        : `- Embeddings: text-only (no direct image embedding)`,
+      `- Embedding provider: ${embeddingProvider}`,
       richMediaEnabled
         ? `- Extractors: ${selectedExtractors.length > 0 ? selectedExtractors.join(", ") : "none"}`
         : "",
@@ -448,6 +664,8 @@ export async function initCommand(args: string[]) {
         ? `Added deps: ${merged.changes.map((c) => c.name).join(", ")}`
         : "Added deps: none",
       installLine,
+      "",
+      ...envHint,
       "",
       `Saved ${CONFIG_FILE}.`,
     ].join("\n")

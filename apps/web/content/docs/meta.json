@@ -5,6 +5,7 @@
     "getting-started",
     "concepts",
     "adapters",
+    "providers",
     "embedding",
     "extractors",
     "connectors",
@@ -14,5 +15,3 @@
     "reference"
   ]
 }
-
-

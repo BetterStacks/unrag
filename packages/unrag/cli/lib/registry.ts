@@ -10,6 +10,23 @@ export type RegistrySelection = {
   installDir: string; // project-relative posix
   storeAdapter: "drizzle" | "prisma" | "raw-sql";
   aliasBase: string; // e.g. "@unrag"
+  embeddingProvider?: import("./packageJson").EmbeddingProviderName;
+  yes?: boolean; // non-interactive
+  overwrite?: "skip" | "force"; // behavior when dest exists
+  presetConfig?: {
+    defaults?: {
+      chunking?: { chunkSize?: number; chunkOverlap?: number };
+      retrieval?: { topK?: number };
+    };
+    embedding?: {
+      provider?: string;
+      config?: { type?: "text" | "multimodal"; model?: string; timeoutMs?: number };
+    };
+    engine?: {
+      storage?: { storeChunkContent?: boolean; storeDocumentContent?: boolean };
+      assetProcessing?: unknown;
+    };
+  };
   richMedia?: {
     enabled: boolean;
     extractors: ExtractorName[];
@@ -63,10 +80,45 @@ const ALL_FLAG_KEYS = Array.from(
   new Set(Object.values(EXTRACTOR_FLAG_KEYS).flat())
 ).sort();
 
+const indentBlock = (text: string, spaces: number) => {
+  const pad = " ".repeat(spaces);
+  return text
+    .split("\n")
+    .map((l) => (l ? pad + l : l))
+    .join("\n");
+};
+
+const replaceBetweenMarkers = (
+  content: string,
+  startMarker: string,
+  endMarker: string,
+  replacement: string
+) => {
+  const startIdx = content.indexOf(startMarker);
+  const endIdx = content.indexOf(endMarker);
+  if (startIdx < 0 || endIdx < 0 || endIdx < startIdx) return content;
+
+  // Expand to whole lines so we don't leave indentation behind.
+  const startLineStart = content.lastIndexOf("\n", startIdx);
+  const start = startLineStart < 0 ? 0 : startLineStart + 1;
+
+  const endLineEnd = content.indexOf("\n", endIdx);
+  const end = endLineEnd < 0 ? content.length : endLineEnd + 1;
+
+  return content.slice(0, start) + replacement + content.slice(end);
+};
+
 const renderUnragConfig = (content: string, selection: RegistrySelection) => {
   const installImportBase = `./${selection.installDir.replace(/\\/g, "/")}`;
   const richMedia = selection.richMedia ?? { enabled: false, extractors: [] as ExtractorName[] };
   const selectedExtractors = Array.from(new Set(richMedia.extractors ?? [])).sort();
+  const preset = selection.presetConfig;
+  const embeddingProvider =
+    selection.embeddingProvider ??
+    (typeof preset?.embedding?.provider === "string"
+      ? (preset.embedding.provider as import("./packageJson").EmbeddingProviderName)
+      : undefined) ??
+    "ai";
 
   const baseImports = [
     `import { defineUnragConfig } from "${installImportBase}/core";`,
@@ -145,18 +197,158 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
     .replace("// __UNRAG_IMPORTS__", importsBlock)
     .replace("// __UNRAG_CREATE_ENGINE__", createEngineBlock);
 
-  // Cleanly rewrite embedding mode + model (without leaving marker comments).
-  out = out
-    .replace(
-      'type: "text", // __UNRAG_EMBEDDING_TYPE__',
-      richMedia.enabled ? 'type: "multimodal",' : 'type: "text",'
-    )
-    .replace(
-      'model: "openai/text-embedding-3-small", // __UNRAG_EMBEDDING_MODEL__',
-      richMedia.enabled ? 'model: "cohere/embed-v4.0",' : 'model: "openai/text-embedding-3-small",'
-    );
+  // Apply preset defaults (chunking + retrieval) if provided.
+  const presetChunkSize = preset?.defaults?.chunking?.chunkSize;
+  const presetChunkOverlap = preset?.defaults?.chunking?.chunkOverlap;
+  const presetTopK = preset?.defaults?.retrieval?.topK;
 
-  // Enable/disable assetProcessing flags, stripping marker comments in either case.
+  if (typeof presetChunkSize === "number") {
+    out = out.replace(
+      "chunkSize: 200, // __UNRAG_DEFAULT_chunkSize__",
+      `chunkSize: ${presetChunkSize},`
+    );
+  } else {
+    out = out.replace(
+      "chunkSize: 200, // __UNRAG_DEFAULT_chunkSize__",
+      "chunkSize: 200,"
+    );
+  }
+  if (typeof presetChunkOverlap === "number") {
+    out = out.replace(
+      "chunkOverlap: 40, // __UNRAG_DEFAULT_chunkOverlap__",
+      `chunkOverlap: ${presetChunkOverlap},`
+    );
+  } else {
+    out = out.replace(
+      "chunkOverlap: 40, // __UNRAG_DEFAULT_chunkOverlap__",
+      "chunkOverlap: 40,"
+    );
+  }
+  if (typeof presetTopK === "number") {
+    out = out.replace("topK: 8, // __UNRAG_DEFAULT_topK__", `topK: ${presetTopK},`);
+  } else {
+    out = out.replace("topK: 8, // __UNRAG_DEFAULT_topK__", "topK: 8,");
+  }
+
+  // Embedding config:
+  // - Provider always comes from `selection.embeddingProvider` (or preset override, if provided).
+  // - Preset can override model/timeout/type, but rich media should NOT implicitly flip embeddings to multimodal.
+  const presetEmbeddingType = preset?.embedding?.config?.type;
+  const presetEmbeddingModel = preset?.embedding?.config?.model;
+  const presetEmbeddingTimeoutMs = preset?.embedding?.config?.timeoutMs;
+
+  const providerLine = `    provider: "${embeddingProvider}",`;
+  out = out.replace(/^\s*provider:\s*".*?",\s*$/m, providerLine);
+
+  const defaultModelByProvider: Record<string, string> = {
+    ai: "openai/text-embedding-3-small",
+    openai: "text-embedding-3-small",
+    google: "gemini-embedding-001",
+    openrouter: "text-embedding-3-small",
+    azure: "text-embedding-3-small",
+    vertex: "text-embedding-004",
+    bedrock: "amazon.titan-embed-text-v2:0",
+    cohere: "embed-english-v3.0",
+    mistral: "mistral-embed",
+    together: "togethercomputer/m2-bert-80M-2k-retrieval",
+    ollama: "nomic-embed-text",
+    voyage: "voyage-3.5-lite",
+    custom: "openai/text-embedding-3-small",
+  };
+
+  const resolvedEmbeddingModel = (() => {
+    if (typeof presetEmbeddingModel === "string" && presetEmbeddingModel.trim().length > 0) {
+      return presetEmbeddingModel.trim();
+    }
+    if (embeddingProvider === "ai" && presetEmbeddingType === "multimodal") {
+      // Wizard default for multimodal via AI Gateway.
+      return "cohere/embed-v4.0";
+    }
+    return defaultModelByProvider[embeddingProvider] ?? "openai/text-embedding-3-small";
+  })();
+
+  const normalizeModelForProvider = (model: string) => {
+    if (embeddingProvider === "ai") return model;
+    const prefix = `${embeddingProvider}/`;
+    return model.startsWith(prefix) ? model.slice(prefix.length) : model;
+  };
+
+  const nextModel = normalizeModelForProvider(resolvedEmbeddingModel);
+  out = out.replace(
+    'model: "openai/text-embedding-3-small", // __UNRAG_EMBEDDING_MODEL__',
+    `model: ${JSON.stringify(nextModel)},`
+  );
+
+  // Only opt-in to multimodal when explicitly requested by preset.
+  if (presetEmbeddingType === "multimodal") {
+    if (!out.includes('type: "multimodal"') && !out.includes('type: "text"')) {
+      out = out.replace(
+        `config: {\n      model:`,
+        `config: {\n      type: "multimodal",\n      model:`
+      );
+    } else {
+      out = out.replace(/^\s*type:\s*".*?",\s*$/m, `      type: "multimodal",`);
+    }
+  }
+
+  if (typeof presetEmbeddingTimeoutMs === "number") {
+    out = out.replace(
+      "timeoutMs: 15_000, // __UNRAG_EMBEDDING_TIMEOUT__",
+      `timeoutMs: ${presetEmbeddingTimeoutMs},`
+    );
+  } else {
+    out = out.replace(
+      "timeoutMs: 15_000, // __UNRAG_EMBEDDING_TIMEOUT__",
+      "timeoutMs: 15_000,"
+    );
+  }
+
+  // Storage config (optional).
+  const presetStoreChunkContent = preset?.engine?.storage?.storeChunkContent;
+  const presetStoreDocumentContent = preset?.engine?.storage?.storeDocumentContent;
+  if (typeof presetStoreChunkContent === "boolean") {
+    out = out.replace(
+      "storeChunkContent: true, // __UNRAG_STORAGE_storeChunkContent__",
+      `storeChunkContent: ${presetStoreChunkContent},`
+    );
+  } else {
+    out = out.replace(
+      "storeChunkContent: true, // __UNRAG_STORAGE_storeChunkContent__",
+      "storeChunkContent: true,"
+    );
+  }
+  if (typeof presetStoreDocumentContent === "boolean") {
+    out = out.replace(
+      "storeDocumentContent: true, // __UNRAG_STORAGE_storeDocumentContent__",
+      `storeDocumentContent: ${presetStoreDocumentContent},`
+    );
+  } else {
+    out = out.replace(
+      "storeDocumentContent: true, // __UNRAG_STORAGE_storeDocumentContent__",
+      "storeDocumentContent: true,"
+    );
+  }
+
+  // Asset processing: if preset provides a full object, replace the whole block.
+  const assetProcessingOverride = preset?.engine?.assetProcessing;
+  if (assetProcessingOverride && typeof assetProcessingOverride === "object") {
+    const json = JSON.stringify(assetProcessingOverride, null, 2);
+    const block = `  assetProcessing: ${indentBlock(json, 2).trimStart()},\n`;
+    out = replaceBetweenMarkers(
+      out,
+      "__UNRAG_ASSET_PROCESSING_BLOCK_START__",
+      "__UNRAG_ASSET_PROCESSING_BLOCK_END__",
+      block
+    );
+  } else {
+    // Strip the marker lines if we keep the template block.
+    out = out
+      .replace("// __UNRAG_ASSET_PROCESSING_BLOCK_START__", "")
+      .replace("// __UNRAG_ASSET_PROCESSING_BLOCK_END__", "");
+  }
+
+  // Enable/disable assetProcessing flags (only when not overriding the whole block).
+  if (!(assetProcessingOverride && typeof assetProcessingOverride === "object")) {
   const enabledFlagKeys = new Set<string>();
   if (richMedia.enabled) {
     for (const ex of selectedExtractors) {
@@ -171,6 +363,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
       `enabled: false, // __UNRAG_FLAG_${k}__`,
       `enabled: ${enabledFlagKeys.has(k) ? "true" : "false"},`
     );
+    }
   }
 
   // Inject extractor list (or remove placeholder) without leaving marker comments.
@@ -185,6 +378,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 
 const renderDocs = (content: string, selection: RegistrySelection) => {
   const notes: string[] = [];
+  const embeddingProvider = selection.embeddingProvider ?? "ai";
 
   if (selection.storeAdapter === "drizzle") {
     notes.push(
@@ -222,7 +416,81 @@ const renderDocs = (content: string, selection: RegistrySelection) => {
     );
   }
 
-  const withNotes = content.replace("<!-- __UNRAG_ADAPTER_NOTES__ -->", notes.join("\n"));
+  const envLines: string[] = [
+    "## Environment variables",
+    "",
+    "Add these to your environment:",
+    "- `DATABASE_URL` (Postgres connection string)",
+  ];
+
+  if (embeddingProvider === "ai") {
+    envLines.push(
+      "- `AI_GATEWAY_API_KEY` (required by the AI SDK when using Vercel AI Gateway)",
+      "- Optional: `AI_GATEWAY_MODEL` (defaults to `openai/text-embedding-3-small`)"
+    );
+  } else if (embeddingProvider === "openai") {
+    envLines.push(
+      "- `OPENAI_API_KEY`",
+      "- Optional: `OPENAI_EMBEDDING_MODEL` (defaults to `text-embedding-3-small`)"
+    );
+  } else if (embeddingProvider === "google") {
+    envLines.push(
+      "- `GOOGLE_GENERATIVE_AI_API_KEY`",
+      "- Optional: `GOOGLE_GENERATIVE_AI_EMBEDDING_MODEL` (defaults to `gemini-embedding-001`)"
+    );
+  } else if (embeddingProvider === "openrouter") {
+    envLines.push(
+      "- `OPENROUTER_API_KEY`",
+      "- Optional: `OPENROUTER_EMBEDDING_MODEL` (defaults to `text-embedding-3-small`)"
+    );
+  } else if (embeddingProvider === "cohere") {
+    envLines.push(
+      "- `COHERE_API_KEY`",
+      "- Optional: `COHERE_EMBEDDING_MODEL` (defaults to `embed-english-v3.0`)"
+    );
+  } else if (embeddingProvider === "mistral") {
+    envLines.push(
+      "- `MISTRAL_API_KEY`",
+      "- Optional: `MISTRAL_EMBEDDING_MODEL` (defaults to `mistral-embed`)"
+    );
+  } else if (embeddingProvider === "together") {
+    envLines.push(
+      "- `TOGETHER_AI_API_KEY`",
+      "- Optional: `TOGETHER_AI_EMBEDDING_MODEL` (defaults to `togethercomputer/m2-bert-80M-2k-retrieval`)"
+    );
+  } else if (embeddingProvider === "voyage") {
+    envLines.push(
+      "- `VOYAGE_API_KEY`",
+      "- Optional: `VOYAGE_MODEL` (defaults to `voyage-3.5-lite`)"
+    );
+  } else if (embeddingProvider === "ollama") {
+    envLines.push("- Optional: `OLLAMA_EMBEDDING_MODEL` (defaults to `nomic-embed-text`)");
+  } else if (embeddingProvider === "azure") {
+    envLines.push(
+      "- `AZURE_OPENAI_API_KEY`",
+      "- `AZURE_RESOURCE_NAME`",
+      "- Optional: `AZURE_EMBEDDING_MODEL` (defaults to `text-embedding-3-small`)"
+    );
+  } else if (embeddingProvider === "vertex") {
+    envLines.push(
+      "- `GOOGLE_APPLICATION_CREDENTIALS` (when running outside GCP)",
+      "- Optional: `GOOGLE_VERTEX_EMBEDDING_MODEL` (defaults to `text-embedding-004`)"
+    );
+  } else if (embeddingProvider === "bedrock") {
+    envLines.push(
+      "- `AWS_REGION`",
+      "- AWS credentials (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`) when running outside AWS",
+      "- Optional: `BEDROCK_EMBEDDING_MODEL` (defaults to `amazon.titan-embed-text-v2:0`)"
+    );
+  }
+
+  // Replace the template env vars section with the provider-specific one.
+  const withEnv = content.replace(
+    /## Environment variables[\s\S]*?## Database requirements/,
+    `${envLines.join("\n")}\n\n## Database requirements`
+  );
+
+  const withNotes = withEnv.replace("<!-- __UNRAG_ADAPTER_NOTES__ -->", notes.join("\n"));
   return withNotes
     .replaceAll("@unrag/config", `${selection.aliasBase}/config`)
     .replaceAll("`@unrag/*`", `\`${selection.aliasBase}/*\``);
@@ -287,8 +555,56 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
 
     // embedding
     {
+      src: path.join(selection.registryRoot, "embedding/_shared.ts"),
+      dest: path.join(installBaseAbs, "embedding/_shared.ts"),
+    },
+    {
       src: path.join(selection.registryRoot, "embedding/ai.ts"),
       dest: path.join(installBaseAbs, "embedding/ai.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/openai.ts"),
+      dest: path.join(installBaseAbs, "embedding/openai.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/google.ts"),
+      dest: path.join(installBaseAbs, "embedding/google.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/openrouter.ts"),
+      dest: path.join(installBaseAbs, "embedding/openrouter.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/azure.ts"),
+      dest: path.join(installBaseAbs, "embedding/azure.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/vertex.ts"),
+      dest: path.join(installBaseAbs, "embedding/vertex.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/bedrock.ts"),
+      dest: path.join(installBaseAbs, "embedding/bedrock.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/cohere.ts"),
+      dest: path.join(installBaseAbs, "embedding/cohere.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/mistral.ts"),
+      dest: path.join(installBaseAbs, "embedding/mistral.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/together.ts"),
+      dest: path.join(installBaseAbs, "embedding/together.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/ollama.ts"),
+      dest: path.join(installBaseAbs, "embedding/ollama.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "embedding/voyage.ts"),
+      dest: path.join(installBaseAbs, "embedding/voyage.ts"),
     },
   ];
 
@@ -353,6 +669,9 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
     );
   }
 
+  const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY;
+  const overwritePolicy = selection.overwrite ?? "skip";
+
   // overwrite handling
   for (const mapping of fileMappings) {
     if (!(await exists(mapping.src))) {
@@ -360,6 +679,12 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
     }
 
     if (await exists(mapping.dest)) {
+      if (overwritePolicy === "force") {
+        // always overwrite
+      } else if (nonInteractive) {
+        // never overwrite in non-interactive mode
+        continue;
+      } else {
       const answer = await confirm({
         message: `Overwrite ${path.relative(selection.projectRoot, mapping.dest)}?`,
         initialValue: false,
@@ -370,6 +695,7 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       }
       if (!answer) {
         continue;
+        }
       }
     }
 
@@ -385,6 +711,7 @@ export type ConnectorSelection = {
   installDir: string; // project-relative posix
   connector: string; // e.g. "notion"
   yes?: boolean; // non-interactive skip-overwrite
+  overwrite?: "skip" | "force";
 };
 
 export async function copyConnectorFiles(selection: ConnectorSelection) {
@@ -413,6 +740,7 @@ export async function copyConnectorFiles(selection: ConnectorSelection) {
   );
 
   const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY;
+  const overwritePolicy = selection.overwrite ?? "skip";
 
   for (const src of files) {
     if (!(await exists(src))) {
@@ -423,7 +751,9 @@ export async function copyConnectorFiles(selection: ConnectorSelection) {
     const dest = path.join(destRootAbs, rel);
 
     if (await exists(dest)) {
-      if (nonInteractive) {
+      if (overwritePolicy === "force") {
+        // always overwrite
+      } else if (nonInteractive) {
         continue;
       }
 
@@ -451,6 +781,7 @@ export type ExtractorSelection = {
   installDir: string; // project-relative posix
   extractor: string; // e.g. "pdf-llm"
   yes?: boolean; // non-interactive skip-overwrite
+  overwrite?: "skip" | "force";
 };
 
 export async function copyExtractorFiles(selection: ExtractorSelection) {
@@ -484,9 +815,12 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
   const sharedDestRootAbs = path.join(installBaseAbs, "extractors", "_shared");
 
   const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY;
+  const overwritePolicy = selection.overwrite ?? "skip";
 
   const shouldWrite = async (src: string, dest: string): Promise<boolean> => {
     if (!(await exists(dest))) return true;
+
+    if (overwritePolicy === "force") return true;
 
     // In non-interactive mode we never overwrite existing files.
     if (nonInteractive) return false;

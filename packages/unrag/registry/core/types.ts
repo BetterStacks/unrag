@@ -671,6 +671,50 @@ export type UnragEmbeddingConfig =
       config?: import("../embedding/ai").AiEmbeddingConfig;
     }
   | {
+      provider: "openai";
+      config?: import("../embedding/openai").OpenAiEmbeddingConfig;
+    }
+  | {
+      provider: "google";
+      config?: import("../embedding/google").GoogleEmbeddingConfig;
+    }
+  | {
+      provider: "openrouter";
+      config?: import("../embedding/openrouter").OpenRouterEmbeddingConfig;
+    }
+  | {
+      provider: "azure";
+      config?: import("../embedding/azure").AzureEmbeddingConfig;
+    }
+  | {
+      provider: "vertex";
+      config?: import("../embedding/vertex").VertexEmbeddingConfig;
+    }
+  | {
+      provider: "bedrock";
+      config?: import("../embedding/bedrock").BedrockEmbeddingConfig;
+    }
+  | {
+      provider: "cohere";
+      config?: import("../embedding/cohere").CohereEmbeddingConfig;
+    }
+  | {
+      provider: "mistral";
+      config?: import("../embedding/mistral").MistralEmbeddingConfig;
+    }
+  | {
+      provider: "together";
+      config?: import("../embedding/together").TogetherEmbeddingConfig;
+    }
+  | {
+      provider: "ollama";
+      config?: import("../embedding/ollama").OllamaEmbeddingConfig;
+    }
+  | {
+      provider: "voyage";
+      config?: import("../embedding/voyage").VoyageEmbeddingConfig;
+    }
+  | {
       provider: "custom";
       /**
        * Escape hatch for bringing your own embedding provider.
@@ -736,5 +780,3 @@ export type ResolvedContextEngineConfig = {
   storage: ContentStorageConfig;
   assetProcessing: AssetProcessingConfig;
 };
-
-
