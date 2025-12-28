@@ -102,7 +102,17 @@ OPENAI_EMBEDDING_MODEL="text-embedding-3-large"
 
 Common failures you might encounter:
 
-**Rate limits**: OpenAI has rate limits on embedding requests. If you're ingesting large amounts of content, you may hit these limits. Implement backoff and retry logic in your application, or reduce your ingestion concurrency.
+**Rate limits**: OpenAI has rate limits on embedding requests. If you're hitting rate limits during large ingestions, reduce your embedding concurrency in `unrag.config.ts`:
+
+```ts
+defaults: {
+  embedding: {
+    concurrency: 2,  // Lower from the default of 4
+  },
+},
+```
+
+OpenAI's rate limits vary by tier—paid accounts with usage history get higher limits. Check your current limits in the OpenAI dashboard. For bulk ingestion jobs, consider adding pauses between documents or running during off-peak hours.
 
 **Invalid API key**: Double-check that `OPENAI_API_KEY` is set correctly and that the key has embedding permissions.
 
