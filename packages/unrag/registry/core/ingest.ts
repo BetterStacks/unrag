@@ -504,14 +504,41 @@ export const ingest = async (
   const chunkingMs = now() - chunkingStart;
   const embeddingStart = now();
 
-  const embeddedChunks = await Promise.all(
-    prepared.map(async ({ chunk, embed }) => {
-      if (embed.kind === "image") {
-        const embedImage = config.embedding.embedImage;
-        if (!embedImage) {
-          throw new Error("Image embedding requested but provider does not support embedImage()");
-        }
-        const embedding = await embedImage({
+  const embeddedChunks: Chunk[] = new Array(prepared.length);
+
+  const textSpecs: Array<{
+    idx: number;
+    chunk: Chunk;
+    input: {
+      text: string;
+      metadata: Metadata;
+      position: number;
+      sourceId: string;
+      documentId: string;
+    };
+  }> = [];
+
+  const imageSpecs: Array<{
+    idx: number;
+    chunk: Chunk;
+    input: {
+      data: Uint8Array | string;
+      mediaType?: string;
+      metadata: Metadata;
+      position: number;
+      sourceId: string;
+      documentId: string;
+      assetId?: string;
+    };
+  }> = [];
+
+  for (let i = 0; i < prepared.length; i++) {
+    const { chunk, embed } = prepared[i]!;
+    if (embed.kind === "image") {
+      imageSpecs.push({
+        idx: i,
+        chunk,
+        input: {
           data: embed.data,
           mediaType: embed.mediaType,
           metadata: chunk.metadata,
@@ -519,21 +546,91 @@ export const ingest = async (
           sourceId: chunk.sourceId,
           documentId: chunk.documentId,
           assetId: embed.assetId,
-        });
-        return { ...chunk, embedding };
-      }
+        },
+      });
+      continue;
+    }
 
-      const embedding = await config.embedding.embed({
+    textSpecs.push({
+      idx: i,
+      chunk,
+      input: {
         text: embed.text,
         metadata: chunk.metadata,
         position: chunk.index,
         sourceId: chunk.sourceId,
         documentId: chunk.documentId,
-      });
+      },
+    });
+  }
 
-      return { ...chunk, embedding };
-    })
-  );
+  const concurrency = config.embeddingProcessing.concurrency;
+
+  // Text embeddings (prefer batch when supported).
+  if (textSpecs.length > 0) {
+    const embedMany = config.embedding.embedMany;
+    if (embedMany) {
+      const batchSize = Math.max(1, Math.floor(config.embeddingProcessing.batchSize || 1));
+      const batches: Array<typeof textSpecs> = [];
+      for (let i = 0; i < textSpecs.length; i += batchSize) {
+        batches.push(textSpecs.slice(i, i + batchSize));
+      }
+
+      const batchEmbeddings = await mapWithConcurrency(
+        batches,
+        concurrency,
+        async (batch) => {
+          const embeddings = await embedMany(batch.map((b) => b.input));
+          if (!Array.isArray(embeddings) || embeddings.length !== batch.length) {
+            throw new Error(
+              `embedMany() returned ${Array.isArray(embeddings) ? embeddings.length : "non-array"} embeddings for a batch of ${batch.length}`
+            );
+          }
+          return embeddings;
+        }
+      );
+
+      let batchIdx = 0;
+      for (const batch of batches) {
+        const embeddings = batchEmbeddings[batchIdx++]!;
+        for (let i = 0; i < batch.length; i++) {
+          const spec = batch[i]!;
+          embeddedChunks[spec.idx] = { ...spec.chunk, embedding: embeddings[i]! };
+        }
+      }
+    } else {
+      const embeddings = await mapWithConcurrency(textSpecs, concurrency, async (spec) =>
+        config.embedding.embed(spec.input)
+      );
+      for (let i = 0; i < textSpecs.length; i++) {
+        const spec = textSpecs[i]!;
+        embeddedChunks[spec.idx] = { ...spec.chunk, embedding: embeddings[i]! };
+      }
+    }
+  }
+
+  // Image embeddings (bounded concurrency).
+  if (imageSpecs.length > 0) {
+    const embedImage = config.embedding.embedImage;
+    if (!embedImage) {
+      throw new Error("Image embedding requested but provider does not support embedImage()");
+    }
+
+    const embeddings = await mapWithConcurrency(imageSpecs, concurrency, async (spec) =>
+      embedImage(spec.input)
+    );
+    for (let i = 0; i < imageSpecs.length; i++) {
+      const spec = imageSpecs[i]!;
+      embeddedChunks[spec.idx] = { ...spec.chunk, embedding: embeddings[i]! };
+    }
+  }
+
+  // Safety check: ensure all chunks got an embedding.
+  for (let i = 0; i < embeddedChunks.length; i++) {
+    if (!embeddedChunks[i]) {
+      throw new Error("Internal error: missing embedding for one or more chunks");
+    }
+  }
 
   const embeddingMs = now() - embeddingStart;
   const storageStart = now();

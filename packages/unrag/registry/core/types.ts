@@ -55,6 +55,24 @@ export type ContentStorageConfig = {
   storeDocumentContent: boolean;
 };
 
+/**
+ * Controls performance characteristics of embedding during ingest.
+ *
+ * These defaults are intentionally conservative to reduce rate-limit risk.
+ */
+export type EmbeddingProcessingConfig = {
+  /**
+   * Maximum number of concurrent embedding requests.
+   * This applies to both text embedding (embed/embedMany) and image embedding (embedImage).
+   */
+  concurrency: number;
+  /**
+   * Max number of text chunks per embedMany batch (when embedMany is supported).
+   * Ignored when the provider does not implement embedMany().
+   */
+  batchSize: number;
+};
+
 export type ChunkText = {
   index: number;
   content: string;
@@ -679,6 +697,11 @@ export type RetrieveResult = {
  */
 export type UnragDefaultsConfig = {
   chunking?: Partial<ChunkingOptions>;
+  /**
+   * Embedding performance defaults (batching + concurrency).
+   * These map to the engine's `embeddingProcessing` config.
+   */
+  embedding?: Partial<EmbeddingProcessingConfig>;
   retrieval?: {
     topK?: number;
   };
@@ -792,6 +815,10 @@ export type ContextEngineConfig = {
    * captions, which can still be ingested via `assets[].text` if you choose).
    */
   assetProcessing?: DeepPartial<AssetProcessingConfig>;
+  /**
+   * Embedding performance defaults for ingest (batching + concurrency).
+   */
+  embeddingProcessing?: DeepPartial<EmbeddingProcessingConfig>;
 };
 
 export type ResolvedContextEngineConfig = {
@@ -803,4 +830,5 @@ export type ResolvedContextEngineConfig = {
   extractors: AssetExtractor[];
   storage: ContentStorageConfig;
   assetProcessing: AssetProcessingConfig;
+  embeddingProcessing: EmbeddingProcessingConfig;
 };

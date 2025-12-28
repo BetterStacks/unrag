@@ -10,6 +10,7 @@ describe("core ingest warnings", () => {
         embed: async () => [0.1, 0.2, 0.3],
         // No embedImage => image assets require caption
       },
+      embeddingProcessing: { concurrency: 4, batchSize: 32 },
       store: {
         upsert: async () => {},
         query: async () => [],
