@@ -1,6 +1,16 @@
-import { embed, embedMany } from "ai";
+import { embed, embedMany, type EmbeddingModel } from "ai";
 import type { EmbeddingProvider } from "../core/types";
 import { requireOptional } from "./_shared";
+
+/**
+ * Together AI provider module interface.
+ */
+interface TogetherAiModule {
+  togetherai: {
+    embeddingModel?: (model: string) => EmbeddingModel<string>;
+    textEmbeddingModel?: (model: string) => EmbeddingModel<string>;
+  };
+}
 
 export type TogetherEmbeddingConfig = {
   model?: string;
@@ -12,7 +22,7 @@ const DEFAULT_TEXT_MODEL = "togethercomputer/m2-bert-80M-2k-retrieval";
 export const createTogetherEmbeddingProvider = (
   config: TogetherEmbeddingConfig = {}
 ): EmbeddingProvider => {
-  const { togetherai } = requireOptional<any>({
+  const { togetherai } = requireOptional<TogetherAiModule>({
     id: "@ai-sdk/togetherai",
     installHint: "bun add @ai-sdk/togetherai",
     providerName: "together",
@@ -23,9 +33,9 @@ export const createTogetherEmbeddingProvider = (
     DEFAULT_TEXT_MODEL;
   const timeoutMs = config.timeoutMs;
   const embeddingModel =
-    "embeddingModel" in togetherai
-      ? (togetherai as any).embeddingModel(model)
-      : (togetherai as any).textEmbeddingModel(model);
+    typeof togetherai.embeddingModel === "function"
+      ? togetherai.embeddingModel(model)
+      : togetherai.textEmbeddingModel?.(model);
 
   return {
     name: `together:${model}`,

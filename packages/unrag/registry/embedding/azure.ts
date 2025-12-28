@@ -1,6 +1,15 @@
-import { embed, embedMany } from "ai";
+import { embed, embedMany, type EmbeddingModel } from "ai";
 import type { EmbeddingProvider } from "../core/types";
 import { requireOptional } from "./_shared";
+
+/**
+ * Azure OpenAI provider module interface.
+ */
+interface AzureModule {
+  azure: {
+    embedding: (model: string) => EmbeddingModel<string>;
+  };
+}
 
 export type AzureEmbeddingConfig = {
   model?: string;
@@ -26,7 +35,7 @@ const buildProviderOptions = (config: AzureEmbeddingConfig) => {
 export const createAzureEmbeddingProvider = (
   config: AzureEmbeddingConfig = {}
 ): EmbeddingProvider => {
-  const { azure } = requireOptional<any>({
+  const { azure } = requireOptional<AzureModule>({
     id: "@ai-sdk/azure",
     installHint: "bun add @ai-sdk/azure",
     providerName: "azure",

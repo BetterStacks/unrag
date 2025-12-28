@@ -2,6 +2,17 @@ import { embed, embedMany, type EmbeddingModel } from "ai";
 import type { EmbeddingProvider, ImageEmbeddingInput } from "../core/types";
 import { requireOptional } from "./_shared";
 
+/**
+ * Voyage AI provider module interface.
+ */
+interface VoyageModule {
+  voyage: {
+    embeddingModel?: (model: string) => EmbeddingModel<string>;
+    textEmbeddingModel?: (model: string) => EmbeddingModel<string>;
+    multimodalEmbeddingModel?: (model: string) => EmbeddingModel<unknown>;
+  };
+}
+
 type BaseConfig = {
   model?: string;
   timeoutMs?: number;
@@ -44,7 +55,7 @@ const defaultImageValue = (input: ImageEmbeddingInput) => {
 export const createVoyageEmbeddingProvider = (
   config: VoyageEmbeddingConfig = {}
 ): EmbeddingProvider => {
-  const { voyage } = requireOptional<any>({
+  const { voyage } = requireOptional<VoyageModule>({
     id: "voyage-ai-provider",
     installHint: "bun add voyage-ai-provider",
     providerName: "voyage",
@@ -57,15 +68,14 @@ export const createVoyageEmbeddingProvider = (
     (type === "multimodal" ? DEFAULT_MULTIMODAL_MODEL : DEFAULT_TEXT_MODEL);
   const timeoutMs = config.timeoutMs;
 
-  const voyageProvider = voyage as any;
   const textEmbeddingModel =
     type === "multimodal"
       ? undefined
-      : typeof voyageProvider.embeddingModel === "function"
-        ? voyageProvider.embeddingModel(model)
-        : voyageProvider.textEmbeddingModel(model);
+      : typeof voyage.embeddingModel === "function"
+        ? voyage.embeddingModel(model)
+        : voyage.textEmbeddingModel?.(model);
   const multimodalEmbeddingModel =
-    type === "multimodal" ? (voyage as any).multimodalEmbeddingModel(model) : undefined;
+    type === "multimodal" ? voyage.multimodalEmbeddingModel?.(model) : undefined;
 
   // AI SDK 6 types only accept string inputs; cast multimodal models/values.
   const multimodalModel = multimodalEmbeddingModel as unknown as EmbeddingModel;

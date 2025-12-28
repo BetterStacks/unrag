@@ -103,6 +103,29 @@ Convenience defaults you can use in your own `engine.retrieve()` calls/helpers (
   }}
 />
 
+### defaults.embedding
+
+Controls embedding **batching** and **concurrency** during ingestion. This helps improve throughput and reduce rate-limit risk (especially when your provider supports `embedMany()`).
+
+You can set these under `defaults.embedding` (recommended). If you need a per-engine override, you can also set `engine.embeddingProcessing` (it overrides these defaults).
+
+<TypeTable
+  type={{
+    concurrency: {
+      description:
+        'Max number of concurrent embedding requests during ingest. This applies to both text embedding (embed/embedMany) and image embedding (embedImage).',
+      type: 'number',
+      default: '4',
+    },
+    batchSize: {
+      description:
+        'Max number of text chunks per embedMany batch (only used when the provider supports embedMany).',
+      type: 'number',
+      default: '32',
+    },
+  }}
+/>
+
 ### storage
 
 Controls what Unrag persists to your database.

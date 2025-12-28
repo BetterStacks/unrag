@@ -21,24 +21,46 @@ When you call `engine.ingest()`, the timing breakdown typically looks like this:
 **Chunking** is nearly instant—splitting text is cheap. Unless you're processing enormous documents with complex custom chunkers, this will never be your bottleneck.
 
 <Callout type="info" title="Performance tip">
-Embedding is where the time goes. Each chunk requires an API call to your embedding provider. Unrag embeds chunks concurrently to minimize total latency.
+Embedding is where the time goes. A naive approach would call the embedding API once per chunk, but Unrag is smarter about this. When your embedding provider supports batch embedding (via `embedMany()`), Unrag groups chunks together and sends them in batches, dramatically reducing API overhead. For providers that don't support batching, Unrag runs individual embedding calls concurrently.
 </Callout>
 
-For OpenAI's embedding API, expect roughly 100-200ms per chunk when running sequentially. With concurrency, you can process a 10-chunk document in about 300-500ms total, depending on your rate limits and network conditions.
+For OpenAI's embedding API, a single embedding call takes roughly 100-200ms. With batching enabled (the default when supported), a 30-chunk document might require only a single API call instead of 30 individual calls. When batching isn't available, concurrent requests still keep total latency low—a 10-chunk document processes in about 300-500ms total rather than 1-2 seconds sequentially.
 
 **Storage** is fast if your database connection is healthy. Writing a document with 10 chunks and embeddings takes 20-100ms with a warmed connection pool. Cold connections or distant databases add latency.
 
+## Tuning embedding throughput
+
+Unrag gives you two knobs to control embedding performance: **concurrency** and **batch size**. These live in your `unrag.config.ts` under `defaults.embedding`:
+
+```ts
+export const unrag = defineUnragConfig({
+  defaults: {
+    embedding: {
+      concurrency: 4,  // Max concurrent embedding requests
+      batchSize: 32,   // Chunks per embedMany call (when supported)
+    },
+  },
+  // ...
+});
+```
+
+**Concurrency** controls how many embedding requests run in parallel. This applies to both text embeddings and image embeddings. The default of 4 is conservative—it keeps you safely under most providers' rate limits. If you're on a tier with generous rate limits, bumping this to 8 or 10 can speed up large ingestions. If you're hitting rate limit errors, lower it to 2.
+
+**Batch size** controls how many text chunks go into each `embedMany()` call. When your embedding provider supports batch embedding (most do), Unrag groups chunks together rather than calling the API once per chunk. This reduces HTTP overhead and often costs less, since many providers charge per-request in addition to per-token. The default of 32 works well for most models; larger values may hit token limits on some providers.
+
+The combination matters. With `concurrency: 4` and `batchSize: 32`, Unrag can embed up to 128 chunks simultaneously across 4 concurrent batch requests. That's enough for most real-time ingestion. For bulk imports where you're processing thousands of documents, you might increase concurrency while adding pauses between documents to avoid overwhelming your provider.
+
 ## Optimizing ingestion
 
-If ingestion is too slow for your use case, consider these approaches:
+If ingestion is too slow for your use case, the tuning options above are your first stop. Beyond that, here are additional strategies:
 
-**Batch your ingests.** Instead of ingesting documents one at a time, collect multiple documents and process them together. The overhead of establishing connections and waiting for network round-trips amortizes across more work.
+**Tune concurrency and batch size.** Before reaching for architectural changes, try adjusting `defaults.embedding.concurrency` and `defaults.embedding.batchSize`. Increasing concurrency from 4 to 8 can nearly double throughput if your provider allows it. If you're seeing rate limit errors, lower concurrency instead.
 
-**Use a background job queue.** For user-triggered ingestion (like file uploads), return immediately and process in a background job. This keeps your API response times fast while still getting content indexed quickly.
+**Use a background job queue.** For user-triggered ingestion (like file uploads), return immediately and process in a background job. This keeps your API response times fast while still getting content indexed. See [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) for a complete example using QStash or BullMQ.
 
-**Adjust chunk size.** Larger chunks mean fewer embedding calls. If you're embedding hundreds of documents and retrieval quality is acceptable with 300-word chunks instead of 150-word chunks, you'll cut your embedding costs and time roughly in half.
+**Adjust chunk size.** Larger chunks mean fewer embedding calls. If you're embedding hundreds of documents and retrieval quality is acceptable with 300-word chunks instead of 150-word chunks, you'll cut your embedding calls roughly in half.
 
-**Consider local embedding models.** If you're embedding at scale and have GPU resources, running your own embedding model eliminates API latency entirely. Models like `sentence-transformers/all-MiniLM-L6-v2` run fast on modest hardware and produce good results for many use cases.
+**Consider local embedding models.** If you're embedding at scale and have GPU resources, running your own embedding model eliminates API latency entirely. Models like `nomic-embed-text` via Ollama run fast on modest hardware and produce good results for many use cases. See [Ollama](/docs/providers/ollama) for setup.
 
 ## Where time goes during retrieval
 

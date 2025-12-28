@@ -116,11 +116,20 @@ OLLAMA_EMBEDDING_MODEL="mxbai-embed-large"
 
 ## Performance considerations
 
-Local embedding performance depends on your hardware. A machine with a GPU will embed significantly faster than one relying on CPU. If you're embedding large amounts of content, consider:
+Local embedding performance depends on your hardware. A machine with a GPU will embed significantly faster than one relying on CPU. If you're embedding large amounts of content, consider these strategies.
 
-- Using a machine with a GPU for Ollama
-- Reducing ingestion concurrency to avoid overwhelming the server
-- Pre-loading the model by running a test embedding on startup
+Unlike cloud APIs that handle massive parallelism, local Ollama instances can get overwhelmed by too many concurrent requests. Lower the embedding concurrency to match your hardware's capacity:
+
+```ts
+defaults: {
+  embedding: {
+    concurrency: 2,  // Lower than the default of 4 for local inference
+    batchSize: 16,   // Smaller batches may work better locally
+  },
+},
+```
+
+Pre-load the model by running a test embedding on startup—this avoids the first-request latency when a real user query arrives. Use a machine with a GPU if possible; CPU-only inference is significantly slower.
 
 The first embedding request after starting Ollama (or after the model has been unloaded due to inactivity) will be slower because the model needs to load into memory. Subsequent requests are much faster.
 

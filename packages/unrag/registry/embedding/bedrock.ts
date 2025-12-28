@@ -1,6 +1,15 @@
-import { embed, embedMany } from "ai";
+import { embed, embedMany, type EmbeddingModel } from "ai";
 import type { EmbeddingProvider } from "../core/types";
 import { requireOptional } from "./_shared";
+
+/**
+ * Amazon Bedrock provider module interface.
+ */
+interface BedrockModule {
+  bedrock: {
+    embedding: (model: string) => EmbeddingModel<string>;
+  };
+}
 
 export type BedrockEmbeddingConfig = {
   model?: string;
@@ -26,7 +35,7 @@ const buildProviderOptions = (config: BedrockEmbeddingConfig) => {
 export const createBedrockEmbeddingProvider = (
   config: BedrockEmbeddingConfig = {}
 ): EmbeddingProvider => {
-  const { bedrock } = requireOptional<any>({
+  const { bedrock } = requireOptional<BedrockModule>({
     id: "@ai-sdk/amazon-bedrock",
     installHint: "bun add @ai-sdk/amazon-bedrock",
     providerName: "bedrock",

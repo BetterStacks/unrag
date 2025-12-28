@@ -219,6 +219,22 @@ Multimodal embedding models often cost more per embedding than text-only models.
 
 For many use cases, high-quality captions with a text-only model work well. Multimodal is most valuable when images contain information that captions can't capture.
 
+## Performance with images
+
+Image embedding calls are typically slower than text embeddings, and unlike text embeddings, they don't support batching (each image requires its own API call). Unrag respects the same `concurrency` limit for image embeddings as for text, so your `defaults.embedding.concurrency` setting controls how many images embed in parallel.
+
+If you're ingesting many images and hitting rate limits or timeouts, consider lowering concurrency:
+
+```ts
+defaults: {
+  embedding: {
+    concurrency: 2,  // Conservative for image-heavy ingestion
+  },
+},
+```
+
+See [Performance](/docs/concepts/performance) for more details on tuning embedding throughput.
+
 ## Complete example
 
 Here's a config that enables multimodal embedding with Voyage:

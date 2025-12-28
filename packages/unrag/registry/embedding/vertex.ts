@@ -1,6 +1,15 @@
-import { embed, embedMany } from "ai";
+import { embed, embedMany, type EmbeddingModel } from "ai";
 import type { EmbeddingProvider } from "../core/types";
 import { requireOptional } from "./_shared";
+
+/**
+ * Vertex AI provider module interface.
+ */
+interface VertexModule {
+  vertex: {
+    embeddingModel: (model: string) => EmbeddingModel<string>;
+  };
+}
 
 export type VertexEmbeddingTaskType =
   | "SEMANTIC_SIMILARITY"
@@ -47,7 +56,7 @@ const buildProviderOptions = (config: VertexEmbeddingConfig) => {
 export const createVertexEmbeddingProvider = (
   config: VertexEmbeddingConfig = {}
 ): EmbeddingProvider => {
-  const { vertex } = requireOptional<any>({
+  const { vertex } = requireOptional<VertexModule>({
     id: "@ai-sdk/google-vertex",
     installHint: "bun add @ai-sdk/google-vertex",
     providerName: "vertex",
