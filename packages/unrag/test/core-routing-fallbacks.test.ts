@@ -19,6 +19,7 @@ function baseConfig(): { config: ResolvedContextEngineConfig; upserted: any[] } 
       embed: async () => [0.1, 0.2, 0.3],
       embedImage: async () => [0.9, 0.8, 0.7],
     },
+    embeddingProcessing: { concurrency: 4, batchSize: 32 },
     store: {
       upsert: async (chunks) => {
         upserted.push(...chunks);
