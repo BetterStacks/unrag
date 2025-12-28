@@ -3,6 +3,29 @@ import { getAssetBytes } from "../_shared/fetch";
 import { extFromFilename, normalizeMediaType } from "../_shared/media";
 import { capText } from "../_shared/text";
 
+/**
+ * XLSX sheet interface.
+ */
+type XLSXSheet = unknown;
+
+/**
+ * XLSX workbook interface.
+ */
+interface XLSXWorkbook {
+  SheetNames?: string[];
+  Sheets?: Record<string, XLSXSheet>;
+}
+
+/**
+ * Minimal xlsx module interface.
+ */
+interface XLSXModule {
+  read(data: Buffer, options: { type: string }): XLSXWorkbook;
+  utils: {
+    sheet_to_csv(sheet: XLSXSheet): string;
+  };
+}
+
 const XLSX_MEDIA =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
@@ -32,7 +55,7 @@ export function createFileXlsxExtractor(): AssetExtractor {
         defaultMediaType: XLSX_MEDIA,
       });
 
-      const xlsx: any = await import("xlsx");
+      const xlsx = (await import("xlsx")) as XLSXModule;
       const wb = xlsx.read(Buffer.from(bytes), { type: "buffer" });
 
       const parts: string[] = [];

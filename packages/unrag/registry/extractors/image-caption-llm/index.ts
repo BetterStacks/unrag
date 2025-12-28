@@ -1,8 +1,13 @@
-import { generateText } from "ai";
+import { generateText, type LanguageModel } from "ai";
 import type { AssetExtractor } from "../../core/types";
 import { getAssetBytes } from "../_shared/fetch";
 import { normalizeMediaType } from "../_shared/media";
 import { capText } from "../_shared/text";
+
+/**
+ * Model reference type that accepts both string gateway IDs and LanguageModel instances.
+ */
+type ModelRef = string | LanguageModel;
 
 /**
  * Caption generation for images via a vision-capable LLM.
@@ -29,7 +34,7 @@ export function createImageCaptionLlmExtractor(): AssetExtractor {
       const abortSignal = AbortSignal.timeout(cfg.timeoutMs);
 
       const result = await generateText({
-        model: cfg.model as any,
+        model: cfg.model as ModelRef,
         abortSignal,
         messages: [
           {
@@ -46,7 +51,7 @@ export function createImageCaptionLlmExtractor(): AssetExtractor {
         ],
       });
 
-      const caption = String((result as any)?.text ?? "").trim();
+      const caption = (result.text ?? "").trim();
       if (!caption) return { texts: [], diagnostics: { model: cfg.model } };
 
       return {

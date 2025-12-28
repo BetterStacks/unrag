@@ -9,36 +9,12 @@ import type {
   IngestInput,
   IngestResult,
   IngestWarning,
+  Metadata,
   ResolvedContextEngineConfig,
 } from "./types";
+import { mergeDeep } from "./deep-merge";
 
 const now = () => performance.now();
-
-const mergeDeep = <T extends Record<string, any>>(
-  base: T,
-  overrides: any | undefined
-): T => {
-  if (!overrides) return base;
-  const out: any = Array.isArray(base) ? [...base] : { ...base };
-  for (const key of Object.keys(overrides)) {
-    const nextVal = overrides[key];
-    if (nextVal === undefined) continue;
-    const baseVal = (base as any)[key];
-    if (
-      baseVal &&
-      typeof baseVal === "object" &&
-      !Array.isArray(baseVal) &&
-      nextVal &&
-      typeof nextVal === "object" &&
-      !Array.isArray(nextVal)
-    ) {
-      out[key] = mergeDeep(baseVal, nextVal);
-    } else {
-      out[key] = nextVal;
-    }
-  }
-  return out as T;
-};
 
 const asMessage = (err: unknown) => {
   if (err instanceof Error) return err.message;
@@ -123,7 +99,7 @@ export const ingest = async (
 
   const assets: AssetInput[] = Array.isArray(input.assets) ? input.assets : [];
   type PreparedChunkSpec = Omit<Chunk, "id" | "index"> & {
-    metadata: Record<string, any>;
+    metadata: Metadata;
     embed:
       | { kind: "text"; text: string }
       | { kind: "image"; data: Uint8Array | string; mediaType?: string; assetId?: string };
@@ -140,7 +116,7 @@ export const ingest = async (
 
   const runExtractors = async (args: {
     asset: AssetInput;
-    assetMeta: Record<string, any>;
+    assetMeta: Metadata;
     assetUri?: string;
     assetMediaType?: string;
     extractors: AssetExtractor[];

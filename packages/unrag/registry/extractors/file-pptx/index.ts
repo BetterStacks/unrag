@@ -3,6 +3,27 @@ import { getAssetBytes } from "../_shared/fetch";
 import { extFromFilename, normalizeMediaType } from "../_shared/media";
 import { capText } from "../_shared/text";
 
+/**
+ * Zip file entry interface.
+ */
+interface ZipFile {
+  async(type: "string"): Promise<string>;
+}
+
+/**
+ * JSZip instance interface.
+ */
+interface JSZipInstance {
+  files: Record<string, ZipFile>;
+}
+
+/**
+ * JSZip constructor interface.
+ */
+interface JSZipConstructor {
+  loadAsync(data: Uint8Array): Promise<JSZipInstance>;
+}
+
 const PPTX_MEDIA =
   "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
@@ -41,7 +62,7 @@ export function createFilePptxExtractor(): AssetExtractor {
       });
 
       // Dynamic import to avoid hard dependency unless installed.
-      const JSZip: any = (await import("jszip")).default;
+      const JSZip = (await import("jszip")).default as unknown as JSZipConstructor;
       const zip = await JSZip.loadAsync(bytes);
 
       const slidePaths = Object.keys(zip.files).filter((p) =>

@@ -15,6 +15,31 @@ export type NotionBlockNode = {
   children: NotionBlockNode[];
 };
 
+/**
+ * Notion block content payload that may contain rich_text and other properties.
+ */
+interface BlockPayload {
+  rich_text?: RichText[];
+  checked?: boolean;
+  language?: string;
+  caption?: RichText[];
+  type?: string;
+  external?: { url?: string };
+  file?: { url?: string };
+  media_type?: string;
+}
+
+/**
+ * Get block-type-specific payload from a Notion block.
+ */
+const getBlockPayload = (block: NotionBlock, type: string): BlockPayload | undefined => {
+  const payload = block[type];
+  if (typeof payload === "object" && payload !== null) {
+    return payload as BlockPayload;
+  }
+  return undefined;
+};
+
 const rt = (value: unknown): string => {
   const items = Array.isArray(value) ? (value as RichText[]) : [];
   return items.map((t) => t?.plain_text ?? "").join("");
@@ -37,25 +62,30 @@ const toAssetKind = (notionType: string): AssetKind | null => {
   return supportedAssetKinds.has(t) ? t : null;
 };
 
-const pickUrl = (payload: any): string | undefined => {
-  const type = String(payload?.type ?? "");
-  if (type === "external") return asString(payload?.external?.url);
-  if (type === "file") return asString(payload?.file?.url);
+const pickUrl = (payload: BlockPayload | undefined): string | undefined => {
+  if (!payload) return undefined;
+  const type = String(payload.type ?? "");
+  if (type === "external") return asString(payload.external?.url);
+  if (type === "file") return asString(payload.file?.url);
   return undefined;
 };
 
-const pickCaption = (payload: any): string => {
+const pickCaption = (payload: BlockPayload | undefined): string => {
   // Notion captions are typically an array of rich text items.
   return rt(payload?.caption);
 };
 
-const inferMediaType = (assetKind: AssetKind, payload: any): string | undefined => {
+const inferMediaType = (assetKind: AssetKind, payload: BlockPayload | undefined): string | undefined => {
   if (assetKind === "pdf") return "application/pdf";
   // Notion does not consistently include media types; keep it optional.
   return asString(payload?.media_type) || undefined;
 };
 
-const asMetadata = (obj: Record<string, unknown>): Metadata => obj as any;
+/**
+ * Convert a plain object to Metadata type.
+ * The Metadata type allows string, number, boolean, null values.
+ */
+const toMetadata = (obj: Record<string, string>): Metadata => obj;
 
 export function extractNotionAssets(
   nodes: NotionBlockNode[],
@@ -66,10 +96,10 @@ export function extractNotionAssets(
 
   const walk = (node: NotionBlockNode, depth: number) => {
     if (depth > maxDepth) return;
-    const b = node.block as any;
+    const b = node.block;
     const kind = toAssetKind(String(b.type ?? ""));
     if (kind) {
-      const payload = b[kind];
+      const payload = getBlockPayload(b, kind);
       const url = pickUrl(payload);
       if (url) {
         const caption = pickCaption(payload).trim();
@@ -80,7 +110,7 @@ export function extractNotionAssets(
           data: { kind: "url", url, ...(mediaType ? { mediaType } : {}) },
           uri: url,
           ...(caption ? { text: caption } : {}),
-          metadata: asMetadata({
+          metadata: toMetadata({
             connector: "notion",
             notionBlockId: String(b.id),
             notionBlockType: String(b.type),
@@ -108,40 +138,49 @@ export function renderNotionBlocksToText(
   const walk = (node: NotionBlockNode, depth: number, listDepth: number) => {
     if (depth > maxDepth) return;
     const b = node.block;
-
     const t = b.type;
 
     if (t === "paragraph") {
-      const text = rt((b as any).paragraph?.rich_text);
+      const payload = getBlockPayload(b, "paragraph");
+      const text = rt(payload?.rich_text);
       if (text.trim()) lines.push(text);
     } else if (t === "heading_1") {
-      const text = rt((b as any).heading_1?.rich_text);
+      const payload = getBlockPayload(b, "heading_1");
+      const text = rt(payload?.rich_text);
       if (text.trim()) lines.push(`# ${text}`);
     } else if (t === "heading_2") {
-      const text = rt((b as any).heading_2?.rich_text);
+      const payload = getBlockPayload(b, "heading_2");
+      const text = rt(payload?.rich_text);
       if (text.trim()) lines.push(`## ${text}`);
     } else if (t === "heading_3") {
-      const text = rt((b as any).heading_3?.rich_text);
+      const payload = getBlockPayload(b, "heading_3");
+      const text = rt(payload?.rich_text);
       if (text.trim()) lines.push(`### ${text}`);
     } else if (t === "bulleted_list_item") {
-      const text = rt((b as any).bulleted_list_item?.rich_text);
+      const payload = getBlockPayload(b, "bulleted_list_item");
+      const text = rt(payload?.rich_text);
       if (text.trim()) lines.push(`${indent(listDepth)}- ${text}`);
     } else if (t === "numbered_list_item") {
-      const text = rt((b as any).numbered_list_item?.rich_text);
+      const payload = getBlockPayload(b, "numbered_list_item");
+      const text = rt(payload?.rich_text);
       if (text.trim()) lines.push(`${indent(listDepth)}- ${text}`);
     } else if (t === "to_do") {
-      const text = rt((b as any).to_do?.rich_text);
-      const checked = Boolean((b as any).to_do?.checked);
+      const payload = getBlockPayload(b, "to_do");
+      const text = rt(payload?.rich_text);
+      const checked = Boolean(payload?.checked);
       if (text.trim()) lines.push(`${indent(listDepth)}- [${checked ? "x" : " "}] ${text}`);
     } else if (t === "quote") {
-      const text = rt((b as any).quote?.rich_text);
+      const payload = getBlockPayload(b, "quote");
+      const text = rt(payload?.rich_text);
       if (text.trim()) lines.push(`> ${text}`);
     } else if (t === "callout") {
-      const text = rt((b as any).callout?.rich_text);
+      const payload = getBlockPayload(b, "callout");
+      const text = rt(payload?.rich_text);
       if (text.trim()) lines.push(text);
     } else if (t === "code") {
-      const text = rt((b as any).code?.rich_text);
-      const lang = String((b as any).code?.language ?? "").trim();
+      const payload = getBlockPayload(b, "code");
+      const text = rt(payload?.rich_text);
+      const lang = String(payload?.language ?? "").trim();
       lines.push("```" + lang);
       if (text.trim()) lines.push(text);
       lines.push("```");

@@ -3,6 +3,27 @@ import { getAssetBytes } from "../_shared/fetch";
 import { capText } from "../_shared/text";
 
 /**
+ * Text content item from pdfjs-dist.
+ */
+interface PdfTextItem {
+  str?: string;
+}
+
+/**
+ * Minimal pdfjs-dist module interface.
+ */
+interface PdfJsModule {
+  getDocument(params: { data: Uint8Array }): {
+    promise: Promise<{
+      numPages: number;
+      getPage(pageNum: number): Promise<{
+        getTextContent(): Promise<{ items?: PdfTextItem[] }>;
+      }>;
+    }>;
+  };
+}
+
+/**
  * Fast/cheap PDF extraction using the PDF's built-in text layer.
  *
  * This extractor is best-effort: if the PDF has little/no embedded text (scanned PDFs),
@@ -29,7 +50,7 @@ export function createPdfTextLayerExtractor(): AssetExtractor {
       });
 
       // Dynamic import so the core package can be used without pdfjs unless this extractor is installed.
-      const pdfjs: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
+      const pdfjs = (await import("pdfjs-dist/legacy/build/pdf.mjs")) as PdfJsModule;
 
       const doc = await pdfjs.getDocument({ data: bytes }).promise;
       const totalPages: number = Number(doc?.numPages ?? 0);
@@ -42,7 +63,7 @@ export function createPdfTextLayerExtractor(): AssetExtractor {
       for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
         const page = await doc.getPage(pageNum);
         const textContent = await page.getTextContent();
-        const items: any[] = Array.isArray(textContent?.items)
+        const items: PdfTextItem[] = Array.isArray(textContent?.items)
           ? textContent.items
           : [];
         const pageText = items

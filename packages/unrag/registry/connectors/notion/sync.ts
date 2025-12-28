@@ -1,4 +1,10 @@
-import type { IngestResult } from "../../core";
+import type { IngestResult, Metadata } from "../../core";
+import { isFullPage } from "@notionhq/client";
+import type {
+  GetPageResponse,
+  ListBlockChildrenResponse,
+  RichTextItemResponse,
+} from "@notionhq/client/build/src/api-endpoints";
 import { createNotionClient, type NotionClient } from "./client";
 import { normalizeNotionPageId32, toUuidHyphenated } from "./ids";
 import {
@@ -37,17 +43,16 @@ export function buildNotionPageIngestInput(
   };
 }
 
-const richTextToText = (richText: any[] | undefined) =>
-  (Array.isArray(richText) ? richText : [])
-    .map((t) => String(t?.plain_text ?? ""))
-    .join("");
+const richTextToText = (richText: RichTextItemResponse[] | undefined): string =>
+  (richText ?? []).map((t) => t.plain_text).join("");
 
-const getNotionPageTitle = (page: any): string => {
-  const props = page?.properties ?? {};
+const getNotionPageTitle = (page: GetPageResponse): string => {
+  if (!isFullPage(page)) return "";
+  const props = page.properties;
   for (const key of Object.keys(props)) {
     const p = props[key];
-    if (p?.type === "title") {
-      return richTextToText(p?.title);
+    if (p.type === "title") {
+      return richTextToText(p.title);
     }
   }
   return "";
@@ -61,15 +66,15 @@ async function listAllBlockChildren(
   let cursor: string | undefined = undefined;
 
   while (true) {
-    const res: any = await notion.blocks.children.list({
+    const res: ListBlockChildrenResponse = await notion.blocks.children.list({
       block_id: blockId,
       start_cursor: cursor,
       page_size: 100,
     });
 
-    blocks.push(...((res?.results ?? []) as NotionBlock[]));
-    if (!res?.has_more) break;
-    cursor = res?.next_cursor ?? undefined;
+    blocks.push(...(res.results as NotionBlock[]));
+    if (!res.has_more) break;
+    cursor = res.next_cursor ?? undefined;
     if (!cursor) break;
   }
 
@@ -105,30 +110,30 @@ export async function loadNotionPageDocument(args: {
   const pageId = normalizeNotionPageId32(args.pageIdOrUrl);
   const apiId = toUuidHyphenated(pageId);
 
-  const page: any = await args.notion.pages.retrieve({ page_id: apiId });
+  const page: GetPageResponse = await args.notion.pages.retrieve({ page_id: apiId });
   const title = getNotionPageTitle(page);
-  const url = String(page?.url ?? "");
-  const lastEditedTime = String(page?.last_edited_time ?? "");
+  const url = isFullPage(page) ? page.url : "";
+  const lastEditedTime = isFullPage(page) ? page.last_edited_time : "";
 
   const tree = await buildBlockTree(args.notion, apiId, 0, args.maxDepth ?? 4);
   const body = renderNotionBlocksToText(tree);
   const content = [title.trim(), body.trim()].filter(Boolean).join("\n\n");
   const assets = extractNotionAssets(tree);
 
-  const metadata = {
+  const metadata: Metadata = {
     connector: "notion",
     kind: "page",
     pageId,
     url,
     title,
     lastEditedTime,
-  } as const;
+  };
 
   const ingest = buildNotionPageIngestInput({
     pageId,
     content,
     assets,
-    metadata: metadata as any,
+    metadata,
     sourceIdPrefix: args.sourceIdPrefix,
   });
 
@@ -140,10 +145,12 @@ export async function loadNotionPageDocument(args: {
   };
 }
 
-const isNotFound = (err: any) => {
-  const status = Number(err?.status ?? err?.statusCode ?? err?.code);
+const isNotFound = (err: unknown): boolean => {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as Record<string, unknown>;
+  const status = Number(e.status ?? e.statusCode ?? e.code ?? 0);
   if (status === 404) return true;
-  const msg = String(err?.message ?? "");
+  const msg = String(e.message ?? "");
   return msg.toLowerCase().includes("could not find");
 };
 
@@ -187,7 +194,7 @@ export async function syncNotionPages(
         sourceId: doc.sourceId,
         content: doc.content,
         assets: doc.assets,
-        metadata: doc.metadata as any,
+        metadata: doc.metadata,
       });
 
       succeeded += 1;
