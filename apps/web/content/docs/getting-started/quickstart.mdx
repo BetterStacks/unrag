@@ -217,7 +217,7 @@ Your quickstart used plain text content, but Unrag can handle more. If you didn'
 bunx unrag@latest init --rich-media
 ```
 
-This presents a list of extractors to install (PDF, image, audio, video, files) and configures your `unrag.config.ts` with multimodal embeddings enabled. The CLI handles all the wiring—registering extractors, enabling the right `assetProcessing` flags, and switching your embedding provider to a multimodal model.
+This presents a list of extractors to install (PDF, image, audio, video, files) and configures your `unrag.config.ts` with extractors registered and the right `assetProcessing` flags enabled. Note that multimodal embeddings are configured separately—see [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) if you want to embed images directly.
 
 If you prefer to configure things manually, the generated `unrag.config.ts` includes `assetProcessing` settings you can edit directly.
 

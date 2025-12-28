@@ -33,7 +33,7 @@
       "inputModes": ["file", "url", "buffer"],
       "output": "text (markdown)",
       "docsPath": "/docs/extractors/pdf/llm",
-      "deps": { "ai": "^5.0.113" },
+      "deps": { "ai": "^6.0.3" },
       "devDeps": {},
       "factory": "createPdfLlmExtractor",
       "assetProcessingFlagKeys": ["pdf_llmExtraction"]
@@ -70,7 +70,7 @@
       "inputModes": ["file", "url", "buffer"],
       "output": "text",
       "docsPath": "/docs/extractors/image/ocr",
-      "deps": { "ai": "^5.0.113" },
+      "deps": { "ai": "^6.0.0" },
       "devDeps": {},
       "factory": "createImageOcrExtractor",
       "assetProcessingFlagKeys": ["image_ocr"]
@@ -88,7 +88,7 @@
       "inputModes": ["file", "url", "buffer"],
       "output": "caption",
       "docsPath": "/docs/extractors/image/caption-llm",
-      "deps": { "ai": "^5.0.113" },
+      "deps": { "ai": "^6.0.0" },
       "devDeps": {},
       "factory": "createImageCaptionLlmExtractor",
       "assetProcessingFlagKeys": ["image_captionLlm"]
@@ -106,7 +106,7 @@
       "inputModes": ["file", "url", "buffer"],
       "output": "transcript",
       "docsPath": "/docs/extractors/audio/transcribe",
-      "deps": { "ai": "^5.0.113" },
+      "deps": { "ai": "^6.0.0" },
       "devDeps": {},
       "factory": "createAudioTranscribeExtractor",
       "assetProcessingFlagKeys": ["audio_transcription"]
@@ -124,7 +124,7 @@
       "inputModes": ["file", "url", "buffer"],
       "output": "transcript",
       "docsPath": "/docs/extractors/video/transcribe",
-      "deps": { "ai": "^5.0.113" },
+      "deps": { "ai": "^6.0.0" },
       "devDeps": {},
       "factory": "createVideoTranscribeExtractor",
       "assetProcessingFlagKeys": ["video_transcription"]
@@ -143,7 +143,7 @@
       "inputModes": ["file", "url", "buffer"],
       "output": "frame descriptions",
       "docsPath": "/docs/extractors/video/frames",
-      "deps": { "ai": "^5.0.113" },
+      "deps": { "ai": "^6.0.0" },
       "devDeps": {},
       "factory": "createVideoFramesExtractor",
       "assetProcessingFlagKeys": ["video_frames"]
