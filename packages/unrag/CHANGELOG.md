@@ -1,5 +1,23 @@
 # unrag
 
+## 0.2.7
+
+### Minor Changes
+
+- The ingest pipeline now supports batch text embeddings via `embedMany()` when the provider supports it, with configurable concurrency limits. This can significantly reduce embedding API calls and improve throughput.
+- Added new `embeddingProcessing` config options. Configure `concurrency` (default: 4) and `batchSize` (default: 32) for embedding operations. Set via `unrag.config.ts` under `defaults.embedding` or `engine.embeddingProcessing`.
+
+### Patch Changes
+
+- Eliminate `any` type assertions across the codebase. Replaced all `any` type assertions with properly-typed interfaces for external SDKs and runtime-loaded modules:
+  - Added typed interfaces for all 12 embedding providers (OpenAI, Azure, Bedrock, Cohere, Google, Mistral, Ollama, OpenRouter, Together, Vertex, Voyage, AI Gateway)
+  - Added structural types for Google Drive API (`DriveFile`, `DriveClient`, `AuthClient`)
+  - Added typed interfaces for extractors (pdfjs, audio transcription, video processing)
+  - Improved Drizzle store types with proper `QueryRow` interface
+- New `AssetMetadataFields` interface and `hasAssetMetadata()` type guard. Standardized metadata shape for asset-derived chunks with compile-time type safety.
+- Refactored `mergeDeep` utility. Extracted to dedicated `deep-merge.ts` module with proper generic type signatures and `isRecord()` type guard.
+- Typed `requireOptional()` helper. The shared optional dependency loader now requires explicit type parameters instead of defaulting to `any`.
+
 ## 0.2.6
 
 ### Patch Changes
@@ -21,7 +39,7 @@
 
 ## 0.2.5
 
-### Patch Changes
+### Minor Changes
 
 - Added Google Drive connector. Sync specific Google Drive files into Unrag by file ID, with stable source IDs for reliable updates and deletes.
 - New support for safer, more controllable sync. Configurable per-file size limit (defaults to **15MB**) and an option to **delete previously ingested content when a file is removed or access is revoked**.
