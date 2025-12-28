@@ -142,6 +142,7 @@ export const defineUnragConfig = <T extends DefineUnragConfigInput>(config: T) =
 
   const defaults = {
     chunking: config.defaults?.chunking ?? {},
+    embedding: config.defaults?.embedding ?? {},
     retrieval: {
       topK: config.defaults?.retrieval?.topK ?? 8,
     },
@@ -157,6 +158,10 @@ export const defineUnragConfig = <T extends DefineUnragConfigInput>(config: T) =
     return defineConfig({
       ...(config.engine ?? {}),
       defaults: defaults.chunking,
+      embeddingProcessing: {
+        ...(defaults.embedding ?? {}),
+        ...(config.engine?.embeddingProcessing ?? {}),
+      },
       embedding: getEmbeddingProvider(),
       store: runtime.store,
       extractors,

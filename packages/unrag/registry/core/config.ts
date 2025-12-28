@@ -4,6 +4,7 @@ import type {
   ResolvedContextEngineConfig,
   AssetProcessingConfig,
   ContentStorageConfig,
+  EmbeddingProcessingConfig,
 } from "./types";
 import { defaultChunker, resolveChunkingOptions } from "./chunking";
 import { mergeDeep } from "./deep-merge";
@@ -123,6 +124,11 @@ export const defaultContentStorageConfig: ContentStorageConfig = {
   storeDocumentContent: true,
 };
 
+export const defaultEmbeddingProcessingConfig: EmbeddingProcessingConfig = {
+  concurrency: 4,
+  batchSize: 32,
+};
+
 export const resolveAssetProcessingConfig = (
   overrides?: DeepPartial<AssetProcessingConfig>
 ): AssetProcessingConfig => mergeDeep(defaultAssetProcessingConfig, overrides);
@@ -130,6 +136,10 @@ export const resolveAssetProcessingConfig = (
 export const resolveContentStorageConfig = (
   overrides?: DeepPartial<ContentStorageConfig>
 ): ContentStorageConfig => mergeDeep(defaultContentStorageConfig, overrides);
+
+export const resolveEmbeddingProcessingConfig = (
+  overrides?: DeepPartial<EmbeddingProcessingConfig>
+): EmbeddingProcessingConfig => mergeDeep(defaultEmbeddingProcessingConfig, overrides);
 
 export const resolveConfig = (
   config: ContextEngineConfig
@@ -145,6 +155,7 @@ export const resolveConfig = (
     extractors: config.extractors ?? [],
     storage: resolveContentStorageConfig(config.storage),
     assetProcessing: resolveAssetProcessingConfig(config.assetProcessing),
+    embeddingProcessing: resolveEmbeddingProcessingConfig(config.embeddingProcessing),
   };
 };
 
