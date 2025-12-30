@@ -253,9 +253,6 @@ const DEFAULT_MODEL_BY_PROVIDER: Record<EmbeddingProviderName, string> = {
 };
 
 const DEFAULT_MULTIMODAL_MODEL_BY_PROVIDER: Partial<Record<EmbeddingProviderName, string>> = {
-  // Matches CLI behavior for "ai" multimodal defaults.
-  ai: 'cohere/embed-v4.0',
-  // True multimodal (image embedding) support in Unrag.
   voyage: 'voyage-multimodal-3',
 };
 
@@ -385,14 +382,6 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       providerLabel: 'OpenAI',
       icon: OpenAIDark,
       supports: ['text'],
-    },
-    {
-      id: 'cohere/embed-v4.0',
-      label: 'cohere/embed-v4.0',
-      providerLabel: 'Cohere',
-      icon: Cohere,
-      supports: ['text', 'multimodal'],
-      recommended: true,
     },
     {
       id: 'google/text-embedding-004',
@@ -808,60 +797,6 @@ function SelectionCard({
         </div>
       </div>
     </button>
-  );
-}
-
-function ProviderCard({
-  provider,
-  selected,
-  onSelect,
-}: {
-  provider: (typeof EMBEDDING_PROVIDER_OPTIONS)[number];
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const Icon = provider.icon;
-  return (
-    <ClickableCard
-      onClick={onSelect}
-      className={cn(
-        'rounded-xl border p-4 transition-all duration-200',
-        'hover:border-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
-        selected
-          ? 'border-white/30 bg-white/[0.04]'
-          : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.03]'
-      )}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-white/80">
-            <Icon width={18} height={18} className="text-white/85" aria-label={provider.name} />
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-medium text-white/90">{provider.name}</span>
-              {provider.badge ? (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10 capitalize">
-                  {provider.badge}
-                </span>
-              ) : null}
-            </div>
-            <p className="mt-1 text-sm text-white/50 leading-relaxed">{provider.description}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <DocsIconLink href={provider.docsHref} label={`Open docs for ${provider.name}`} />
-          <div
-            className={cn(
-              'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all',
-              selected ? 'border-white bg-white' : 'border-white/20 group-hover:border-white/30'
-            )}
-          >
-            {selected ? <div className="w-2 h-2 rounded-full bg-black" /> : null}
-          </div>
-        </div>
-      </div>
-    </ClickableCard>
   );
 }
 
@@ -1519,12 +1454,26 @@ export default function InstallWizardClient() {
                       title={type.name}
                       description={type.description}
                       selected={state.embedding.type === type.id}
-                      onClick={() =>
-                        setState((prev) => ({
-                          ...prev,
-                          embedding: { ...prev.embedding, type: type.id },
-                        }))
-                      }
+                      onClick={() => {
+                        // If switching to multimodal, auto-switch to Voyage (only provider with multimodal support)
+                        if (type.id === 'multimodal' && state.embedding.provider !== 'voyage') {
+                          setForceCustomEmbeddingModel(false);
+                          setState((prev) => ({
+                            ...prev,
+                            embedding: {
+                              ...prev.embedding,
+                              type: type.id,
+                              provider: 'voyage',
+                              model: DEFAULT_MULTIMODAL_MODEL_BY_PROVIDER['voyage'] ?? 'voyage-multimodal-3',
+                            },
+                          }));
+                        } else {
+                          setState((prev) => ({
+                            ...prev,
+                            embedding: { ...prev.embedding, type: type.id },
+                          }));
+                        }
+                      }}
                     />
                   ))}
                 </div>
@@ -1532,28 +1481,94 @@ export default function InstallWizardClient() {
                 <div className="mt-8 pt-6 border-t border-white/[0.06] space-y-6">
                   <FieldGroup
                     label="Embedding provider"
-                    hint="This controls which provider Unrag uses for embeddings (and which env vars you’ll need)."
+                    hint="This controls which provider Unrag uses for embeddings (and which env vars you'll need)."
                   >
-                    <div className="space-y-3">
-                      {EMBEDDING_PROVIDER_OPTIONS.map((p) => (
-                        <ProviderCard
-                          key={p.id}
-                          provider={p}
-                          selected={state.embedding.provider === p.id}
-                          onSelect={() => {
-                            setForceCustomEmbeddingModel(false);
-                            const nextModel =
-                              state.embedding.type === 'multimodal'
-                                ? (DEFAULT_MULTIMODAL_MODEL_BY_PROVIDER[p.id] ?? DEFAULT_MODEL_BY_PROVIDER[p.id])
-                                : DEFAULT_MODEL_BY_PROVIDER[p.id];
-                            setState((prev) => ({
-                              ...prev,
-                              embedding: { ...prev.embedding, provider: p.id, model: nextModel },
-                            }));
-                          }}
-                        />
-                      ))}
-                    </div>
+                    {(() => {
+                      const selectedProvider = EMBEDDING_PROVIDER_OPTIONS.find((p) => p.id === state.embedding.provider);
+                      const SelectedIcon = selectedProvider?.icon ?? VercelDark;
+                      return (
+                        <div className="space-y-3">
+                          <Select
+                            value={state.embedding.provider}
+                            onValueChange={(v) => {
+                              const providerId = v as EmbeddingProviderName;
+                              setForceCustomEmbeddingModel(false);
+                              const nextModel =
+                                state.embedding.type === 'multimodal'
+                                  ? (DEFAULT_MULTIMODAL_MODEL_BY_PROVIDER[providerId] ?? DEFAULT_MODEL_BY_PROVIDER[providerId])
+                                  : DEFAULT_MODEL_BY_PROVIDER[providerId];
+                              setState((prev) => ({
+                                ...prev,
+                                embedding: { ...prev.embedding, provider: providerId, model: nextModel },
+                              }));
+                            }}
+                          >
+                            <SelectTrigger className="h-auto min-h-[72px] bg-white/[0.03] border-white/10 text-white hover:bg-white/[0.04] focus:ring-white/20 px-4 py-3">
+                              <SelectValue>
+                                <div className="flex items-start gap-3 text-left">
+                                  <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-white/80">
+                                    <SelectedIcon width={18} height={18} className="text-white/85" aria-label={selectedProvider?.name ?? 'Provider'} />
+                                  </div>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium text-white/90">{selectedProvider?.name ?? 'Select provider'}</span>
+                                      {selectedProvider?.badge ? (
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10 capitalize">
+                                          {selectedProvider.badge}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    <p className="mt-0.5 text-sm text-white/50 leading-relaxed line-clamp-1">{selectedProvider?.description}</p>
+                                  </div>
+                                </div>
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="border-white/10 bg-[hsl(0,0%,6%)] text-white max-h-[400px]">
+                              {EMBEDDING_PROVIDER_OPTIONS.map((p) => {
+                                const Icon = p.icon;
+                                return (
+                                  <SelectItem
+                                    key={p.id}
+                                    value={p.id}
+                                    className="focus:bg-white/5 focus:text-white data-[state=checked]:text-white py-3 px-3"
+                                  >
+                                    <div className="flex items-start gap-3">
+                                      <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-white/80">
+                                        <Icon width={16} height={16} className="text-white/85" aria-label={p.name} />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-medium text-white/90">{p.name}</span>
+                                          {p.badge ? (
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10 capitalize">
+                                              {p.badge}
+                                            </span>
+                                          ) : null}
+                                        </div>
+                                        <p className="mt-0.5 text-xs text-white/45 leading-relaxed">{p.description}</p>
+                                      </div>
+                                    </div>
+                                  </SelectItem>
+                                );
+                              })}
+                            </SelectContent>
+                          </Select>
+                          {selectedProvider?.docsHref ? (
+                            <div className="flex items-center gap-2">
+                              <Link
+                                href={selectedProvider.docsHref}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1.5 text-xs text-white/45 hover:text-white/70 transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                View {selectedProvider.name} docs
+                              </Link>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })()}
                     {state.embedding.type === 'multimodal' && state.embedding.provider !== 'voyage' ? (
                       <div className="mt-3 text-xs text-white/45 leading-relaxed">
                         Heads up: true multimodal embeddings (image + text in the same vector space) are only supported by the{' '}
