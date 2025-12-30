@@ -1214,7 +1214,7 @@ export default function InstallWizardClient() {
         />
       ) : null}
       <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[hsl(0,0%,3%)]/80 backdrop-blur-xl">
-        <div className="max-w-[1600px] mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2 text-white/60 hover:text-white/90 transition-colors">
               <ArrowLeft className="w-4 h-4" />
@@ -1223,7 +1223,18 @@ export default function InstallWizardClient() {
             <div className="w-px h-5 bg-white/10" />
             <h1 className="text-sm font-medium text-white/80">Configure Installation</h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={reset}
+              className="lg:hidden text-white/60 hover:text-white hover:bg-white/5"
+              aria-label="Reset to defaults"
+              title="Reset to defaults"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span className="hidden sm:inline">Reset</span>
+            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -1231,22 +1242,23 @@ export default function InstallWizardClient() {
               className="text-white/60 hover:text-white hover:bg-white/5"
             >
               <Share2 className="w-4 h-4" />
-              {copied === 'url' ? 'Copied!' : 'Share'}
+              <span className="hidden sm:inline">{copied === 'url' ? 'Copied!' : 'Share'}</span>
             </Button>
             <a
               href="/docs/getting-started/quickstart"
               target="_blank"
               className="flex items-center gap-2 text-sm text-white/60 hover:text-white/90 transition-colors"
+              aria-label="Docs"
             >
-              <span>Docs</span>
+              <span className="hidden sm:inline">Docs</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
         </div>
       </header>
 
-      <div className="max-w-[1600px] mx-auto flex min-h-[calc(100vh-3.5rem)]">
-        <aside className="w-64 shrink-0 border-r border-white/[0.06] p-6">
+      <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row min-h-[calc(100vh-3.5rem)]">
+        <aside className="hidden lg:block w-64 shrink-0 border-r border-white/[0.06] p-6">
           <div className="sticky top-20">
             <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-4">Steps</div>
             <nav className="space-y-1">
@@ -1301,8 +1313,82 @@ export default function InstallWizardClient() {
           </div>
         </aside>
 
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-visible lg:overflow-y-auto">
           <div className="max-w-2xl">
+            {/* Mobile: step navigation */}
+            <div className="lg:hidden mb-6">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs font-medium uppercase tracking-wider text-white/30">Steps</div>
+                <div className="text-xs text-white/35">
+                  {currentStep + 1} / {STEPS.length}
+                </div>
+              </div>
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+                {STEPS.map((step, index) => {
+                  const isActive = index === currentStep;
+                  const isCompleted = index < currentStep;
+                  return (
+                    <button
+                      key={step.id}
+                      type="button"
+                      onClick={() => goToStep(index)}
+                      className={cn(
+                        'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
+                        isActive
+                          ? 'border-white/25 bg-white/[0.05] text-white'
+                          : isCompleted
+                            ? 'border-white/[0.10] bg-white/[0.02] text-white/70'
+                            : 'border-white/[0.08] bg-white/[0.01] text-white/50 hover:bg-white/[0.03] hover:text-white/70'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'w-6 h-6 rounded-md flex items-center justify-center transition-colors shrink-0',
+                          isActive
+                            ? 'bg-white/10 text-white'
+                            : isCompleted
+                              ? 'bg-emerald-500/10 text-emerald-400'
+                              : 'bg-white/5 text-white/30'
+                        )}
+                      >
+                        {isCompleted ? <Check className="w-3.5 h-3.5" /> : step.icon}
+                      </div>
+                      <span className="whitespace-nowrap font-medium">{step.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Mobile/tablet: show live preview (desktop has right sidebar) */}
+            <div className="xl:hidden mb-8">
+              <div className="rounded-xl border border-white/[0.08] bg-black/40 p-4">
+                <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-3">Live Preview</div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-white/50">Directory</span>
+                    <span className="font-mono text-white/80 truncate max-w-[60%]">{state.install.installDir}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-white/50">Adapter</span>
+                    <span className="text-white/80">{state.install.storeAdapter}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-white/50">Embedding</span>
+                    <span className="text-white/80 capitalize">{state.embedding.type}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-white/50">Extractors</span>
+                    <span className="text-white/80">{state.modules.extractors.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-white/50">Connectors</span>
+                    <span className="text-white/80">{state.modules.connectors.length}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
             {currentStepId === 'install' && (
               <div
                 className={cn(
@@ -1683,7 +1769,7 @@ export default function InstallWizardClient() {
                     </div>
                   </FieldGroup>
 
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <FieldGroup label="Chunk size">
                       <Select
                         value={String(state.defaults.chunkSize)}
@@ -1944,7 +2030,7 @@ export default function InstallWizardClient() {
                 <SectionHeader title="Review & Install" description="Review your configuration and generate the install command." />
 
                 <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
                       <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">Database</div>
                       <div className="text-lg font-medium text-white/90">{summary.adapter}</div>
@@ -2009,7 +2095,7 @@ export default function InstallWizardClient() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                     {!presetId && (
                       <Button onClick={handleCreatePreset} disabled={creatingPreset} variant="cta">
                         {creatingPreset ? (
@@ -2068,17 +2154,20 @@ export default function InstallWizardClient() {
               </div>
             )}
 
-            <div className="flex items-center justify-between mt-12 pt-6 border-t border-white/[0.06]">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mt-12 pt-6 border-t border-white/[0.06]">
               <Button
                 variant="ghost"
                 onClick={() => goToStep(currentStep - 1)}
                 disabled={currentStep === 0}
-                className={cn('text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30', currentStep === 0 && 'invisible')}
+                className={cn(
+                  'w-full sm:w-auto text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30',
+                  currentStep === 0 && 'hidden sm:invisible'
+                )}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Previous
               </Button>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center justify-center gap-1.5">
                 {STEPS.map((_, index) => (
                   <button
                     key={index}
@@ -2096,7 +2185,7 @@ export default function InstallWizardClient() {
               </div>
               <Button
                 onClick={() => goToStep(currentStep + 1)}
-                className={cn(currentStep === STEPS.length - 1 && 'invisible')}
+                className={cn('w-full sm:w-auto', currentStep === STEPS.length - 1 && 'hidden sm:invisible')}
                 variant="cta"
                 size="sm"
               >
