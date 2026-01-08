@@ -1,6 +1,7 @@
 import { intro, outro } from "@clack/prompts";
 import { initCommand } from "./commands/init";
 import { addCommand } from "./commands/add";
+import { doctorCommand } from "./commands/doctor";
 import { UNRAG_GITHUB_REPO_URL, docsUrl } from "./lib/constants";
 
 function renderHelp() {
@@ -14,6 +15,7 @@ function renderHelp() {
     "Commands:",
     "  init                Install core files (config + store adapter templates)",
     "  add <connector>     Install a connector (notion, google-drive)",
+    "  doctor              Validate installation and configuration",
     "  help                Show this help",
     "",
     "Global options:",
@@ -30,12 +32,19 @@ function renderHelp() {
     "  --no-rich-media      Disable rich media setup",
     "  --extractors <list>  Comma-separated extractors (implies --rich-media)",
     "",
+    "doctor options:",
+    "  --db                 Run database checks (connectivity, schema, indexes)",
+    "  --json               Output JSON for CI",
+    "  --strict             Treat warnings as failures",
+    "",
     "Examples:",
     "  bunx unrag@latest init",
     "  bunx unrag@latest init --yes --store drizzle --dir lib/unrag --alias @unrag",
     "  bunx unrag@latest init --yes --rich-media",
     "  bunx unrag@latest init --yes --extractors pdf-text-layer,file-text",
     "  bunx unrag add notion --yes",
+    "  bunx unrag doctor",
+    "  bunx unrag doctor --db",
     "",
     "Docs:",
     `  - Quickstart: ${docsUrl("/docs/getting-started/quickstart")}`,
@@ -67,6 +76,11 @@ export async function run(argv: string[]) {
 
   if (command === "add") {
     await addCommand(rest);
+    return;
+  }
+
+  if (command === "doctor") {
+    await doctorCommand(rest);
     return;
   }
 
