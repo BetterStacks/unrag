@@ -1,0 +1,58 @@
+---
+title: Supported Runtimes
+description: Where Unrag runs—and where it doesn't—and why that matters.
+---
+
+Unrag is designed to run on the server. The code it generates uses database connections, embedding API calls, and environment variables that have no place in a browser or on edge infrastructure with limited APIs. Understanding these constraints upfront saves you from architecture decisions that won't work.
+
+## Server-side JavaScript runtimes
+
+Unrag works with any JavaScript runtime that provides Node.js-compatible APIs. In practice, that means three options:
+
+- **Node.js 18+** is the primary target. All of Unrag's default adapters use the `pg` driver for Postgres connections, which relies on Node.js's `net` and `tls` modules for TCP sockets. If you're running a standard Node.js server—whether that's Next.js in Node mode, Express, Hono, or standalone scripts—everything works out of the box.
+
+- **Bun** implements Node.js compatibility to the point where Unrag runs without modification. The `pg` driver works, path aliases resolve correctly, and the module system handles Unrag's generated code without issues. If you're already using Bun for its speed or developer experience, Unrag fits right in.
+
+- **Deno** works when you enable Node.js compatibility mode. Deno can import npm packages and provides shims for Node.js built-in modules. For Unrag, that means the Postgres driver and file system access work as expected. You'll need to configure your import maps and permissions appropriately, but there's no fundamental incompatibility.
+
+## Why server-side only?
+
+This isn't an arbitrary restriction. Unrag handles sensitive credentials—your database connection string and embedding API keys—that must never appear in client-side code. Beyond security, the operations Unrag performs (opening TCP connections to Postgres, making authenticated HTTP requests to embedding providers) require capabilities that browsers don't provide and edge runtimes severely limit.
+
+When you call `engine.ingest()`, Unrag needs to connect to your database, insert rows in a transaction, and call an external API. When you call `engine.retrieve()`, it does the same in reverse. These are inherently server operations. The generated code assumes a server environment, and attempting to bundle it for the browser would fail at multiple points.
+
+## Edge runtimes: not out of the box
+
+Edge runtimes like Cloudflare Workers, Vercel Edge Functions, and Deno Deploy run JavaScript in constrained environments optimized for low latency at the edge. They typically don't support raw TCP sockets, which means the `pg` driver—and by extension Unrag's default store adapters—won't work.
+
+<Callout type="warn">
+Unrag's default adapters use the `pg` driver, which requires TCP socket access. Edge runtimes don't provide this, so you'll get errors if you try to run Unrag there without modifications.
+</Callout>
+
+If you're committed to edge deployment, you have paths forward, but they require additional work:
+
+- **Use an edge-compatible Postgres driver:** Neon provides a serverless driver (`@neondatabase/serverless`) that works over HTTP/WebSockets instead of TCP sockets. You'd need to implement a custom store adapter that uses this driver instead of `pg`. The interface is simple—`upsert()` and `query()`—so the adaptation is straightforward if you're comfortable writing SQL.
+
+- **Proxy through a Node.js backend:** Keep Unrag in a Node.js service (could be a separate deployment, a serverless function, or your main backend) and call it from your edge function. Your edge code handles the request/response lifecycle while the actual vector operations happen in an environment where they work correctly.
+
+- **Use a different vector store:** Some vector databases (Pinecone, Upstash Vector, Turbopuffer) provide edge-compatible SDKs. If you build a custom store adapter for one of these, you can run on edge runtimes. See [Custom Store](/docs/adapters/custom-store) for how to implement your own adapter.
+
+These approaches add complexity, so consider whether edge deployment is actually necessary for your use case. The latency benefit of edge computing largely disappears when you're making round trips to a database and embedding API anyway.
+
+## Framework compatibility
+
+Unrag integrates cleanly with server-side frameworks:
+
+- **Next.js** works in Route Handlers and Server Actions. These run in the Node.js runtime, not the Edge runtime, so all of Unrag's capabilities are available. When you deploy to Vercel, make sure your routes use the Node.js runtime (the default for Route Handlers and Server Actions).
+
+- **Express** and traditional Node.js servers have full compatibility. Import the engine, call its methods in your route handlers, and everything works as expected.
+
+- **Hono** works on Node.js and Bun with no special configuration. If you're deploying Hono to Cloudflare Workers or other edge environments, the edge runtime constraints apply.
+
+- **Standalone scripts** for ingestion jobs, migrations, and maintenance work perfectly. Node.js, Bun, or Deno can run these scripts with full access to Unrag's capabilities.
+
+## What about browsers?
+
+Unrag generates server-only code. There's no browser build, no client-side SDK, no way to run ingest or retrieve operations from frontend JavaScript. This is intentional.
+
+Your frontend interacts with Unrag through your API layer. Build a Route Handler, Server Action, or API endpoint that calls the engine, and have your frontend fetch from that endpoint. The search box in your UI makes a request to `/api/search`, your server-side code runs `engine.retrieve()`, and the results come back as JSON. All the sensitive operations happen server-side where they belong.
