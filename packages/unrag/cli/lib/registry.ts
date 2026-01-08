@@ -537,6 +537,10 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       dest: path.join(installBaseAbs, "core/config.ts"),
     },
     {
+      src: path.join(selection.registryRoot, "core/deep-merge.ts"),
+      dest: path.join(installBaseAbs, "core/deep-merge.ts"),
+    },
+    {
       src: path.join(selection.registryRoot, "core/context-engine.ts"),
       dest: path.join(installBaseAbs, "core/context-engine.ts"),
     },

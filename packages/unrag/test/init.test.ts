@@ -55,6 +55,7 @@ describe("unrag@latest init", () => {
     expect(await pathExists(path.join(runDir, "unrag.config.ts"))).toBe(true);
     expect(await pathExists(path.join(runDir, "lib/unrag", "unrag.md"))).toBe(true);
     expect(await pathExists(path.join(runDir, "lib/unrag/core/delete.ts"))).toBe(true);
+    expect(await pathExists(path.join(runDir, "lib/unrag/core/deep-merge.ts"))).toBe(true);
 
     expect(
       await pathExists(
