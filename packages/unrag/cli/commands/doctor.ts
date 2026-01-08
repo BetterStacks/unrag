@@ -5,6 +5,7 @@
  * database checks (--db flag).
  */
 
+import path from "node:path";
 import { outro, spinner } from "@clack/prompts";
 import type {
   CheckGroup,
@@ -17,14 +18,26 @@ import { runStaticChecks } from "../lib/doctor/staticChecks";
 import { runConfigCoherenceChecks } from "../lib/doctor/configScan";
 import { runDbChecks } from "../lib/doctor/dbChecks";
 import { formatReport, formatJson } from "../lib/doctor/output";
-import { loadEnvFiles } from "../lib/doctor/env";
+import { loadEnvFilesFromList } from "../lib/doctor/env";
 import { docsUrl } from "../lib/constants";
+import { tryFindProjectRoot } from "../lib/fs";
+import {
+  readDoctorConfig,
+  mergeDoctorArgsWithConfig,
+  getEnvFilesToLoad,
+  resolveConfigPath,
+} from "../lib/doctor/doctorConfig";
+import { doctorSetupCommand } from "./doctor-setup";
+
+type ParsedDoctorArgsWithConfig = ParsedDoctorArgs & {
+  config?: string;
+};
 
 /**
  * Parse doctor command arguments.
  */
-function parseDoctorArgs(args: string[]): ParsedDoctorArgs {
-  const out: ParsedDoctorArgs = {};
+function parseDoctorArgs(args: string[]): ParsedDoctorArgsWithConfig {
+  const out: ParsedDoctorArgsWithConfig = {};
 
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
@@ -41,6 +54,15 @@ function parseDoctorArgs(args: string[]): ParsedDoctorArgs {
 
     if (a === "--strict") {
       out.strict = true;
+      continue;
+    }
+
+    if (a === "--config") {
+      const v = args[i + 1];
+      if (v && !v.startsWith("-")) {
+        out.config = v;
+        i++;
+      }
       continue;
     }
 
@@ -120,8 +142,13 @@ function renderDoctorHelp(): string {
     "",
     "Usage:",
     "  unrag doctor [options]",
+    "  unrag doctor setup [options]",
+    "",
+    "Subcommands:",
+    "  setup                   Generate project-specific doctor config and package.json scripts",
     "",
     "Options:",
+    "  --config <path>         Load settings from a doctor config file",
     "  --db                    Run database checks (connectivity, pgvector, schema, indexes)",
     "  --json                  Output results as JSON (for CI)",
     "  --strict                Treat warnings as failures",
@@ -157,6 +184,8 @@ function renderDoctorHelp(): string {
     "  unrag doctor --db               Include database checks",
     "  unrag doctor --db --strict      Fail on warnings too",
     "  unrag doctor --json             Output JSON for CI",
+    "  unrag doctor --config .unrag/doctor.json   Use project config",
+    "  unrag doctor setup              Generate config and scripts",
     "",
     "Docs:",
     `  ${docsUrl("/docs/reference/cli")}`,
@@ -173,23 +202,52 @@ export async function doctorCommand(args: string[]): Promise<void> {
     return;
   }
 
+  // Check for setup subcommand
+  if (args[0] === "setup") {
+    await doctorSetupCommand(args.slice(1));
+    return;
+  }
+
   const parsed = parseDoctorArgs(args);
 
   const s = spinner();
   s.start("Running doctor checks...");
 
   try {
+    // 0. Determine project root early for config loading
+    const projectRoot =
+      parsed.projectRoot ??
+      (await tryFindProjectRoot(process.cwd())) ??
+      process.cwd();
+
+    // 0.1 Load doctor config file if specified
+    let doctorConfig = null;
+    if (parsed.config) {
+      const configPath = resolveConfigPath(projectRoot, parsed.config);
+      doctorConfig = await readDoctorConfig(configPath);
+      if (!doctorConfig) {
+        s.stop("Doctor failed.");
+        outro(`Error: Could not read config file: ${parsed.config}`);
+        process.exitCode = 2;
+        return;
+      }
+    }
+
+    // 0.2 Merge CLI args with config (CLI takes precedence)
+    const mergedArgs = mergeDoctorArgsWithConfig(parsed, doctorConfig, projectRoot);
+
     // 1. Infer install state
     const state = await inferInstallState({
-      projectRootOverride: parsed.projectRoot,
-      installDirOverride: parsed.installDir,
+      projectRootOverride: projectRoot,
+      installDirOverride: mergedArgs.installDir,
     });
 
     // 1.1 Load env files (best-effort) so `doctor` sees .env / .env.local values.
     // This does NOT override already-set process.env keys.
-    await loadEnvFiles({
+    const envFilesToLoad = getEnvFilesToLoad(doctorConfig, mergedArgs.envFile);
+    await loadEnvFilesFromList({
       projectRoot: state.projectRoot,
-      extraEnvFile: parsed.envFile,
+      files: envFilesToLoad,
     });
 
     // 2. Run static checks
@@ -200,12 +258,12 @@ export async function doctorCommand(args: string[]): Promise<void> {
 
     // 4. Run DB checks if requested
     let dbResults: CheckResult[] = [];
-    if (parsed.db) {
+    if (mergedArgs.db) {
       dbResults = await runDbChecks(state, {
-        databaseUrl: parsed.databaseUrl,
-        databaseUrlEnv: parsed.databaseUrlEnv,
-        schema: parsed.schema ?? "public",
-        scope: parsed.scope,
+        databaseUrl: mergedArgs.databaseUrl,
+        databaseUrlEnv: mergedArgs.databaseUrlEnv ?? doctorConfig?.env?.databaseUrlEnv,
+        schema: mergedArgs.schema ?? doctorConfig?.db?.schema ?? "public",
+        scope: mergedArgs.scope,
       });
     }
 
@@ -235,7 +293,7 @@ export async function doctorCommand(args: string[]): Promise<void> {
       },
     ];
 
-    if (parsed.db) {
+    if (mergedArgs.db) {
       groups.push({
         id: "database",
         title: "Database",
@@ -255,10 +313,10 @@ export async function doctorCommand(args: string[]): Promise<void> {
     const report: DoctorReport = { groups, summary };
 
     // 6. Output
-    if (parsed.json) {
+    if (mergedArgs.json) {
       console.log(formatJson(report));
     } else {
-      outro(formatReport(report, { showDbHint: !parsed.db }));
+      outro(formatReport(report, { showDbHint: !mergedArgs.db }));
     }
 
     // 7. Exit code
@@ -267,7 +325,7 @@ export async function doctorCommand(args: string[]): Promise<void> {
 
     if (hasFails) {
       process.exitCode = 1;
-    } else if (parsed.strict && hasWarns) {
+    } else if (mergedArgs.strict && hasWarns) {
       process.exitCode = 1;
     }
   } catch (err) {

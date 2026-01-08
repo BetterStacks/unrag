@@ -16,15 +16,13 @@ export type EnvLoadResult = {
   warnings: string[];
 };
 
+/**
+ * Load env files using default discovery (legacy function).
+ */
 export async function loadEnvFiles(options: {
   projectRoot: string;
   extraEnvFile?: string;
 }): Promise<EnvLoadResult> {
-  const loadedFiles: string[] = [];
-  const loadedKeys: string[] = [];
-  const skippedKeys: string[] = [];
-  const warnings: string[] = [];
-
   const nodeEnv = (process.env.NODE_ENV ?? "").trim();
 
   const candidates = [
@@ -37,7 +35,29 @@ export async function loadEnvFiles(options: {
     candidates.unshift(options.extraEnvFile);
   }
 
-  for (const rel of candidates) {
+  return loadEnvFilesFromList({
+    projectRoot: options.projectRoot,
+    files: candidates,
+  });
+}
+
+/**
+ * Load env files from a specific list of file paths.
+ * Supports both relative (to projectRoot) and absolute paths.
+ */
+export async function loadEnvFilesFromList(options: {
+  projectRoot: string;
+  files: string[];
+}): Promise<EnvLoadResult> {
+  const loadedFiles: string[] = [];
+  const loadedKeys: string[] = [];
+  const skippedKeys: string[] = [];
+  const warnings: string[] = [];
+
+  for (const rel of options.files) {
+    // Skip empty strings (can happen with ${NODE_ENV} interpolation when NODE_ENV is empty)
+    if (!rel.trim()) continue;
+
     const abs = path.isAbsolute(rel) ? rel : path.join(options.projectRoot, rel);
     if (!(await exists(abs))) continue;
 
