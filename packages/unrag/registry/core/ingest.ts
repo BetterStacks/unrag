@@ -13,6 +13,7 @@ import type {
   ResolvedContextEngineConfig,
 } from "./types";
 import { mergeDeep } from "./deep-merge";
+import { getAssetBytes } from "../extractors/_shared/fetch";
 
 const now = () => performance.now();
 
@@ -286,13 +287,39 @@ export const ingest = async (
       const specs: PreparedChunkSpec[] = [];
       const warnings: IngestWarning[] = [];
 
+      // If provider supports image embedding, ensure URL-based images are fetched server-side
+      // using the same guarded fetch policy as extractors (assetProcessing.fetch).
       if (config.embedding.embedImage) {
-        const data =
-          asset.data.kind === "bytes" ? asset.data.bytes : asset.data.url;
-        const mediaType =
-          asset.data.kind === "bytes"
-            ? asset.data.mediaType
-            : asset.data.mediaType;
+        let data: Uint8Array;
+        let mediaType: string | undefined;
+
+        if (asset.data.kind === "bytes") {
+          data = asset.data.bytes;
+          mediaType = asset.data.mediaType;
+        } else {
+          try {
+            const fetched = await getAssetBytes({
+              data: asset.data,
+              fetchConfig: assetProcessing.fetch,
+              maxBytes: assetProcessing.fetch.maxBytes,
+              defaultMediaType: "image/jpeg",
+            });
+            data = fetched.bytes;
+            mediaType = fetched.mediaType;
+          } catch (err) {
+            if (assetProcessing.onError === "fail") throw err;
+
+            return skip({
+              code: "asset_processing_error",
+              message: `Asset processing failed but was skipped due to onError="skip": ${asMessage(err)}`,
+              assetId: asset.assetId,
+              assetKind: "image",
+              stage: "fetch",
+              ...(assetUri ? { assetUri } : {}),
+              ...(assetMediaType ? { assetMediaType } : {}),
+            });
+          }
+        }
 
         specs.push({
           documentId,

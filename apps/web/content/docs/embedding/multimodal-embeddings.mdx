@@ -61,12 +61,17 @@ The embedding model must embed both text and images into the same space. Using d
 
 When you ingest an image asset with multimodal enabled:
 
-1. The image data (URL or bytes) is passed to the embedding provider
-2. The provider calls the multimodal model's image embedding endpoint
-3. A vector is returned representing the image's semantic content
-4. This vector is stored alongside text chunk vectors
+1. **Bytes**: Image bytes are passed directly to the embedding provider
+2. **URLs**: The URL is fetched server-side using [`assetProcessing.fetch`](/docs/reference/asset-processing#fetchconfig) settings, then the resulting bytes are passed to the provider
+3. The provider calls the multimodal model's image embedding endpoint
+4. A vector is returned representing the image's semantic content
+5. This vector is stored alongside text chunk vectors
 
 During retrieval, your text query is embedded and compared against all vectors—both text chunks and image embeddings.
+
+<Callout>
+**Security note**: Image URLs are never passed directly to embedding providers. Unrag fetches the bytes server-side first, which means your `assetProcessing.fetch` allowlist and security settings apply to image embedding—preventing internal or signed URLs from being leaked to third-party APIs.
+</Callout>
 
 ## Resolving an image result back to bytes
 
@@ -144,7 +149,7 @@ The multimodal provider adds an `embedImage` function:
 
 ```ts
 type ImageEmbeddingInput = {
-  data: Uint8Array | string;  // Image bytes or URL
+  data: Uint8Array;           // Image bytes (URLs are fetched server-side first)
   mediaType?: string;         // e.g., "image/jpeg"
   metadata: Metadata;
   assetId?: string;
@@ -160,7 +165,7 @@ type EmbeddingProvider = {
 };
 ```
 
-The ingest pipeline checks for `embedImage` and uses it when processing image assets.
+The ingest pipeline checks for `embedImage` and uses it when processing image assets. For URL-based images, Unrag fetches the bytes using `assetProcessing.fetch` before calling `embedImage`.
 
 ## Customizing image embedding
 

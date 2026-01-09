@@ -7,10 +7,15 @@ The `image:embed` extractor sends image data to a multimodal embedding model, pr
 
 ## How it works
 
-1. Image bytes or URL are passed to the multimodal embedding model
-2. The model returns a vector representing the image's semantic content
-3. The vector is stored alongside text chunk embeddings
-4. Text queries can match image embeddings and vice versa
+1. **For bytes**: Image data is passed directly to the multimodal embedding model
+2. **For URLs**: The URL is fetched server-side using [`assetProcessing.fetch`](/docs/reference/asset-processing#fetchconfig) settings, then the bytes are passed to the model
+3. The model returns a vector representing the image's semantic content
+4. The vector is stored alongside text chunk embeddings
+5. Text queries can match image embeddings and vice versa
+
+<Callout>
+**Security note**: Image URLs are fetched server-side before being sent to the embedding provider. This means `assetProcessing.fetch.allowedHosts` applies to image embedding, preventing internal or signed URLs from leaking to third-party APIs.
+</Callout>
 
 ## Requirements
 
@@ -212,10 +217,18 @@ for (const w of result.warnings) {
   if (w.code === "asset_skipped_image_no_multimodal_and_no_caption") {
     console.log(`Image ${w.assetId} skipped: no multimodal support and no caption`);
   }
+  if (w.code === "asset_processing_error" && w.stage === "fetch") {
+    console.log(`Image ${w.assetId} skipped: URL fetch failed`);
+  }
 }
 ```
 
-**Fix**: Either switch to a multimodal embedding model, or provide captions.
+**Fix for "no multimodal and no caption"**: Either switch to a multimodal embedding model, or provide captions.
+
+**Fix for "URL fetch failed"**: Check your `assetProcessing.fetch` settings:
+- Is `fetch.enabled` set to `true`?
+- Is the image host in `fetch.allowedHosts` (if configured)?
+- Is the URL accessible and within `fetch.maxBytes` / `fetch.timeoutMs` limits?
 
 ### Poor retrieval quality
 
