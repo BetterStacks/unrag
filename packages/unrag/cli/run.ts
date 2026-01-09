@@ -31,7 +31,7 @@ function renderHelp() {
     "  --alias <@name>      Import alias base (e.g. @unrag)",
     "  --preset <id|url>    Install from a web-generated preset (non-interactive)",
     "  --overwrite <mode>   skip | force (when files already exist)",
-    "  --rich-media         Enable rich media setup (also enables multimodal embeddings)",
+    "  --rich-media         Enable rich media setup (extractors + assetProcessing flags)",
     "  --no-rich-media      Disable rich media setup",
     "  --extractors <list>  Comma-separated extractors (implies --rich-media)",
     "  --no-install         Skip automatic dependency installation",

@@ -294,7 +294,7 @@ Controls how PDFs, images, and other rich media are processed during ingestion. 
 />
 
 <Callout>
-The generated template sets `pdf.llmExtraction.enabled: true`, but PDF extraction is performed by an extractor module. Install and register a PDF extractor (e.g. `pdf-llm`, `pdf-text-layer`) to actually process PDFs. If no extractor is registered, ingestion emits warnings so you don't miss content silently.
+The generated template sets all `assetProcessing` flags to `false` by default for cost safety. When you run `init --rich-media` and select extractors, the CLI enables the corresponding flags (e.g. `pdf.llmExtraction.enabled: true` if you select `pdf-llm`). If no extractor is registered for an enabled flag, ingestion emits warnings so you don't miss content silently.
 </Callout>
 
 ### extractors

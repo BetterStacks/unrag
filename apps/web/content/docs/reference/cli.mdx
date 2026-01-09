@@ -220,7 +220,8 @@ bunx unrag@latest init --alias @myproject/rag
 
 **`--rich-media`**
 
-Enable rich media ingestion during setup. This turns on multimodal embeddings (so images can be embedded directly) and prompts you to select which extractors to install.
+Enable rich media ingestion during setup. This installs selected extractors and enables the corresponding `assetProcessing` flags in your config. Prompts you to select which extractors to install. 
+Note: this does not enable multimodal embeddings—see [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) to configure that separately.
 
 ```bash
 bunx unrag@latest init --rich-media
