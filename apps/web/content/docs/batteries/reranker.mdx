@@ -443,9 +443,9 @@ const llmReranker = createCustomReranker({
           messages: [{
             role: "user",
             content: `Rate how well this document answers the query on a scale of 0-10.
-Query: ${query}
-Document: ${doc}
-Reply with just the number.`,
+                Query: ${query}
+                Document: ${doc}
+                Reply with just the number.`,
           }],
         });
         return { index: i, score: parseFloat(result.text) || 0 };

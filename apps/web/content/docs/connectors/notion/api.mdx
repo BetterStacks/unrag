@@ -25,17 +25,66 @@ await syncNotionPages({
 });
 ```
 
-The function returns a small summary so you can log results or surface them in an admin UI: `pageCount`, `succeeded`, `failed`, `deleted`, and `errors`.
+The function returns a summary object so you can log results or surface them in an admin UI:
 
-#### Required parameters
+<TypeTable
+  type={{
+    pageCount: {
+      description: 'Total number of pages that were processed.',
+      type: 'number',
+    },
+    succeeded: {
+      description: 'Number of pages successfully synced.',
+      type: 'number',
+    },
+    failed: {
+      description: 'Number of pages that failed to sync.',
+      type: 'number',
+    },
+    deleted: {
+      description: 'Number of documents deleted (when deleteOnNotFound is true).',
+      type: 'number',
+    },
+    errors: {
+      description: 'Array of error details for failed pages, each with pageId and message.',
+      type: 'Array<{ pageId: string; message: string }>',
+    },
+  }}
+/>
 
-`engine` is a `ContextEngine` from `createUnragEngine()`. This is where the connector ingests content.
+### syncNotionPages input
 
-`token` is your Notion integration token, usually read from an environment variable.
-
-`pageIds` is an array of page IDs or page URLs. The connector accepts both formats and normalizes them internally.
-
-#### Optional parameters
+<TypeTable
+  type={{
+    engine: {
+      description: 'A ContextEngine from createUnragEngine(). This is where the connector ingests content.',
+      type: 'ContextEngine',
+    },
+    token: {
+      description: 'Your Notion integration token, usually read from an environment variable.',
+      type: 'string',
+    },
+    pageIds: {
+      description: 'Array of page IDs or page URLs. The connector accepts both formats and normalizes them internally.',
+      type: 'string[]',
+    },
+    sourceIdPrefix: {
+      description: 'Prepends a namespace to every sourceId. Useful for multi-tenant apps to partition content by tenant.',
+      type: 'string',
+      default: 'undefined',
+    },
+    deleteOnNotFound: {
+      description: 'Delete the previously ingested document if a page is not found or inaccessible. Useful when you keep a static list of page IDs.',
+      type: 'boolean',
+      default: 'false',
+    },
+    onProgress: {
+      description: 'Callback that receives events as each page is processed. Use for logging, progress bars, or retry instrumentation.',
+      type: '(event: NotionSyncProgressEvent) => void',
+      default: 'undefined',
+    },
+  }}
+/>
 
 `sourceIdPrefix` prepends a namespace to every `sourceId`. This is useful for multi-tenant apps where you want to partition content by tenant:
 
@@ -66,6 +115,29 @@ await syncNotionPages({
 ### `loadNotionPageDocument(args)`
 
 This lower-level helper loads a single page and returns a normalized document shape with `sourceId`, `content`, `metadata`, and `assets`. Use it when you want to add custom metadata, control chunking, or decide exactly how ingestion happens (batching, retries, conditional writes).
+
+<TypeTable
+  type={{
+    notion: {
+      description: 'A Notion client from createNotionClient().',
+      type: 'NotionClient',
+    },
+    pageIdOrUrl: {
+      description: 'Page ID or full Notion URL to load.',
+      type: 'string',
+    },
+    maxDepth: {
+      description: 'How deeply to recurse into nested blocks. Increase if your pages have heavily nested content.',
+      type: 'number',
+      default: '6',
+    },
+    sourceIdPrefix: {
+      description: 'Optional namespace prefix for the generated sourceId.',
+      type: 'string',
+      default: 'undefined',
+    },
+  }}
+/>
 
 <Callout>
 Notion file URLs are signed and can expire. For production ingestion (especially with PDF extraction), prefer a background job pattern so you can retry safely. See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe).
