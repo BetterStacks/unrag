@@ -1,0 +1,233 @@
+---
+title: Comparing Runs
+description: Track changes over time with baseline diffs and understand what improved or degraded.
+---
+
+A single eval run tells you how your system performs right now. Comparing runs tells you what changed. Did that chunk size tweak help? Did the new embedding model improve recall? Did someone's innocent-looking commit break retrieval for a whole category of queries? Baseline comparison answers these questions with precision.
+
+## The diff system
+
+When you provide a `--baseline` flag to the eval script, the harness compares the current run against the baseline and produces a diff report. The diff shows three things:
+
+1. How aggregate metrics changed (better, worse, same)
+2. Which queries improved (and by how much)
+3. Which queries degraded (and by how much)
+
+```bash
+bun run scripts/unrag-eval.ts -- \
+  --dataset .unrag/eval/datasets/regression.json \
+  --baseline .unrag/eval/runs/2025-01-05-regression/report.json
+```
+
+The output includes a comparison section:
+
+```
+Comparing against baseline: .unrag/eval/runs/2025-01-05-regression/report.json
+
+Aggregate changes:
+  hit@10:       0.833 → 0.917 (+0.083) ✓
+  recall@10:    0.833 → 0.917 (+0.083) ✓
+  mrr@10:       0.639 → 0.722 (+0.083) ✓
+
+Query changes:
+  ↑ q_compromised_account: recall 0.00 → 1.00 (+1.00)
+  ↓ q_free_shipping: mrr 1.00 → 0.50 (-0.50)
+  = q_return_deadline: no change
+  = q_express_cost: no change
+  ...
+```
+
+The up arrows show improvements, down arrows show regressions, and equals signs show stable queries. This tells you not just that things changed, but exactly which queries changed and in what direction.
+
+## What to look for in diffs
+
+### Net improvements
+
+When you make a change that you expect to help, the diff confirms whether it did. Maybe you increased chunk overlap to improve context preservation, and you see several queries improve their recall. That's the signal you were looking for.
+
+But also look at what degraded. Changes that help some queries often hurt others. Maybe your chunking change improved recall for long-answer queries but hurt precision for short-answer queries. The diff surfaces these tradeoffs so you can make informed decisions.
+
+### Unexpected changes
+
+Sometimes the diff surprises you. You changed something unrelated—maybe refactored how the engine is constructed—and suddenly three queries have different results. These unexpected changes are the most valuable findings. They reveal assumptions you didn't know you had, or side effects you didn't anticipate.
+
+When you see unexpected regressions, investigate before dismissing them. Maybe the refactor accidentally changed the default topK. Maybe the database connection pool is behaving differently. Unexpected changes are opportunities to catch bugs.
+
+### Stability
+
+If you run the same configuration twice, the diff should show no changes (or minimal changes due to floating-point precision). If you're seeing random fluctuations between runs, something is non-deterministic. Maybe your chunking has random elements, or your embedding provider is returning slightly different vectors. Understanding your system's baseline stability is important for interpreting real changes.
+
+## The diff files
+
+When you compare against a baseline, the harness creates two additional files:
+
+**diff.json**: Machine-readable diff data. Useful for programmatic analysis, building dashboards, or integrating with other tools.
+
+```json
+{
+  "baseline": {
+    "path": ".unrag/eval/runs/2025-01-05-regression/report.json",
+    "timestamp": "2025-01-05T10:30:00Z"
+  },
+  "aggregates": {
+    "hitAtK": { "before": 0.833, "after": 0.917, "delta": 0.083 },
+    "recallAtK": { "before": 0.833, "after": 0.917, "delta": 0.083 },
+    "mrrAtK": { "before": 0.639, "after": 0.722, "delta": 0.083 }
+  },
+  "queries": {
+    "improved": [
+      {
+        "id": "q_compromised_account",
+        "metrics": {
+          "recallAtK": { "before": 0, "after": 1, "delta": 1 }
+        }
+      }
+    ],
+    "degraded": [
+      {
+        "id": "q_free_shipping",
+        "metrics": {
+          "mrrAtK": { "before": 1, "after": 0.5, "delta": -0.5 }
+        }
+      }
+    ],
+    "unchanged": ["q_return_deadline", "q_express_cost", ...]
+  }
+}
+```
+
+**diff.md**: Human-readable markdown summary. Great for PR comments, Slack notifications, or quick review.
+
+```markdown
+# Eval Diff: regression (2025-01-10 vs 2025-01-05)
+
+## Aggregate Changes
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| hit@10 | 0.833 | 0.917 | +0.083 ✓ |
+| recall@10 | 0.833 | 0.917 | +0.083 ✓ |
+| mrr@10 | 0.639 | 0.722 | +0.083 ✓ |
+
+## Improved Queries (1)
+
+**q_compromised_account**: recall 0.00 → 1.00 (+1.00)
+
+## Degraded Queries (1)
+
+**q_free_shipping**: mrr 1.00 → 0.50 (-0.50)
+```
+
+## Tracking over time
+
+Beyond comparing two runs, you might want to track metrics over many runs to see trends. The harness doesn't have built-in time-series tracking, but the JSON reports make it easy to build.
+
+A simple approach: store reports with timestamped names and periodically aggregate them into a summary:
+
+```bash
+# Store dated reports
+bun run scripts/unrag-eval.ts -- \
+  --dataset ... \
+  --output-dir .unrag/eval/history/$(date +%Y-%m-%d)
+```
+
+Then write a script that reads all reports and plots metrics over time. This reveals gradual drift that individual diffs might miss. Maybe recall is slowly declining at 1% per week—not enough to trigger alerts on any single comparison, but significant over a month.
+
+For more sophisticated tracking, export metrics to a time-series database or monitoring service. The JSON report format is designed to be easy to parse and ingest.
+
+## When to update baselines
+
+Baselines should reflect your current "known good" state. Update them when:
+
+**You merge an intentional improvement**: If a PR improves metrics and you're confident the improvement is real, update the baseline so future comparisons are against the new standard.
+
+**You accept a tradeoff**: If a change improves some queries at the cost of others, and you've decided the tradeoff is worth it, update the baseline to reflect the new expected behavior.
+
+**You've investigated and explained regressions**: Sometimes metrics drop for good reasons—maybe you removed content that was incorrectly indexed, so queries that matched it now correctly return nothing. Once you understand and accept the change, update the baseline.
+
+Don't update baselines when:
+
+**You don't understand why metrics changed**: Unexplained changes should be investigated, not hidden by updating the baseline.
+
+**You're just trying to make CI pass**: If CI is failing because of a regression, fix the regression rather than lowering expectations.
+
+**The change is temporary**: If you're in the middle of a multi-step refactor and expect things to recover, don't keep updating baselines. Wait until you're at a stable state.
+
+## Comparing different configurations
+
+Sometimes you want to compare two different configurations, not two points in time. Maybe you're evaluating whether to switch embedding models, and you want to see how they compare head-to-head.
+
+Run each configuration and save reports to different directories:
+
+```bash
+# Configuration A (current)
+bun run scripts/unrag-eval.ts -- \
+  --dataset .unrag/eval/datasets/regression.json \
+  --output-dir ./comparison/config-a
+
+# Configuration B (candidate)
+bun run scripts/unrag-eval.ts -- \
+  --dataset .unrag/eval/datasets/regression.json \
+  --output-dir ./comparison/config-b
+
+# Compare
+bun run scripts/unrag-eval.ts -- \
+  --dataset .unrag/eval/datasets/regression.json \
+  --baseline ./comparison/config-a/report.json \
+  --output-dir ./comparison/diff-a-vs-b
+```
+
+This gives you a side-by-side comparison of two configurations on the same dataset. You can see exactly where they differ and make an informed choice.
+
+For A/B comparisons, pay attention to the pattern of changes. If model B is better on some query types and worse on others, you have a nuanced decision to make. The diff helps you understand the tradeoff rather than just looking at aggregate numbers.
+
+## Debugging regressions
+
+When a query degrades, you want to understand why. The diff tells you what changed; debugging tells you why.
+
+Start by looking at what was retrieved in both runs. The per-query reports include the list of retrieved sourceIds:
+
+```json
+{
+  "id": "q_free_shipping",
+  "retrieved": ["eval:support:doc:returns", "eval:support:doc:shipping"],
+  "relevant": ["eval:support:doc:shipping"]
+}
+```
+
+Compare this to the baseline's retrieved list. Did a previously-retrieved relevant document drop off? Did a new irrelevant document push it out? Did the ordering change?
+
+Common causes of regressions:
+
+**Chunking changes**: Different chunk boundaries mean different embeddings. Content that used to be in one chunk might now span two, diluting the embedding signal.
+
+**Embedding model drift**: Some embedding APIs (especially hosted ones) might update models without notice. If you're seeing unexplained changes, check if your provider changed anything.
+
+**Content changes**: If you're evaluating against production content (not a fixed dataset), content updates can affect retrieval. A document might have been edited in ways that changed its embedding.
+
+**Database state**: Leftover documents from previous runs can pollute results. Make sure you're working with clean state, or that the scopePrefix isolation is working correctly.
+
+## Aggregate vs per-query analysis
+
+Aggregate metrics are useful for quick summaries, but they can hide important details. A recall@10 that stays flat might mask one query improving while another degrades. Always look at both levels.
+
+The diff report emphasizes per-query changes because that's where actionable insights live. Knowing that "recall improved 5%" is nice; knowing that "q_compromised_account went from 0% to 100% recall while q_free_shipping degraded" is actionable.
+
+When reviewing diffs, prioritize:
+
+1. Any degraded queries (regressions are urgent)
+2. Queries with large improvements (verify they're real)
+3. Queries that didn't change when you expected them to (might indicate test coverage gaps)
+
+## Next steps
+
+Now that you understand how to run evaluations, track changes, and integrate with CI, you're equipped to build a robust retrieval quality practice. The key is consistency: run eval regularly, investigate changes, and keep your ground truth accurate.
+
+<Cards>
+  <Card title="Dataset Format" href="/docs/eval/datasets">
+    Build better datasets for more meaningful evaluation
+  </Card>
+  <Card title="Understanding Metrics" href="/docs/eval/metrics">
+    Interpret what the numbers actually mean
+  </Card>
+</Cards>

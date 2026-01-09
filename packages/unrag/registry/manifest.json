@@ -355,6 +355,15 @@
       "envVars": [
         { "name": "COHERE_API_KEY", "required": true, "notes": "Cohere API key for reranking." }
       ]
+    },
+    {
+      "id": "eval",
+      "displayName": "Eval Harness",
+      "description": "Deterministic retrieval evaluation runner (reports + CI thresholds + baseline diffs).",
+      "status": "available",
+      "docsPath": "/docs/batteries/eval",
+      "deps": {},
+      "devDeps": {}
     }
   ]
 }

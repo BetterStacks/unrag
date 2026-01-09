@@ -207,7 +207,7 @@ export function depsForEmbeddingProvider(provider: EmbeddingProviderName) {
   return { deps, devDeps };
 }
 
-export type BatteryName = "reranker";
+export type BatteryName = "reranker" | "eval";
 
 export function depsForBattery(battery: BatteryName) {
   const deps: Record<string, string> = {};
@@ -216,6 +216,10 @@ export function depsForBattery(battery: BatteryName) {
   if (battery === "reranker") {
     deps["ai"] = "^6.0.3";
     deps["@ai-sdk/cohere"] = "^3.0.1";
+  }
+
+  if (battery === "eval") {
+    // Intentionally no deps: runner is dependency-free and uses project wiring.
   }
 
   return { deps, devDeps };

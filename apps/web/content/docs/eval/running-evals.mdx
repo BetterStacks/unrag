@@ -1,0 +1,324 @@
+---
+title: Running Evals
+description: Configuration options, CLI flags, and patterns for running evaluations in different scenarios.
+---
+
+Once you have a dataset and understand the metrics, you'll want to customize how evaluations run. Maybe you want to skip ingestion when testing against existing content. Maybe you want to compare retrieve-only against retrieve-plus-rerank. Maybe you're debugging a specific query and want verbose output. This page covers all the configuration options and common patterns for running evaluations.
+
+## The eval script
+
+When you install the eval battery, the CLI creates `scripts/unrag-eval.ts`. This is a thin wrapper around the eval runner that loads your dataset, configures the engine, and writes reports. You can modify it to suit your needs—it's vendored code, not a dependency.
+
+The default script looks something like this:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { runEval } from "@unrag/eval";
+import { parseArgs } from "util";
+
+const { values } = parseArgs({
+  args: process.argv.slice(2),
+  options: {
+    dataset: { type: "string" },
+    mode: { type: "string" },
+    ci: { type: "boolean" },
+    "no-ingest": { type: "boolean" },
+    // ... more options
+  },
+});
+
+const engine = createUnragEngine();
+
+await runEval({
+  engine,
+  datasetPath: values.dataset,
+  mode: values.mode,
+  skipIngest: values["no-ingest"],
+  ci: values.ci,
+  // ... configuration from CLI args
+});
+```
+
+You can extend this script to add custom behavior—loading datasets from different sources, sending metrics to an analytics service, or integrating with your monitoring stack.
+
+## Configuration precedence
+
+The eval harness accepts configuration from three sources, merged in this order (later sources override earlier ones):
+
+1. **Dataset defaults**: The `defaults` section in your dataset JSON
+2. **Config file**: Settings in `.unrag/eval/config.json`
+3. **CLI flags**: Command-line arguments passed to the eval script
+
+This means you can set sensible defaults in your dataset, override some settings in the config file for your environment, and further override with CLI flags for one-off runs.
+
+For example, your dataset might set `topK: 10` and `mode: "retrieve"`. Your config file might set thresholds for CI. And when debugging, you might run with `--mode retrieve+rerank --verbose` to try reranking with detailed output.
+
+## CLI flags
+
+The eval script accepts these command-line flags:
+
+### Required flags
+
+**--dataset `<path>`**: Path to the dataset JSON file. This is the only required flag.
+
+```bash
+bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/my-eval.json
+```
+
+### Retrieval configuration
+
+**--mode `<mode>`**: Either `retrieve` or `retrieve+rerank`. Overrides the dataset's default mode.
+
+```bash
+# Test retrieval only
+bun run scripts/unrag-eval.ts -- --dataset ... --mode retrieve
+
+# Test retrieval + reranking
+bun run scripts/unrag-eval.ts -- --dataset ... --mode retrieve+rerank
+```
+
+**--top-k `<n>`**: Override the number of results to retrieve and score.
+
+```bash
+# Score top 5 instead of dataset default
+bun run scripts/unrag-eval.ts -- --dataset ... --top-k 5
+```
+
+**--rerank-top-k `<n>`**: In rerank mode, how many candidates to retrieve before reranking. Defaults to 3x topK.
+
+### Ingestion control
+
+**--no-ingest**: Skip the ingestion phase entirely. Use this when evaluating against content that's already indexed.
+
+```bash
+# Evaluate against existing production content
+bun run scripts/unrag-eval.ts -- --dataset ... --no-ingest
+```
+
+**--no-delete**: Skip the prefix deletion step before ingestion. Use with caution—this can lead to stale documents polluting results.
+
+**--allow-custom-prefix**: Allow scopePrefix values that don't start with `eval:`. The harness will prompt for confirmation before proceeding.
+
+### Output control
+
+**--output-dir `<path>`**: Where to write the report files. Defaults to `.unrag/eval/runs/<timestamp>-<dataset-id>/`.
+
+```bash
+bun run scripts/unrag-eval.ts -- --dataset ... --output-dir ./eval-results/
+```
+
+**--baseline `<path>`**: Path to a previous `report.json` to compare against. Produces a diff report showing changes.
+
+```bash
+bun run scripts/unrag-eval.ts -- --dataset ... --baseline .unrag/eval/runs/2025-01-09-sample/report.json
+```
+
+**--verbose**: Print detailed output during the run, including per-query results and timing.
+
+### CI mode
+
+**--ci**: Run in CI mode. This enables threshold checking and affects the exit code based on whether thresholds pass.
+
+```bash
+bun run scripts/unrag-eval.ts -- --dataset ... --ci
+```
+
+In CI mode, the harness exits with:
+
+- Exit code 0: All thresholds passed
+- Exit code 1: At least one threshold failed
+- Exit code 2: Eval failed to run (dataset error, engine error, etc.)
+
+## The config file
+
+`.unrag/eval/config.json` stores settings that apply across datasets. The installer creates a default config:
+
+```json
+{
+  "thresholds": {
+    "hitAtK": { "min": 0.8 },
+    "recallAtK": { "min": 0.7 },
+    "mrrAtK": { "min": 0.6 }
+  },
+  "requireEvalPrefix": true
+}
+```
+
+### Thresholds
+
+The `thresholds` section defines minimum acceptable values for each metric. When running in CI mode, the harness checks aggregate metrics against these thresholds and fails if any are below the minimum.
+
+You can set thresholds for any of the four metrics:
+
+```json
+{
+  "thresholds": {
+    "hitAtK": { "min": 0.9 },
+    "recallAtK": { "min": 0.8 },
+    "precisionAtK": { "min": 0.15 },
+    "mrrAtK": { "min": 0.75 }
+  }
+}
+```
+
+Thresholds are compared against the mean aggregate value. If your mean recall@k is 0.78 and the threshold is 0.80, the check fails.
+
+Start with conservative thresholds (easy to pass) and tighten them as you improve your system. There's no point setting a threshold of 0.95 if your current baseline is 0.75—you'll just fail every CI run until you fix things.
+
+### Prefix safety
+
+The `requireEvalPrefix` setting (defaults to true) requires all scopePrefix values to start with `eval:`. This is a safety net to prevent accidentally deleting production data if a dataset is misconfigured.
+
+```json
+{
+  "requireEvalPrefix": false
+}
+```
+
+Only set this to false if you have a specific need to evaluate against non-eval prefixed content and you understand the implications.
+
+## Common patterns
+
+### Evaluating a configuration change
+
+You're testing whether changing chunk size improves retrieval. Run baseline metrics first:
+
+```bash
+# Current configuration
+bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/regression.json --output-dir ./baseline
+
+# Make your config change, then run again
+bun run scripts/unrag-eval.ts -- \
+  --dataset .unrag/eval/datasets/regression.json \
+  --baseline ./baseline/report.json \
+  --output-dir ./comparison
+```
+
+The diff report shows which queries improved, which degraded, and by how much.
+
+### Comparing retrieve vs retrieve+rerank
+
+Run the same dataset in both modes:
+
+```bash
+# Retrieve only
+bun run scripts/unrag-eval.ts -- --dataset ... --mode retrieve --output-dir ./retrieve-only
+
+# Retrieve + rerank
+bun run scripts/unrag-eval.ts -- --dataset ... --mode retrieve+rerank --output-dir ./with-rerank
+```
+
+Compare the reports to see if reranking helps. Look especially at MRR—reranking usually improves ranking more than recall.
+
+### Testing different topK values
+
+Maybe you want to understand the precision/recall tradeoff at different k values:
+
+```bash
+for k in 5 10 20; do
+  bun run scripts/unrag-eval.ts -- \
+    --dataset .unrag/eval/datasets/regression.json \
+    --top-k $k \
+    --output-dir ./topk-$k
+done
+```
+
+Then compare metrics across the three runs. You'll typically see recall increase and precision decrease as k grows.
+
+### Running multiple datasets
+
+If you have several datasets for different purposes, run them all:
+
+```bash
+for ds in regression multilingual edge-cases; do
+  bun run scripts/unrag-eval.ts -- \
+    --dataset .unrag/eval/datasets/$ds.json \
+    --output-dir ./runs/$ds
+done
+```
+
+You might wrap this in a script that aggregates results or fails if any dataset fails its thresholds.
+
+### Debugging a specific query
+
+When one query is consistently failing and you want to understand why, use verbose mode and examine the output:
+
+```bash
+bun run scripts/unrag-eval.ts -- --dataset ... --verbose
+```
+
+The verbose output shows exactly what was retrieved for each query, including scores and document IDs. Compare against the expected sourceIds to see what's going wrong.
+
+For deeper debugging, you can modify the eval script to log intermediate state, or use your Unrag engine directly to test the query in isolation.
+
+## Understanding the output
+
+A typical eval run produces this console output:
+
+```
+Eval: support-faq-eval (6 queries)
+Mode: retrieve
+Scope: eval:support:
+
+Ingesting 3 documents...
+  ✓ eval:support:doc:refund-policy (4 chunks)
+  ✓ eval:support:doc:shipping (5 chunks)
+  ✓ eval:support:doc:account-security (3 chunks)
+
+Running queries...
+  ✓ q_return_deadline: hit=1, recall=1.00, mrr=1.00
+  ✓ q_free_shipping: hit=1, recall=1.00, mrr=0.50
+  ✓ q_express_cost: hit=1, recall=1.00, mrr=1.00
+  ✓ q_2fa: hit=1, recall=1.00, mrr=1.00
+  ✗ q_compromised_account: hit=0, recall=0.00, mrr=0.00
+  ✓ q_digital_refund: hit=1, recall=1.00, mrr=0.33
+
+Aggregates:
+  hit@10:       0.833 (mean)
+  recall@10:    0.833 (mean)
+  precision@10: 0.117 (mean)
+  mrr@10:       0.639 (mean)
+
+Report: .unrag/eval/runs/2025-01-10T15-22-00-support-faq-eval/report.json
+```
+
+The per-query output tells you which queries failed (marked with ✗) and their individual metrics. The `q_compromised_account` query got hit=0, meaning none of the relevant documents were retrieved in the top 10. That's a retrieval failure to investigate.
+
+The aggregates tell you overall performance. An MRR of 0.639 means relevant content is typically found around position 2-3—not bad but room for improvement.
+
+## Report files
+
+Each eval run creates a directory with several files:
+
+**report.json**: The complete machine-readable report with all metrics, per-query results, and configuration.
+
+**summary.md**: A human-readable markdown summary suitable for PR comments or Slack notifications.
+
+**diff.json** (if baseline provided): Machine-readable comparison against the baseline.
+
+**diff.md** (if baseline provided): Human-readable diff summary.
+
+The JSON reports are designed for programmatic access—you can build dashboards, track metrics over time, or integrate with other tools. The markdown files are for humans to quickly understand what happened.
+
+## Error handling
+
+The eval harness tries to be helpful when things go wrong:
+
+**Dataset validation errors**: If your dataset JSON is malformed or missing required fields, the harness fails fast with a clear error message telling you what's wrong.
+
+**Engine errors**: If ingestion or retrieval fails (database connection issues, embedding API errors), the harness reports the error and exits with code 2.
+
+**Threshold failures**: In CI mode, threshold failures exit with code 1 and the report indicates which thresholds failed. The eval still completes and writes reports—you get the data even though CI fails.
+
+**Missing documents**: If your ground truth references sourceIds that weren't ingested or don't exist in the store, the harness will still run but those queries will show low metrics. Check that your ground truth sourceIds match the document sourceIds exactly.
+
+## Next steps
+
+<Cards>
+  <Card title="CI Integration" href="/docs/eval/ci-integration">
+    Set up automated quality gates in your pipeline
+  </Card>
+  <Card title="Comparing Runs" href="/docs/eval/comparing-runs">
+    Understand diffs and track changes over time
+  </Card>
+</Cards>

@@ -1,0 +1,266 @@
+---
+title: Getting Started with Evaluation
+description: Install the eval harness and run your first retrieval evaluation in under 15 minutes.
+---
+
+This guide walks you through setting up the evaluation harness, creating a simple dataset, and running your first eval. By the end, you'll have metrics showing how well your retrieval pipeline performs on a set of test queries, and you'll understand the workflow well enough to expand from there.
+
+## Prerequisites
+
+Before you start, make sure you have a working Unrag installation. You should be able to ingest content and retrieve it—if you haven't done that yet, work through the [Quickstart](/docs/getting-started/quickstart) first. The eval harness runs against your existing engine configuration, so everything needs to be wired up and working.
+
+You'll also need some content in your database, or be prepared to let the eval harness ingest test documents for you. The harness can work either way: it can evaluate against your existing indexed content, or it can ingest a curated set of documents specifically for evaluation.
+
+## Installing the eval battery
+
+Install the eval harness using the CLI:
+
+```bash
+bunx unrag@latest add battery eval
+```
+
+This does several things at once. It copies the eval module into your project (at `lib/unrag/eval/` by default), generates a starter dataset and configuration, creates an eval script at `scripts/unrag-eval.ts`, and adds npm scripts to your `package.json` for running evaluations.
+
+After installation, you'll see these new files:
+
+<Files>
+  <Folder name=".unrag/eval" defaultOpen>
+    <Folder name="datasets" defaultOpen>
+      <File name="sample.json" />
+    </Folder>
+    <File name="config.json" />
+  </Folder>
+  <Folder name="scripts" defaultOpen>
+    <File name="unrag-eval.ts" />
+  </Folder>
+  <Folder name="lib/unrag" defaultOpen>
+    <Folder name="eval">
+      <File name="index.ts" />
+      <File name="dataset.ts" />
+      <File name="metrics.ts" />
+      <File name="runner.ts" />
+      <File name="report.ts" />
+    </Folder>
+  </Folder>
+</Files>
+
+The CLI also adds two scripts to your `package.json`:
+
+```json
+{
+  "scripts": {
+    "unrag:eval": "bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json",
+    "unrag:eval:ci": "bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json --ci"
+  }
+}
+```
+
+## Understanding the sample dataset
+
+Open `.unrag/eval/datasets/sample.json` to see what a dataset looks like:
+
+```json
+{
+  "version": "1",
+  "id": "sample-eval",
+  "description": "Sample dataset demonstrating eval harness structure",
+  "defaults": {
+    "topK": 10,
+    "scopePrefix": "eval:sample:",
+    "mode": "retrieve"
+  },
+  "documents": [
+    {
+      "sourceId": "eval:sample:doc:refund-policy",
+      "content": "Our refund policy allows returns within 30 days of purchase. Items must be unused and in original packaging. Refunds are processed within 5-7 business days after we receive the returned item. Digital products are non-refundable once downloaded."
+    },
+    {
+      "sourceId": "eval:sample:doc:shipping-info",
+      "content": "Standard shipping takes 5-7 business days within the continental US. Express shipping is available for an additional fee and arrives within 2-3 business days. International shipping times vary by destination. All orders include tracking information."
+    }
+  ],
+  "queries": [
+    {
+      "id": "q_refund_window",
+      "query": "How long do I have to return an item?",
+      "relevant": {
+        "sourceIds": ["eval:sample:doc:refund-policy"]
+      }
+    },
+    {
+      "id": "q_shipping_time",
+      "query": "When will my order arrive?",
+      "relevant": {
+        "sourceIds": ["eval:sample:doc:shipping-info"]
+      }
+    }
+  ]
+}
+```
+
+The dataset has three main parts. The `defaults` section sets configuration that applies to all queries unless overridden. The `documents` section defines the content that should be searchable—each document has a `sourceId` (a stable identifier) and `content` (the actual text). The `queries` section lists test queries, each with an `id`, the `query` text, and `relevant.sourceIds` indicating which documents should be retrieved for that query.
+
+Notice the `scopePrefix` in defaults. This prefix (`eval:sample:`) serves two purposes: it namespaces the eval documents so they don't mix with your production content, and it limits retrieval to only consider documents within this namespace. When the harness ingests documents, it uses their `sourceId` as-is. When it retrieves, it scopes the search to the prefix. This isolation is important—you don't want eval queries accidentally matching production content.
+
+## Running your first evaluation
+
+Make sure your environment variables are set (DATABASE_URL and your embedding provider credentials), then run:
+
+```bash
+bun run unrag:eval
+```
+
+The harness will:
+
+1. Load the dataset and validate its structure
+2. Delete any existing documents with the `scopePrefix` (to ensure clean state)
+3. Ingest the dataset's documents
+4. Run each query through your retrieval pipeline
+5. Score the results against ground truth
+6. Write a report to `.unrag/eval/runs/<timestamp>/`
+
+You'll see output like this:
+
+```
+Eval: sample-eval (2 queries)
+Mode: retrieve
+Scope: eval:sample:
+
+Ingesting 2 documents...
+  ✓ eval:sample:doc:refund-policy (4 chunks)
+  ✓ eval:sample:doc:shipping-info (3 chunks)
+
+Running queries...
+  ✓ q_refund_window: hit@10=1, recall@10=1.00
+  ✓ q_shipping_time: hit@10=1, recall@10=1.00
+
+Aggregates:
+  hit@10:       1.000 (mean)
+  recall@10:    1.000 (mean)
+  precision@10: 0.143 (mean)
+  mrr@10:       1.000 (mean)
+
+Report: .unrag/eval/runs/2025-01-10T14-32-00-sample-eval/report.json
+```
+
+In this simple example, both queries successfully retrieved their relevant documents (hit@10 = 1.0, recall@10 = 1.0). The precision is lower because we're retrieving 10 chunks but only one document is relevant per query—that's expected and normal.
+
+## Reading the report
+
+Open the generated `report.json` to see the full results. The report contains everything you need to understand how the evaluation went:
+
+```json
+{
+  "dataset": {
+    "id": "sample-eval",
+    "description": "Sample dataset demonstrating eval harness structure"
+  },
+  "config": {
+    "mode": "retrieve",
+    "topK": 10,
+    "scopePrefix": "eval:sample:"
+  },
+  "queries": [
+    {
+      "id": "q_refund_window",
+      "query": "How long do I have to return an item?",
+      "relevant": ["eval:sample:doc:refund-policy"],
+      "retrieved": ["eval:sample:doc:refund-policy", "eval:sample:doc:shipping-info"],
+      "metrics": {
+        "hitAtK": 1,
+        "recallAtK": 1,
+        "precisionAtK": 0.5,
+        "mrrAtK": 1
+      },
+      "durations": {
+        "embeddingMs": 145,
+        "retrievalMs": 23,
+        "totalMs": 168
+      }
+    }
+    // ... more queries
+  ],
+  "aggregates": {
+    "hitAtK": { "mean": 1, "median": 1 },
+    "recallAtK": { "mean": 1, "median": 1 },
+    "precisionAtK": { "mean": 0.143, "median": 0.143 },
+    "mrrAtK": { "mean": 1, "median": 1 }
+  },
+  "timings": {
+    "p50TotalMs": 168,
+    "p95TotalMs": 189
+  }
+}
+```
+
+The per-query results show exactly what was retrieved versus what should have been retrieved. This is invaluable for debugging—when a query fails, you can see what documents came back instead of the expected ones.
+
+## Building a real dataset
+
+The sample dataset demonstrates the format, but two queries isn't enough to evaluate anything meaningful. To get useful metrics, you need a dataset that covers the queries your users actually ask and the content they expect to find.
+
+Start by looking at your real query logs, support tickets, or search analytics. What questions do people ask? For each question type, find the documents that should answer it. You don't need hundreds of queries to start—20-30 well-chosen queries with accurate relevance labels is enough to catch major regressions and guide tuning decisions.
+
+A practical approach is to start with failure cases. Run your current retrieval on real queries and manually check the results. When retrieval fails to surface the right content, add that query to your eval dataset with the correct ground truth. Over time, your dataset accumulates the hard cases—the ones that actually matter.
+
+See the [Datasets documentation](/docs/eval/datasets) for detailed guidance on structuring datasets, handling multiple relevant documents, and strategies for building ground truth incrementally.
+
+## Evaluating against existing content
+
+The sample workflow ingests documents from the dataset, but you might want to evaluate against content you've already indexed. Maybe you have a production corpus and want to test queries against it without maintaining duplicate content in your eval datasets.
+
+To evaluate against existing content, create a dataset with only queries (no `documents` array) and set `scopePrefix` to match your existing content:
+
+```json
+{
+  "version": "1",
+  "id": "prod-queries",
+  "defaults": {
+    "topK": 10,
+    "scopePrefix": "docs:"
+  },
+  "queries": [
+    {
+      "id": "q_auth_setup",
+      "query": "How do I configure authentication?",
+      "relevant": {
+        "sourceIds": ["docs:guides:auth-setup", "docs:reference:auth-api"]
+      }
+    }
+  ]
+}
+```
+
+Then run with `--no-ingest` to skip the ingestion phase:
+
+```bash
+bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/prod-queries.json --no-ingest
+```
+
+The harness will run queries against whatever content is already in your store, scoped to the prefix you specified.
+
+## Evaluating with reranking
+
+If you have the reranker battery installed, you can evaluate the full retrieve-then-rerank pipeline. Change the mode in your dataset or via CLI:
+
+```bash
+bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json --mode retrieve+rerank
+```
+
+In rerank mode, the harness retrieves more candidates than `topK` (typically 3x), applies your configured reranker, and then scores the reranked results. The report includes metrics both before and after reranking, so you can see exactly how much reranking improved (or didn't improve) your results.
+
+## Next steps
+
+You've run your first evaluation and seen the basic workflow. From here:
+
+<Cards>
+  <Card title="Dataset Format" href="/docs/eval/datasets">
+    Learn the full dataset schema and strategies for building ground truth
+  </Card>
+  <Card title="Understanding Metrics" href="/docs/eval/metrics">
+    What each metric measures and how to interpret the numbers
+  </Card>
+  <Card title="CI Integration" href="/docs/eval/ci-integration">
+    Add evaluation gates to your deployment pipeline
+  </Card>
+</Cards>

@@ -1,0 +1,322 @@
+---
+title: Dataset Format
+description: How to structure evaluation datasets with documents, queries, and ground truth relevance labels.
+---
+
+A good evaluation dataset is the foundation of useful metrics. It doesn't need to be large—a few dozen queries with accurate relevance labels is more valuable than hundreds with noisy or incomplete ground truth. What matters is that for each query in your dataset, you know exactly which documents should be retrieved, and you're confident in that judgment.
+
+This page covers the dataset format in detail, explains each field and when to use it, and provides strategies for building and maintaining datasets that give you reliable signal.
+
+## Dataset structure
+
+An eval dataset is a JSON file with this structure:
+
+```json
+{
+  "version": "1",
+  "id": "my-dataset",
+  "description": "Optional description of what this dataset tests",
+  "defaults": {
+    "topK": 10,
+    "scopePrefix": "eval:mydata:",
+    "mode": "retrieve"
+  },
+  "documents": [...],
+  "queries": [...]
+}
+```
+
+The `version` field identifies the schema version. Currently only "1" is supported. This exists so future versions of the harness can add features without breaking existing datasets—if you see a higher version number, you'll know to update.
+
+The `id` is a stable identifier for this dataset. It appears in reports and is used when comparing runs across time. Pick something descriptive that won't change when you add queries.
+
+The `description` is optional but helpful when you have multiple datasets. It shows up in report headers and helps you remember what each dataset is testing.
+
+## The defaults section
+
+The `defaults` block sets configuration that applies to all queries in this dataset unless a query overrides it:
+
+```json
+{
+  "defaults": {
+    "topK": 10,
+    "scopePrefix": "eval:mydata:",
+    "mode": "retrieve",
+    "rerankTopK": 30
+  }
+}
+```
+
+**topK** controls how many results are retrieved and scored. This is the "k" in metrics like recall@k. A value of 10 is common—it balances between catching relevant documents and not over-retrieving.
+
+**scopePrefix** defines the namespace for this evaluation. Documents are expected to have sourceIds that start with this prefix, and retrieval is scoped to only consider documents within the prefix. This isolation prevents eval queries from accidentally matching production content and vice versa. The prefix should be unique to this dataset.
+
+**mode** determines whether to evaluate retrieval alone or retrieval plus reranking. Valid values are `"retrieve"` and `"retrieve+rerank"`. When using rerank mode, you need the reranker battery installed and configured.
+
+**rerankTopK** (optional) specifies how many candidates to retrieve before reranking. Only relevant in `"retrieve+rerank"` mode. Defaults to `topK * 3`. Retrieving more candidates gives the reranker more material to work with, but increases cost and latency.
+
+## Defining documents
+
+The `documents` array contains the content that will be ingested and searched:
+
+```json
+{
+  "documents": [
+    {
+      "sourceId": "eval:mydata:doc:refund-policy",
+      "content": "Our refund policy allows returns within 30 days...",
+      "metadata": {
+        "category": "support",
+        "lastUpdated": "2025-01-01"
+      }
+    },
+    {
+      "sourceId": "eval:mydata:doc:shipping-guide",
+      "content": "Standard shipping takes 5-7 business days..."
+    }
+  ]
+}
+```
+
+Each document requires a `sourceId` and `content`. The sourceId should start with your `scopePrefix` to maintain proper isolation. Metadata is optional but can be useful if you're testing metadata-filtered retrieval.
+
+You can omit the `documents` array entirely if you're evaluating against content that's already indexed. In that case, make sure your `scopePrefix` matches the content you want to search, and run the eval with `--no-ingest`.
+
+When documents are present and the harness ingests them, it first deletes any existing documents with the `scopePrefix`. This ensures a clean state—you're always evaluating against exactly the content defined in the dataset, not a mix of old and new documents from previous runs.
+
+## Defining queries
+
+The `queries` array is the heart of the dataset. Each query defines what to search for and what should be found:
+
+```json
+{
+  "queries": [
+    {
+      "id": "q_return_window",
+      "query": "How long do I have to return an item?",
+      "relevant": {
+        "sourceIds": ["eval:mydata:doc:refund-policy"]
+      }
+    },
+    {
+      "id": "q_shipping_time",
+      "query": "When will my order arrive?",
+      "relevant": {
+        "sourceIds": ["eval:mydata:doc:shipping-guide"]
+      },
+      "topK": 5
+    }
+  ]
+}
+```
+
+**id** is a stable identifier for this query. It should be unique within the dataset and shouldn't change when you modify the query text. The harness uses this ID in reports and diffs.
+
+**query** is the actual search text that will be embedded and searched.
+
+**relevant.sourceIds** lists the document sourceIds that should be retrieved for this query. These are the ground truth labels. When the harness evaluates results, it checks whether the retrieved chunks came from documents in this list.
+
+**topK** (optional) overrides the dataset default for this specific query. Useful when some queries naturally have more or fewer relevant documents.
+
+### Multiple relevant documents
+
+Some queries legitimately have multiple relevant documents:
+
+```json
+{
+  "id": "q_account_security",
+  "query": "How do I keep my account secure?",
+  "relevant": {
+    "sourceIds": [
+      "eval:mydata:doc:password-guide",
+      "eval:mydata:doc:2fa-setup",
+      "eval:mydata:doc:security-best-practices"
+    ]
+  }
+}
+```
+
+The metrics handle this correctly. Recall@k measures what fraction of the relevant documents were retrieved, so if there are three relevant documents and two were found in the top 10, recall@10 is 0.67. Precision@k measures what fraction of retrieved items were relevant. MRR@k is based on the rank of the first relevant document found.
+
+### Queries with no relevant documents
+
+Sometimes you want to test that a query returns nothing—or at least that your known documents aren't relevant:
+
+```json
+{
+  "id": "q_unrelated",
+  "query": "What's the weather like today?",
+  "relevant": {
+    "sourceIds": []
+  }
+}
+```
+
+An empty sourceIds array means nothing should be retrieved. In this case, hit@k will be 0 (correct behavior—no hit was expected), and precision@k measures how many irrelevant items were returned.
+
+## Strategies for building datasets
+
+The hardest part of evaluation isn't running the harness; it's building a dataset with accurate ground truth. Here are approaches that work.
+
+### Start from failure cases
+
+Run your current retrieval on real user queries and manually review the results. When retrieval returns wrong or irrelevant content, you've found a valuable test case. Add the query to your dataset with the correct ground truth documents. Over time, your dataset accumulates the hard cases that actually matter for quality.
+
+This approach has a nice property: your dataset becomes a regression test suite. If retrieval fails for a query once, it's in the dataset forever, and you'll know immediately if it breaks again.
+
+### Use query logs
+
+If you have logs of what users search for, mine them for query patterns. Group similar queries (people ask "how to reset password" many different ways), pick representative examples, and label them. This grounds your dataset in real usage rather than hypothetical questions.
+
+Be selective. Not every query in your logs needs to be in your eval dataset. Focus on queries that are common, important, or historically problematic.
+
+### Create coverage-focused datasets
+
+Sometimes you want to test specific capabilities rather than real user behavior. Maybe you're adding content in a new language and want to verify multilingual retrieval works. Maybe you're testing how well your system handles long queries versus short ones.
+
+For these cases, create synthetic datasets designed to probe specific behaviors. They won't tell you about real-world performance, but they'll catch capability regressions.
+
+### Label incrementally
+
+You don't need to label everything at once. Start with a small dataset—20-30 queries—and measure. As you tune your system and discover failure modes, add more queries. A dataset that grows organically from real problems is often more useful than a large dataset labeled in a single labeling sprint.
+
+### Handle ambiguous relevance
+
+Sometimes a document is partially relevant. Maybe it mentions the topic but doesn't directly answer the query. The current dataset format is binary—a document is either relevant or not—so you have to make a call.
+
+When in doubt, be strict. Only mark documents as relevant if they should definitely be retrieved. It's better to have precision-focused ground truth than to include borderline cases that make your metrics noisy.
+
+If you find yourself constantly wrestling with partial relevance, consider whether your documents are too broad. Sometimes the right fix is to split documents into more focused pieces, not to relax your relevance labels.
+
+## Scope isolation explained
+
+The `scopePrefix` is worth understanding deeply because it affects both safety and accuracy.
+
+When the eval harness runs, it uses the scopePrefix in two ways. During ingestion, it first deletes all documents whose sourceId starts with the prefix, then ingests the new documents. This guarantees that you're evaluating against exactly the content defined in the dataset, with no stale documents from previous runs polluting the results.
+
+During retrieval, the harness scopes queries to the prefix. Only documents with sourceIds starting with the prefix are considered. This prevents eval queries from accidentally matching production content that you haven't labeled.
+
+The prefix should be unique per dataset and clearly indicate eval content. Using prefixes like `eval:dataset-name:` or `eval:v2:` works well. Don't use prefixes that overlap with your production content prefixes.
+
+If you're evaluating against production content (using `--no-ingest`), the scopePrefix should match your production content's prefix. In this case, there's no isolation—you're testing against real data. This is fine as long as you're aware of it and your ground truth sourceIds match actual production documents.
+
+### Safety guardrails
+
+The harness includes a safety check on scopePrefix. By default, it requires the prefix to start with `eval:`. This prevents accidental deletion of production data if someone misconfigures a dataset.
+
+If you need to evaluate against a prefix that doesn't start with `eval:`, you can override this with the `--allow-custom-prefix` flag. The harness will prompt for confirmation before proceeding with any deletions.
+
+## Dataset organization
+
+As your evaluation practice matures, you'll likely have multiple datasets for different purposes. A reasonable organization:
+
+<Files>
+  <Folder name=".unrag/eval" defaultOpen>
+    <File name="config.json" />
+    <Folder name="datasets" defaultOpen>
+      <File name="sample.json" />
+      <File name="regression.json" />
+      <File name="multilingual.json" />
+      <File name="edge-cases.json" />
+      <File name="rerank-comparison.json" />
+    </Folder>
+  </Folder>
+</Files>
+
+Each dataset can have its own scopePrefix to keep content isolated. You can run them independently or write scripts that run all datasets and aggregate results.
+
+## Working with loaderRef
+
+If your documents come from a connector (Notion, Google Drive, etc.), you can record the original source in the document:
+
+```json
+{
+  "sourceId": "eval:notion:doc:abc123",
+  "content": "...",
+  "loaderRef": {
+    "connector": "notion",
+    "pageId": "abc123"
+  }
+}
+```
+
+The `loaderRef` is purely informational—the harness doesn't use it—but it's helpful for tracing back to the original source when you need to update content or understand why a particular document was included.
+
+## Complete example
+
+Here's a more complete dataset showing various features:
+
+```json
+{
+  "version": "1",
+  "id": "support-faq-eval",
+  "description": "Evaluation dataset for support FAQ retrieval quality",
+  "defaults": {
+    "topK": 10,
+    "scopePrefix": "eval:support:",
+    "mode": "retrieve"
+  },
+  "documents": [
+    {
+      "sourceId": "eval:support:doc:refund-policy",
+      "content": "Our refund policy allows returns within 30 days of purchase. Items must be unused and in original packaging. To initiate a return, contact support with your order number. Refunds are processed within 5-7 business days after we receive the item. Note that digital products and gift cards are non-refundable once redeemed.",
+      "metadata": { "category": "returns" }
+    },
+    {
+      "sourceId": "eval:support:doc:shipping",
+      "content": "We offer several shipping options. Standard shipping (5-7 business days) is free on orders over $50. Express shipping (2-3 business days) costs $9.99. Overnight delivery is available in select areas for $24.99. International shipping varies by destination—see our shipping calculator for exact rates. All orders include tracking information sent via email.",
+      "metadata": { "category": "shipping" }
+    },
+    {
+      "sourceId": "eval:support:doc:account-security",
+      "content": "To keep your account secure, we recommend enabling two-factor authentication in your account settings. Use a unique password at least 12 characters long. We'll never ask for your password via email. If you suspect unauthorized access, reset your password immediately and contact support.",
+      "metadata": { "category": "account" }
+    }
+  ],
+  "queries": [
+    {
+      "id": "q_return_deadline",
+      "query": "How long do I have to return something?",
+      "relevant": { "sourceIds": ["eval:support:doc:refund-policy"] }
+    },
+    {
+      "id": "q_free_shipping",
+      "query": "Is shipping free?",
+      "relevant": { "sourceIds": ["eval:support:doc:shipping"] }
+    },
+    {
+      "id": "q_express_cost",
+      "query": "How much does express delivery cost?",
+      "relevant": { "sourceIds": ["eval:support:doc:shipping"] }
+    },
+    {
+      "id": "q_2fa",
+      "query": "How do I enable two-factor authentication?",
+      "relevant": { "sourceIds": ["eval:support:doc:account-security"] }
+    },
+    {
+      "id": "q_compromised_account",
+      "query": "I think someone hacked my account",
+      "relevant": { "sourceIds": ["eval:support:doc:account-security"] }
+    },
+    {
+      "id": "q_digital_refund",
+      "query": "Can I get a refund for a digital download?",
+      "relevant": { "sourceIds": ["eval:support:doc:refund-policy"] }
+    }
+  ]
+}
+```
+
+This dataset tests a support FAQ system with six queries across three documents. Each query has a clear expected answer, and the ground truth reflects actual relevance rather than keyword overlap.
+
+## Next steps
+
+<Cards>
+  <Card title="Understanding Metrics" href="/docs/eval/metrics">
+    What hit@k, recall@k, precision@k, and MRR@k actually measure
+  </Card>
+  <Card title="Running Evals" href="/docs/eval/running-evals">
+    Configuration options and customizing eval behavior
+  </Card>
+</Cards>
