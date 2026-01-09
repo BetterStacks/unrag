@@ -12,11 +12,18 @@ import { fileURLToPath } from "node:url";
 import {
   copyExtractorFiles,
   copyConnectorFiles,
+  copyBatteryFiles,
   copyRegistryFiles,
   type RegistrySelection,
 } from "../lib/registry";
 import { readJsonFile, writeJsonFile } from "../lib/json";
-import { findUp, normalizePosixPath, tryFindProjectRoot } from "../lib/fs";
+import {
+  ensureDir,
+  exists,
+  findUp,
+  normalizePosixPath,
+  tryFindProjectRoot,
+} from "../lib/fs";
 import { readRegistryManifest } from "../lib/manifest";
 import { fetchPreset, type PresetPayloadV1 } from "../lib/preset";
 import {
@@ -30,11 +37,20 @@ import {
   readPackageJson,
   type ConnectorName,
   type ExtractorName,
+  type BatteryName,
   type EmbeddingProviderName,
   depsForEmbeddingProvider,
+  depsForBattery,
   writePackageJson,
 } from "../lib/packageJson";
 import { patchTsconfigPaths } from "../lib/tsconfig";
+import { writeFile } from "node:fs/promises";
+import {
+  EVAL_CONFIG_DEFAULT,
+  EVAL_PACKAGE_JSON_SCRIPTS,
+  EVAL_SAMPLE_DATASET_V1,
+  renderEvalRunnerScript,
+} from "../lib/evalBatteryScaffold";
 
 type InitConfig = {
   installDir: string;
@@ -44,6 +60,7 @@ type InitConfig = {
   version: number;
   connectors?: string[];
   extractors?: string[];
+  batteries?: string[];
 };
 
 const CONFIG_FILE = "unrag.json";
@@ -172,6 +189,11 @@ const toConnectors = (xs: string[] | undefined): ConnectorName[] =>
   (Array.isArray(xs) ? xs : [])
     .map((s) => String(s).trim())
     .filter(Boolean) as ConnectorName[];
+
+const toBatteries = (xs: string[] | undefined): BatteryName[] =>
+  (Array.isArray(xs) ? xs : [])
+    .map((s) => String(s).trim())
+    .filter(Boolean) as BatteryName[];
 
 export async function initCommand(args: string[]) {
   const root = await tryFindProjectRoot(process.cwd());
@@ -506,10 +528,47 @@ export async function initCommand(args: string[]) {
     Object.assign(connectorDevDeps, r.devDeps);
   }
 
+  const batteriesFromPreset = preset
+    ? Array.from(new Set(toBatteries(preset.modules?.batteries))).sort()
+    : [];
+  const availableBatteryIds = new Set(
+    (manifest.batteries ?? [])
+      .filter((b: any) => b.status === "available")
+      .map((b: any) => String(b.id)) as BatteryName[]
+  );
+  if (preset) {
+    const unknown = batteriesFromPreset.filter((b) => !availableBatteryIds.has(b));
+    if (unknown.length > 0) {
+      throw new Error(`Preset contains unknown/unavailable batteries: ${unknown.join(", ")}`);
+    }
+  }
+
+  // Install battery modules (vendor code) before updating deps.
+  if (batteriesFromPreset.length > 0) {
+    for (const battery of batteriesFromPreset) {
+      await copyBatteryFiles({
+        projectRoot: root,
+        registryRoot,
+        installDir,
+        battery,
+        yes: nonInteractive,
+        overwrite: overwritePolicy,
+      });
+    }
+  }
+
+  const batteryDeps: Record<string, string> = {};
+  const batteryDevDeps: Record<string, string> = {};
+  for (const b of batteriesFromPreset) {
+    const r = depsForBattery(b);
+    Object.assign(batteryDeps, r.deps);
+    Object.assign(batteryDevDeps, r.devDeps);
+  }
+
   const merged = mergeDeps(
     pkg,
-    { ...deps, ...embeddingDeps.deps, ...extractorDeps, ...connectorDeps },
-    { ...devDeps, ...embeddingDeps.devDeps, ...extractorDevDeps, ...connectorDevDeps }
+    { ...deps, ...embeddingDeps.deps, ...extractorDeps, ...connectorDeps, ...batteryDeps },
+    { ...devDeps, ...embeddingDeps.devDeps, ...extractorDevDeps, ...connectorDevDeps, ...batteryDevDeps }
   );
   if (merged.changes.length > 0) {
     await writePackageJson(root, merged.pkg);
@@ -533,8 +592,52 @@ export async function initCommand(args: string[]) {
         ...(richMediaEnabled ? selectedExtractors : []),
       ])
     ).sort(),
+    batteries: Array.from(
+      new Set([...(existing?.batteries ?? []), ...batteriesFromPreset])
+    ).sort(),
   };
   await writeJsonFile(path.join(root, CONFIG_FILE), config);
+
+  // Battery-specific scaffolding (preset installs are non-interactive).
+  const writeTextFile = async (absPath: string, content: string) => {
+    await ensureDir(path.dirname(absPath));
+    await writeFile(absPath, content, "utf8");
+  };
+  const writeIfMissing = async (absPath: string, content: string) => {
+    if (await exists(absPath)) return false;
+    await writeTextFile(absPath, content);
+    return true;
+  };
+
+  if (batteriesFromPreset.includes("eval")) {
+    const datasetAbs = path.join(root, ".unrag/eval/datasets/sample.json");
+    const evalConfigAbs = path.join(root, ".unrag/eval/config.json");
+    const scriptAbs = path.join(root, "scripts/unrag-eval.ts");
+
+    await writeIfMissing(
+      datasetAbs,
+      JSON.stringify(EVAL_SAMPLE_DATASET_V1, null, 2) + "\n"
+    );
+    await writeIfMissing(
+      evalConfigAbs,
+      JSON.stringify(EVAL_CONFIG_DEFAULT, null, 2) + "\n"
+    );
+    await writeIfMissing(scriptAbs, renderEvalRunnerScript({ installDir }));
+
+    // Add package.json scripts, non-destructively.
+    const pkg2: any = await readPackageJson(root);
+    const existingScripts = (pkg2.scripts ?? {}) as Record<string, string>;
+    const toAdd: Record<string, string> = {};
+    for (const [name, cmd] of Object.entries(EVAL_PACKAGE_JSON_SCRIPTS)) {
+      if (!(name in existingScripts)) {
+        toAdd[name] = cmd;
+      }
+    }
+    if (Object.keys(toAdd).length > 0) {
+      pkg2.scripts = { ...existingScripts, ...toAdd };
+      await writePackageJson(root, pkg2);
+    }
+  }
 
   const pm = await detectPackageManager(root);
   const installLine =

@@ -984,6 +984,7 @@ function BatteryCard({
   onToggle: () => void;
 }) {
   const isAvailable = status === 'available';
+  const isExperimental = id === 'eval';
 
   return (
     <ClickableCard
@@ -1015,6 +1016,11 @@ function BatteryCard({
             >
               {isAvailable ? 'available' : 'coming soon'}
             </span>
+            {isExperimental ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full border bg-amber-500/10 text-amber-400/80 border-amber-500/20">
+                experimental
+              </span>
+            ) : null}
             {isAvailable && docsHref ? (
               <div className="ml-auto">
                 <DocsIconLink href={docsHref} label={`${displayName || id} docs`} />
@@ -1197,6 +1203,16 @@ export default function InstallWizardClient() {
     }));
   }, [state.embedding.type, state.embedding.provider, state.embedding.model, selectedEmbeddingModelOption, setState]);
 
+  function pmExecBase(pm: 'bun' | 'npm' | 'pnpm' | 'yarn') {
+    return pm === 'bun'
+      ? 'bunx'
+      : pm === 'pnpm'
+        ? 'pnpm dlx'
+        : pm === 'yarn'
+          ? 'yarn dlx'
+          : 'npx';
+  }
+
   const commandPreview = useMemo(() => {
     if (presetId) {
       return `bunx unrag@latest init --yes --preset ${presetId}`;
@@ -1216,14 +1232,7 @@ export default function InstallWizardClient() {
 
   const installCommand = useMemo(() => {
     if (!presetId) return null;
-    const base =
-      pkgManager === 'bun'
-        ? 'bunx'
-        : pkgManager === 'pnpm'
-          ? 'pnpm dlx'
-          : pkgManager === 'yarn'
-            ? 'yarn dlx'
-            : 'npx';
+    const base = pmExecBase(pkgManager);
     return `${base} unrag@latest init --yes --preset ${presetId}`;
   }, [pkgManager, presetId]);
 

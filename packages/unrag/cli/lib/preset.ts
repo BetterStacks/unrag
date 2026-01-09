@@ -11,6 +11,7 @@ export type PresetPayloadV1 = {
   modules: {
     extractors: string[];
     connectors: string[];
+    batteries?: string[];
   };
   config?: unknown;
 };
@@ -25,6 +26,9 @@ function isPresetPayloadV1(x: unknown): x is PresetPayloadV1 {
   if (!["drizzle", "prisma", "raw-sql"].includes(String(o.install.storeAdapter))) return false;
   if (typeof o.install.aliasBase !== "string") return false;
   if (!Array.isArray(o.modules.extractors) || !Array.isArray(o.modules.connectors)) return false;
+  if ("batteries" in o.modules && o.modules.batteries != null && !Array.isArray(o.modules.batteries)) {
+    return false;
+  }
   return true;
 }
 
