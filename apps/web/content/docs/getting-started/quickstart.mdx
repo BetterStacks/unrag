@@ -105,6 +105,8 @@ create index if not exists chunks_source_id_idx on chunks(source_id);
 create index if not exists documents_source_id_idx on documents(source_id);
 ```
 
+You can verify your database setup is correct by running `bunx unrag doctor --db`. This checks that pgvector is enabled, tables exist, and indexes are present.
+
 </Step>
 <Step>
 

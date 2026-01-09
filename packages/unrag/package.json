@@ -27,14 +27,18 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
-    "jsonc-parser": "^3.3.1"
+    "jsonc-parser": "^3.3.1",
+    "pg": "^8.16.3"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "scripts": {
     "build": "bun build --target=node --format=esm --packages=external --outfile dist/cli/index.js cli/index.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "unrag:doctor": "unrag doctor --config .unrag/doctor.json",
+    "unrag:doctor:db": "unrag doctor --config .unrag/doctor.json --db",
+    "unrag:doctor:ci": "unrag doctor --config .unrag/doctor.json --db --strict --json"
   },
   "files": [
     "dist/**",
