@@ -3,6 +3,10 @@ title: Eval Harness
 description: Measure and improve retrieval quality with deterministic evaluation, metrics, and CI integration.
 ---
 
+<Callout type="warn">
+Evaluation is currently **experimental**. It’s safe to use, but expect some CLI flags, report fields, and defaults to change as the harness matures.
+</Callout>
+
 The eval harness is a battery that adds retrieval evaluation capabilities to your Unrag installation. It gives you a structured way to define test datasets, run your retrieval pipeline against them, compute standard metrics (hit@k, recall@k, precision@k, MRR@k), and track quality changes over time.
 
 Unlike the reranker battery which adds a new method to your engine, the eval harness is primarily a development and CI tool. You use it to measure how well your retrieval works, catch regressions before they reach production, and make informed decisions when tuning chunking, embeddings, or adding reranking.

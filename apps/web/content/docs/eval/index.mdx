@@ -3,6 +3,10 @@ title: Evaluation Overview
 description: Why measuring retrieval quality matters and how Unrag's eval harness helps you do it systematically.
 ---
 
+<Callout type="warn">
+Evaluation is currently **experimental**. The core workflow is stable, but expect the dataset schema and report format to evolve as we learn from real-world usage.
+</Callout>
+
 Building a RAG system is straightforward. Building one that retrieves the right content for a given query is harder than it looks. The initial implementation usually works well enough that you ship it, but over time you want to make changes—different chunking parameters, a new embedding model, maybe adding a reranker. Each change feels like it should improve things, but without measurement, you're guessing.
 
 This is where retrieval evaluation comes in. Instead of manual spot-checking or hoping the LLM produces better answers, you build a dataset of queries with known relevant documents and measure how well your retrieval pipeline surfaces them. When you change your chunking strategy from 200 to 400 words, you can see exactly how that affects recall. When you switch embedding providers, you know whether precision improved or degraded.

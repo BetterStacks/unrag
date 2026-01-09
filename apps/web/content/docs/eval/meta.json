@@ -1,6 +1,6 @@
 {
   "title": "Evaluation",
-  "badge": "New",
+  "badge": "Experimental",
   "description": "Measure and improve your retrieval quality with a deterministic evaluation harness.",
   "pages": [
     "index",
