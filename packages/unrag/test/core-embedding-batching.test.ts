@@ -18,7 +18,7 @@ const baseConfig = (embedding: ResolvedContextEngineConfig["embedding"]): Resolv
   embedding,
   embeddingProcessing: { concurrency: 2, batchSize: 2 },
   store: {
-    upsert: async () => {},
+    upsert: async (chunks) => ({ documentId: chunks[0]?.documentId ?? "test-doc-id" }),
     query: async () => [],
     delete: async () => {},
   },

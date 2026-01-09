@@ -23,6 +23,7 @@ function baseConfig(): { config: ResolvedContextEngineConfig; upserted: any[] } 
     store: {
       upsert: async (chunks) => {
         upserted.push(...chunks);
+        return { documentId: chunks[0]?.documentId ?? "test-doc-id" };
       },
       query: async () => [],
       delete: async () => {},

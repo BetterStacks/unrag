@@ -556,6 +556,10 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       src: path.join(selection.registryRoot, "core/retrieve.ts"),
       dest: path.join(installBaseAbs, "core/retrieve.ts"),
     },
+    {
+      src: path.join(selection.registryRoot, "core/rerank.ts"),
+      dest: path.join(installBaseAbs, "core/rerank.ts"),
+    },
 
     // embedding
     {

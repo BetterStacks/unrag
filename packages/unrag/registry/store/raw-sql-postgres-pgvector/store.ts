@@ -36,26 +36,24 @@ const withTx = async <T>(
 
 export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
   upsert: async (chunkItems) => {
-    if (chunkItems.length === 0) return;
+    if (chunkItems.length === 0) {
+      throw new Error("upsert() requires at least one chunk");
+    }
 
-    await withTx(pool, async (client) => {
+    return await withTx(pool, async (client) => {
       const head = chunkItems[0]!;
       const documentMetadata = sanitizeMetadata(head.metadata);
 
-      // Replace-by-sourceId: delete any previously stored document(s) for this logical id.
-      // Cascades to chunks and embeddings.
-      await client.query(`delete from documents where source_id = $1`, [
-        head.sourceId,
-      ]);
-
-      await client.query(
+      // Upsert document by source_id (requires UNIQUE constraint on documents.source_id).
+      // Returns the canonical document id (existing id on conflict, or new id on insert).
+      const docResult = await client.query<{ id: string }>(
         `
         insert into documents (id, source_id, content, metadata)
         values ($1, $2, $3, $4::jsonb)
-        on conflict (id) do update set
-          source_id = excluded.source_id,
+        on conflict (source_id) do update set
           content = excluded.content,
           metadata = excluded.metadata
+        returning id
         `,
         [
           head.documentId,
@@ -65,6 +63,18 @@ export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
         ]
       );
 
+      const canonicalDocumentId = docResult.rows[0]?.id;
+      if (!canonicalDocumentId) {
+        throw new Error("Failed to upsert document: no id returned");
+      }
+
+      // Delete all existing chunks for this document (they will be replaced).
+      // Cascades to embeddings via FK constraint.
+      await client.query(`delete from chunks where document_id = $1`, [
+        canonicalDocumentId,
+      ]);
+
+      // Insert new chunks and embeddings.
       for (const chunk of chunkItems) {
         const chunkMetadata = sanitizeMetadata(chunk.metadata);
 
@@ -72,17 +82,10 @@ export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
           `
           insert into chunks (id, document_id, source_id, idx, content, token_count, metadata)
           values ($1, $2, $3, $4, $5, $6, $7::jsonb)
-          on conflict (id) do update set
-            document_id = excluded.document_id,
-            source_id = excluded.source_id,
-            idx = excluded.idx,
-            content = excluded.content,
-            token_count = excluded.token_count,
-            metadata = excluded.metadata
           `,
           [
             chunk.id,
-            chunk.documentId,
+            canonicalDocumentId,
             chunk.sourceId,
             chunk.index,
             chunk.content,
@@ -98,13 +101,12 @@ export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
           `
           insert into embeddings (chunk_id, embedding, embedding_dimension)
           values ($1, $2::vector, $3)
-          on conflict (chunk_id) do update set
-            embedding = excluded.embedding,
-            embedding_dimension = excluded.embedding_dimension
           `,
           [chunk.id, embeddingLiteral, chunk.embedding.length]
         );
       }
+
+      return { documentId: canonicalDocumentId };
     });
   },
 

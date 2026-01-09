@@ -61,7 +61,7 @@ export async function runDbChecks(
   });
 
   // 2. Connect and run checks
-  let client: PgClient | null = null;
+  let end: (() => Promise<void>) | undefined;
 
   try {
     // Dynamic import pg to avoid bundling issues
@@ -69,9 +69,11 @@ export async function runDbChecks(
     const Pool = pg.default?.Pool ?? pg.Pool;
 
     const pool = new Pool({ connectionString: dbUrlResult.url });
-    client = {
-      query: (sql, params) => pool.query(sql, params),
-      end: () => pool.end(),
+    end = () => pool.end();
+    const client: PgClient = {
+      query: <T = Record<string, unknown>>(sql: string, params?: unknown[]) =>
+        pool.query(sql, params) as unknown as Promise<{ rows: T[] }>,
+      end,
     };
 
     // Run connectivity check
@@ -99,6 +101,14 @@ export async function runDbChecks(
     const schemaResults = await checkSchema(client, options.schema, tableNames);
     results.push(...schemaResults);
 
+    // Run source_id uniqueness checks (required for idempotent upserts)
+    const uniquenessResult = await checkSourceIdUniqueness(client, options.schema, tableNames);
+    results.push(uniquenessResult);
+
+    // Check for duplicate source_id values (data integrity)
+    const duplicatesResult = await checkDuplicateSourceIds(client, options.schema, tableNames);
+    results.push(duplicatesResult);
+
     // Run index checks
     const indexResults = await checkIndexes(client, options.schema, tableNames);
     results.push(...indexResults);
@@ -125,9 +135,7 @@ export async function runDbChecks(
       ],
     });
   } finally {
-    if (client) {
-      await client.end().catch(() => {});
-    }
+    if (end) await end().catch(() => {});
   }
 
   return results;
@@ -518,6 +526,183 @@ async function checkForeignKeys(
       title: "Foreign key constraints",
       status: "warn",
       summary: `Could not verify FK constraints: ${message}`,
+    };
+  }
+}
+
+/**
+ * Check that documents.source_id has a UNIQUE constraint or unique index.
+ * This is required for idempotent upsert-by-sourceId semantics under concurrency.
+ */
+async function checkSourceIdUniqueness(
+  client: PgClient,
+  schema: string,
+  tableNames: { documents: string; chunks: string; embeddings: string }
+): Promise<CheckResult> {
+  try {
+    // We must ensure the uniqueness is EXACTLY on (source_id) — not a composite unique —
+    // because the store uses `ON CONFLICT (source_id)`.
+    const uniqueConstraintResult = await client.query<{ constraint_name: string }>(
+      `SELECT con.conname as constraint_name
+       FROM pg_constraint con
+       JOIN pg_class t ON t.oid = con.conrelid
+       JOIN pg_namespace n ON n.oid = t.relnamespace
+       WHERE n.nspname = $1
+         AND t.relname = $2
+         AND con.contype = 'u'
+         AND array_length(con.conkey, 1) = 1
+         AND (
+           SELECT a.attname
+           FROM pg_attribute a
+           WHERE a.attrelid = t.oid AND a.attnum = con.conkey[1]
+         ) = 'source_id'`,
+      [schema, tableNames.documents]
+    );
+
+    if (uniqueConstraintResult.rows.length > 0) {
+      return {
+        id: "db-sourceid-unique",
+        title: "documents.source_id uniqueness",
+        status: "pass",
+        summary: "UNIQUE constraint exists on documents.source_id.",
+        details: [`Constraint: ${uniqueConstraintResult.rows[0]!.constraint_name}`],
+      };
+    }
+
+    const uniqueIndexResult = await client.query<{ indexname: string; indexdef: string }>(
+      `SELECT i.relname as indexname, pg_get_indexdef(i.oid) as indexdef
+       FROM pg_index ix
+       JOIN pg_class t ON t.oid = ix.indrelid
+       JOIN pg_class i ON i.oid = ix.indexrelid
+       JOIN pg_namespace n ON n.oid = t.relnamespace
+       WHERE n.nspname = $1
+         AND t.relname = $2
+         AND ix.indisunique = true
+         AND ix.indexprs IS NULL
+         AND ix.indpred IS NULL
+         -- Ensure key columns are exactly (source_id). This also allows INCLUDE columns.
+         AND pg_get_indexdef(i.oid) ~* '\\\\(\\\\s*\"?source_id\"?\\\\s*\\\\)'`,
+      [schema, tableNames.documents]
+    );
+
+    if (uniqueIndexResult.rows.length > 0) {
+      return {
+        id: "db-sourceid-unique",
+        title: "documents.source_id uniqueness",
+        status: "pass",
+        summary: "UNIQUE index exists on documents.source_id.",
+        details: [`Index: ${uniqueIndexResult.rows[0]!.indexname}`],
+      };
+    }
+
+    // No unique constraint found
+    return {
+      id: "db-sourceid-unique",
+      title: "documents.source_id uniqueness",
+      status: "fail",
+      summary: "Missing UNIQUE constraint on documents.source_id.",
+      details: [
+        "Unrag requires a unique constraint on documents.source_id for idempotent ingestion.",
+        "Without this constraint, concurrent ingests for the same sourceId may create duplicates.",
+      ],
+      fixHints: [
+        `ALTER TABLE ${schema}.${tableNames.documents} ADD CONSTRAINT ${tableNames.documents}_source_id_key UNIQUE (source_id);`,
+        "-- Or create a unique index:",
+        `CREATE UNIQUE INDEX ${tableNames.documents}_source_id_unique_idx ON ${schema}.${tableNames.documents}(source_id);`,
+      ],
+      docsLink: docsUrl("/docs/getting-started/database#schema-requirements"),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      id: "db-sourceid-unique",
+      title: "documents.source_id uniqueness",
+      status: "fail",
+      summary: `Could not check uniqueness constraint: ${message}`,
+    };
+  }
+}
+
+/**
+ * Check for duplicate source_id values in the documents table.
+ * Duplicates indicate data integrity issues that need to be resolved before
+ * adding a unique constraint.
+ */
+async function checkDuplicateSourceIds(
+  client: PgClient,
+  schema: string,
+  tableNames: { documents: string; chunks: string; embeddings: string }
+): Promise<CheckResult> {
+  try {
+    // Count duplicate groups
+    const countResult = await client.query<{ duplicate_count: string }>(
+      `SELECT COUNT(*) as duplicate_count
+       FROM (
+         SELECT source_id
+         FROM ${schema}.${tableNames.documents}
+         GROUP BY source_id
+         HAVING COUNT(*) > 1
+       ) duplicates`
+    );
+
+    const duplicateCount = parseInt(countResult.rows[0]?.duplicate_count ?? "0", 10);
+
+    if (duplicateCount === 0) {
+      return {
+        id: "db-sourceid-duplicates",
+        title: "documents.source_id duplicates",
+        status: "pass",
+        summary: "No duplicate source_id values found.",
+      };
+    }
+
+    // Get sample of duplicates for the error message
+    const sampleResult = await client.query<{
+      source_id: string;
+      count: string;
+    }>(
+      `SELECT source_id, COUNT(*) as count
+       FROM ${schema}.${tableNames.documents}
+       GROUP BY source_id
+       HAVING COUNT(*) > 1
+       ORDER BY COUNT(*) DESC
+       LIMIT 5`
+    );
+
+    const samples = sampleResult.rows.map(
+      (r) => `"${r.source_id}" (${r.count} copies)`
+    );
+
+    return {
+      id: "db-sourceid-duplicates",
+      title: "documents.source_id duplicates",
+      status: "fail",
+      summary: `Found ${duplicateCount} source_id value(s) with duplicates.`,
+      details: [
+        "Duplicate source_id values must be resolved before adding a unique constraint.",
+        "",
+        "Sample duplicates:",
+        ...samples,
+        duplicateCount > 5 ? `... and ${duplicateCount - 5} more` : "",
+      ].filter(Boolean),
+      fixHints: [
+        "-- Find all duplicates:",
+        `SELECT source_id, COUNT(*), array_agg(id) as document_ids`,
+        `FROM ${schema}.${tableNames.documents}`,
+        `GROUP BY source_id HAVING COUNT(*) > 1;`,
+        "",
+        "-- Resolve duplicates by deleting extra rows for a given source_id.",
+        "-- (Exact strategy depends on your app; pick which document_id to keep and delete the rest.)",
+      ],
+      docsLink: docsUrl("/docs/getting-started/database#resolving-duplicates"),
+    };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return {
+      id: "db-sourceid-duplicates",
+      title: "documents.source_id duplicates",
+      status: "warn",
+      summary: `Could not check for duplicates: ${message}`,
     };
   }
 }
