@@ -31,17 +31,15 @@ Finally, evaluation is essential for CI pipelines. When someone opens a pull req
 
 The harness operates on a simple model: you have documents, you have queries, and for each query you know which documents are relevant. When you run an evaluation, the harness ingests your documents (if needed), runs each query through your retrieval pipeline, and compares the retrieved results against the known-relevant documents. The comparison produces metrics like precision, recall, and MRR that quantify retrieval quality.
 
-```
-Dataset (documents + queries with ground truth)
-    ↓
-Ingest documents into your store
-    ↓
-For each query:
-    ├─ Retrieve chunks (vector search)
-    ├─ Optionally rerank
-    └─ Score against ground truth
-    ↓
-Aggregate metrics + write report
+```mermaid
+flowchart TD
+  dataset[Dataset: documents + queries with ground truth]
+  dataset --> ingest[Ingest documents into store]
+  ingest --> query[For each query]
+  query --> retrieve[Retrieve chunks via vector search]
+  retrieve --> rerank[Optionally rerank]
+  rerank --> score[Score against ground truth]
+  score --> aggregate[Aggregate metrics + write report]
 ```
 
 The documents in your eval dataset don't have to be your real production content. In fact, it's often better to use a curated subset that you understand well enough to label. The goal is to have ground truth you're confident in, even if it's small. A dataset of 50 queries with accurate relevance labels is more valuable than 500 queries where you're guessing.
