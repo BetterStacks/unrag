@@ -1,5 +1,6 @@
 {
   "title": "Batteries",
+  "badge": "New",
   "description": "Optional modules that add capabilities like reranking to your Unrag installation.",
   "pages": ["index", "reranker"]
 }
