@@ -33,7 +33,7 @@ const result = await engine.retrieve({ query: "hello", topK: 5 });
 console.log(result.chunks);
 ```
 
-That's the entire API surface. Two methods—`ingest()` and `retrieve()`—plus the configuration to wire them together. Everything else (how you build prompts, how you integrate with chat, how you handle permissions) is up to you.
+That's the core API. `ingest()` and `retrieve()` handle the fundamentals, plus optional `rerank()` for improving result precision and `delete()` for content management. Everything else (how you build prompts, how you integrate with chat, how you handle permissions) is up to you.
 
 Unrag works with Postgres and pgvector because that's what most teams already have or can easily add. You manage your own migrations, you see the exact SQL being executed, and you can extend or modify the schema as your needs evolve.
 

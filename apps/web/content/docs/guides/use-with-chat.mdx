@@ -302,12 +302,48 @@ const scopedRetrieve = chatType === "help" ? helpEngine() : docsEngine();
 const { chunks } = await scopedRetrieve.retrieve(question);
 ```
 
+## Improving context quality with reranking
+
+Vector similarity search is fast but imprecise. When you retrieve 5 chunks for an LLM prompt, the most relevant chunk might not be first—it could be third or fourth. This matters for chat because LLMs tend to weight information at the beginning of the context more heavily.
+
+If you've installed the reranker battery, use it to ensure your best chunks come first:
+
+```ts
+const engine = createUnragEngine();
+
+// Retrieve more candidates than we need
+const retrieved = await engine.retrieve({
+  query: question,
+  topK: 20,
+});
+
+// Rerank to get the best 5
+const reranked = await engine.rerank({
+  query: question,
+  candidates: retrieved.chunks,
+  topK: 5,
+  onMissingReranker: "skip", // Fall back to vector order if no reranker
+});
+
+// Use reranked chunks in the prompt
+const context = reranked.chunks
+  .map((c) => `Source: ${c.sourceId}\n${c.content}`)
+  .join("\n\n---\n\n");
+```
+
+This adds 100-300ms of latency but significantly improves the quality of context you provide to the LLM. The best chunks come first, which helps the model focus on the most relevant information.
+
+For chat applications, this tradeoff is usually worth it—the LLM generation step takes much longer anyway, so the reranking latency is barely noticeable.
+
+See the [Reranker documentation](/docs/batteries/reranker) for installation and configuration.
+
 ## Performance considerations
 
 Chat interfaces need to feel responsive. The latency breakdown is typically:
 
 1. **Retrieval** (embedding + database): 200-400ms
-2. **LLM generation**: 500-2000ms+ depending on response length
+2. **Reranking** (if enabled): 100-300ms
+3. **LLM generation**: 500-2000ms+ depending on response length
 
 To improve perceived performance:
 
@@ -316,5 +352,5 @@ To improve perceived performance:
 - **Prefetch** context when you can predict what the user might ask
 - **Show "thinking" indicators** while retrieval happens
 
-The retrieval step is usually fast enough that users don't notice it if you stream the generation.
+The retrieval and reranking steps are usually fast enough that users don't notice them if you stream the generation.
 

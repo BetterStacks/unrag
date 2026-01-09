@@ -33,6 +33,19 @@ export type RegistryManifestV1 = {
     devDeps?: Record<string, string>;
     envVars?: Array<{ name: string; required?: boolean; notes?: string }>;
   }>;
+  /** Optional batteries (reranker, eval, etc.) */
+  batteries?: Array<{
+    id: string; // e.g. "reranker"
+    displayName: string;
+    description?: string;
+    status?: "available" | "coming-soon";
+    docsPath?: string | null;
+    deps?: Record<string, string>;
+    devDeps?: Record<string, string>;
+    factory?: string;
+    defaultModel?: string;
+    envVars?: Array<{ name: string; required?: boolean; notes?: string }>;
+  }>;
 };
 
 export async function readRegistryManifest(registryRoot: string): Promise<RegistryManifestV1> {

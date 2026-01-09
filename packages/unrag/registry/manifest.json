@@ -340,6 +340,22 @@
       "deps": {},
       "devDeps": {}
     }
+  ],
+  "batteries": [
+    {
+      "id": "reranker",
+      "displayName": "Reranker",
+      "description": "Second-stage reranking for improved retrieval precision using Cohere rerank-v3.5",
+      "status": "available",
+      "docsPath": "/docs/batteries/reranker",
+      "deps": { "ai": "^6.0.3", "@ai-sdk/cohere": "^3.0.1" },
+      "devDeps": {},
+      "factory": "createCohereReranker",
+      "defaultModel": "rerank-v3.5",
+      "envVars": [
+        { "name": "COHERE_API_KEY", "required": true, "notes": "Cohere API key for reranking." }
+      ]
+    }
   ]
 }
 

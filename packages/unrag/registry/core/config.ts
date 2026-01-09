@@ -153,6 +153,7 @@ export const resolveConfig = (
     chunker,
     idGenerator: config.idGenerator ?? defaultIdGenerator,
     extractors: config.extractors ?? [],
+    reranker: config.reranker,
     storage: resolveContentStorageConfig(config.storage),
     assetProcessing: resolveAssetProcessingConfig(config.assetProcessing),
     embeddingProcessing: resolveEmbeddingProcessingConfig(config.embeddingProcessing),

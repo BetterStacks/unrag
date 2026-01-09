@@ -1,0 +1,40 @@
+---
+title: Batteries Overview
+description: Optional modules that extend Unrag with additional capabilities.
+---
+
+Batteries are optional modules that add functionality beyond the core ingest/retrieve primitives. Like extractors and connectors, they're installed as vendored source code that you own and can modify.
+
+The difference is scope. Extractors transform content types (PDFs into text). Connectors fetch content from external services (Notion, Google Drive). Batteries add entirely new capabilities to the engine itself—things like second-stage reranking for improved retrieval precision.
+
+## Available batteries
+
+| Battery | Description | Status |
+|---------|-------------|--------|
+| [Reranker](/docs/batteries/reranker) | Second-stage reranking using Cohere or custom models | Available |
+
+## Installing a battery
+
+Use the CLI to add a battery to your project:
+
+```bash
+bunx unrag@latest add battery reranker
+```
+
+This installs the battery's source files into your project (typically at `lib/unrag/rerank/`) and adds any required dependencies to your `package.json`.
+
+After installation, you wire the battery into your engine configuration. Each battery's documentation covers the specific setup steps.
+
+## Why batteries?
+
+The core Unrag engine handles the fundamental RAG operations: chunking text, generating embeddings, storing vectors, and running similarity search. These operations cover most use cases and keep the default installation small.
+
+But production RAG systems often need more. Reranking can significantly improve precision by reordering initial retrieval results using a more expensive relevance model. Evaluation harnesses help you measure and improve retrieval quality. Hybrid search combines vector similarity with keyword matching.
+
+Rather than bundling these features into the core (adding complexity and dependencies everyone pays for), Unrag provides them as optional batteries. Install what you need, skip what you don't. The code is vendored into your project, so you can read it, understand it, and modify it if your requirements differ from the defaults.
+
+## Building custom batteries
+
+Since batteries are just vendored TypeScript modules, you can build your own. The pattern is simple: create a module that implements the interface the engine expects (like `Reranker` for reranking), then wire it into your config.
+
+The existing batteries serve as good examples. Open `lib/unrag/rerank/` after installing the reranker battery to see how a production battery is structured.

@@ -22,15 +22,33 @@ export const myProvider: EmbeddingProvider = {
 };
 ```
 
-**`name`** identifies this provider. It appears in ingest and retrieve responses, helping you debug and verify which model was used. Use a format like `vendor:model-name` or `local:model-id`.
-
-**`dimensions`** optionally declares the expected embedding size. Unrag stores the actual dimension alongside each embedding in the database, so this is mainly for documentation and validation.
-
-**`embed`** is the function that does the work. It receives context about what's being embedded and returns a vector (array of numbers).
-
-**`embedMany`** (optional) allows batch embedding for performance. When present, Unrag may pass multiple texts in a single call. If omitted, Unrag falls back to calling `embed` repeatedly.
-
-**`embedImage`** (optional) enables multimodal embedding. When present and you ingest image assets, Unrag uses this function to embed images directly.
+<TypeTable
+  type={{
+    name: {
+      description: 'Identifies this provider. Appears in ingest and retrieve responses for debugging. Use a format like "vendor:model-name" or "local:model-id".',
+      type: 'string',
+    },
+    dimensions: {
+      description: 'Optionally declares the expected embedding size. Mainly for documentation and validation—Unrag stores actual dimensions alongside each embedding.',
+      type: 'number',
+      default: 'undefined',
+    },
+    embed: {
+      description: 'The core function that embeds text. Receives context about what\'s being embedded and returns a vector (array of numbers).',
+      type: '(input: EmbeddingInput) => Promise<number[]>',
+    },
+    embedMany: {
+      description: 'Optional batch embedding for performance. When present, Unrag may pass multiple texts in a single call. If omitted, falls back to calling embed() repeatedly.',
+      type: '(inputs: EmbeddingInput[]) => Promise<number[][]>',
+      default: 'undefined',
+    },
+    embedImage: {
+      description: 'Optional multimodal embedding. When present and you ingest image assets, Unrag uses this function to embed images directly instead of falling back to caption embedding.',
+      type: '(input: ImageEmbeddingInput) => Promise<number[]>',
+      default: 'undefined',
+    },
+  }}
+/>
 
 ## Using a custom provider
 
@@ -50,6 +68,91 @@ export const unrag = defineUnragConfig({
 ```
 
 The `create` function is called once to create the provider instance. The engine doesn't care where embeddings come from—it just needs an object that matches the interface.
+
+## EmbeddingInput
+
+The `embed` function receives an `EmbeddingInput` object with context about what's being embedded:
+
+```ts
+type EmbeddingInput = {
+  text: string;
+  metadata: Metadata;
+  position: number;
+  sourceId: string;
+  documentId: string;
+};
+```
+
+<TypeTable
+  type={{
+    text: {
+      description: 'The text to embed. This is the main input your embedding function should process.',
+      type: 'string',
+    },
+    metadata: {
+      description: 'Context metadata from the chunk or query. Most implementations only use text, but this is available for custom logic.',
+      type: 'Metadata',
+    },
+    position: {
+      description: 'Chunk index within the document (0, 1, 2, ...). For query embeddings, this is 0.',
+      type: 'number',
+    },
+    sourceId: {
+      description: 'The document\'s logical identifier. For query embeddings, this is "query".',
+      type: 'string',
+    },
+    documentId: {
+      description: 'The document\'s UUID. For query embeddings, this is "query".',
+      type: 'string',
+    },
+  }}
+/>
+
+## ImageEmbeddingInput
+
+When implementing `embedImage` for multimodal providers:
+
+```ts
+type ImageEmbeddingInput = {
+  data: Uint8Array | string;
+  mediaType?: string;
+  metadata: Metadata;
+  assetId?: string;
+  sourceId: string;
+  documentId: string;
+};
+```
+
+<TypeTable
+  type={{
+    data: {
+      description: 'The image data—either raw bytes (Uint8Array) or a URL string to fetch.',
+      type: 'Uint8Array | string',
+    },
+    mediaType: {
+      description: 'MIME type of the image (e.g., "image/jpeg", "image/png").',
+      type: 'string',
+      default: 'undefined',
+    },
+    metadata: {
+      description: 'Asset metadata from the ingest input.',
+      type: 'Metadata',
+    },
+    assetId: {
+      description: 'The asset\'s identifier within the document.',
+      type: 'string',
+      default: 'undefined',
+    },
+    sourceId: {
+      description: 'The parent document\'s logical identifier.',
+      type: 'string',
+    },
+    documentId: {
+      description: 'The parent document\'s UUID.',
+      type: 'string',
+    },
+  }}
+/>
 
 ## Example: wrapping a REST API
 
