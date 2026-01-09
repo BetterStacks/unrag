@@ -1,5 +1,6 @@
 import { deleteDocuments } from "./delete";
 import { ingest, planIngest } from "./ingest";
+import { rerank } from "./rerank";
 import { retrieve } from "./retrieve";
 import { defineConfig, resolveConfig } from "./config";
 import { createAiEmbeddingProvider } from "../embedding/ai";
@@ -23,6 +24,8 @@ import type {
   IngestInput,
   IngestResult,
   IngestPlanResult,
+  RerankInput,
+  RerankResult,
   ResolvedContextEngineConfig,
   RetrieveInput,
   RetrieveResult,
@@ -52,6 +55,26 @@ export class ContextEngine {
 
   async retrieve(input: RetrieveInput): Promise<RetrieveResult> {
     return retrieve(this.config, input);
+  }
+
+  /**
+   * Rerank retrieved candidates using the configured reranker.
+   *
+   * This is an explicit second-stage ranking step that can improve precision
+   * by reordering candidates based on a more expensive relevance model.
+   *
+   * @example
+   * ```ts
+   * const retrieved = await engine.retrieve({ query, topK: 30 });
+   * const reranked = await engine.rerank({
+   *   query,
+   *   candidates: retrieved.chunks,
+   *   topK: 8,
+   * });
+   * ```
+   */
+  async rerank(input: RerankInput): Promise<RerankResult> {
+    return rerank(this.config, input);
   }
 
   async delete(input: DeleteInput): Promise<void> {

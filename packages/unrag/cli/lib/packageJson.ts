@@ -1,5 +1,6 @@
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { exists } from "./fs";
 
 type PackageJson = {
@@ -206,11 +207,57 @@ export function depsForEmbeddingProvider(provider: EmbeddingProviderName) {
   return { deps, devDeps };
 }
 
+export type BatteryName = "reranker";
+
+export function depsForBattery(battery: BatteryName) {
+  const deps: Record<string, string> = {};
+  const devDeps: Record<string, string> = {};
+
+  if (battery === "reranker") {
+    deps["ai"] = "^6.0.3";
+    deps["@ai-sdk/cohere"] = "^3.0.1";
+  }
+
+  return { deps, devDeps };
+}
+
 export function installCmd(pm: PackageManager) {
   if (pm === "bun") return "bun install";
   if (pm === "pnpm") return "pnpm install";
   if (pm === "yarn") return "yarn";
   return "npm install";
+}
+
+function installSpawnSpec(pm: PackageManager): { cmd: string; args: string[] } {
+  if (pm === "bun") return { cmd: "bun", args: ["install"] };
+  if (pm === "pnpm") return { cmd: "pnpm", args: ["install"] };
+  if (pm === "yarn") return { cmd: "yarn", args: [] };
+  return { cmd: "npm", args: ["install"] };
+}
+
+export async function installDependencies(projectRoot: string): Promise<void> {
+  const pm = await detectPackageManager(projectRoot);
+  const { cmd, args } = installSpawnSpec(pm);
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(cmd, args, {
+      cwd: projectRoot,
+      stdio: "inherit",
+      env: process.env,
+    });
+
+    child.on("error", (err) => reject(err));
+    child.on("exit", (code, signal) => {
+      if (code === 0) return resolve();
+      reject(
+        new Error(
+          `Dependency installation failed (${installCmd(pm)}). Exit code: ${
+            code ?? "null"
+          }, signal: ${signal ?? "null"}`
+        )
+      );
+    });
+  });
 }
 
 

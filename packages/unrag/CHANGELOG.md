@@ -1,5 +1,30 @@
 # unrag
 
+## 0.2.8
+
+### Minor Changes
+
+- **Reranker battery with Cohere and custom reranker support**: Added a new reranking system to improve search result relevance. Includes:
+  - Built-in Cohere reranker integration (`rerank/cohere`)
+  - Custom reranker support for bring-your-own-reranker scenarios (`rerank/custom`)
+  - New `rerank()` function in the context engine for post-retrieval result optimization
+  - Configurable via `unrag.config.ts` under `engine.reranker`
+  - Comprehensive documentation at `/docs/batteries/reranker`
+- **`unrag doctor` command for installation validation and troubleshooting**: New diagnostic CLI command that validates your Unrag installation and identifies common issues:
+  - Scans `unrag.config.ts` for configuration problems
+  - Validates database connectivity and schema
+  - Checks environment variables and dependencies
+  - Provides actionable fix suggestions
+  - Supports `--fix` flag for auto-remediation of common issues
+  - Interactive `unrag doctor --setup` mode for guided configuration
+
+### Patch Changes
+
+- **Fixed deep merge file not present after installation**: Resolved an issue where the `deep-merge.ts` utility was not being copied to the target project during `unrag init`, causing runtime errors.
+- **Robust logging for `pdf:text-layer` extractor**: Improved error handling and logging in the PDF text layer extractor to surface extraction issues more clearly and provide better debugging information.
+- **New supported runtimes documentation**: Added documentation page covering supported Node.js versions and runtime environments.
+- **Updated connector documentation**: Enhanced API documentation for Google Drive and Notion connectors with additional examples and configuration options.
+
 ## 0.2.7
 
 ### Minor Changes

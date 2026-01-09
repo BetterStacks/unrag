@@ -49,12 +49,13 @@ describe("unrag@latest init", () => {
     });
 
     process.chdir(runDir);
-    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag"]);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag", "--no-install"]);
 
     expect(await pathExists(path.join(runDir, "unrag.json"))).toBe(true);
     expect(await pathExists(path.join(runDir, "unrag.config.ts"))).toBe(true);
     expect(await pathExists(path.join(runDir, "lib/unrag", "unrag.md"))).toBe(true);
     expect(await pathExists(path.join(runDir, "lib/unrag/core/delete.ts"))).toBe(true);
+    expect(await pathExists(path.join(runDir, "lib/unrag/core/deep-merge.ts"))).toBe(true);
 
     expect(
       await pathExists(
@@ -82,7 +83,7 @@ describe("unrag@latest init", () => {
     });
 
     process.chdir(runDir);
-    await initCommand(["--yes", "--store", "prisma", "--dir", "lib/unrag"]);
+    await initCommand(["--yes", "--store", "prisma", "--dir", "lib/unrag", "--no-install"]);
 
     const pkg = await readJson<{
       dependencies?: Record<string, string>;
@@ -106,7 +107,7 @@ describe("unrag@latest init", () => {
     });
 
     process.chdir(runDir);
-    await initCommand(["--yes", "--store", "raw-sql", "--dir", "lib/unrag"]);
+    await initCommand(["--yes", "--store", "raw-sql", "--dir", "lib/unrag", "--no-install"]);
 
     const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
     expect(tsconfig.compilerOptions.baseUrl).toBe(".");
@@ -123,7 +124,7 @@ describe("unrag@latest init", () => {
     });
 
     process.chdir(runDir);
-    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag"]);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag", "--no-install"]);
 
     const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
     expect(tsconfig.compilerOptions.baseUrl).toBe(".");
@@ -150,7 +151,7 @@ describe("unrag@latest init", () => {
     });
 
     process.chdir(runDir);
-    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag"]);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag", "--no-install"]);
 
     const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
     expect(tsconfig.compilerOptions.baseUrl).toBe(".");
@@ -186,6 +187,7 @@ describe("unrag@latest init", () => {
       "lib/unrag",
       "--alias",
       "@rag",
+      "--no-install",
     ]);
 
     const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
@@ -211,6 +213,7 @@ describe("unrag@latest init", () => {
       "--rich-media",
       "--extractors",
       "pdf-text-layer,file-text",
+      "--no-install",
     ]);
 
     const cfg = await readFile(path.join(runDir, "unrag.config.ts"), "utf8");
@@ -268,6 +271,7 @@ describe("unrag@latest init", () => {
       "lib/unrag",
       "--provider",
       "openai",
+      "--no-install",
     ]);
 
     const cfg = await readFile(path.join(runDir, "unrag.config.ts"), "utf8");

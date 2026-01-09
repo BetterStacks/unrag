@@ -49,7 +49,7 @@ Unrag is opinionated in a few ways that keep it simple:
 
 **Postgres with pgvector.** Vector databases are proliferating, but most teams already have Postgres. Adding the pgvector extension gives you vector similarity search without introducing a new system. Unrag's adapters generate the SQL to create tables, insert embeddings, and query by cosine distance—all using standard Postgres tooling.
 
-**Server-side only.** Unrag reads your database credentials and embedding API keys from environment variables. It's designed to run in Route Handlers, Server Actions, API routes, or backend scripts—never in browser code.
+**Server-side only.** Unrag reads your database credentials and embedding API keys from environment variables. It's designed to run in Route Handlers, Server Actions, API routes, or backend scripts—never in browser code. This also means edge runtimes (Cloudflare Workers, Vercel Edge) aren't supported out of the box. See [Supported Runtimes](/docs/getting-started/supported-runtimes) for the full picture on where Unrag runs.
 
 **You manage migrations.** Unrag doesn't run migrations for you. It gives you the SQL schema you need, and you apply it however your team manages database changes (raw SQL files, Drizzle migrations, Prisma migrations, or any other approach).
 

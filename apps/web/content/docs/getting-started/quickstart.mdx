@@ -16,30 +16,7 @@ Run the CLI with your preferences. For this quickstart, we'll use Drizzle as the
 bunx unrag@latest init --yes --store drizzle --dir lib/unrag --alias @unrag
 ```
 
-This creates your configuration file, installs the vendored module code, and adds the necessary dependencies to your `package.json`. Run your package manager to install them:
-
-<Tabs items={['bun', 'npm', 'pnpm', 'yarn']}>
-<Tab value="bun">
-```bash
-bun install
-```
-</Tab>
-<Tab value="npm">
-```bash
-npm install
-```
-</Tab>
-<Tab value="pnpm">
-```bash
-pnpm install
-```
-</Tab>
-<Tab value="yarn">
-```bash
-yarn
-```
-</Tab>
-</Tabs>
+This creates your configuration file, installs the vendored module code, adds the necessary dependencies to your `package.json`, and automatically runs your package manager to install them.
 
 </Step>
 <Step>
@@ -104,6 +81,8 @@ create table embeddings (
 create index if not exists chunks_source_id_idx on chunks(source_id);
 create index if not exists documents_source_id_idx on documents(source_id);
 ```
+
+You can verify your database setup is correct by running `bunx unrag doctor --db`. This checks that pgvector is enabled, tables exist, and indexes are present.
 
 </Step>
 <Step>

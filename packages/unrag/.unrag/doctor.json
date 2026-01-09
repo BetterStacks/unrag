@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "installDir": "lib/unrag",
+  "env": {
+    "loadFiles": [
+      ".env",
+      ".env.local",
+      ".env.${NODE_ENV}",
+      ".env.${NODE_ENV}.local"
+    ],
+    "databaseUrlEnv": "DATABASE_URL"
+  },
+  "db": {
+    "schema": "public",
+    "tables": {
+      "documents": "documents",
+      "chunks": "chunks",
+      "embeddings": "embeddings"
+    }
+  },
+  "defaults": {
+    "scope": null,
+    "strict": false
+  }
+}

@@ -28,17 +28,71 @@ await syncGoogleDriveFiles({
 });
 ```
 
-The function returns a small summary so you can log results or surface them in an admin UI: `fileCount`, `succeeded`, `failed`, `deleted`, and `errors`.
+The function returns a summary object so you can log results or surface them in an admin UI:
 
-#### Required parameters
+<TypeTable
+  type={{
+    fileCount: {
+      description: 'Total number of files that were processed.',
+      type: 'number',
+    },
+    succeeded: {
+      description: 'Number of files successfully synced.',
+      type: 'number',
+    },
+    failed: {
+      description: 'Number of files that failed to sync.',
+      type: 'number',
+    },
+    deleted: {
+      description: 'Number of documents deleted (when deleteOnNotFound is true).',
+      type: 'number',
+    },
+    errors: {
+      description: 'Array of error details for failed files, each with fileId and error.',
+      type: 'Array<{ fileId: string; error: unknown }>',
+    },
+  }}
+/>
 
-`engine` is a `ContextEngine` from `createUnragEngine()`. This is where the connector ingests content.
+### syncGoogleDriveFiles input
 
-`auth` is a `GoogleDriveAuth` object describing how to authenticate. See the Auth patterns section below for all the variants.
-
-`fileIds` is an array of Google Drive file IDs. The connector fetches metadata and content for each file.
-
-#### Optional parameters
+<TypeTable
+  type={{
+    engine: {
+      description: 'A ContextEngine from createUnragEngine(). This is where the connector ingests content.',
+      type: 'ContextEngine',
+    },
+    auth: {
+      description: 'A GoogleDriveAuth object describing how to authenticate. See Auth patterns below.',
+      type: 'GoogleDriveAuth',
+    },
+    fileIds: {
+      description: 'Array of Google Drive file IDs. The connector fetches metadata and content for each file.',
+      type: 'string[]',
+    },
+    sourceIdPrefix: {
+      description: 'Prepends a namespace to every sourceId. Useful for multi-tenant apps to partition content by tenant.',
+      type: 'string',
+      default: 'undefined',
+    },
+    deleteOnNotFound: {
+      description: 'Delete the previously ingested document if a file is not found or inaccessible.',
+      type: 'boolean',
+      default: 'false',
+    },
+    onProgress: {
+      description: 'Callback that receives events as each file is processed. Use for logging or progress bars.',
+      type: '(event: GoogleDriveSyncProgressEvent) => void',
+      default: 'undefined',
+    },
+    options: {
+      description: 'Additional configuration for connector behavior (maxBytesPerFile, treatForbiddenAsNotFound, strictNativeExport).',
+      type: 'SyncOptions',
+      default: 'undefined',
+    },
+  }}
+/>
 
 `sourceIdPrefix` prepends a namespace to every `sourceId`. This is useful for multi-tenant apps where you want to partition content by tenant:
 
@@ -80,6 +134,26 @@ await syncGoogleDriveFiles({
   },
 });
 ```
+
+<TypeTable
+  type={{
+    maxBytesPerFile: {
+      description: 'Skip files larger than this size in bytes.',
+      type: 'number',
+      default: '15 * 1024 * 1024 (15 MB)',
+    },
+    treatForbiddenAsNotFound: {
+      description: 'Treat HTTP 403 (forbidden) responses as not-found for cleanup purposes.',
+      type: 'boolean',
+      default: 'true',
+    },
+    strictNativeExport: {
+      description: 'If true, fail when Google-native files cannot be exported to text. If false, fall back to binary export.',
+      type: 'boolean',
+      default: 'false',
+    },
+  }}
+/>
 
 ### `loadGoogleDriveFileDocument(args)`
 
@@ -146,6 +220,14 @@ const input = buildGoogleDriveFileIngestInput({
 ## Auth patterns
 
 The `GoogleDriveAuth` type is a union that supports multiple authentication approaches. You pass the variant that matches your setup.
+
+| Auth Kind | Use Case |
+|-----------|----------|
+| `oauth` with client | When your app already has an OAuth2 client from Google's auth library |
+| `oauth` from credentials | When you have OAuth credentials and a refresh token but no client instance |
+| `service_account` | For files explicitly shared with a service account |
+| `service_account` with subject | For Workspace organizations with domain-wide delegation |
+| `google_auth` | Escape hatch for custom auth setups |
 
 ### OAuth2 with existing client
 
@@ -403,7 +485,39 @@ type GoogleDriveSyncProgressEvent =
   | { type: "file:error"; fileId: string; sourceId: string; error: unknown };
 ```
 
-The `file:skipped` event includes a `reason` field that can be `"is_folder"`, `"unsupported_google_mime"`, `"too_large"`, or `"shortcut_unresolved"`.
+<TypeTable
+  type={{
+    'file:start': {
+      description: 'Emitted when processing begins for a file. Includes fileId and sourceId.',
+      type: 'object',
+    },
+    'file:success': {
+      description: 'Emitted when a file is successfully synced. Includes chunkCount for the ingested content.',
+      type: 'object',
+    },
+    'file:skipped': {
+      description: 'Emitted when a file is skipped. Includes reason and message explaining why.',
+      type: 'object',
+    },
+    'file:not-found': {
+      description: 'Emitted when a file cannot be found or accessed (404/403).',
+      type: 'object',
+    },
+    'file:error': {
+      description: 'Emitted when file processing fails with an error.',
+      type: 'object',
+    },
+  }}
+/>
+
+The `file:skipped` event's `reason` field can be:
+
+| Reason | Description |
+|--------|-------------|
+| `is_folder` | The file ID points to a folder, not a file |
+| `unsupported_google_mime` | Google-native file type that cannot be exported (e.g., Forms, Sites) |
+| `too_large` | File exceeds `maxBytesPerFile` limit |
+| `shortcut_unresolved` | Shortcut file where the target couldn't be resolved |
 
 ---
 

@@ -537,6 +537,10 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       dest: path.join(installBaseAbs, "core/config.ts"),
     },
     {
+      src: path.join(selection.registryRoot, "core/deep-merge.ts"),
+      dest: path.join(installBaseAbs, "core/deep-merge.ts"),
+    },
+    {
       src: path.join(selection.registryRoot, "core/context-engine.ts"),
       dest: path.join(installBaseAbs, "core/context-engine.ts"),
     },
@@ -866,6 +870,84 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
 
     const rel = path.relative(sharedRegistryAbs, src);
     const dest = path.join(sharedDestRootAbs, rel);
+    if (!(await shouldWrite(src, dest))) continue;
+
+    const raw = await readText(src);
+    await writeText(dest, raw);
+  }
+}
+
+export type BatterySelection = {
+  projectRoot: string;
+  registryRoot: string;
+  installDir: string; // project-relative posix
+  battery: string; // e.g. "reranker"
+  yes?: boolean; // non-interactive skip-overwrite
+  overwrite?: "skip" | "force";
+};
+
+export async function copyBatteryFiles(selection: BatterySelection) {
+  const toAbs = (projectRelative: string) =>
+    path.join(selection.projectRoot, projectRelative);
+
+  const installBaseAbs = toAbs(selection.installDir);
+
+  // Batteries are stored in registry/<batteryName>/ (e.g., registry/rerank/)
+  // but we install them as <installDir>/<batteryName>/ (e.g., lib/unrag/rerank/)
+  const batteryRegistryDir = selection.battery === "reranker" ? "rerank" : selection.battery;
+  const batteryRegistryAbs = path.join(
+    selection.registryRoot,
+    batteryRegistryDir
+  );
+
+  if (!(await exists(batteryRegistryAbs))) {
+    throw new Error(
+      `Unknown battery registry: ${path.relative(selection.registryRoot, batteryRegistryAbs)}`
+    );
+  }
+
+  const batteryFiles = await listFilesRecursive(batteryRegistryAbs);
+
+  const destRootAbs = path.join(installBaseAbs, batteryRegistryDir);
+
+  const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY;
+  const overwritePolicy = selection.overwrite ?? "skip";
+
+  const shouldWrite = async (src: string, dest: string): Promise<boolean> => {
+    if (!(await exists(dest))) return true;
+
+    if (overwritePolicy === "force") return true;
+
+    // In non-interactive mode we never overwrite existing files.
+    if (nonInteractive) return false;
+
+    // If the contents are identical, don't prompt.
+    try {
+      const [srcRaw, destRaw] = await Promise.all([readText(src), readText(dest)]);
+      if (srcRaw === destRaw) return false;
+    } catch {
+      // If reads fail for any reason, fall back to prompting.
+    }
+
+    const answer = await confirm({
+      message: `Overwrite ${path.relative(selection.projectRoot, dest)}?`,
+      initialValue: false,
+    });
+    if (isCancel(answer)) {
+      cancel("Cancelled.");
+      return false;
+    }
+    return Boolean(answer);
+  };
+
+  // Copy battery files.
+  for (const src of batteryFiles) {
+    if (!(await exists(src))) {
+      throw new Error(`Registry file missing: ${src}`);
+    }
+
+    const rel = path.relative(batteryRegistryAbs, src);
+    const dest = path.join(destRootAbs, rel);
     if (!(await shouldWrite(src, dest))) continue;
 
     const raw = await readText(src);

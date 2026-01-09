@@ -95,6 +95,29 @@ async function embedWithCache(query: string): Promise<number[]> {
 }
 ```
 
+## Where time goes during reranking
+
+If you're using the reranker battery, there's an additional stage after retrieval:
+
+```ts
+{
+  rerankMs: 187,   // Reranker API call
+  totalMs: 192     // Total including preprocessing
+}
+```
+
+The reranker adds 100-300ms depending on the number of candidates and their text lengths. The Cohere reranker processes all candidates in a single API call, so the latency doesn't scale linearly with candidate count—30 candidates might take 180ms while 10 candidates take 120ms.
+
+## Optimizing reranking
+
+**Tune your candidate count.** Retrieve 20-50 candidates for reranking, not hundreds. The best results are almost always in the initial top 30-50 from vector search. Retrieving 100+ candidates increases rerank time without proportional quality improvement.
+
+**Consider async reranking.** If your UI can progressively display results, return vector search results immediately and rerank in the background. This gives users fast initial results while improved rankings load.
+
+**Cache reranked results.** For frequently repeated queries, cache the full reranked result. The cache key should include both the query and some fingerprint of the candidates (like a hash of their IDs), since content updates change retrieval results.
+
+**Skip reranking for simple queries.** If analytics show certain query patterns get excellent results from vector search alone, bypass reranking for those cases. Very specific queries ("error code E-1234") often don't benefit from reranking.
+
 <Callout title="Add a vector index">
 For datasets with more than 50,000 chunks, add an HNSW index to speed up similarity search:
 </Callout>

@@ -3,6 +3,7 @@
   "pages": [
     "introduction",
     "installation",
+    "supported-runtimes",
     "database",
     "quickstart",
     "first-retrieval"

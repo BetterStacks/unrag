@@ -261,9 +261,53 @@ export async function GET(request: Request) {
 }
 ```
 
+## Adding reranking for better precision
+
+Vector similarity search is fast but imprecise. The first result isn't always the most relevant—it might be third or seventh. Reranking fixes this by adding a second stage that reorders results using a more expensive relevance model.
+
+If you've installed the reranker battery, add reranking to your search endpoint:
+
+```ts
+// Execute search with reranking
+const engine = createUnragEngine();
+
+// Step 1: Retrieve more candidates than we need
+const retrieved = await engine.retrieve({
+  query,
+  topK: 30, // Retrieve more for reranking
+  scope: collection ? { sourceId: collection } : undefined,
+});
+
+// Step 2: Rerank to get the best results
+const reranked = await engine.rerank({
+  query,
+  candidates: retrieved.chunks,
+  topK: limit,
+  onMissingReranker: "skip", // Graceful fallback if reranker not configured
+});
+
+// Use reranked.chunks instead of retrieved.chunks
+return Response.json({
+  query,
+  results: reranked.chunks.map(/* ... */),
+  meta: {
+    totalResults: reranked.chunks.length,
+    searchTimeMs: Math.round(retrieved.durations.totalMs),
+    rerankTimeMs: Math.round(reranked.durations.rerankMs),
+    reranked: reranked.meta.rerankerName !== "none",
+  },
+});
+```
+
+The pattern is straightforward: retrieve more candidates than you need (20-50), then rerank down to your target count. This typically adds 100-300ms of latency but significantly improves result quality.
+
+See the [Reranker documentation](/docs/batteries/reranker) for installation and configuration details.
+
 ## Enhancements to consider
 
 Once your basic search works, you might want to add:
+
+**Reranking**: Improve precision by reordering results with a more expensive relevance model. See the section above and the [Reranker documentation](/docs/batteries/reranker).
 
 **Caching**: Cache embedding results for repeated queries. The embedding call is usually the slowest part.
 

@@ -84,7 +84,7 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,hsl(0,0%,2%)_70%)] opacity-45 pointer-events-none" />
 
         <div className="relative z-10 max-w-4xl mx-auto text-center translate-y-[-10%]">
-          <FeatureAnnouncement href="/docs/providers" className="mb-6" content="Third-party providers" />
+          <FeatureAnnouncement href="/docs/batteries/reranker" className="mb-6" content="Reranking retrieved results" />
 
           {/* Headline */}
           <h1

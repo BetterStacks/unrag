@@ -116,6 +116,26 @@ console.log(result.durations);
 </Step>
 </Steps>
 
+## Improving retrieval with reranking
+
+Vector similarity search is fast but imprecise. The embedding distance between a query and a chunk is a useful approximation of relevance, but it's not perfect. Chunks that are semantically related to your query might rank higher than chunks that directly answer it.
+
+Reranking addresses this with a two-stage approach. First, you retrieve a larger set of candidates using fast vector search—maybe 30 chunks instead of 10. Then you run those candidates through a reranker that directly scores each one against the query. The reranker is more expensive (it sees both the query and candidate text), but it makes much better relevance judgments.
+
+```ts
+// Stage 1: Fast vector retrieval
+const retrieved = await engine.retrieve({ query, topK: 30 });
+
+// Stage 2: Precise reranking
+const reranked = await engine.rerank({
+  query,
+  candidates: retrieved.chunks,
+  topK: 10,
+});
+```
+
+Reranking is optional and requires installing the reranker battery. The default implementation uses Cohere's rerank-v3.5 model, but you can bring your own reranker. See the [Reranker documentation](/docs/batteries/reranker) for details.
+
 ## Where RAG happens
 
 It's worth noting what Unrag doesn't do: it doesn't call an LLM, build prompts, or generate answers. The "retrieval" in RAG is what Unrag handles. The "augmented generation" part—taking retrieved chunks and using them as context for an LLM—is your application's responsibility.

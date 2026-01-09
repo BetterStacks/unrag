@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState, useCallback, type ComponentType, type SVGProps } from 'react';
 import { useQueryState, parseAsString } from 'nuqs';
 import {
+  Battery,
   Check,
   ChevronDown,
   ChevronRight,
@@ -94,6 +95,7 @@ type WizardStateV1 = {
   modules: {
     extractors: string[];
     connectors: string[];
+    batteries: string[];
   };
   defaults: {
     chunkSize: number;
@@ -132,6 +134,14 @@ type RegistryManifest = {
     types?: string[];
     docsPath?: string | null;
   }>;
+  batteries?: Array<{
+    id: string;
+    displayName?: string;
+    description?: string;
+    status?: 'available' | 'coming-soon';
+    docsPath?: string | null;
+    defaultModel?: string;
+  }>;
 };
 
 type Step = {
@@ -150,6 +160,7 @@ const STEPS: Step[] = [
   { id: 'embedding', label: 'Embeddings', icon: <Sparkles className="w-4 h-4" /> },
   { id: 'extractors', label: 'Extractors', icon: <Puzzle className="w-4 h-4" /> },
   { id: 'connectors', label: 'Connectors', icon: <Package className="w-4 h-4" /> },
+  { id: 'batteries', label: 'Batteries', icon: <Battery className="w-4 h-4" /> },
   { id: 'review', label: 'Review', icon: <Zap className="w-4 h-4" /> },
 ];
 
@@ -163,6 +174,7 @@ const DEFAULT_STATE: WizardStateV1 = {
   modules: {
     extractors: [],
     connectors: [],
+    batteries: [],
   },
   defaults: {
     chunkSize: 200,
@@ -618,6 +630,7 @@ function normalizeState(s: WizardStateV1): WizardStateV1 {
   const aliasBase = String(s.install?.aliasBase ?? DEFAULT_STATE.install.aliasBase);
   const extractors = Array.isArray(s.modules?.extractors) ? s.modules.extractors.map(String) : [];
   const connectors = Array.isArray(s.modules?.connectors) ? s.modules.connectors.map(String) : [];
+  const batteries = Array.isArray(s.modules?.batteries) ? s.modules.batteries.map(String) : [];
   const chunkSize =
     Number(s.defaults?.chunkSize ?? DEFAULT_STATE.defaults.chunkSize) || DEFAULT_STATE.defaults.chunkSize;
   const chunkOverlap =
@@ -651,7 +664,7 @@ function normalizeState(s: WizardStateV1): WizardStateV1 {
   return {
     v: 1,
     install: { installDir, storeAdapter, aliasBase },
-    modules: { extractors, connectors },
+    modules: { extractors, connectors, batteries },
     defaults: { chunkSize, chunkOverlap, topK },
     embedding: { type: embeddingType, provider: embeddingProvider, model: embeddingModel, timeoutMs: embeddingTimeoutMs },
     storage: { storeChunkContent, storeDocumentContent },
@@ -951,6 +964,84 @@ function ConnectorCard({
   );
 }
 
+function BatteryCard({
+  id,
+  displayName,
+  description,
+  status,
+  docsHref,
+  defaultModel,
+  selected,
+  onToggle,
+}: {
+  id: string;
+  displayName?: string;
+  description?: string;
+  status?: 'available' | 'coming-soon';
+  docsHref?: string | null;
+  defaultModel?: string;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  const isAvailable = status === 'available';
+
+  return (
+    <ClickableCard
+      onClick={onToggle}
+      disabled={!isAvailable}
+      className={cn(
+        'rounded-xl border p-4',
+        selected ? 'border-white/25 bg-white/[0.05]' : 'border-white/[0.08] bg-white/[0.02]',
+        isAvailable ? 'hover:border-white/20 hover:bg-white/[0.03]' : 'opacity-50 cursor-not-allowed'
+      )}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={cn(
+            'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-colors',
+            selected ? 'bg-white/10 text-white' : 'bg-white/5 text-white/40'
+          )}
+        >
+          <Battery className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-white/90">{displayName || id}</span>
+            <span
+              className={cn(
+                'text-[10px] px-2 py-0.5 rounded-full border capitalize',
+                isAvailable ? 'bg-emerald-500/10 text-emerald-400/80 border-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10'
+              )}
+            >
+              {isAvailable ? 'available' : 'coming soon'}
+            </span>
+            {isAvailable && docsHref ? (
+              <div className="ml-auto">
+                <DocsIconLink href={docsHref} label={`${displayName || id} docs`} />
+              </div>
+            ) : null}
+          </div>
+          {description && <p className="mt-1 text-sm text-white/50">{description}</p>}
+          {defaultModel && isAvailable && (
+            <div className="mt-2 flex items-center gap-2">
+              <span className="text-xs text-white/35">Default model:</span>
+              <code className="text-xs px-1.5 py-0.5 rounded bg-white/5 text-white/60 font-mono">{defaultModel}</code>
+            </div>
+          )}
+        </div>
+        <div
+          className={cn(
+            'w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-all',
+            selected ? 'border-white/40 bg-white text-black' : 'border-white/15 group-hover:border-white/25'
+          )}
+        >
+          {selected && <Check className="w-3 h-3" strokeWidth={3} />}
+        </div>
+      </div>
+    </ClickableCard>
+  );
+}
+
 function SectionHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className="mb-6">
@@ -1053,6 +1144,10 @@ export default function InstallWizardClient() {
     return (manifest?.connectors ?? []).slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
   }, [manifest]);
 
+  const availableBatteries = useMemo(() => {
+    return (manifest?.batteries ?? []).slice().sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  }, [manifest]);
+
   const extractorDocsById = useMemo(() => {
     const m = new Map<string, string | null>();
     for (const ex of manifest?.extractors ?? []) {
@@ -1140,6 +1235,7 @@ export default function InstallWizardClient() {
         EMBEDDING_PROVIDER_OPTIONS.find((p) => p.id === state.embedding.provider)?.name ?? state.embedding.provider,
       extractorCount: state.modules.extractors.length,
       connectorCount: state.modules.connectors.length,
+      batteryCount: state.modules.batteries.length,
     };
   }, [state]);
 
@@ -1214,7 +1310,7 @@ export default function InstallWizardClient() {
         />
       ) : null}
       <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[hsl(0,0%,3%)]/80 backdrop-blur-xl">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+        <div className="max-w-[1600px] mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2 text-white/60 hover:text-white/90 transition-colors">
               <ArrowLeft className="w-4 h-4" />
@@ -1223,18 +1319,7 @@ export default function InstallWizardClient() {
             <div className="w-px h-5 bg-white/10" />
             <h1 className="text-sm font-medium text-white/80">Configure Installation</h1>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={reset}
-              className="lg:hidden text-white/60 hover:text-white hover:bg-white/5"
-              aria-label="Reset to defaults"
-              title="Reset to defaults"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span className="hidden sm:inline">Reset</span>
-            </Button>
+          <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="sm"
@@ -1242,23 +1327,22 @@ export default function InstallWizardClient() {
               className="text-white/60 hover:text-white hover:bg-white/5"
             >
               <Share2 className="w-4 h-4" />
-              <span className="hidden sm:inline">{copied === 'url' ? 'Copied!' : 'Share'}</span>
+              {copied === 'url' ? 'Copied!' : 'Share'}
             </Button>
             <a
               href="/docs/getting-started/quickstart"
               target="_blank"
               className="flex items-center gap-2 text-sm text-white/60 hover:text-white/90 transition-colors"
-              aria-label="Docs"
             >
-              <span className="hidden sm:inline">Docs</span>
+              <span>Docs</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
         </div>
       </header>
 
-      <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row min-h-[calc(100vh-3.5rem)]">
-        <aside className="hidden lg:block w-64 shrink-0 border-r border-white/[0.06] p-6">
+      <div className="max-w-[1600px] mx-auto flex min-h-[calc(100vh-3.5rem)]">
+        <aside className="w-64 shrink-0 border-r border-white/[0.06] p-6">
           <div className="sticky top-20">
             <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-4">Steps</div>
             <nav className="space-y-1">
@@ -1313,82 +1397,8 @@ export default function InstallWizardClient() {
           </div>
         </aside>
 
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-visible lg:overflow-y-auto">
+        <main className="flex-1 p-8 overflow-y-auto">
           <div className="max-w-2xl">
-            {/* Mobile: step navigation */}
-            <div className="lg:hidden mb-6">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-xs font-medium uppercase tracking-wider text-white/30">Steps</div>
-                <div className="text-xs text-white/35">
-                  {currentStep + 1} / {STEPS.length}
-                </div>
-              </div>
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-                {STEPS.map((step, index) => {
-                  const isActive = index === currentStep;
-                  const isCompleted = index < currentStep;
-                  return (
-                    <button
-                      key={step.id}
-                      type="button"
-                      onClick={() => goToStep(index)}
-                      className={cn(
-                        'inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
-                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
-                        isActive
-                          ? 'border-white/25 bg-white/[0.05] text-white'
-                          : isCompleted
-                            ? 'border-white/[0.10] bg-white/[0.02] text-white/70'
-                            : 'border-white/[0.08] bg-white/[0.01] text-white/50 hover:bg-white/[0.03] hover:text-white/70'
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          'w-6 h-6 rounded-md flex items-center justify-center transition-colors shrink-0',
-                          isActive
-                            ? 'bg-white/10 text-white'
-                            : isCompleted
-                              ? 'bg-emerald-500/10 text-emerald-400'
-                              : 'bg-white/5 text-white/30'
-                        )}
-                      >
-                        {isCompleted ? <Check className="w-3.5 h-3.5" /> : step.icon}
-                      </div>
-                      <span className="whitespace-nowrap font-medium">{step.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Mobile/tablet: show live preview (desktop has right sidebar) */}
-            <div className="xl:hidden mb-8">
-              <div className="rounded-xl border border-white/[0.08] bg-black/40 p-4">
-                <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-3">Live Preview</div>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-white/50">Directory</span>
-                    <span className="font-mono text-white/80 truncate max-w-[60%]">{state.install.installDir}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-white/50">Adapter</span>
-                    <span className="text-white/80">{state.install.storeAdapter}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-white/50">Embedding</span>
-                    <span className="text-white/80 capitalize">{state.embedding.type}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-white/50">Extractors</span>
-                    <span className="text-white/80">{state.modules.extractors.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="text-white/50">Connectors</span>
-                    <span className="text-white/80">{state.modules.connectors.length}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
             {currentStepId === 'install' && (
               <div
                 className={cn(
@@ -1769,7 +1779,7 @@ export default function InstallWizardClient() {
                     </div>
                   </FieldGroup>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-3 gap-4">
                     <FieldGroup label="Chunk size">
                       <Select
                         value={String(state.defaults.chunkSize)}
@@ -2020,6 +2030,69 @@ export default function InstallWizardClient() {
               </div>
             )}
 
+            {currentStepId === 'batteries' && (
+              <div
+                className={cn(
+                  'animate-in fade-in duration-300',
+                  slideDirection === 'right' ? 'slide-in-from-right-4' : 'slide-in-from-left-4'
+                )}
+              >
+                <SectionHeader
+                  title="Optional Batteries"
+                  description="Add optional modules for improved retrieval quality and evaluation. These are vendored into your codebase for full control."
+                />
+                {!manifest ? (
+                  <div className="flex items-center justify-center h-40 text-white/40">Loading batteries...</div>
+                ) : availableBatteries.length === 0 ? (
+                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-6 text-center">
+                    <Battery className="w-8 h-8 mx-auto mb-3 text-white/20" />
+                    <div className="text-sm text-white/50">No batteries available yet.</div>
+                    <div className="mt-1 text-xs text-white/30">Batteries like rerankers and eval harnesses will appear here when available.</div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {availableBatteries.map((b) => {
+                      const id = String(b.id);
+                      return (
+                        <BatteryCard
+                          key={id}
+                          id={id}
+                          displayName={b.displayName}
+                          description={b.description}
+                          status={b.status}
+                          docsHref={b.docsPath ?? null}
+                          defaultModel={b.defaultModel}
+                          selected={state.modules.batteries.includes(id)}
+                          onToggle={() =>
+                            setState((prev) => ({
+                              ...prev,
+                              modules: { ...prev.modules, batteries: toggleInList(prev.modules.batteries, id) },
+                            }))
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+
+                {state.modules.batteries.includes('reranker') && (
+                  <div className="mt-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                        <Sparkles className="w-4 h-4 text-amber-400" />
+                      </div>
+                      <div>
+                        <div className="font-medium text-amber-400/90">Environment variable required</div>
+                        <div className="mt-1 text-sm text-amber-400/60">
+                          Set <code className="font-mono text-amber-400/80">COHERE_API_KEY</code> to enable the reranker (uses Cohere rerank-v3.5).
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {currentStepId === 'review' && (
               <div
                 className={cn(
@@ -2030,7 +2103,7 @@ export default function InstallWizardClient() {
                 <SectionHeader title="Review & Install" description="Review your configuration and generate the install command." />
 
                 <div className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
                       <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">Database</div>
                       <div className="text-lg font-medium text-white/90">{summary.adapter}</div>
@@ -2048,6 +2121,13 @@ export default function InstallWizardClient() {
                       <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">Connectors</div>
                       <div className="text-lg font-medium text-white/90">{summary.connectorCount} selected</div>
                     </div>
+                    {summary.batteryCount > 0 && (
+                      <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 col-span-2">
+                        <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">Batteries</div>
+                        <div className="text-lg font-medium text-white/90">{summary.batteryCount} selected</div>
+                        <div className="mt-1 text-xs text-white/45">{state.modules.batteries.join(', ')}</div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="rounded-xl border border-white/[0.08] bg-black/40 overflow-hidden">
@@ -2095,7 +2175,7 @@ export default function InstallWizardClient() {
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <div className="flex items-center gap-3">
                     {!presetId && (
                       <Button onClick={handleCreatePreset} disabled={creatingPreset} variant="cta">
                         {creatingPreset ? (
@@ -2154,20 +2234,17 @@ export default function InstallWizardClient() {
               </div>
             )}
 
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mt-12 pt-6 border-t border-white/[0.06]">
+            <div className="flex items-center justify-between mt-12 pt-6 border-t border-white/[0.06]">
               <Button
                 variant="ghost"
                 onClick={() => goToStep(currentStep - 1)}
                 disabled={currentStep === 0}
-                className={cn(
-                  'w-full sm:w-auto text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30',
-                  currentStep === 0 && 'hidden sm:invisible'
-                )}
+                className={cn('text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30', currentStep === 0 && 'invisible')}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Previous
               </Button>
-              <div className="flex items-center justify-center gap-1.5">
+              <div className="flex items-center gap-1.5">
                 {STEPS.map((_, index) => (
                   <button
                     key={index}
@@ -2185,7 +2262,7 @@ export default function InstallWizardClient() {
               </div>
               <Button
                 onClick={() => goToStep(currentStep + 1)}
-                className={cn('w-full sm:w-auto', currentStep === STEPS.length - 1 && 'hidden sm:invisible')}
+                className={cn(currentStep === STEPS.length - 1 && 'invisible')}
                 variant="cta"
                 size="sm"
               >
@@ -2220,6 +2297,10 @@ export default function InstallWizardClient() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-white/50">Connectors</span>
                 <span className="text-white/80">{state.modules.connectors.length}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-white/50">Batteries</span>
+                <span className="text-white/80">{state.modules.batteries.length}</span>
               </div>
             </div>
 
@@ -2280,7 +2361,7 @@ export default function InstallWizardClient() {
               </div>
             </div>
 
-            {(state.modules.extractors.length > 0 || state.modules.connectors.length > 0) && (
+            {(state.modules.extractors.length > 0 || state.modules.connectors.length > 0 || state.modules.batteries.length > 0) && (
               <div className="mt-6 pt-6 border-t border-white/[0.06]">
                 {state.modules.extractors.length > 0 && (
                   <div className="mb-4">
@@ -2306,7 +2387,7 @@ export default function InstallWizardClient() {
                   </div>
                 )}
                 {state.modules.connectors.length > 0 && (
-                  <div>
+                  <div className="mb-4">
                     <div className="text-xs text-white/30 mb-2">Connectors</div>
                     <div className="flex flex-wrap gap-1.5">
                       {state.modules.connectors.map((id) => {
@@ -2325,6 +2406,21 @@ export default function InstallWizardClient() {
                           </Link>
                         );
                       })}
+                    </div>
+                  </div>
+                )}
+                {state.modules.batteries.length > 0 && (
+                  <div>
+                    <div className="text-xs text-white/30 mb-2">Batteries</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {state.modules.batteries.map((id) => (
+                        <span
+                          key={id}
+                          className="text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-400/80 font-mono capitalize border border-emerald-500/20"
+                        >
+                          {id}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 )}
