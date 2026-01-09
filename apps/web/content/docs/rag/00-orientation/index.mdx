@@ -1,37 +1,25 @@
 ---
 title: Module 0 — Orientation
-description: A practical introduction to RAG - what you’re building, why it fails, and how to reason about quality.
-
+description: What RAG is, what it isn't, and how to think about the tradeoffs that drive production decisions.
 ---
 
-<Callout type="warn" title="Status: Draft">
-This module is a scaffold. It’s here to lock in the learning path and the vocabulary we’ll use throughout the handbook.
-</Callout>
+Before diving into implementation details, it's worth getting clear on what you're actually building. RAG is a pattern that sounds simple in a slide deck but turns out to have a lot of surface area in practice. This module establishes the vocabulary and mental models you'll use throughout the rest of the handbook.
 
-## What you’ll learn
+By the end of this module, you should be able to explain what RAG does (and doesn't do), sketch the major components of a production system, identify which use cases RAG is well-suited for, and reason about the fundamental tradeoffs between quality, latency, and cost.
 
-- What RAG is (and is not) in practical, production terms
-- The end-to-end system shape: ingestion → retrieval → context building → generation
-- How to think about the core tradeoffs (quality vs latency vs cost)
+## Chapters in this module
 
-## Prerequisites
+**Chapter 1: What is RAG?** defines RAG in operational terms. You'll understand the retrieve-augment-generate pattern, see why teams choose it over alternatives like fine-tuning, and preview the failure modes that make RAG harder than it looks.
 
-None. If you can read API pseudocode, you can follow along.
+**Chapter 2: Anatomy of a production RAG system** walks through the components you'll need to build: ingestion pipelines, retrieval systems, rerankers, context builders, and the monitoring infrastructure that tells you when things break.
 
-## Chapters
+**Chapter 3: Use cases and non-goals** helps you match RAG patterns to product requirements. Documentation search, support copilots, and internal knowledge assistants have different needs. Knowing what shape your system should take saves you from building the wrong thing well.
+
+**Chapter 4: The RAG triangle** introduces the core tradeoff that drives most architecture decisions. Quality, latency, and cost pull against each other, and understanding where the knobs are helps you make intentional choices rather than discovering constraints in production.
 
 <Cards>
   <Card title="1. What is RAG?" href="/docs/rag/00-orientation/01-what-is-rag" />
   <Card title="2. Anatomy of a production RAG system" href="/docs/rag/00-orientation/02-anatomy-of-a-production-rag-system" />
   <Card title="3. Use cases and non-goals" href="/docs/rag/00-orientation/03-use-cases-and-non-goals" />
-  <Card title="4. The RAG triangle: quality, latency, cost" href="/docs/rag/00-orientation/04-the-rag-triangle-quality-latency-cost" />
+  <Card title="4. The RAG triangle" href="/docs/rag/00-orientation/04-the-rag-triangle-quality-latency-cost" />
 </Cards>
-
-## Next
-
-Start with the first chapter:
-
-<Cards>
-  <Card title="Next: What is RAG?" href="/docs/rag/00-orientation/01-what-is-rag" />
-</Cards>
-

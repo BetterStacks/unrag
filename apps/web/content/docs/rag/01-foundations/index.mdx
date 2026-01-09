@@ -1,21 +1,23 @@
 ---
 title: Module 1 — Foundations
-description: The core primitives behind RAG - embeddings, chunking, metadata, and indexing—explained without framework assumptions.
-
+description: The core primitives behind RAG—embeddings, chunking, metadata, and indexing—explained without framework assumptions.
 ---
 
-<Callout type="warn" title="Status: Draft">
-This module is a scaffold. It will become the shared vocabulary used in the rest of the handbook.
-</Callout>
+Before you can build a RAG system that works, you need to understand the primitives it's built on. This module covers the foundational concepts that everything else depends on: how text becomes searchable, how documents get split into retrievable units, how metadata enables filtering and permissions, and how indexes make search fast.
 
-## What you’ll learn
+These concepts are framework-agnostic. Whether you use a hosted vector database, Postgres with pgvector, or something else entirely, the underlying ideas are the same. Understanding them helps you make better decisions and debug problems when they arise.
 
-- What embeddings do (and what they do not do)
-- Why chunking is an information-retrieval decision, not a formatting choice
-- How metadata + filtering relate to permissions and product requirements
-- The basics of approximate nearest neighbor search and recall/latency tradeoffs
+## Chapters in this module
 
-## Chapters
+**Chapter 1: Embeddings and semantic search** explains what embeddings are, how they enable similarity search, and why "semantic" search isn't magic. You'll understand what embedding models can and can't do, how to think about similarity scores, and the common failure modes that trip up teams who treat embeddings as black boxes.
+
+**Chapter 2: Chunking foundations** covers why you split documents into smaller pieces and how that decision affects everything downstream. Chunking isn't just about fitting content into context windows—it's about creating units that can be meaningfully retrieved and matched to queries.
+
+**Chapter 3: Metadata, filtering, and permissions** shows how metadata turns a flat index into something useful for real applications. You'll see how to attach information to chunks, filter results by criteria beyond similarity, and implement permission systems that ensure users only see content they're allowed to access.
+
+**Chapter 4: Indexing and ANN search** explains how vector databases actually work. You'll understand the tradeoff between search speed and accuracy, how different index types (HNSW, IVF) make different tradeoffs, and how to tune index parameters for your workload.
+
+**Chapter 5: Score calibration and thresholds** addresses one of the most common sources of confusion: what do similarity scores actually mean? You'll learn why scores from different models aren't comparable, how to set meaningful thresholds, and how to avoid the trap of treating scores as probabilities.
 
 <Cards>
   <Card title="1. Embeddings and semantic search" href="/docs/rag/01-foundations/01-embeddings-and-semantic-search" />
@@ -23,11 +25,5 @@ This module is a scaffold. It will become the shared vocabulary used in the rest
   <Card title="3. Metadata, filtering, and permissions" href="/docs/rag/01-foundations/03-metadata-filtering-and-permissions" />
   <Card title="4. Indexing and ANN search" href="/docs/rag/01-foundations/04-indexing-and-ann-search" />
   <Card title="5. Score calibration and thresholds" href="/docs/rag/01-foundations/05-score-calibration-and-thresholds" />
-</Cards>
-
-## Next
-
-<Cards>
-  <Card title="Next: Embeddings and semantic search" href="/docs/rag/01-foundations/01-embeddings-and-semantic-search" />
 </Cards>
 

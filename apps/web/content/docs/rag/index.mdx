@@ -1,36 +1,40 @@
 ---
 title: RAG Handbook
-description: Guide to building RAG systems
-
+description: A practical guide to building retrieval-augmented generation systems that work in production.
 ---
 
-<Callout type="warn" title="Status: Draft">
-This handbook is being written in public. The structure is stable, but many chapters are stubs that outline what will be covered.
-</Callout>
+Most teams building with LLMs eventually need to ground the model's responses in their own data. The standard approach is Retrieval-Augmented Generation: you search your content for relevant information, inject it into the model's context, and generate an answer that's informed by what you actually know rather than what the model was trained on.
+
+The concept is simple. The execution is where things get interesting.
+
+This handbook walks through RAG from first principles to production operations. It covers the decisions you'll make (chunking strategies, embedding models, retrieval algorithms, reranking, prompt design), the tradeoffs behind those decisions (quality vs latency vs cost), and the failure modes you'll encounter in practice (false positives, hallucinations, stale data, permission leaks).
+
+The goal is to help you understand RAG deeply enough to build systems that actually work, debug them when they don't, and improve them over time.
 
 ## Who this is for
 
-- **Beginners** building their first RAG system and trying to understand the moving parts.
-- **Teams shipping to production** who need reliability, evaluation, security, and cost control.
+This handbook assumes you're comfortable reading code and have some familiarity with LLMs, but it doesn't assume prior RAG experience. If you're building your first retrieval system, start from the beginning. If you're debugging a production system that's misbehaving, jump to the module that matches your problem.
 
-## How to read this book (linear-first)
+The material progresses from foundational concepts through increasingly production-focused topics. Early modules explain what RAG is and how the pieces fit together. Later modules cover evaluation, security, cost control, and operational patterns that matter when real users depend on your system.
 
-This handbook has one main “spine” that starts at Module 0 and ends at Module 8. Each module has an overview page with the next steps.
+## How to use this book
 
-If you want a faster route, use one of these reading paths:
+The handbook is organized as a linear progression: Module 0 through Module 8, plus an appendix of reference material. Each module builds on concepts from earlier modules, so reading in order works well if you're learning RAG from scratch.
 
-- **Beginner track**: Module 0 → Module 4, then skim Module 6 and come back later.
-- **Production track**: Module 0 → Module 1 → Module 4 → Module 7 → Module 8, with targeted dips into Module 2–6 as needed.
+If you're looking for specific guidance, here are two common paths:
 
-## About Unrag examples (optional)
+**Learning path**: Start with Module 0 (Orientation) and Module 1 (Foundations) to understand the core concepts. Then work through Module 2 (Data and Ingestion) and Module 3 (Chunking) to understand how content gets into the system. Module 4 (Retrieval) covers how to get it back out. You can skim the later modules and return when you need them.
 
-When examples use Unrag, they will be clearly marked as **one concrete implementation** of the general idea. You should be able to apply the same patterns with any stack.
+**Production debugging path**: If you're already running a RAG system and hitting problems, start with Module 0 to calibrate vocabulary, then jump to Module 7 (Evaluation) to set up measurement. From there, use the evaluation results to identify which module addresses your specific issues (chunking, retrieval, reranking, or generation).
 
-## Start here
+## About the examples
+
+When examples appear, they're written to illustrate the general concept rather than any specific framework. When an example uses Unrag specifically, it's marked as one concrete implementation of the pattern. You should be able to apply the same ideas with any RAG stack.
+
+## Start reading
 
 <Cards>
   <Card title="Module 0: Orientation" href="/docs/rag/00-orientation">
-    What RAG is, what it isn’t, and what “production-grade” really means.
+    What RAG is, what problems it solves, and how to think about the tradeoffs
   </Card>
 </Cards>
-
