@@ -1,0 +1,29 @@
+---
+title: "3. Use cases and non-goals"
+description: Choose the right RAG shape for your product and avoid mismatched expectations.
+
+---
+
+<Callout type="warn" title="Status: Stub">
+This chapter is a stub. It will become a decision guide: use case → recommended retrieval + UX patterns.
+</Callout>
+
+## Core use cases
+
+- **Docs search** (query → ranked passages → user clicks)
+- **Support copilot** (query → grounded response + citations)
+- **Internal knowledge assistant** (permissions-heavy, mixed sources, high risk)
+- **Codebase assistant** (structure-aware chunking, symbol-level retrieval)
+
+## Non-goals / red flags
+
+- “We want perfect correctness without evaluation”
+- “We’ll just retrieve everything and let the model figure it out”
+- “We can skip access control because it’s internal”
+
+## Output formats and UX implications
+
+- Snippets vs answers
+- Citations and “open source” links
+- “I don’t know” behavior and clarifying questions
+

@@ -1,0 +1,22 @@
+---
+title: "2. Ingestion pipelines"
+description: Batch vs streaming ingestion, idempotency, backfills, and reliable processing.
+
+---
+
+<Callout type="warn" title="Status: Stub">
+This chapter is a stub.
+</Callout>
+
+## Planned topics
+
+- Idempotent ingestion contracts (stable IDs, versioning, replace vs append)
+- Batch imports vs incremental sync jobs
+- Queues and retries (and what not to retry)
+
+## Common mistakes
+
+- Creating new IDs on every sync (duplicate knowledge)
+- No backpressure (rate limits, DB saturation)
+- “At least once” without de-duplication
+

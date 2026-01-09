@@ -1,0 +1,31 @@
+---
+title: "4. The RAG triangle: quality, latency, cost"
+description: The core tradeoff that drives most architecture decisions in production RAG.
+
+---
+
+<Callout type="warn" title="Status: Stub">
+This chapter is a stub. It will define budgets, measurement, and knobs across the pipeline.
+</Callout>
+
+## The triangle
+
+- **Quality**: relevance, faithfulness, usefulness
+- **Latency**: time-to-first-token and time-to-final-answer
+- **Cost**: embedding, retrieval infra, reranking, generation tokens
+
+## Where the knobs are
+
+- Chunking (quality vs ingestion cost)
+- topK + thresholds (latency vs recall)
+- reranking (quality vs latency/cost)
+- context packing (quality vs generation cost)
+
+## The production move
+
+Make tradeoffs explicit with:
+
+- budgets (p95 latency, $ per 1k queries)
+- offline evals + online monitoring
+- fallbacks (degraded mode)
+

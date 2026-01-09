@@ -1,0 +1,22 @@
+{
+  "root": true,
+  "title": "Unrag Docs",
+  "description": "Small RAG primitives",
+  "pages": [
+    "index",
+    "changelog",
+    "getting-started",
+    "concepts",
+    "adapters",
+    "providers",
+    "embedding",
+    "extractors",
+    "connectors",
+    "batteries",
+    "eval",
+    "frameworks",
+    "guides",
+    "examples",
+    "reference"
+  ]
+}

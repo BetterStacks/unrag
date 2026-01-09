@@ -1,0 +1,26 @@
+---
+title: "3. Metadata, filtering, and permissions"
+description: Retrieval is part of your security boundary—design metadata and filters accordingly.
+
+---
+
+<Callout type="warn" title="Status: Stub">
+This chapter is a stub.
+</Callout>
+
+## Planned topics
+
+- Metadata as product semantics (tenant, workspace, doc type, freshness)
+- Filtering vs post-filtering (efficiency and leakage risk)
+- Permissions: ACLs, RLS, and “never retrieve what you can’t show”
+
+## Common mistakes
+
+- Filtering after retrieval (leaks candidates into downstream systems)
+- Encoding permissions only in prompts
+- Missing stable IDs for documents/chunks (breaks auditability and deletion)
+
+## Optional: how this maps to Unrag
+
+Unrag supports prefix scoping via `sourceId` and can be extended for richer filtering. See `/docs/concepts/metadata-and-scoping` and `/docs/guides/multi-tenant`.
+

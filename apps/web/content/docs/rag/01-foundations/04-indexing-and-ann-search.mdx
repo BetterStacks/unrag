@@ -1,0 +1,26 @@
+---
+title: "4. Indexing and ANN search"
+description: How vector search indexes work and how to pick recall/latency tradeoffs in production.
+
+---
+
+<Callout type="warn" title="Status: Stub">
+This chapter is a stub.
+</Callout>
+
+## Planned topics
+
+- Exact vs approximate nearest neighbor search
+- What “recall” means in retrieval, and how it relates to quality
+- Index choice and tuning (high level)
+
+## Common mistakes
+
+- Turning on ANN and assuming results are “good enough” without measurement
+- Comparing scores across different index/mode settings without calibration
+- Missing the “filtering + ANN” interaction
+
+## Optional: how this maps to Unrag
+
+If you’re using Postgres + pgvector, index choices like HNSW materially change latency and recall. See `/docs/concepts/performance`.
+

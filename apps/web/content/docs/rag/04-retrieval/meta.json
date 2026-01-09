@@ -1,0 +1,16 @@
+{
+  "title": "Module 4: Retrieval",
+  "description": "Candidate generation that actually works: topK/thresholds, hybrid retrieval, routing, filters, and debugging.",
+  "pages": [
+    "index",
+    "01-topk-thresholds-and-no-good-match",
+    "02-hybrid-retrieval-bm25-plus-vectors",
+    "03-query-rewriting-and-decomposition",
+    "04-routing-and-multiple-indexes",
+    "05-filtering-and-acl-safe-retrieval",
+    "06-diversity-and-deduplication",
+    "07-caching-and-performance",
+    "08-retrieval-debugging-playbook"
+  ]
+}
+

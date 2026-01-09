@@ -1,0 +1,40 @@
+---
+title: "1. What is RAG?"
+description: Define RAG in operational terms, and clarify what problems it solves (and what it doesn’t).
+
+---
+
+<Callout type="warn" title="Status: Stub">
+This chapter is a stub. It outlines the concepts and the eventual structure.
+</Callout>
+
+## The operational definition
+
+RAG is a system pattern where you:
+
+1. **Retrieve** relevant information from your own data
+2. **Augment** the model input with that information
+3. **Generate** an answer constrained by the provided context
+
+## What RAG is not
+
+- Not a guarantee of correctness
+- Not a substitute for access control or data governance
+- Not the same thing as “tools” or “agents” (though they often compose)
+
+## Why teams choose RAG
+
+- Freshness (keep answers aligned with current docs/data)
+- Grounding (reduce hallucinations by giving the model evidence)
+- Control (audit, cite sources, enforce permissions)
+
+## Common failure modes (preview)
+
+- Retrieval misses the right source (false negatives)
+- Retrieval returns plausible-but-wrong sources (false positives)
+- The model ignores the context or gets prompt-injected by it
+
+## Optional: how this maps to Unrag
+
+If you’re using Unrag, the “retrieval” step corresponds to `retrieve()` and the “augmentation” is whatever context formatting you implement. See `/docs/concepts/architecture` and `/docs/guides/use-with-chat`.
+

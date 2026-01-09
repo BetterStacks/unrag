@@ -1,0 +1,26 @@
+---
+title: "1. Embeddings and semantic search"
+description: How text becomes vectors, what similarity means, and why “semantic” retrieval fails in predictable ways.
+
+---
+
+<Callout type="warn" title="Status: Stub">
+This chapter is a stub.
+</Callout>
+
+## What you will learn (planned)
+
+- What an embedding represents and why it’s useful for retrieval
+- Similarity metrics (cosine vs dot vs L2) and what they imply
+- When embeddings are the wrong tool (exact identifiers, highly structured queries)
+
+## Common pitfalls (planned)
+
+- Mixing embedding models between ingestion and query
+- Assuming “closest vector” implies “answers the question”
+- Ignoring domain shift (your corpus language/style differs from model training)
+
+## Optional: how this maps to Unrag
+
+Unrag’s embedding providers + store adapters implement the “embed + similarity search” primitive. See `/docs/concepts/architecture` and `/docs/providers`.
+

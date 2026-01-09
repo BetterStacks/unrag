@@ -1,0 +1,14 @@
+{
+  "title": "Module 3: Chunking and representation",
+  "description": "Beyond defaults: structure-aware chunking, multi-representation indexing, and debugging retrieval quality.",
+  "pages": [
+    "index",
+    "01-choosing-chunk-size",
+    "02-structure-aware-chunking",
+    "03-token-based-sizing",
+    "04-multi-representation-indexing",
+    "05-parent-child-and-hierarchical-retrieval",
+    "06-chunking-debugging-playbook"
+  ]
+}
+

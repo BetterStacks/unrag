@@ -1,0 +1,14 @@
+{
+  "title": "Module 7: Evaluation",
+  "description": "Measure retrieval and answer quality, build datasets, run regressions, and avoid evaluation traps.",
+  "pages": [
+    "index",
+    "01-what-to-measure",
+    "02-building-eval-datasets",
+    "03-offline-evals-and-regression-testing",
+    "04-online-evaluation-and-feedback-loops",
+    "05-llm-as-judge-and-rubrics",
+    "06-debugging-with-eval-slices"
+  ]
+}
+

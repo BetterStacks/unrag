@@ -1,0 +1,17 @@
+---
+title: Failure modes
+description: Symptom → likely cause → what to test next.
+
+---
+
+<Callout type="warn" title="Status: Stub">
+This page is a stub.
+</Callout>
+
+## Planned index
+
+- “It returns irrelevant chunks” → chunking too large, poor filtering, missing reranking
+- “It misses the obvious doc” → chunking boundaries, hybrid retrieval, query rewriting
+- “It leaks data across tenants” → post-filtering, missing ACL boundary, prompt-only permissions
+- “It hallucinates when it shouldn’t” → no-good-match detection, grounding prompt, verification
+
