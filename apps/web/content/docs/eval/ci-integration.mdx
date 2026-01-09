@@ -95,11 +95,7 @@ The default thresholds from installation are intentionally conservative:
 
 ```json
 {
-  "thresholds": {
-    "hitAtK": { "min": 0.8 },
-    "recallAtK": { "min": 0.7 },
-    "mrrAtK": { "min": 0.6 }
-  }
+  "thresholds": { "min": { "hitAtK": 0.8, "recallAtK": 0.7, "mrrAtK": 0.6 } }
 }
 ```
 

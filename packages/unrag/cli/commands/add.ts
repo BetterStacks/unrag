@@ -345,6 +345,7 @@ type CliArgs = {
   outputDir?: string;
   mode?: EvalMode;
   topK?: number;
+  rerankTopK?: number;
   scopePrefix?: string;
   ingest?: boolean;
   cleanup?: EvalCleanupPolicy;
@@ -422,16 +423,17 @@ function parseArgs(argv: string[]): CliArgs {
     const a = argv[i];
     if (a === "--dataset") out.dataset = argv[++i];
     else if (a === "--baseline") out.baseline = argv[++i];
-    else if (a === "--outputDir") out.outputDir = argv[++i];
+    else if (a === "--outputDir" || a === "--output-dir") out.outputDir = argv[++i];
     else if (a === "--mode") out.mode = argv[++i] as EvalMode;
-    else if (a === "--topK") out.topK = Number(argv[++i]);
-    else if (a === "--scopePrefix") out.scopePrefix = argv[++i];
+    else if (a === "--topK" || a === "--top-k") out.topK = Number(argv[++i]);
+    else if (a === "--rerankTopK" || a === "--rerank-top-k") out.rerankTopK = Number(argv[++i]);
+    else if (a === "--scopePrefix" || a === "--scope-prefix") out.scopePrefix = argv[++i];
     else if (a === "--no-ingest") out.ingest = false;
     else if (a === "--cleanup") out.cleanup = argv[++i] as EvalCleanupPolicy;
     else if (a === "--threshold") thresholds.push(parseThresholdExpr(argv[++i] ?? ""));
     else if (a === "--ci") out.ci = true;
     else if (a === "--allow-assets") out.allowAssets = true;
-    else if (a === "--allow-non-eval-prefix") out.allowNonEvalPrefix = true;
+    else if (a === "--allow-non-eval-prefix" || a === "--allow-custom-prefix") out.allowNonEvalPrefix = true;
     else if (a === "--yes" || a === "-y") out.yes = true;
     else if (a === "--include-ndcg") out.includeNdcg = true;
     else if (a === "--help" || a === "-h") {
@@ -455,17 +457,18 @@ function printHelp() {
       "Options:",
       "  --dataset <path>                 Dataset JSON path (required)",
       "  --baseline <report.json>         Baseline report for diffing",
-      "  --outputDir <dir>                Output dir (default: .unrag/eval/runs/<ts>-<datasetId>)",
+      "  --output-dir <dir>               Output dir (default: .unrag/eval/runs/<ts>-<datasetId>)",
       "  --mode retrieve|retrieve+rerank   Override mode",
-      "  --topK <n>                        Override topK",
-      "  --scopePrefix <prefix>            Override scopePrefix",
+      "  --top-k <n>                      Override topK",
+      "  --rerank-top-k <n>               In rerank mode, retrieve N candidates before reranking (default: topK*3)",
+      "  --scope-prefix <prefix>          Override scopePrefix",
       "  --no-ingest                       Skip dataset document ingest",
       "  --cleanup none|on-success|always  Cleanup policy when ingesting",
       "  --threshold <k=v>                 Repeatable thresholds (e.g. min.recallAtK=0.75)",
       "  --ci                              CI mode (non-interactive)",
       "  --yes, -y                         Allow dangerous operations when explicitly enabled",
       "  --allow-assets                    Allow documents[].assets ingestion (advanced)",
-      "  --allow-non-eval-prefix            Allow scopePrefix outside eval:* (dangerous)",
+      "  --allow-custom-prefix             Allow scopePrefix outside eval:* (dangerous)",
       "  --include-ndcg                    Compute nDCG@k (optional)",
     ].join("\\n")
   );
@@ -512,6 +515,7 @@ async function main() {
     datasetPath,
     mode: cli.mode ?? sanitizeMode(cfg?.mode),
     topK: cli.topK ?? (typeof cfg?.topK === "number" ? cfg.topK : undefined),
+    rerankTopK: cli.rerankTopK ?? (typeof cfg?.rerankTopK === "number" ? cfg.rerankTopK : undefined),
     scopePrefix: cli.scopePrefix ?? (typeof cfg?.scopePrefix === "string" ? cfg.scopePrefix : undefined),
     ingest: cli.ingest ?? (typeof cfg?.ingest === "boolean" ? cfg.ingest : undefined),
     cleanup: cli.cleanup ?? sanitizeCleanup(cfg?.cleanup) ?? "none",

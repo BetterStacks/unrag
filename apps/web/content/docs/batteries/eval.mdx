@@ -59,23 +59,12 @@ After installation, run the sample evaluation:
 bun run unrag:eval
 ```
 
-The harness will ingest the sample documents, run the test queries, and produce metrics showing how well retrieval performed. You'll see output like:
+The harness will ingest the sample documents, run the test queries, and write report files. You'll see output like:
 
 ```
-Eval: sample-eval (2 queries)
-Mode: retrieve
-Scope: eval:sample:
-
-Ingesting 2 documents...
-Running queries...
-
-Aggregates:
-  hit@10:       1.000 (mean)
-  recall@10:    1.000 (mean)
-  precision@10: 0.143 (mean)
-  mrr@10:       1.000 (mean)
-
-Report: .unrag/eval/runs/2025-01-10T14-32-00-sample-eval/report.json
+[unrag:eval] Wrote report: .unrag/eval/runs/<timestamp>-sample/report.json
+[unrag:eval] Wrote summary: .unrag/eval/runs/<timestamp>-sample/summary.md
+[unrag:eval] Thresholds: pass
 ```
 
 ## Full documentation

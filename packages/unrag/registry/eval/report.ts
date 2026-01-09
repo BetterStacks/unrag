@@ -17,6 +17,11 @@ export type EvalReportV1 = {
   config: {
     mode: EvalMode;
     topK: number;
+    /**
+     * In `retrieve+rerank` mode, the default candidate retrieval size.
+     * If omitted, the runner default is derived per-query as `topK * 3`.
+     */
+    rerankTopK?: number;
     scopePrefix: string;
     ingest: boolean;
     cleanup: EvalCleanupPolicy;
@@ -41,6 +46,8 @@ export type EvalQueryResult = {
   id: string;
   query: string;
   topK: number;
+  /** In `retrieve+rerank` mode, how many candidates were retrieved before reranking. */
+  rerankTopK?: number;
   scopePrefix: string;
   relevant: { sourceIds: string[] };
   retrieved: {
@@ -113,6 +120,11 @@ export async function writeEvalSummaryMd(outputDir: string, report: EvalReportV1
   lines.push(`- Dataset: \`${report.dataset.id}\``);
   lines.push(`- Mode: \`${report.config.mode}\``);
   lines.push(`- topK: \`${report.config.topK}\``);
+  if (report.config.mode === "retrieve+rerank") {
+    lines.push(
+      `- rerankTopK: \`${typeof report.config.rerankTopK === "number" ? report.config.rerankTopK : "topK*3"}\``
+    );
+  }
   lines.push(`- scopePrefix: \`${report.config.scopePrefix}\``);
   lines.push(`- ingest: \`${report.config.ingest}\``);
   lines.push(`- createdAt: \`${report.createdAt}\``);
@@ -304,10 +316,11 @@ export async function writeEvalDiffMd(outputDir: string, diff: EvalDiffV1): Prom
   lines.push(``);
   lines.push(`| metric | retrieved Δ | reranked Δ |`);
   lines.push(`| --- | ---: | ---: |`);
-  lines.push(`| hit@k | ${(diff.deltas.retrieved.hitAtK ?? 0).toFixed(3)} | ${((diff.deltas.reranked?.hitAtK ?? 0) as number).toFixed(3)} |`);
-  lines.push(`| recall@k | ${(diff.deltas.retrieved.recallAtK ?? 0).toFixed(3)} | ${((diff.deltas.reranked?.recallAtK ?? 0) as number).toFixed(3)} |`);
-  lines.push(`| precision@k | ${(diff.deltas.retrieved.precisionAtK ?? 0).toFixed(3)} | ${((diff.deltas.reranked?.precisionAtK ?? 0) as number).toFixed(3)} |`);
-  lines.push(`| mrr@k | ${(diff.deltas.retrieved.mrrAtK ?? 0).toFixed(3)} | ${((diff.deltas.reranked?.mrrAtK ?? 0) as number).toFixed(3)} |`);
+  const fmt = (n: number | undefined) => (typeof n === "number" ? n.toFixed(3) : "—");
+  lines.push(`| hit@k | ${fmt(diff.deltas.retrieved.hitAtK)} | ${fmt(diff.deltas.reranked?.hitAtK)} |`);
+  lines.push(`| recall@k | ${fmt(diff.deltas.retrieved.recallAtK)} | ${fmt(diff.deltas.reranked?.recallAtK)} |`);
+  lines.push(`| precision@k | ${fmt(diff.deltas.retrieved.precisionAtK)} | ${fmt(diff.deltas.reranked?.precisionAtK)} |`);
+  lines.push(`| mrr@k | ${fmt(diff.deltas.retrieved.mrrAtK)} | ${fmt(diff.deltas.reranked?.mrrAtK)} |`);
   lines.push(``);
   if (typeof diff.deltas.p95TotalMs === "number") {
     lines.push(`- p95 total ms Δ: \`${diff.deltas.p95TotalMs.toFixed(1)}ms\``);

@@ -12,6 +12,11 @@ export type EvalDatasetV1 = {
     scopePrefix: string;
     mode?: EvalMode;
     /**
+     * In `retrieve+rerank` mode, how many candidates to retrieve before reranking.
+     * If omitted, the runner will default to `topK * 3` (clamped to at least `topK`).
+     */
+    rerankTopK?: number;
+    /**
      * Optional default thresholds (lowest precedence).
      * CLI/config should override this.
      */
@@ -38,6 +43,10 @@ export type EvalDatasetQuery = {
   query: string;
   topK?: number;
   scopePrefix?: string;
+  /**
+   * In `retrieve+rerank` mode, overrides dataset `defaults.rerankTopK` for this query.
+   */
+  rerankTopK?: number;
   relevant: {
     sourceIds: string[];
   };
@@ -125,6 +134,7 @@ export function parseEvalDataset(json: unknown): EvalDatasetV1 {
   const defaults = json.defaults;
   const scopePrefix = asNonEmptyString(defaults.scopePrefix, "$.defaults.scopePrefix");
   const topK = asOptionalNumber(defaults.topK, "$.defaults.topK");
+  const rerankTopK = asOptionalNumber(defaults.rerankTopK, "$.defaults.rerankTopK");
   const mode =
     defaults.mode === undefined
       ? undefined
@@ -169,6 +179,7 @@ export function parseEvalDataset(json: unknown): EvalDatasetV1 {
     const query = asNonEmptyString(q.query, `$.queries[${i}].query`);
     const qTopK = asOptionalNumber(q.topK, `$.queries[${i}].topK`);
     const qScopePrefix = q.scopePrefix === undefined ? undefined : asNonEmptyString(q.scopePrefix, `$.queries[${i}].scopePrefix`);
+    const qRerankTopK = asOptionalNumber(q.rerankTopK, `$.queries[${i}].rerankTopK`);
     if (!isObject(q.relevant)) throw err(`$.queries[${i}].relevant`, "must be an object");
     const relevantSourceIds = asStringArray(q.relevant.sourceIds, `$.queries[${i}].relevant.sourceIds`);
     const notes = q.notes === undefined ? undefined : asNonEmptyString(q.notes, `$.queries[${i}].notes`);
@@ -177,6 +188,7 @@ export function parseEvalDataset(json: unknown): EvalDatasetV1 {
       query,
       topK: qTopK,
       scopePrefix: qScopePrefix,
+      rerankTopK: qRerankTopK,
       relevant: { sourceIds: relevantSourceIds },
       notes,
     });
@@ -186,7 +198,13 @@ export function parseEvalDataset(json: unknown): EvalDatasetV1 {
     version: "1",
     id,
     ...(description ? { description } : {}),
-    defaults: { scopePrefix, ...(topK !== undefined ? { topK } : {}), ...(mode ? { mode } : {}), ...(thresholds ? { thresholds } : {}) },
+    defaults: {
+      scopePrefix,
+      ...(topK !== undefined ? { topK } : {}),
+      ...(mode ? { mode } : {}),
+      ...(rerankTopK !== undefined ? { rerankTopK } : {}),
+      ...(thresholds ? { thresholds } : {}),
+    },
     ...(documents ? { documents } : {}),
     queries,
   };

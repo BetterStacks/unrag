@@ -78,7 +78,8 @@ The `documents` array contains the content that will be ingested and searched:
 }
 ```
 
-Each document requires a `sourceId` and `content`. The sourceId should start with your `scopePrefix` to maintain proper isolation. Metadata is optional but can be useful if you're testing metadata-filtered retrieval.
+Each document requires a `sourceId` and **either** `content` **or** `loaderRef`.
+The sourceId should start with your `scopePrefix` to maintain proper isolation. Metadata is optional but can be useful if you're testing metadata-filtered retrieval.
 
 You can omit the `documents` array entirely if you're evaluating against content that's already indexed. In that case, make sure your `scopePrefix` matches the content you want to search, and run the eval with `--no-ingest`.
 
@@ -227,20 +228,17 @@ Each dataset can have its own scopePrefix to keep content isolated. You can run 
 
 ## Working with loaderRef
 
-If your documents come from a connector (Notion, Google Drive, etc.), you can record the original source in the document:
+If you don't want to inline document text in your dataset file (common for connector-backed corpora), you can store a **string** reference in `loaderRef` and load the content in your project-local eval script.
 
 ```json
 {
   "sourceId": "eval:notion:doc:abc123",
-  "content": "...",
-  "loaderRef": {
-    "connector": "notion",
-    "pageId": "abc123"
-  }
+  "loaderRef": "notion:pageId:abc123"
 }
 ```
 
-The `loaderRef` is purely informational—the harness doesn't use it—but it's helpful for tracing back to the original source when you need to update content or understand why a particular document was included.
+When a document uses `loaderRef`, the harness requires your script to provide a `loadDocumentByRef(ref)` hook and pass it to `runEval({ loadDocumentByRef })`.
+This keeps the dataset format simple and lets you decide how refs map to content (filesystem, connector API, etc.).
 
 ## Complete example
 

@@ -22,6 +22,11 @@ export type EvalRunArgs = {
   mode?: EvalMode;
   /** Overrides dataset defaults. */
   topK?: number;
+  /**
+   * In `retrieve+rerank` mode, overrides dataset `defaults.rerankTopK`.
+   * If omitted, the runner will default to `topK * 3` per query (clamped to at least `topK`).
+   */
+  rerankTopK?: number;
   /** Overrides dataset defaults. */
   scopePrefix?: string;
   /** If true, ingest dataset documents before running queries (default: true when dataset has documents). */
@@ -135,10 +140,21 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
   for (const q of dataset.queries) {
     const qTopK = q.topK ?? topK;
     const qScopePrefix = (q.scopePrefix ?? scopePrefix).trim();
+    const qRerankTopK =
+      mode === "retrieve+rerank"
+        ? clampRerankTopK({
+            topK: qTopK,
+            rerankTopK:
+              q.rerankTopK ??
+              args.rerankTopK ??
+              dataset.defaults.rerankTopK ??
+              qTopK * 3,
+          })
+        : undefined;
 
     const retrieved = await args.engine.retrieve({
       query: q.query,
-      topK: qTopK,
+      topK: mode === "retrieve+rerank" ? qRerankTopK : qTopK,
       scope: { sourceId: qScopePrefix },
     });
     embeddingModel = embeddingModel ?? retrieved.embeddingModel;
@@ -190,6 +206,7 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
       id: q.id,
       query: q.query,
       topK: qTopK,
+      ...(qRerankTopK ? { rerankTopK: qRerankTopK } : {}),
       scopePrefix: qScopePrefix,
       relevant: { sourceIds: q.relevant.sourceIds },
       retrieved: {
@@ -243,6 +260,9 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
     config: {
       mode,
       topK,
+      ...(mode === "retrieve+rerank" && (args.rerankTopK ?? dataset.defaults.rerankTopK) !== undefined
+        ? { rerankTopK: clampRerankTopK({ topK, rerankTopK: args.rerankTopK ?? dataset.defaults.rerankTopK! }) }
+        : {}),
       scopePrefix,
       ingest,
       cleanup,
@@ -422,3 +442,9 @@ function evaluateThresholds(args: {
   return { failures, passed: failures.length === 0 };
 }
 
+function clampRerankTopK(args: { topK: number; rerankTopK: number }): number {
+  const topK = Math.max(1, Math.floor(args.topK));
+  const requested = Math.floor(args.rerankTopK);
+  if (!Number.isFinite(requested) || requested <= 0) return topK * 3;
+  return Math.max(topK, requested);
+}

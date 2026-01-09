@@ -190,8 +190,8 @@ Start by looking at what was retrieved in both runs. The per-query reports inclu
 ```json
 {
   "id": "q_free_shipping",
-  "retrieved": ["eval:support:doc:returns", "eval:support:doc:shipping"],
-  "relevant": ["eval:support:doc:shipping"]
+  "relevant": { "sourceIds": ["eval:support:doc:shipping"] },
+  "retrieved": { "sourceIds": ["eval:support:doc:returns", "eval:support:doc:shipping"] }
 }
 ```
 
