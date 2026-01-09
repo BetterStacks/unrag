@@ -49,12 +49,17 @@ describe("core deleteDocuments", () => {
 });
 
 describe("raw-sql store adapter", () => {
-  test("upsert deletes by exact sourceId before inserting", async () => {
+  test("upsert uses ON CONFLICT (source_id) and returns canonical documentId", async () => {
     const queries: Array<{ text: string; values?: unknown[] }> = [];
+    const canonicalDocId = "11111111-1111-1111-1111-111111111111";
 
     const client = {
       query: async (text: string, values?: unknown[]) => {
         queries.push({ text, values });
+        // Return the canonical documentId from the upsert query
+        if (text.toLowerCase().includes("returning id")) {
+          return { rows: [{ id: canonicalDocId }] };
+        }
         return { rows: [] };
       },
       release: () => {},
@@ -65,11 +70,12 @@ describe("raw-sql store adapter", () => {
     } as any;
 
     const store = createRawSqlVectorStore(pool);
+    const proposedDocId = crypto.randomUUID();
 
-    await store.upsert([
+    const result = await store.upsert([
       {
         id: crypto.randomUUID(),
-        documentId: crypto.randomUUID(),
+        documentId: proposedDocId,
         sourceId: "docs:example",
         index: 0,
         content: "hello world",
@@ -80,22 +86,59 @@ describe("raw-sql store adapter", () => {
       },
     ]);
 
+    // Verify upsert returns the canonical documentId
+    expect(result).toEqual({ documentId: canonicalDocId });
+
     const normalized = queries.map((q) => q.text.trim().toLowerCase());
 
+    // Verify transaction structure
     const beginIdx = normalized.findIndex((t) => t === "begin");
-    const deleteIdx = normalized.findIndex((t) =>
-      t.includes("delete from documents where source_id = $1")
-    );
-    const insertDocIdx = normalized.findIndex((t) =>
-      t.includes("insert into documents")
-    );
-
     expect(beginIdx).toBeGreaterThanOrEqual(0);
-    expect(deleteIdx).toBeGreaterThan(beginIdx);
-    expect(insertDocIdx).toBeGreaterThan(deleteIdx);
 
-    // Ensure the delete uses the exact sourceId as the parameter.
-    expect(queries[deleteIdx]?.values).toEqual(["docs:example"]);
+    // Verify upsert by source_id with RETURNING id
+    const upsertIdx = normalized.findIndex(
+      (t) =>
+        t.includes("insert into documents") &&
+        t.includes("on conflict (source_id) do update") &&
+        t.includes("returning id")
+    );
+    expect(upsertIdx).toBeGreaterThan(beginIdx);
+
+    // Verify chunks are deleted by document_id (not documents by source_id)
+    const deleteChunksIdx = normalized.findIndex((t) =>
+      t.includes("delete from chunks where document_id = $1")
+    );
+    expect(deleteChunksIdx).toBeGreaterThan(upsertIdx);
+
+    // Verify the delete uses the canonical document id
+    expect(queries[deleteChunksIdx]?.values).toEqual([canonicalDocId]);
+
+    // Verify chunk insert uses the canonical document id
+    const insertChunkIdx = normalized.findIndex((t) =>
+      t.includes("insert into chunks")
+    );
+    expect(insertChunkIdx).toBeGreaterThan(deleteChunksIdx);
+    // Second parameter is document_id
+    expect(queries[insertChunkIdx]?.values?.[1]).toBe(canonicalDocId);
+
+    // Verify commit at the end
+    const commitIdx = normalized.findIndex((t) => t === "commit");
+    expect(commitIdx).toBeGreaterThan(insertChunkIdx);
+  });
+
+  test("upsert throws when called with empty chunks array", async () => {
+    const pool = {
+      connect: async () => ({
+        query: async () => ({ rows: [] }),
+        release: () => {},
+      }),
+    } as any;
+
+    const store = createRawSqlVectorStore(pool);
+
+    await expect(store.upsert([])).rejects.toThrow(
+      "upsert() requires at least one chunk"
+    );
   });
 
   test("delete({sourceIdPrefix}) uses prefix matching", async () => {

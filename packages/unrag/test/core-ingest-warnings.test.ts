@@ -12,7 +12,7 @@ describe("core ingest warnings", () => {
       },
       embeddingProcessing: { concurrency: 4, batchSize: 32 },
       store: {
-        upsert: async () => {},
+        upsert: async (chunks) => ({ documentId: chunks[0]?.documentId ?? "test-doc-id" }),
         query: async () => [],
         delete: async () => {},
       },

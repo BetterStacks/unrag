@@ -54,65 +54,61 @@ const toChunkRow = (chunk: Chunk) => ({
 export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
   upsert: async (chunkItems) => {
     if (chunkItems.length === 0) {
-      return;
+      throw new Error("upsert() requires at least one chunk");
     }
 
-    await db.transaction(async (tx) => {
+    return await db.transaction(async (tx) => {
       const head = chunkItems[0]!;
       const documentRow = toDocumentRow(head);
 
-      // Replace-by-sourceId: delete any previously stored document(s) for this logical id.
-      // Cascades to chunks and embeddings.
-      await tx.delete(documents).where(eq(documents.sourceId, head.sourceId));
+      // Upsert document by source_id (requires UNIQUE constraint on documents.source_id).
+      // Returns the canonical document id (existing id on conflict, or new id on insert).
+      // Using raw SQL because Drizzle's onConflictDoUpdate requires schema-level unique definition.
+      const docResult = await tx.execute<{ id: string }>(
+        sql`
+          insert into ${documents} (id, source_id, content, metadata)
+          values (${documentRow.id}::uuid, ${documentRow.sourceId}, ${documentRow.content}, ${JSON.stringify(documentRow.metadata)}::jsonb)
+          on conflict (source_id) do update set
+            content = excluded.content,
+            metadata = excluded.metadata
+          returning id
+        `
+      );
 
-      await tx
-        .insert(documents)
-        .values(documentRow)
-        .onConflictDoUpdate({
-          target: documents.id,
-          set: {
-            sourceId: documentRow.sourceId,
-            content: documentRow.content,
-            metadata: documentRow.metadata,
-          },
-        });
+      const rows = Array.isArray(docResult)
+        ? (docResult as Array<{ id: string }>)
+        : ((docResult as { rows?: Array<{ id: string }> }).rows ?? []);
 
+      const canonicalDocumentId = rows[0]?.id;
+      if (!canonicalDocumentId) {
+        throw new Error("Failed to upsert document: no id returned");
+      }
+
+      // Delete all existing chunks for this document (they will be replaced).
+      // Cascades to embeddings via FK constraint.
+      await tx.delete(chunks).where(eq(chunks.documentId, canonicalDocumentId));
+
+      // Insert new chunks and embeddings.
       for (const chunk of chunkItems) {
         const chunkRow = toChunkRow(chunk);
 
-        await tx
-          .insert(chunks)
-          .values(chunkRow)
-          .onConflictDoUpdate({
-            target: chunks.id,
-            set: {
-              content: chunkRow.content,
-              tokenCount: chunkRow.tokenCount,
-              metadata: chunkRow.metadata,
-              index: chunkRow.index,
-              sourceId: chunkRow.sourceId,
-            },
-          });
+        await tx.insert(chunks).values({
+          ...chunkRow,
+          documentId: canonicalDocumentId,
+        });
 
         if (!chunk.embedding) {
           continue;
         }
 
-        await tx
-          .insert(embeddings)
-          .values({
-            chunkId: chunk.id,
-            embedding: chunk.embedding,
-            embeddingDimension: chunk.embedding.length,
-          })
-          .onConflictDoUpdate({
-            target: embeddings.chunkId,
-            set: {
-              embedding: chunk.embedding,
-              embeddingDimension: chunk.embedding.length,
-            },
-          });
+        await tx.insert(embeddings).values({
+          chunkId: chunk.id,
+          embedding: chunk.embedding,
+          embeddingDimension: chunk.embedding.length,
+        });
       }
+
+      return { documentId: canonicalDocumentId };
     });
   },
 

@@ -15,29 +15,42 @@ const toVectorLiteral = (embedding: number[]) => `[${embedding.join(",")}]`;
 
 export const createPrismaVectorStore = (prisma: PrismaClient): VectorStore => ({
   upsert: async (chunkItems) => {
-    if (chunkItems.length === 0) return;
+    if (chunkItems.length === 0) {
+      throw new Error("upsert() requires at least one chunk");
+    }
 
     const head = chunkItems[0]!;
     const documentMetadata = sanitizeMetadata(head.metadata);
 
-    await prisma.$transaction(async (tx: { $executeRaw: (query: unknown) => Promise<unknown> }) => {
-      // Replace-by-sourceId: delete any previously stored document(s) for this logical id.
-      // Cascade removes chunks and embeddings.
-      await tx.$executeRaw(sql`delete from documents where source_id = ${head.sourceId}`);
-
-      await tx.$executeRaw(
+    return await prisma.$transaction(async (tx: {
+      $executeRaw: (query: unknown) => Promise<unknown>;
+      $queryRaw: <T>(query: unknown) => Promise<T>;
+    }) => {
+      // Upsert document by source_id (requires UNIQUE constraint on documents.source_id).
+      // Returns the canonical document id (existing id on conflict, or new id on insert).
+      const docResult = await tx.$queryRaw<Array<{ id: string }>>(
         sql`
           insert into documents (id, source_id, content, metadata)
           values (${head.documentId}::uuid, ${head.sourceId}, ${head.documentContent ?? ""}, ${
             JSON.stringify(documentMetadata)
           }::jsonb)
-          on conflict (id) do update set
-            source_id = excluded.source_id,
+          on conflict (source_id) do update set
             content = excluded.content,
             metadata = excluded.metadata
+          returning id
         `
       );
 
+      const canonicalDocumentId = docResult[0]?.id;
+      if (!canonicalDocumentId) {
+        throw new Error("Failed to upsert document: no id returned");
+      }
+
+      // Delete all existing chunks for this document (they will be replaced).
+      // Cascades to embeddings via FK constraint.
+      await tx.$executeRaw(sql`delete from chunks where document_id = ${canonicalDocumentId}::uuid`);
+
+      // Insert new chunks and embeddings.
       for (const chunk of chunkItems) {
         const chunkMetadata = sanitizeMetadata(chunk.metadata);
 
@@ -46,20 +59,13 @@ export const createPrismaVectorStore = (prisma: PrismaClient): VectorStore => ({
             insert into chunks (id, document_id, source_id, idx, content, token_count, metadata)
             values (
               ${chunk.id}::uuid,
-              ${chunk.documentId}::uuid,
+              ${canonicalDocumentId}::uuid,
               ${chunk.sourceId},
               ${chunk.index},
               ${chunk.content},
               ${chunk.tokenCount},
               ${JSON.stringify(chunkMetadata)}::jsonb
             )
-            on conflict (id) do update set
-              document_id = excluded.document_id,
-              source_id = excluded.source_id,
-              idx = excluded.idx,
-              content = excluded.content,
-              token_count = excluded.token_count,
-              metadata = excluded.metadata
           `
         );
 
@@ -72,12 +78,11 @@ export const createPrismaVectorStore = (prisma: PrismaClient): VectorStore => ({
             values (${chunk.id}::uuid, ${embeddingLiteral}::vector, ${
             chunk.embedding.length
           })
-            on conflict (chunk_id) do update set
-              embedding = excluded.embedding,
-              embedding_dimension = excluded.embedding_dimension
           `
         );
       }
+
+      return { documentId: canonicalDocumentId };
     });
   },
 

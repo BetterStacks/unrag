@@ -20,7 +20,7 @@ const vector = (name: string, dimensions?: number) =>
 
 export const documents = pgTable("documents", {
   id: uuid("id").primaryKey(),
-  sourceId: text("source_id").notNull(),
+  sourceId: text("source_id").notNull().unique(),
   content: text("content").notNull(),
   metadata: jsonb("metadata").$type<Record<string, unknown> | null>(),
   createdAt: timestamp("created_at", { mode: "date", withTimezone: false }).defaultNow(),

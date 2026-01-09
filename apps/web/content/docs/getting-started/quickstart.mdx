@@ -53,7 +53,7 @@ create extension if not exists vector;
 -- Create tables
 create table documents (
   id uuid primary key,
-  source_id text not null,
+  source_id text not null unique,
   content text not null,
   metadata jsonb,
   created_at timestamp default now()
@@ -80,6 +80,9 @@ create table embeddings (
 -- Add indexes for common queries
 create index if not exists chunks_source_id_idx on chunks(source_id);
 create index if not exists documents_source_id_idx on documents(source_id);
+-- Recommended for vector search performance (pgvector 0.5.0+):
+create index if not exists embeddings_hnsw_idx
+on embeddings using hnsw (embedding vector_cosine_ops);
 ```
 
 You can verify your database setup is correct by running `bunx unrag doctor --db`. This checks that pgvector is enabled, tables exist, and indexes are present.

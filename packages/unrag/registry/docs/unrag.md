@@ -31,7 +31,7 @@ You are responsible for migrations. Create these tables:
 ```sql
 create table documents (
   id uuid primary key,
-  source_id text not null,
+  source_id text not null unique,
   content text not null,
   metadata jsonb,
   created_at timestamp default now()
@@ -66,6 +66,8 @@ Recommended indexes:
 ```sql
 create index if not exists chunks_source_id_idx on chunks(source_id);
 create index if not exists documents_source_id_idx on documents(source_id);
+create index if not exists embeddings_hnsw_idx
+on embeddings using hnsw (embedding vector_cosine_ops);
 ```
 
 <!-- __UNRAG_ADAPTER_NOTES__ -->

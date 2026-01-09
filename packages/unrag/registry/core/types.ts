@@ -567,8 +567,15 @@ export type VectorStore = {
    * The store treats `chunks[0].sourceId` as the logical identifier for the document.
    * Calling `upsert()` multiple times with the same `sourceId` replaces the previously
    * stored content for that document (including when the chunk count changes).
+   *
+   * Returns the canonical `documentId` for the logical document. On first ingest this
+   * is a newly generated ID; on subsequent ingests for the same `sourceId` it returns
+   * the existing (stable) document ID.
+   *
+   * **Important**: This method requires a UNIQUE constraint on `documents.source_id`
+   * to guarantee idempotent upsert semantics under concurrent writes.
    */
-  upsert: (chunks: Chunk[]) => Promise<void>;
+  upsert: (chunks: Chunk[]) => Promise<{ documentId: string }>;
   query: (params: {
     embedding: number[];
     topK: number;

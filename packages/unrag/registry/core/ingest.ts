@@ -635,13 +635,13 @@ export const ingest = async (
   const embeddingMs = now() - embeddingStart;
   const storageStart = now();
 
-  await config.store.upsert(embeddedChunks);
+  const { documentId: canonicalDocumentId } = await config.store.upsert(embeddedChunks);
 
   const storageMs = now() - storageStart;
   const totalMs = now() - totalStart;
 
   return {
-    documentId,
+    documentId: canonicalDocumentId,
     chunkCount: embeddedChunks.length,
     embeddingModel: config.embedding.name,
     warnings,
