@@ -1,0 +1,147 @@
+---
+title: Understanding Metrics
+description: What each retrieval metric measures, when to use it, and how to interpret the numbers in context.
+---
+
+Metrics are only useful if you understand what they're measuring. A recall@10 of 0.85 sounds good, but whether it's actually good depends on your use case, your baseline, and what you're optimizing for. This page explains each metric the eval harness produces, when each one matters, and how to interpret them in the context of retrieval quality.
+
+## The four metrics
+
+The eval harness computes four standard retrieval metrics for each query: hit@k, recall@k, precision@k, and MRR@k. Each measures something different, and together they give you a well-rounded picture of retrieval quality.
+
+### Hit@k (hit rate)
+
+Hit@k asks the simplest question: did we find at least one relevant document in the top k results?
+
+```
+hit@k = 1 if any relevant document was retrieved in top k, else 0
+```
+
+This is a binary metric per query—either the retrieval succeeded at finding something relevant, or it completely missed. When you average hit@k across all queries, you get the percentage of queries where retrieval found at least one relevant result.
+
+Hit@k is useful as a sanity check. If your hit@10 is below 0.90, you have a significant number of queries that return zero relevant content in the top 10. That's a problem regardless of what other metrics say—users asking those questions are getting completely unhelpful results.
+
+Because hit@k is binary, it doesn't distinguish between "found the one relevant document at position 1" and "found one of three relevant documents at position 10." For that nuance, you need recall and MRR.
+
+### Recall@k
+
+Recall@k measures what fraction of the relevant documents were actually retrieved:
+
+```
+recall@k = (# of relevant docs retrieved in top k) / (# of relevant docs total)
+```
+
+If a query has three relevant documents and retrieval found two of them in the top 10, recall@10 is 0.67. If it found all three, recall@10 is 1.0. If it found none, recall@10 is 0.0.
+
+Recall is crucial when you need comprehensive coverage. If you're building context for an LLM and there are multiple documents that together form a complete answer, you want high recall. Missing one of the relevant documents means the LLM is working with incomplete information.
+
+Note that recall doesn't care about precision—you could retrieve 100 documents, have terrible precision, but still achieve perfect recall if all the relevant ones are in there somewhere.
+
+### Precision@k
+
+Precision@k measures what fraction of retrieved results were actually relevant:
+
+```
+precision@k = (# of relevant docs in top k) / k
+```
+
+If you retrieve 10 results and 3 are relevant, precision@10 is 0.30. Precision tells you about the signal-to-noise ratio in your results.
+
+Precision matters when you're showing results directly to users or when you have limited context budget. If you can only fit 5 chunks in your LLM prompt, you want those 5 to be highly relevant. High precision means less noise for the user to wade through (or for the LLM to get confused by).
+
+In practice, precision@k is often low even when retrieval is working well. If a query has one relevant document and you retrieve 10 results, precision@10 can't exceed 0.10. This doesn't mean retrieval is bad—it means you're retrieving more results than there are relevant documents. That's often intentional, especially when you want to ensure high recall.
+
+### MRR@k (Mean Reciprocal Rank)
+
+MRR@k measures how early the first relevant document appears:
+
+```
+reciprocal_rank = 1 / (position of first relevant result)
+MRR@k = average reciprocal_rank across all queries
+```
+
+If the first relevant document is at position 1, the reciprocal rank is 1.0. At position 2, it's 0.5. At position 10, it's 0.1. If no relevant document appears in the top k, the reciprocal rank is 0.
+
+MRR captures the intuition that finding a relevant document at position 1 is much better than finding it at position 10, even though both count as a "hit." A high MRR means your most relevant results tend to appear near the top of the list.
+
+MRR is particularly useful for applications where users expect the first result to be the best one. Search interfaces, autocomplete, and single-answer retrieval all benefit from high MRR.
+
+## Choosing what to optimize
+
+Different use cases prioritize different metrics. Understanding your use case helps you know which metrics matter most.
+
+**For search interfaces**, MRR and precision matter most. Users scan from the top, and every irrelevant result is friction. You want the first few results to be highly relevant, and you'd rather show fewer results than pad with marginal matches.
+
+**For LLM context building**, recall often matters most. You want to capture all relevant information, even if it means including some noise. The LLM can filter out irrelevant content, but it can't synthesize information that wasn't retrieved.
+
+**For RAG with limited context windows**, precision and recall both matter. You want comprehensive coverage (high recall) within a tight budget (need high precision to avoid wasting tokens on irrelevant content). This tension is why reranking helps—you retrieve broadly for recall, then rerank for precision.
+
+**For support chatbots**, hit rate is a good primary metric. If the system can't find anything relevant, the interaction fails completely. Getting partial coverage is better than missing entirely.
+
+## Interpreting aggregate metrics
+
+The eval report shows aggregate metrics across all queries, typically as mean and median values. How you interpret these depends on what you're comparing against.
+
+### Absolute interpretation
+
+Without context, these rough benchmarks can help orient you:
+
+For **hit@10**, anything below 0.90 suggests systemic problems. Most queries should find at least one relevant document. If 20% of queries miss entirely, you have chunking issues, embedding mismatches, or dataset problems.
+
+For **recall@10**, above 0.80 is solid for most applications. Above 0.90 is excellent. Below 0.70 means you're missing a significant fraction of relevant content.
+
+For **precision@10**, interpretation depends heavily on how many relevant documents exist per query. If most queries have 1-2 relevant documents, precision@10 of 0.15-0.25 is typical and not concerning. If queries have 5+ relevant documents, you'd expect higher precision.
+
+For **MRR@10**, above 0.80 means relevant content usually appears in the top 2 positions. Above 0.90 means it's usually first. Below 0.60 means users often have to scan down the list to find what they need.
+
+### Relative interpretation
+
+Absolute numbers are less important than changes over time. If your recall@10 drops from 0.85 to 0.78 after a configuration change, that's a 8% regression regardless of whether 0.85 was "good" in absolute terms.
+
+This is why baseline comparison matters. The eval harness can diff two runs and show you exactly which queries improved, which degraded, and by how much. A small change in aggregate numbers might mask big swings in individual queries.
+
+## Metrics and reranking
+
+When you run in `retrieve+rerank` mode, the harness produces two sets of metrics: one for retrieval alone, and one after reranking. This lets you measure how much reranking helps.
+
+A typical pattern: retrieval has good recall but mediocre MRR, and reranking significantly improves MRR while maintaining recall. The reranker doesn't find new content—it reorders what was retrieved—so recall stays the same, but the most relevant items move to the top.
+
+If reranking doesn't improve your metrics, consider whether:
+
+1. Your retrieval is already very good (reranking has less room to help)
+2. Your queries are simple and embedding similarity is sufficient
+3. The reranker model isn't suited to your domain
+4. You're not retrieving enough candidates before reranking
+
+## Per-query analysis
+
+Aggregate metrics hide important details. A recall@10 of 0.85 could mean "every query has 85% recall" or "half the queries have perfect recall and half are terrible." The per-query breakdown in the report lets you find the problem queries.
+
+When investigating low-performing queries, look at what was retrieved versus what was expected. Common patterns include:
+
+**Wrong content type**: The query asks about feature X, but retrieval returns marketing content about X instead of documentation. This suggests your content needs better organization or your chunks are mixing different types of content.
+
+**Keyword mismatch**: The query uses different words than the relevant document. "How do I cancel my subscription?" matches documents about "membership" that never use the word "subscription." This is an embedding model limitation—consider adding query expansion or synonyms to your content.
+
+**Overly broad chunks**: The relevant content is buried in a long chunk that's mostly about something else. The embedding represents the whole chunk, which dilutes the relevance signal. Try smaller chunks or different chunking boundaries.
+
+**Missing content**: The document that should be relevant doesn't exist in your corpus. No amount of tuning will fix retrieval for content that's not there. This is a dataset or content gap, not a retrieval problem.
+
+## The metrics aren't everything
+
+Metrics tell you how well your system matches your ground truth labels. They don't tell you whether those labels are correct, whether your queries are representative, or whether high recall actually translates to better user experience.
+
+Treat metrics as a signal, not a goal. Improving recall from 0.80 to 0.85 is only valuable if it translates to better outcomes for your users. Sometimes the queries that matter most aren't well represented in your eval dataset. Sometimes a metric improvement comes from overfitting to your test set in ways that don't generalize.
+
+The value of evaluation is in systematic comparison—understanding whether changes help or hurt—not in achieving a particular number. Keep your ground truth accurate, keep your queries representative, and use the metrics to guide decisions rather than as ends in themselves.
+
+## Next steps
+
+<Cards>
+  <Card title="Running Evals" href="/docs/eval/running-evals">
+    All the configuration options for customizing eval behavior
+  </Card>
+  <Card title="CI Integration" href="/docs/eval/ci-integration">
+    Use metrics for automated quality gating
+  </Card>
+</Cards>

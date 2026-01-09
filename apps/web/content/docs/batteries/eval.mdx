@@ -1,0 +1,96 @@
+---
+title: Eval Harness
+description: Measure and improve retrieval quality with deterministic evaluation, metrics, and CI integration.
+---
+
+<Callout type="warn">
+Evaluation is currently **experimental**. It’s safe to use, but expect some CLI flags, report fields, and defaults to change as the harness matures.
+</Callout>
+
+The eval harness is a battery that adds retrieval evaluation capabilities to your Unrag installation. It gives you a structured way to define test datasets, run your retrieval pipeline against them, compute standard metrics (hit@k, recall@k, precision@k, MRR@k), and track quality changes over time.
+
+Unlike the reranker battery which adds a new method to your engine, the eval harness is primarily a development and CI tool. You use it to measure how well your retrieval works, catch regressions before they reach production, and make informed decisions when tuning chunking, embeddings, or adding reranking.
+
+## Installing the eval battery
+
+```bash
+bunx unrag@latest add battery eval
+```
+
+This creates several files:
+
+<Files>
+  <Folder name="lib/unrag" defaultOpen>
+    <Folder name="eval">
+      <File name="index.ts" />
+      <File name="dataset.ts" />
+      <File name="metrics.ts" />
+      <File name="runner.ts" />
+      <File name="report.ts" />
+    </Folder>
+  </Folder>
+  <Folder name=".unrag/eval" defaultOpen>
+    <Folder name="datasets" defaultOpen>
+      <File name="sample.json" />
+    </Folder>
+    <File name="config.json" />
+  </Folder>
+  <Folder name="scripts" defaultOpen>
+    <File name="unrag-eval.ts" />
+  </Folder>
+</Files>
+
+It also adds two npm scripts to your `package.json`:
+
+```json
+{
+  "scripts": {
+    "unrag:eval": "bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json",
+    "unrag:eval:ci": "bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json --ci"
+  }
+}
+```
+
+## Running your first eval
+
+After installation, run the sample evaluation:
+
+```bash
+bun run unrag:eval
+```
+
+The harness will ingest the sample documents, run the test queries, and write report files. You'll see output like:
+
+```
+[unrag:eval] Wrote report: .unrag/eval/runs/<timestamp>-sample/report.json
+[unrag:eval] Wrote summary: .unrag/eval/runs/<timestamp>-sample/summary.md
+[unrag:eval] Thresholds: pass
+```
+
+## Full documentation
+
+The eval harness is a substantial feature with its own documentation section covering everything from dataset design to CI integration:
+
+<Cards>
+  <Card title="Evaluation Overview" href="/docs/eval">
+    Why retrieval evaluation matters and how the harness works
+  </Card>
+  <Card title="Getting Started" href="/docs/eval/getting-started">
+    Complete setup guide with your first evaluation
+  </Card>
+  <Card title="Dataset Format" href="/docs/eval/datasets">
+    How to structure documents, queries, and ground truth
+  </Card>
+  <Card title="Understanding Metrics" href="/docs/eval/metrics">
+    What each metric measures and how to interpret results
+  </Card>
+  <Card title="Running Evals" href="/docs/eval/running-evals">
+    All configuration options and CLI flags
+  </Card>
+  <Card title="CI Integration" href="/docs/eval/ci-integration">
+    Automated quality gates and threshold checking
+  </Card>
+  <Card title="Comparing Runs" href="/docs/eval/comparing-runs">
+    Baseline diffs and tracking changes over time
+  </Card>
+</Cards>

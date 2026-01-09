@@ -284,6 +284,60 @@ describe("unrag@latest init", () => {
     expect(pkg.dependencies?.ai).toBeTruthy();
     expect(pkg.dependencies?.["@ai-sdk/openai"]).toBeTruthy();
   });
+
+  test("installs batteries from preset (eval) as part of init", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "proj",
+      private: true,
+      type: "module",
+      dependencies: {},
+    });
+
+    process.chdir(runDir);
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      return new Response(
+        JSON.stringify({
+          version: 1,
+          createdAt: new Date().toISOString(),
+          install: { installDir: "lib/unrag", storeAdapter: "drizzle", aliasBase: "@unrag" },
+          modules: { extractors: [], connectors: [], batteries: ["eval"] },
+          config: {
+            defaults: { chunking: { chunkSize: 200, chunkOverlap: 40 }, retrieval: { topK: 8 } },
+            embedding: { provider: "ai", config: { type: "text", model: "openai/text-embedding-3-small", timeoutMs: 15000 } },
+            engine: { storage: { storeChunkContent: true, storeDocumentContent: true } },
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } }
+      );
+    }) as any;
+
+    try {
+      await initCommand([
+        "--preset",
+        "https://example.com/preset.json",
+        "--no-install",
+      ]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    // Battery module code should be vendored.
+    expect(await pathExists(path.join(runDir, "lib/unrag", "eval", "index.ts"))).toBe(true);
+
+    // Eval scaffolding should be created.
+    expect(await pathExists(path.join(runDir, ".unrag/eval/datasets/sample.json"))).toBe(true);
+    expect(await pathExists(path.join(runDir, ".unrag/eval/config.json"))).toBe(true);
+    expect(await pathExists(path.join(runDir, "scripts/unrag-eval.ts"))).toBe(true);
+
+    const unragJson = await readJson<any>(path.join(runDir, "unrag.json"));
+    expect(unragJson.batteries).toEqual(["eval"]);
+
+    const pkg = await readJson<any>(path.join(runDir, "package.json"));
+    expect(pkg.scripts?.["unrag:eval"]).toBeTruthy();
+    expect(pkg.scripts?.["unrag:eval:ci"]).toBeTruthy();
+  });
 });
 
 

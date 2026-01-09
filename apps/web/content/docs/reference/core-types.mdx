@@ -177,6 +177,15 @@ type IngestWarning =
     };
 ```
 
+The `stage` field in `asset_processing_error` indicates where the failure occurred:
+
+| Stage | Description |
+|-------|-------------|
+| `fetch` | Failed to fetch URL-based asset data (applies to extractors and image embedding) |
+| `extract` | Extractor threw an error while processing asset bytes |
+| `embed` | Embedding provider threw an error |
+| `unknown` | Fallback for unexpected error locations |
+
 **Recommended practice**: treat warnings as observability signals.
 
 ```ts

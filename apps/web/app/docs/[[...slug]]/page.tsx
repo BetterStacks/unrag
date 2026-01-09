@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 import { getMDXComponents } from '@/mdx-components';
 import type { Metadata } from 'next';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
+import SystemBanner from '@/components/ui/system-banner';
 
 export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   const params = await props.params;
@@ -16,9 +17,19 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   if (!page) notFound();
 
   const MDX = page.data.body;
+  const slug = params.slug ?? [];
+  const isExperimentalFeature =
+    slug[0] === 'eval' 
+    || (slug[0] === 'batteries' && slug[1] === 'eval');
 
   return (
     <DocsPage toc={page.data.toc} full={page.data.full}>
+      <SystemBanner
+        text="Experimental Feature"
+        color="bg-amber-600"
+        size="xs"
+        show={isExperimentalFeature}
+      />
       <DocsTitle>{page.data.title}</DocsTitle>
       <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
