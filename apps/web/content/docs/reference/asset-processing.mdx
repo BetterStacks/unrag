@@ -187,7 +187,12 @@ export type AssetProcessingEvent =
 
 ## FetchConfig
 
-Controls how Unrag fetches assets when they're provided as URLs.
+Controls how Unrag fetches assets when they're provided as URLs. This applies to:
+
+- **Extractors**: PDFs, audio, video, and other files fetched before extraction
+- **Image embedding**: When using a multimodal embedding provider, image URLs are fetched server-side before being passed to the embedding model
+
+This ensures URL-based assets go through consistent security policies (HTTPS-only, allowlist, timeouts) regardless of how they're processed.
 
 ```ts
 type FetchConfig = {
@@ -231,6 +236,10 @@ type FetchConfig = {
 
 <Callout type="warn">
 For production deployments, always configure `allowedHosts` to prevent server-side request forgery (SSRF). Only allow hosts you trust, such as your CDN or Notion's asset domains.
+</Callout>
+
+<Callout>
+**Image embedding security**: When multimodal embedding is enabled, image URLs are fetched server-side using these same settings—the URL is never passed directly to the embedding provider. This prevents internal/signed URLs from being leaked to third-party APIs.
 </Callout>
 
 ## PdfLlmExtractionConfig
