@@ -1,5 +1,20 @@
 # unrag
 
+## 0.2.9
+
+### Minor Changes
+
+- Added Evaluation harness battery for retrieval quality measurement _(experimental)_. This new eval module is installable via `unrag add battery eval`. It provides systematic, reproducible metrics for measuring and tracking retrieval quality:
+  - Dataset format (`EvalDatasetV1`) for defining documents, queries, and ground truth relevance labels
+  - Core metrics: Precision@K, Recall@K, MRR, MAP, and NDCG
+  - `runEval()` function to execute evaluations with optional reranking pass
+  - JSON and Markdown report generation with `writeEvalReport()` and `writeEvalSummaryMd()`
+  - Diff comparison between runs via `diffEvalReports()` for tracking regressions
+  - Configurable thresholds with `--fail-below` for CI integration
+  - Comprehensive documentation at `/docs/eval`
+- Batteries now included in preset installs. The `unrag init --preset` flow now supports installing batteries (like `eval` and `reranker`) alongside extractors and connectors.
+- Resolved an issue where image URLs passed to multi-modal embedding were not being fetched through the configured fetch policy, causing failures when embedding remote images. Image URLs are now properly resolved to bytes via getAssetBytes() before embedding.
+
 ## 0.2.8
 
 ### Minor Changes
