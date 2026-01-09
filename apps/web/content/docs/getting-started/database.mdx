@@ -142,3 +142,14 @@ DATABASE_URL="postgresql://user:password@mydb.xxx.us-east-1.rds.amazonaws.com:54
 
 Make sure your connection string includes SSL parameters if your provider requires them. For serverless environments, use connection pooling endpoints when available (Neon and Supabase both offer these).
 
+## Verifying your setup
+
+Once you've created the schema and configured your environment, you can verify everything is working with the doctor command:
+
+```bash
+bunx unrag doctor --db
+```
+
+This connects to your database and checks that pgvector is enabled, the tables exist with the expected columns, foreign keys have cascade deletes, and recommended indexes are present. If anything is misconfigured, doctor tells you what's wrong and how to fix it.
+
+For more on using doctor, see the [Validating Your Installation](/docs/guides/doctor) guide.

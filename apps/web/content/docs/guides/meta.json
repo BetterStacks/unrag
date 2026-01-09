@@ -8,7 +8,8 @@
     "nextjs-production-recipe",
     "reindexing",
     "multi-tenant",
-    "use-with-chat"
+    "use-with-chat",
+    "doctor"
   ]
 }
 
