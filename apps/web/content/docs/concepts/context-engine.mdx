@@ -40,7 +40,7 @@ const customEngine = unrag.createEngine({ store: createDrizzleVectorStore(db) })
 
 ## Using the engine
 
-The engine exposes three methods that handle all the heavy lifting:
+The engine exposes four methods that handle all the heavy lifting:
 
 **`ingest()`** takes content and stores it as searchable chunks:
 
@@ -74,6 +74,25 @@ The `query` is the search string. It gets embedded using the same model that emb
 `topK` controls how many results you get back. The default is 8, which is usually a good starting point.
 
 The `scope` parameter filters results. When you provide `{ sourceId: "docs:" }`, only chunks whose `sourceId` starts with "docs:" are considered. This is useful for searching within specific collections or tenants.
+
+**`rerank()`** improves retrieval precision by reordering candidates with a more expensive relevance model:
+
+```ts
+// Retrieve more candidates than you need
+const retrieved = await engine.retrieve({
+  query: "How do I configure authentication?",
+  topK: 30,
+});
+
+// Rerank to get the most relevant results
+const reranked = await engine.rerank({
+  query: "How do I configure authentication?",
+  candidates: retrieved.chunks,
+  topK: 8,
+});
+```
+
+Reranking is optional and requires installing the reranker battery. It adds latency but significantly improves precision for many use cases. See the [Reranker documentation](/docs/batteries/reranker) for setup and usage details.
 
 **`delete()`** removes stored content by logical identity:
 

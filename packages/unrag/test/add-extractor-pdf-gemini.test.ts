@@ -77,7 +77,7 @@ describe("unrag add extractor pdf-llm", () => {
       });
 
       process.chdir(runDir);
-      await addCommand(["extractor", c.extractor, "--yes"]);
+      await addCommand(["extractor", c.extractor, "--yes", "--no-install"]);
 
       expect(
         await pathExists(

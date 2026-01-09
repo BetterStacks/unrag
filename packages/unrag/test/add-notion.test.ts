@@ -57,7 +57,7 @@ describe("unrag add notion", () => {
     });
 
     process.chdir(runDir);
-    await addCommand(["notion", "--yes"]);
+    await addCommand(["notion", "--yes", "--no-install"]);
 
     expect(
       await pathExists(

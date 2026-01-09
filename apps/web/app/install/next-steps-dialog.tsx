@@ -1,6 +1,7 @@
 import Link from "next/link";
 import * as React from "react";
 import {
+  Battery,
   KeyRound,
   Puzzle,
   Sparkles,
@@ -263,6 +264,25 @@ function getSelectedConnectorInfo(manifest: RegistryManifest | null, ids: string
   return ids.map((id) => ({ id, meta: byId.get(id) })).sort((a, b) => a.id.localeCompare(b.id));
 }
 
+function getSelectedBatteryInfo(manifest: RegistryManifest | null, ids: string[]) {
+  const byId = new Map<string, NonNullable<RegistryManifest["batteries"]>[number]>();
+  for (const b of manifest?.batteries ?? []) byId.set(String(b.id), b);
+  return ids.map((id) => ({ id, meta: byId.get(id) })).sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function batteryEnvVars(batteryIds: string[]): EnvVarMeta[] {
+  const vars: EnvVarMeta[] = [];
+  if (batteryIds.includes("reranker")) {
+    vars.push({
+      name: "COHERE_API_KEY",
+      required: true,
+      description: "Required for the reranker battery (Cohere rerank-v3.5).",
+      docsHref: "/docs/batteries/reranker",
+    });
+  }
+  return vars;
+}
+
 function StepCard({
   icon,
   title,
@@ -312,11 +332,16 @@ export function NextStepsDialog({
   const adapterDocs = adapterDocHref(state.install.storeAdapter);
   const extractorInfo = getSelectedExtractorInfo(manifest, state.modules.extractors);
   const connectorInfo = getSelectedConnectorInfo(manifest, state.modules.connectors);
+  const batteryInfo = getSelectedBatteryInfo(manifest, state.modules.batteries ?? []);
   const connectorsWithEnv = connectorInfo.filter((c) => (c.meta?.envVars?.length ?? 0) > 0);
   const selectedEmbeddingProvider = state.embedding.provider ?? "ai";
   const embeddingVars = React.useMemo(
     () => embeddingEnvVars(selectedEmbeddingProvider),
     [selectedEmbeddingProvider]
+  );
+  const batteryVars = React.useMemo(
+    () => batteryEnvVars(state.modules.batteries ?? []),
+    [state.modules.batteries]
   );
 
   const selectedExtractorGroups = new Set<string>(
@@ -334,6 +359,9 @@ export function NextStepsDialog({
     for (const v of embeddingVars) {
       unique.set(v.name, { required: v.required });
     }
+    for (const v of batteryVars) {
+      unique.set(v.name, { required: v.required });
+    }
     for (const c of connectorsWithEnv) {
       for (const v of c.meta?.envVars ?? []) {
         unique.set(v.name, { required: v.required });
@@ -347,7 +375,7 @@ export function NextStepsDialog({
       return aName.localeCompare(bName);
     });
     return entries.map(([name]) => name);
-  }, [connectorsWithEnv, embeddingVars]);
+  }, [connectorsWithEnv, embeddingVars, batteryVars]);
 
   const retrievalSnippet = React.useMemo(() => {
     const topK = state.defaults.topK;
@@ -512,6 +540,44 @@ export async function GET(request: Request) {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            ) : null}
+
+            {batteryVars.length > 0 ? (
+              <div className="mt-4">
+                <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">
+                  Battery env vars
+                </div>
+                <div className="rounded-lg border border-white/[0.08] bg-black/30 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-medium text-white/80">Batteries</div>
+                    <span className="text-xs text-white/40">{batteryInfo.map(b => b.meta?.displayName ?? b.id).join(", ")}</span>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {batteryVars.map((v) => (
+                      <div
+                        key={v.name}
+                        className="flex items-start justify-between gap-3 rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <code className="font-mono text-xs text-white/85">{v.name}</code>
+                            {v.required ? (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                                required
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10">
+                                optional
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 text-xs text-white/45">{v.description}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : null}

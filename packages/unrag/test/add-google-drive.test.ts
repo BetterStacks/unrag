@@ -57,7 +57,7 @@ describe("unrag add google-drive", () => {
     });
 
     process.chdir(runDir);
-    await addCommand(["google-drive", "--yes"]);
+    await addCommand(["google-drive", "--yes", "--no-install"]);
 
     expect(
       await pathExists(

@@ -33,6 +33,16 @@ bunx unrag@latest add extractor pdf-llm
 
 This installs the extractor source files under `lib/unrag/extractors/<name>` and adds any required dependencies.
 
+## Adding a battery
+
+Install a battery module for extended functionality like reranking:
+
+```bash
+bunx unrag@latest add battery reranker
+```
+
+This installs the battery source files under your Unrag install directory (e.g. `lib/unrag/rerank/`) and adds battery-specific dependencies. Batteries are optional modules that add capabilities beyond core ingest/retrieve—see [Batteries](/docs/batteries) for available options.
+
 <Callout>
 If you ran `unrag init --rich-media` or selected extractors during setup, they're already installed and configured. You only need `add extractor` when adding more extractors later.
 </Callout>
@@ -235,6 +245,14 @@ bunx unrag@latest init --yes --extractors pdf-text-layer,pdf-llm,file-text
 ```
 
 Available extractor names: `pdf-text-layer`, `pdf-llm`, `pdf-ocr`, `image-ocr`, `image-caption-llm`, `audio-transcribe`, `video-transcribe`, `video-frames`, `file-text`, `file-docx`, `file-pptx`, `file-xlsx`.
+
+**`--no-install`**
+
+Skip automatic dependency installation. By default, the CLI runs your package manager after adding dependencies to `package.json`. Use this flag in CI pipelines or when you want to manage installs separately.
+
+```bash
+bunx unrag@latest init --yes --store drizzle --no-install
+```
 
 ## Full examples
 

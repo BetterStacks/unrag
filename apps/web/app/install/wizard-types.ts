@@ -26,6 +26,7 @@ export type WizardStateV1 = {
   modules: {
     extractors: string[];
     connectors: string[];
+    batteries: string[];
   };
   defaults: {
     chunkSize: number;
@@ -68,6 +69,14 @@ export type RegistryManifest = {
       required?: boolean;
       notes?: string;
     }>;
+  }>;
+  batteries?: Array<{
+    id: string;
+    displayName?: string;
+    description?: string;
+    status?: "available" | "coming-soon";
+    docsPath?: string | null;
+    defaultModel?: string;
   }>;
 };
 

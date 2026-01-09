@@ -93,32 +93,15 @@ The CLI may also modify your existing configuration:
 
 This lets you import Unrag modules cleanly without relative paths threading through your codebase.
 
-## Installing dependencies
+## Automatic dependency installation
 
-After the CLI finishes, install the new dependencies:
+The CLI automatically runs your package manager to install dependencies after adding them to `package.json`. It detects which package manager you're using based on your lockfile (`bun.lock`, `pnpm-lock.yaml`, `yarn.lock`, or `package-lock.json`).
 
-<Tabs items={['bun', 'npm', 'pnpm', 'yarn']}>
-<Tab value="bun">
+If you need to skip automatic installation (for example, in CI pipelines where you manage installs separately), pass the `--no-install` flag:
+
 ```bash
-bun install
+bunx unrag@latest init --yes --store drizzle --no-install
 ```
-</Tab>
-<Tab value="npm">
-```bash
-npm install
-```
-</Tab>
-<Tab value="pnpm">
-```bash
-pnpm install
-```
-</Tab>
-<Tab value="yarn">
-```bash
-yarn
-```
-</Tab>
-</Tabs>
 
 ## Updating Unrag
 

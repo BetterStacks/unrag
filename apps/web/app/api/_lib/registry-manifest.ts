@@ -5,6 +5,7 @@ export type RegistryManifest = {
   version: number;
   extractors: Array<{ id: string; status?: "available" | "coming-soon" }>;
   connectors: Array<{ id: string; status?: "available" | "coming-soon" }>;
+  batteries?: Array<{ id: string; status?: "available" | "coming-soon"; displayName?: string; description?: string; docsPath?: string | null; defaultModel?: string }>;
 };
 
 export async function loadRegistryManifest(): Promise<RegistryManifest> {

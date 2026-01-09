@@ -687,6 +687,115 @@ export type RetrieveResult = {
   };
 };
 
+// ---------------------------------------------------------------------------
+// Reranker types
+// ---------------------------------------------------------------------------
+
+/**
+ * A chunk with its retrieval score, used as input to reranking.
+ */
+export type RerankCandidate = Chunk & { score: number };
+
+/**
+ * Policy for handling missing reranker or missing candidate text.
+ * - `throw`: raise an error (default)
+ * - `skip`: return original candidates with a warning
+ */
+export type RerankPolicy = "throw" | "skip";
+
+/**
+ * Input to `engine.rerank()`.
+ */
+export type RerankInput = {
+  /** The query to rerank candidates against. */
+  query: string;
+  /** Candidates to rerank (typically from `engine.retrieve()`). */
+  candidates: RerankCandidate[];
+  /** Number of top items to return after reranking. Defaults to candidates.length. */
+  topK?: number;
+  /** What to do if no reranker is configured. Default: 'throw'. */
+  onMissingReranker?: RerankPolicy;
+  /** What to do if a candidate has empty/missing text. Default: 'throw'. */
+  onMissingText?: RerankPolicy;
+  /**
+   * Optional hook to resolve text for a candidate when `chunk.content` is empty.
+   * Useful when `storeChunkContent: false` and text is stored externally.
+   */
+  resolveText?: (candidate: RerankCandidate) => string | Promise<string>;
+};
+
+/**
+ * A single item in the rerank ranking output, tracking original position and rerank score.
+ */
+export type RerankRankingItem = {
+  /** Original index in the candidates array. */
+  index: number;
+  /** Score assigned by the reranker (if available). */
+  rerankScore?: number;
+};
+
+/**
+ * Result of `engine.rerank()`.
+ */
+export type RerankResult = {
+  /** Reranked chunks (top `topK`), in new order. */
+  chunks: RerankCandidate[];
+  /**
+   * Full ranking details for all candidates (useful for debugging/eval).
+   * Ordered by rerank rank (best first).
+   */
+  ranking: RerankRankingItem[];
+  /** Metadata about the reranker that was used. */
+  meta: {
+    rerankerName: string;
+    model?: string;
+  };
+  /** Timing information. */
+  durations: {
+    rerankMs: number;
+    totalMs: number;
+  };
+  /** Warnings emitted during reranking (e.g. missing text skipped). */
+  warnings: string[];
+};
+
+/**
+ * Arguments passed to the reranker's `rerank` method.
+ */
+export type RerankerRerankArgs = {
+  query: string;
+  /** Document texts to rerank, in candidate order. */
+  documents: string[];
+};
+
+/**
+ * Result returned by a Reranker implementation.
+ */
+export type RerankerRerankResult = {
+  /**
+   * Permutation of indices into the original documents array, ordered by relevance (best first).
+   * Length should equal documents.length.
+   */
+  order: number[];
+  /** Optional scores for each item in `order`. */
+  scores?: number[];
+  /** Model identifier (if available). */
+  model?: string;
+};
+
+/**
+ * Reranker interface.
+ *
+ * Implementations transform a list of document texts + query into a relevance-ordered permutation.
+ * The core engine uses this interface; battery modules provide concrete implementations.
+ */
+export type Reranker = {
+  /** Stable name for this reranker (e.g. "cohere", "custom"). */
+  name: string;
+  /** Rerank documents by relevance to the query. */
+  rerank: (args: RerankerRerankArgs) => Promise<RerankerRerankResult>;
+};
+
 /**
  * Higher-level (ergonomic) Unrag config wrapper.
  *
@@ -806,6 +915,11 @@ export type ContextEngineConfig = {
    */
   extractors?: AssetExtractor[];
   /**
+   * Optional reranker for second-stage ranking after retrieval.
+   * Install via `unrag add battery reranker` and wire here.
+   */
+  reranker?: Reranker;
+  /**
    * Controls whether Unrag persists chunk/document text into the database.
    * Defaults to storing both.
    */
@@ -828,6 +942,8 @@ export type ResolvedContextEngineConfig = {
   chunker: Chunker;
   idGenerator: () => string;
   extractors: AssetExtractor[];
+  /** Reranker is optional; if not configured, `engine.rerank()` will throw by default. */
+  reranker?: Reranker;
   storage: ContentStorageConfig;
   assetProcessing: AssetProcessingConfig;
   embeddingProcessing: EmbeddingProcessingConfig;

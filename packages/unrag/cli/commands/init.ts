@@ -24,6 +24,7 @@ import {
   depsForConnector,
   depsForExtractor,
   detectPackageManager,
+  installDependencies,
   installCmd,
   mergeDeps,
   readPackageJson,
@@ -61,6 +62,7 @@ type ParsedInitArgs = {
   provider?: EmbeddingProviderName;
   preset?: string;
   overwrite?: "skip" | "force";
+  noInstall?: boolean;
 };
 
 const parseInitArgs = (args: string[]): ParsedInitArgs => {
@@ -152,6 +154,10 @@ const parseInitArgs = (args: string[]): ParsedInitArgs => {
       }
       continue;
     }
+    if (a === "--no-install") {
+      out.noInstall = true;
+      continue;
+    }
   }
 
   return out;
@@ -206,6 +212,8 @@ export async function initCommand(args: string[]) {
   const existing = await readJsonFile<InitConfig>(path.join(root, CONFIG_FILE));
 
   const parsed = parseInitArgs(args);
+  const noInstall =
+    Boolean(parsed.noInstall) || process.env.UNRAG_SKIP_INSTALL === "1";
 
   const preset: PresetPayloadV1 | null = parsed.preset
     ? await fetchPreset(parsed.preset)
@@ -505,6 +513,9 @@ export async function initCommand(args: string[]) {
   );
   if (merged.changes.length > 0) {
     await writePackageJson(root, merged.pkg);
+    if (!noInstall) {
+      await installDependencies(root);
+    }
   }
 
   const config: InitConfig = {
@@ -527,9 +538,11 @@ export async function initCommand(args: string[]) {
 
   const pm = await detectPackageManager(root);
   const installLine =
-    merged.changes.length > 0
-      ? `Next: run \`${installCmd(pm)}\``
-      : "Dependencies already satisfied.";
+    merged.changes.length === 0
+      ? "Dependencies already satisfied."
+      : noInstall
+        ? `Next: run \`${installCmd(pm)}\``
+        : "Dependencies installed.";
 
   const isNext =
     Boolean((merged.pkg.dependencies ?? {})["next"]) ||
