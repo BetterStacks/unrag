@@ -29,6 +29,7 @@ type WizardStateV1 = {
   modules: {
     extractors: string[];
     connectors: string[];
+    batteries?: string[];
   };
   defaults: {
     chunkSize: number;
@@ -61,6 +62,7 @@ type PresetPayloadV1 = {
   modules: {
     extractors: string[];
     connectors: string[];
+    batteries: string[];
   };
   config: {
     defaults: {
@@ -93,6 +95,9 @@ function isWizardStateV1(x: unknown): x is WizardStateV1 {
   const o = x as any;
   if (o.v !== 1) return false;
   if (!o.install || !o.modules || !o.defaults || !o.embedding || !o.storage) return false;
+  if (o.modules && "batteries" in o.modules && o.modules.batteries != null && !Array.isArray(o.modules.batteries)) {
+    return false;
+  }
   return true;
 }
 
@@ -106,6 +111,9 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
     : [];
   const connectors = Array.isArray(input.modules.connectors)
     ? input.modules.connectors.map(String).filter(Boolean)
+    : [];
+  const batteries = Array.isArray((input.modules as any).batteries)
+    ? (input.modules as any).batteries.map(String).filter(Boolean)
     : [];
 
   const chunkSize = Number(input.defaults.chunkSize) || 200;
@@ -140,7 +148,7 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
   return {
     v: 1,
     install: { installDir, storeAdapter, aliasBase },
-    modules: { extractors, connectors },
+    modules: { extractors, connectors, batteries },
     defaults: { chunkSize, chunkOverlap, topK },
     embedding: { type: embeddingType, provider: embeddingProvider, model, timeoutMs },
     storage: { storeChunkContent, storeDocumentContent },
@@ -160,6 +168,7 @@ function makePresetFromWizard(state: WizardStateV1): PresetPayloadV1 {
     modules: {
       extractors: state.modules.extractors,
       connectors: state.modules.connectors,
+      batteries: (state.modules.batteries ?? []).map(String).filter(Boolean),
     },
     config: {
       defaults: {
@@ -242,6 +251,11 @@ export async function POST(req: NextRequest) {
       .filter((c: any) => c.status === "available")
       .map((c: any) => String(c.id))
   );
+  const allowedBatteries = new Set(
+    (manifest.batteries ?? [])
+      .filter((b: any) => b.status === "available")
+      .map((b: any) => String(b.id))
+  );
 
   const unknownExtractors = state.modules.extractors.filter((x) => !allowedExtractors.has(x));
   if (unknownExtractors.length > 0) {
@@ -255,6 +269,15 @@ export async function POST(req: NextRequest) {
   if (unknownConnectors.length > 0) {
     return NextResponse.json(
       { error: "Unknown or unavailable connectors", unknownConnectors },
+      { status: 400 }
+    );
+  }
+
+  const batteryIds = (state.modules.batteries ?? []).map(String).filter(Boolean);
+  const unknownBatteries = batteryIds.filter((x) => !allowedBatteries.has(x));
+  if (unknownBatteries.length > 0) {
+    return NextResponse.json(
+      { error: "Unknown or unavailable batteries", unknownBatteries },
       { status: 400 }
     );
   }

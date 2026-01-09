@@ -1,0 +1,292 @@
+---
+title: CI Integration
+description: Add retrieval quality gates to your deployment pipeline with thresholds and automated checks.
+---
+
+Manual evaluation is useful for exploration and debugging, but the real value comes from automation. When every pull request that touches your RAG configuration runs through an eval suite, you catch regressions before they reach production. When your nightly CI tracks metrics over time, you can see gradual drift and address it proactively.
+
+This page covers how to set up evaluation in CI pipelines, configure thresholds that make sense for your use case, and integrate eval results with your review process.
+
+## The basics
+
+The eval harness is designed for CI from the start. The `--ci` flag changes behavior in two important ways:
+
+1. It enables threshold checking against your configured minimums
+2. It uses exit codes that CI systems understand
+
+```bash
+bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/regression.json --ci
+```
+
+Exit codes:
+
+- **0**: All thresholds passed
+- **1**: At least one threshold failed (retrieval quality regression)
+- **2**: Eval failed to run (configuration error, database issue, etc.)
+
+This means you can use the eval script directly as a CI step. If it exits 0, continue. If it exits non-zero, fail the build.
+
+## GitHub Actions example
+
+Here's a complete GitHub Actions workflow that runs eval on PRs touching RAG configuration:
+
+```yaml
+name: Retrieval Eval
+
+on:
+  pull_request:
+    paths:
+      - 'lib/unrag/**'
+      - 'unrag.config.ts'
+      - '.unrag/**'
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: unrag_eval
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: oven-sh/setup-bun@v2
+      
+      - run: bun install
+      
+      - name: Setup database
+        run: bun run db:migrate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unrag_eval
+
+      - name: Run eval
+        run: bun run unrag:eval:ci
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/unrag_eval
+          AI_GATEWAY_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+      - name: Upload eval report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-report
+          path: .unrag/eval/runs/
+```
+
+This workflow spins up a Postgres container with pgvector, runs migrations to create the Unrag tables, runs the eval suite, and uploads the report as an artifact. If thresholds fail, the workflow fails, blocking the PR.
+
+The `paths` filter ensures the workflow only runs when relevant files change. No point running eval on README updates.
+
+## Setting useful thresholds
+
+The default thresholds from installation are intentionally conservative:
+
+```json
+{
+  "thresholds": { "min": { "hitAtK": 0.8, "recallAtK": 0.7, "mrrAtK": 0.6 } }
+}
+```
+
+These are starting points. Once you have baseline metrics, adjust thresholds to match your actual performance with some margin. If your current recall@10 is 0.87, setting the threshold at 0.70 won't catch regressions until things get really bad.
+
+A reasonable approach:
+
+1. Run eval against your current configuration to establish a baseline
+2. Set thresholds 5-10% below your baseline (so normal variance doesn't cause failures)
+3. Tighten thresholds as you improve your system
+
+If your baseline is:
+- hit@10: 0.92
+- recall@10: 0.85
+- mrr@10: 0.78
+
+Reasonable thresholds might be:
+- hit@10: 0.85
+- recall@10: 0.78
+- mrr@10: 0.70
+
+This gives you room for minor fluctuations while still catching significant regressions.
+
+## Baseline comparison in CI
+
+For even better regression detection, compare against a known-good baseline rather than just checking absolute thresholds. Store your baseline report in the repository and diff against it:
+
+```yaml
+- name: Run eval with baseline comparison
+  run: |
+    bun run scripts/unrag-eval.ts -- \
+      --dataset .unrag/eval/datasets/regression.json \
+      --baseline .unrag/eval/baselines/main.json \
+      --ci
+```
+
+The diff report shows which queries improved, which degraded, and by how much. You can configure CI to fail if any query's metrics drop below the baseline by more than a threshold.
+
+To update baselines, run eval on main after merging and commit the new baseline:
+
+```yaml
+name: Update Eval Baseline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/unrag/**'
+      - 'unrag.config.ts'
+
+jobs:
+  update-baseline:
+    runs-on: ubuntu-latest
+    # ... setup steps ...
+    
+    - name: Run eval and save as baseline
+      run: |
+        bun run scripts/unrag-eval.ts -- \
+          --dataset .unrag/eval/datasets/regression.json \
+          --output-dir .unrag/eval/baselines
+        mv .unrag/eval/baselines/*/report.json .unrag/eval/baselines/main.json
+    
+    - name: Commit baseline
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "chore: update eval baseline"
+        file_pattern: .unrag/eval/baselines/main.json
+```
+
+This pattern keeps your baseline fresh—it always reflects the current state of main. PRs are compared against this baseline, so you know exactly how the PR changes retrieval quality relative to the current production state.
+
+## PR comments with eval results
+
+You can post eval results as PR comments using the markdown summary. Here's a snippet for GitHub Actions:
+
+```yaml
+- name: Post eval summary to PR
+  if: github.event_name == 'pull_request'
+  uses: actions/github-script@v7
+  with:
+    script: |
+      const fs = require('fs');
+      const glob = require('glob');
+      
+      // Find the most recent summary
+      const summaries = glob.sync('.unrag/eval/runs/*/summary.md');
+      if (summaries.length === 0) return;
+      
+      const summaryPath = summaries[summaries.length - 1];
+      const summary = fs.readFileSync(summaryPath, 'utf8');
+      
+      await github.rest.issues.createComment({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        issue_number: context.issue.number,
+        body: `## Retrieval Eval Results\n\n${summary}`
+      });
+```
+
+This makes eval results visible directly in the PR, so reviewers can see the impact of the change without digging through CI logs.
+
+## Multiple datasets
+
+If you have several eval datasets (regression suite, edge cases, multilingual, etc.), run them all and aggregate results:
+
+```yaml
+- name: Run all eval datasets
+  run: |
+    EXIT_CODE=0
+    for dataset in regression edge-cases multilingual; do
+      bun run scripts/unrag-eval.ts -- \
+        --dataset .unrag/eval/datasets/$dataset.json \
+        --output-dir .unrag/eval/runs/$dataset \
+        --ci || EXIT_CODE=1
+    done
+    exit $EXIT_CODE
+```
+
+This runs all datasets and fails if any dataset fails. You could also implement weighted aggregation—maybe the regression dataset is the gatekeeper, while edge-cases is advisory only.
+
+## Scheduled evaluation
+
+Beyond PR checks, run eval periodically to catch drift:
+
+```yaml
+name: Nightly Eval
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # 4 AM UTC daily
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    # ... setup steps ...
+    
+    - name: Run eval against production
+      run: |
+        bun run scripts/unrag-eval.ts -- \
+          --dataset .unrag/eval/datasets/regression.json \
+          --no-ingest \
+          --ci
+      env:
+        DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+```
+
+Nightly eval against production data catches issues that emerge from content changes rather than code changes. Maybe someone edited a document in ways that broke retrieval for certain queries. Maybe the embedding model behavior changed slightly. Scheduled eval catches these gradually-emerging problems.
+
+## Handling embedding API costs
+
+Eval runs incur embedding costs—you're embedding documents during ingestion and queries during retrieval. For a dataset with 50 documents and 100 queries, you might embed ~500 chunks plus 100 queries, costing a few cents with OpenAI's models.
+
+This adds up if you're running eval on every commit. Strategies to manage costs:
+
+**Use a cheaper embedding model for eval**: If your production model is `text-embedding-3-large`, consider `text-embedding-3-small` for eval. The relative comparisons (did metrics go up or down) are still valid even if absolute numbers differ.
+
+**Cache embeddings**: For datasets that don't change often, you can skip re-ingestion. Use `--no-ingest` after the initial setup, and only re-ingest when documents change.
+
+**Run less frequently**: Maybe eval on every PR is overkill. Run it on PRs that touch RAG configuration, and run it nightly for general monitoring.
+
+**Use smaller eval datasets for PR checks**: Keep a small, focused regression dataset for PRs (20-30 queries), and run the comprehensive suite less frequently.
+
+## Environment considerations
+
+Eval requires a working database and embedding credentials. In CI, you typically use:
+
+**Ephemeral databases**: Spin up Postgres in a container for each run. The pgvector/pgvector Docker image works out of the box. This gives you isolation—each CI run has a fresh database with no leftover state.
+
+**Secrets management**: Store API keys (OPENAI_API_KEY, COHERE_API_KEY, etc.) in your CI system's secrets storage. Never commit credentials.
+
+**Resource allocation**: Eval is I/O bound (database and API calls), not CPU bound. Standard CI runners are fine.
+
+If you're using a hosted database for eval (maybe a shared staging database), be careful about concurrency. Two CI runs using the same scopePrefix could interfere with each other. Either use run-specific prefixes or ensure only one eval runs at a time.
+
+## Interpreting CI failures
+
+When eval fails in CI, the exit code tells you whether it's a quality problem (exit 1) or an infrastructure problem (exit 2).
+
+**Exit code 1 (threshold failure)**: Your retrieval quality regressed. Look at the report to see which metrics failed and which queries degraded. This might be expected—if you intentionally changed chunking strategy, metrics might temporarily dip. In that case, update thresholds and baseline, then re-run.
+
+**Exit code 2 (execution error)**: Something went wrong running eval. Check logs for database connection errors, missing environment variables, or dataset validation failures. These are infrastructure issues, not quality issues.
+
+When quality fails, don't just bump thresholds to make CI pass. Investigate why metrics dropped. Maybe the change genuinely hurt retrieval and should be reconsidered. Maybe your dataset has a bad ground truth label that's causing a false positive. Understanding the failure is more important than fixing the red build.
+
+## Next steps
+
+<Cards>
+  <Card title="Comparing Runs" href="/docs/eval/comparing-runs">
+    Deep dive into baseline diffs and tracking changes
+  </Card>
+  <Card title="Dataset Format" href="/docs/eval/datasets">
+    Build comprehensive datasets for thorough testing
+  </Card>
+</Cards>
