@@ -1,16 +1,90 @@
 ---
-title: "3. Offline evals and regression testing"
+title: "Offline evals and regression testing"
 description: Treat quality as a CI concern - deterministic runs, baselines, and release gates.
-
 ---
 
-<Callout type="warn" title="Status: Stub">
-This chapter is a stub.
-</Callout>
+Offline evaluation runs your RAG system against a fixed dataset and measures quality. Unlike production, you control the inputs and can reproduce results. This makes offline eval ideal for regression testing—catching quality problems before they reach users. Treat quality like you treat tests: run evals on every change, fail builds that regress, and maintain baselines that represent your quality bar.
 
-## Planned topics
+## The role of offline evaluation
 
-- Baselines, diffs, and how to avoid metric gaming
-- CI integration patterns and guardrails
-- Evaluating changes: chunking, embedding models, indexes, rerankers
+Offline eval answers the question: "Is this change safe to ship?"
 
+Before a change (new embedding model, chunking strategy, prompt tweak), you have baseline metrics on your eval set. After the change, you re-run the eval and compare. If metrics improve or stay flat, the change is probably safe. If metrics regress, you need to investigate before shipping.
+
+This is the same logic as unit tests and integration tests, but for quality instead of correctness. You're not checking whether the system runs—you're checking whether it runs well.
+
+## Deterministic versus non-deterministic evaluation
+
+RAG systems have non-deterministic components. LLM generation varies with temperature. Embedding APIs might have slight version changes. This makes exact reproducibility hard.
+
+For retrieval evaluation, aim for determinism. Given the same query and the same index, retrieval should return the same results. If it doesn't, something is wrong with your setup.
+
+For generation evaluation, accept some variance. Run evaluations with temperature=0 to reduce variance, but even then, results may differ slightly across runs. Report metrics with confidence intervals or run multiple times and average.
+
+For critical comparisons, use paired evaluation. Run old and new systems on the exact same queries in the same order, minimizing external variance.
+
+## Establishing baselines
+
+A baseline is a snapshot of quality at a known-good point. It represents your current quality bar.
+
+Establish baselines after major milestones: initial launch, significant quality improvements, or after fixing major bugs. Store baseline metrics (recall@10: 0.85, faithfulness: 0.92, etc.) alongside your eval dataset.
+
+When evaluating changes, compare to the baseline, not to the previous run. This avoids drift where small regressions accumulate unnoticed.
+
+Periodically re-baseline after deliberate improvements. If you ship a new embedding model that improves recall by 10%, update your baseline to reflect the new standard. Future changes should not regress below this new level.
+
+## Detecting regressions
+
+A regression is a significant quality decrease compared to baseline. Detecting regressions requires defining thresholds.
+
+Absolute thresholds define minimum acceptable quality. "Recall@10 must be at least 0.80." If metrics drop below the threshold, fail the build.
+
+Relative thresholds compare to baseline. "Metrics must not decrease by more than 2% from baseline." This is more flexible but requires maintaining baselines.
+
+Statistical significance matters. A 1% drop on 100 examples might be noise. Use statistical tests (like a paired t-test or bootstrap confidence intervals) to determine if differences are likely real.
+
+Set thresholds conservatively at first, then tighten as you gain confidence in your eval setup. It's better to investigate false alarms than to miss real regressions.
+
+## CI integration patterns
+
+![Offline eval in CI](/diagrams/offline-eval-ci.png)
+
+Integrate offline eval into your CI/CD pipeline so it runs automatically.
+
+On every PR, run the eval suite and report results. Show metrics in the PR comment so reviewers can see quality impact. For large eval sets, run a fast subset on every PR and the full set nightly.
+
+Gate merges on quality. If metrics regress beyond thresholds, block the merge until the regression is addressed or explicitly accepted.
+
+Store eval results historically. Track metrics over time in a dashboard or database. This helps you spot gradual drift and understand the impact of changes.
+
+Run evals on infrastructure changes too, not just code changes. A database upgrade, index rebuild, or model version bump can affect quality.
+
+## Evaluating specific changes
+
+Different changes need different eval focus.
+
+**Chunking changes** affect retrieval directly. Focus on recall and precision metrics. Check whether relevant chunks are still being found.
+
+**Embedding model changes** affect retrieval quality. Compare retrieval metrics before and after. Also check whether the new model handles edge cases (rare terms, domain jargon) that the old model might have struggled with.
+
+**Prompt changes** affect generation. Focus on faithfulness, citation accuracy, and answer quality metrics. Retrieval metrics should be unchanged.
+
+**Reranking changes** affect the final ordering. Measure MRR and precision at your cutoff. Check whether the reranker improves ordering or adds noise.
+
+**Index configuration changes** (ANN parameters, filtering) affect retrieval speed and recall. Measure both latency and retrieval quality.
+
+## Avoiding Goodhart's law
+
+Goodhart's law states: "When a measure becomes a target, it ceases to be a good measure." If you optimize purely for your eval metrics, you might overfit to your eval set while degrading real-world quality.
+
+Defense strategies include using holdout sets that you never tune on, regularly refreshing your eval set with new queries, measuring multiple metrics so you can't game one while ignoring others, and supplementing offline eval with online evaluation and user feedback.
+
+Be especially wary of synthetic eval sets. If you generated queries from your documents, optimizing for those queries might not generalize to real user behavior.
+
+## Next
+
+Offline eval catches problems before they ship. The next chapter covers online evaluation—learning from production traffic and user feedback.
+
+<Cards>
+  <Card title="Next: Online evaluation and feedback loops" href="/docs/rag/07-evaluation/04-online-evaluation-and-feedback-loops" />
+</Cards>
