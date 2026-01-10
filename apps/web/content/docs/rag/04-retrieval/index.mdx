@@ -1,36 +1,44 @@
 ---
-title: Module 4 — Retrieval
+title: Introduction
 description: Candidate generation that actually works - topK/thresholds, hybrid retrieval, routing, filters, and debugging.
-
 ---
 
-<Callout type="warn" title="Status: Draft">
-This module is a scaffold. It will become a pragmatic playbook for reliable retrieval across real-world corpora.
-</Callout>
+## Welcome to the Retrieval Module
 
-## What you’ll learn
+Retrieval is where your RAG system either finds the right information or fails silently. You can have perfectly chunked content with excellent embeddings, but if your retrieval strategy doesn't surface the right chunks for a given query, the LLM has nothing useful to work with. Retrieval is the bridge between your indexed knowledge and the generation step, and getting it right requires more than just calling a vector search.
 
-- How to pick topK and thresholds without guessing
-- When hybrid retrieval is mandatory
-- How to route queries to the right corpus/index
-- How to do ACL-safe retrieval in multi-tenant systems
+This module covers the practical techniques for reliable retrieval. We'll move beyond basic `topK` queries to explore hybrid approaches, query transformation, intelligent routing, and the filtering strategies that keep your system secure. By the end, you'll have a toolkit for diagnosing and improving retrieval quality in production.
 
-## Chapters
+## What you'll learn in this module
 
-<Cards>
-  <Card title="1. topK, thresholds, and 'no good match'" href="/docs/rag/04-retrieval/01-topk-thresholds-and-no-good-match" />
-  <Card title="2. Hybrid retrieval (BM25 + vectors)" href="/docs/rag/04-retrieval/02-hybrid-retrieval-bm25-plus-vectors" />
-  <Card title="3. Query rewriting and decomposition" href="/docs/rag/04-retrieval/03-query-rewriting-and-decomposition" />
-  <Card title="4. Routing and multiple indexes" href="/docs/rag/04-retrieval/04-routing-and-multiple-indexes" />
-  <Card title="5. Filtering and ACL-safe retrieval" href="/docs/rag/04-retrieval/05-filtering-and-acl-safe-retrieval" />
-  <Card title="6. Diversity and deduplication" href="/docs/rag/04-retrieval/06-diversity-and-deduplication" />
-  <Card title="7. Caching and performance" href="/docs/rag/04-retrieval/07-caching-and-performance" />
-  <Card title="8. Retrieval debugging playbook" href="/docs/rag/04-retrieval/08-retrieval-debugging-playbook" />
-</Cards>
+By the end of this module, you will understand:
 
-## Next
+-   **How to configure topK and thresholds**: Why returning the top results isn't always enough, and how to detect when retrieval didn't find anything worth using.
+-   **When to use hybrid retrieval**: Combining keyword (BM25) and semantic search to catch what vectors miss.
+-   **Query transformation techniques**: Rewriting and decomposing queries to improve recall on complex or ambiguous questions.
+-   **Routing strategies**: Directing queries to the right index or corpus instead of searching everything.
+-   **Secure filtering**: Implementing access control at the retrieval layer, not as an afterthought.
+-   **Diversity and deduplication**: Avoiding redundant results and increasing coverage.
+-   **Performance optimization**: Caching, index tuning, and latency management.
+-   **Systematic debugging**: A repeatable process for diagnosing retrieval failures.
+
+## Chapters in this module
 
 <Cards>
-  <Card title="Next: topK, thresholds, and no good match" href="/docs/rag/04-retrieval/01-topk-thresholds-and-no-good-match" />
+  <Card title="topK, thresholds, and 'no good match'" href="/docs/rag/04-retrieval/01-topk-thresholds-and-no-good-match" />
+  <Card title="Hybrid retrieval (BM25 + vectors)" href="/docs/rag/04-retrieval/02-hybrid-retrieval-bm25-plus-vectors" />
+  <Card title="Query rewriting and decomposition" href="/docs/rag/04-retrieval/03-query-rewriting-and-decomposition" />
+  <Card title="Routing and multiple indexes" href="/docs/rag/04-retrieval/04-routing-and-multiple-indexes" />
+  <Card title="Filtering and ACL-safe retrieval" href="/docs/rag/04-retrieval/05-filtering-and-acl-safe-retrieval" />
+  <Card title="Diversity and deduplication" href="/docs/rag/04-retrieval/06-diversity-and-deduplication" />
+  <Card title="Caching and performance" href="/docs/rag/04-retrieval/07-caching-and-performance" />
+  <Card title="Retrieval debugging playbook" href="/docs/rag/04-retrieval/08-retrieval-debugging-playbook" />
 </Cards>
 
+## Ready to begin?
+
+Let's start with the foundational retrieval parameters: topK, thresholds, and how to handle queries that don't have good matches.
+
+<Cards>
+  <Card title="Next: topK, thresholds, and 'no good match'" href="/docs/rag/04-retrieval/01-topk-thresholds-and-no-good-match" />
+</Cards>

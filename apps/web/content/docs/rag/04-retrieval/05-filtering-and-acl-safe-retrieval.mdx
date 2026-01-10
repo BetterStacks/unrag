@@ -1,16 +1,86 @@
 ---
-title: "5. Filtering and ACL-safe retrieval"
+title: "Filtering and ACL-safe retrieval"
 description: Retrieval should never surface content the user cannot access—design filters as a hard boundary.
-
 ---
 
-<Callout type="warn" title="Status: Stub">
-This chapter is a stub.
-</Callout>
+In any application where different users should see different content, retrieval must enforce access control. This isn't a nice-to-have; it's a security requirement. If your retrieval system returns content a user isn't authorized to see—even if you filter it out before display—you have a vulnerability. The LLM might incorporate unauthorized content into its response, logs might contain sensitive data, and your audit trail becomes suspect.
 
-## Planned topics
+This chapter covers how to implement filtering that's safe by design, not just by careful coding.
 
-- Pre-filtering vs post-filtering and leakage risk
-- ACL modeling patterns (tenant/workspace/doc-level)
-- Performance considerations: filter selectivity + ANN indexes
+## The post-filtering trap
 
+The naive approach to access control is post-filtering: retrieve results, then filter out anything the user shouldn't see. This seems straightforward but has serious problems.
+
+The LLM might see unauthorized content. If you retrieve top-10, filter to top-5 visible, but pass all 10 to the LLM before filtering for display, the model has seen content it shouldn't use. Even if you filter before passing to the LLM, any processing step between retrieval and filtering is a potential leak.
+
+Logging captures unauthorized content. Your retrieval logs show all retrieved documents, including those filtered out. If those logs are accessible or reviewed, unauthorized content has leaked.
+
+Insufficient results can reveal information. If a user's query returns 10 results but 8 are filtered out, they see 2 results and might infer that more relevant content exists but is hidden. In sensitive contexts, even the existence of hidden content is a leak.
+
+Performance is wasted. You retrieve content you'll throw away, using compute and latency budget on results that never reach the user.
+
+Post-filtering is an anti-pattern. Design for pre-filtering instead.
+
+## Pre-filtering: the right approach
+
+Pre-filtering applies access control as part of the retrieval query. The database never returns unauthorized content because the query excludes it.
+
+With metadata-based pre-filtering, each chunk has metadata indicating who can access it—a tenant ID, a list of permitted users, or a reference to a permission system. The retrieval query includes a filter clause: "return chunks where tenant_id = 'acme' and similarity > threshold." Only authorized chunks are candidates for the similarity search.
+
+With row-level security, the database enforces permissions transparently. You configure policies like "users can only see rows where tenant_id matches their authenticated tenant," and every query automatically applies this filter. The application doesn't need to remember to filter; the database does it.
+
+Both approaches ensure unauthorized content never enters your application. There's no filtering step that could be forgotten or bypassed.
+
+## ACL modeling patterns
+
+How you represent access control in metadata depends on your permission model.
+
+**Tenant-scoped access** is the simplest: content belongs to one tenant, users belong to one tenant, users see only their tenant's content. Store `tenant_id` on each chunk and filter by the user's tenant. This covers most B2B SaaS patterns.
+
+**Workspace or team access** adds a level within tenants: users might have access to some workspaces but not others within the same organization. Store both `tenant_id` and `workspace_id`, and filter by both.
+
+**Document-level ACLs** allow per-document permissions: specific users or groups can access specific documents. Store a list of permitted users or groups on each chunk. Filtering becomes "where chunk.permitted_groups overlaps user.groups." This is more expressive but more complex to manage and query.
+
+**Role-based access** maps permissions to roles (admin, viewer, contributor) rather than individual users. Store required role on content, check user's role during filtering. This simplifies management when permission patterns are consistent.
+
+**Hierarchical permissions** inherit from parent objects: access to a folder grants access to documents within it. This is powerful but complex—you need to resolve inheritance when setting metadata, or at query time by expanding the user's access to all inherited objects.
+
+Choose the simplest model that meets your requirements. Complex ACL models are harder to get right and harder to audit.
+
+## Performance considerations
+
+Pre-filtering interacts with vector index performance. Filtering happens during or before the similarity search, which affects how indexes work.
+
+If your filter is highly selective (returns a small fraction of the index), some vector databases will scan the filtered subset rather than using the full index. For very selective filters—"only chunks from tenant X, which is 0.1% of the index"—this can be slower than expected because you're not getting the full benefit of the ANN index.
+
+Test retrieval performance with realistic filter selectivity. If performance degrades significantly for small tenants or highly restrictive filters, consider separate indexes per tenant or pre-filtered index segments.
+
+Some databases handle filtered search better than others. Postgres with pgvector applies filters after the index scan, which can return too few results if the filter eliminates most candidates. Purpose-built vector databases often have more sophisticated filtered search implementations.
+
+## Verifying access control
+
+Access control is too important to leave to assumption. Verify that it works.
+
+**Write tests** that attempt to retrieve content across permission boundaries. A test user in tenant A should not retrieve any content from tenant B. Tests should fail if any unauthorized content appears in results.
+
+**Audit logs** should show what content was retrieved for what user. Review these logs to verify that retrieval patterns match expected access.
+
+**Penetration testing** should include attempts to bypass retrieval permissions. Can a malicious query trick the system into returning unauthorized content? Can a prompt injection in user content affect which documents other users see?
+
+**Monitor for anomalies** like users retrieving content from unexpected sources or sudden spikes in filtered-out results. These might indicate misconfigurations or attack attempts.
+
+## The prompt injection angle
+
+When retrieval includes user-generated content, that content becomes an attack vector. A malicious document could include text designed to manipulate the LLM's behavior when retrieved.
+
+Access control helps here too. If user A can only retrieve their own documents, a malicious document from user B won't affect them. Tenant isolation limits the blast radius of prompt injection attacks.
+
+But if users share content (a shared knowledge base, a wiki), cross-contamination is possible. A malicious user could add content that, when retrieved by other users, manipulates their responses. Defense requires treating all retrieved content as potentially adversarial, regardless of access control.
+
+## Next
+
+With security filters in place, the next chapter addresses result quality: avoiding redundant chunks and increasing the diversity of retrieved content.
+
+<Cards>
+  <Card title="Next: Diversity and deduplication" href="/docs/rag/04-retrieval/06-diversity-and-deduplication" />
+</Cards>

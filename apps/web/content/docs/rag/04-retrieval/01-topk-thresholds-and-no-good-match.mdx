@@ -1,16 +1,84 @@
 ---
-title: "1. topK, thresholds, and 'no good match'"
-description: How to avoid forced hallucinations by detecting when retrieval didn’t find anything worth using.
-
+title: "topK, thresholds, and 'no good match'"
+description: How to avoid forced hallucinations by detecting when retrieval didn't find anything worth using.
 ---
 
-<Callout type="warn" title="Status: Stub">
-This chapter is a stub.
-</Callout>
+The simplest retrieval approach is to ask for the top K most similar chunks and use them as context. This works when your index contains relevant content, but it fails dangerously when it doesn't. If a user asks about something your knowledge base doesn't cover, topK still returns K chunks—they'll just be irrelevant. The LLM then generates an answer from irrelevant context, producing confident-sounding nonsense.
 
-## Planned topics
+This chapter covers how to configure retrieval to balance finding relevant content with detecting when no good content exists.
 
-- Why topK alone is not enough
-- Thresholding and per-query-class calibration
-- UX patterns for “no answer”, clarifying questions, and fallback search
+## Why topK alone fails
 
+The `topK` parameter tells retrieval to return the K chunks with the highest similarity scores. If you set K to 5, you get 5 chunks, regardless of whether any of them actually answer the query.
+
+This creates a fundamental problem. Similarity scores are relative, not absolute. The chunk with the highest score might have a score of 0.9 (likely relevant) or 0.3 (probably not relevant at all). TopK doesn't distinguish between these cases—it just returns whatever is closest, even if "closest" is still far away.
+
+When the LLM receives irrelevant context, one of two things happens. Either it hallucinates an answer using the tangentially related content you provided, or it ignores the context and answers from its training data, defeating the purpose of RAG. Neither outcome is what you want.
+
+## Thresholds as a quality gate
+
+A similarity threshold sets a minimum bar for inclusion. Only chunks scoring above the threshold are returned, regardless of how many that leaves you with.
+
+If your threshold is 0.6 and the best match scores 0.55, you get zero results. This might seem worse than returning low-scoring results, but it's actually better. Zero results is a clear signal that retrieval failed, which you can handle gracefully. Five irrelevant results is a silent failure that produces bad answers.
+
+The challenge is choosing the right threshold. Set it too high, and you'll miss relevant content. Set it too low, and you'll include noise. There's no universal right answer because the "right" threshold depends on your embedding model, your content, and your query patterns.
+
+## Combining topK with thresholds
+
+The practical approach uses both: retrieve up to K candidates, then filter to those above the threshold.
+
+You might configure retrieval to return up to 20 candidates (enough to have options), then filter to those with scores above 0.65 (your quality threshold), then take the top 5 of what remains (managing context window size). This gives you relevant content when it exists and an empty result when it doesn't.
+
+The filtering happens after the initial retrieval, so you're not slowing down the vector search. You're just applying a quality filter to the candidates it returns.
+
+## Calibrating thresholds empirically
+
+Don't guess at thresholds—measure them. The process requires two types of test queries: queries with known-relevant content in your index, and queries about topics your index doesn't cover.
+
+For queries with relevant content, look at the score of the correct chunks. If relevant content typically scores 0.7-0.9, you know your threshold should be below 0.7 to avoid missing it.
+
+For queries without relevant content, look at the best scores. If the best match for an off-topic query scores 0.5, you know any threshold above 0.5 will correctly reject it.
+
+Your threshold goes in the gap between these distributions. If relevant content scores 0.65+ and irrelevant best-matches score 0.55 or below, a threshold of 0.60 separates them cleanly. In practice the distributions overlap, and you're choosing where to make the tradeoff between false positives and false negatives.
+
+## Per-query-class calibration
+
+Different query types behave differently. Short queries like "refund" produce different score distributions than specific questions like "What's the maximum refund amount for orders over $500?" Queries using domain jargon differ from queries using everyday language.
+
+If your application has distinct query types, consider separate thresholds for each. A customer-facing chatbot might have a high threshold (prefer "I don't know" to wrong answers), while an internal search tool might have a lower threshold (show more results and let users evaluate).
+
+This is more work to maintain, but it can significantly improve precision on query types that the global threshold handles poorly.
+
+## Handling "no good match" gracefully
+
+When nothing passes your threshold, you need a user experience that doesn't just fail. Several patterns work depending on your use case.
+
+Acknowledging the gap honestly is often best: "I don't have information about that in my knowledge base." This is better than a hallucinated answer because it's true and doesn't damage trust.
+
+Suggesting related topics can help users who phrased their query poorly: "I didn't find an exact match, but here are some related topics..." Show the top results even if they're below threshold, but present them as suggestions rather than answers.
+
+Offering to escalate is appropriate for support contexts: "I can't answer that directly, but I can connect you with a support agent who can help."
+
+Falling back to general knowledge, with caveats, works for some applications: "I don't have specific information in my documentation, but based on general knowledge..." This should be explicit so users know the answer isn't grounded in your content.
+
+The worst response is pretending you have an answer when you don't. Users eventually discover the deception and lose trust in your entire system.
+
+## The score-is-not-confidence trap
+
+A common misconception is treating similarity scores as confidence levels—"the score is 0.8, so I'm 80% confident this is relevant." This is incorrect for several reasons.
+
+Similarity scores are not calibrated as probabilities. A score of 0.8 just means this chunk is closer to the query than a chunk scoring 0.7. It doesn't tell you anything about the absolute likelihood of relevance.
+
+Scores vary by embedding model. Different models produce different score distributions. A score of 0.6 might be excellent for one model and mediocre for another.
+
+Query length affects scores. Short queries often produce lower maximum scores than specific, detailed queries, even when relevant content exists.
+
+Treat scores as ranking signals, not confidence measures. Use thresholds to establish minimum quality, but don't report scores to users or use them in ways that assume they're calibrated probabilities.
+
+## Next
+
+With thresholds handling the "no match" case, the next chapter explores hybrid retrieval—combining semantic search with keyword matching to catch what vectors miss.
+
+<Cards>
+  <Card title="Next: Hybrid retrieval (BM25 + vectors)" href="/docs/rag/04-retrieval/02-hybrid-retrieval-bm25-plus-vectors" />
+</Cards>

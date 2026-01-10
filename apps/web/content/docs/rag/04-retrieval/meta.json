@@ -1,5 +1,5 @@
 {
-  "title": "Module 4: Retrieval",
+  "title": "Retrieval",
   "description": "Candidate generation that actually works: topK/thresholds, hybrid retrieval, routing, filters, and debugging.",
   "pages": [
     "index",

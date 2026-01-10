@@ -13,6 +13,7 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "types:check": "turbo run types:check",
+    "export:excalidraw": "bash ./scripts/export-excalidraw.sh",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "changeset publish"
