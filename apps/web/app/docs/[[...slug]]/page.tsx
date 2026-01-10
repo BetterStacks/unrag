@@ -10,6 +10,7 @@ import { getMDXComponents } from '@/mdx-components';
 import type { Metadata } from 'next';
 import { createRelativeLink } from 'fumadocs-ui/mdx';
 import SystemBanner from '@/components/ui/system-banner';
+import RAGHandbookBanner from '@/components/rag-handbook-banner';
 
 export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   const params = await props.params;
@@ -23,7 +24,12 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
     || (slug[0] === 'batteries' && slug[1] === 'eval');
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
+    <DocsPage 
+      toc={page.data.toc} full={page.data.full}
+      tableOfContent={{
+        footer: <RAGHandbookBanner />,
+      }}
+    >
       <SystemBanner
         text="Experimental Feature"
         color="bg-amber-600"
