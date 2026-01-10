@@ -1,0 +1,180 @@
+---
+title: Glossary
+description: Practical definitions for the terms used throughout the handbook.
+---
+
+This glossary defines the terminology used throughout the RAG Handbook. Definitions are practical rather than academic—they describe what terms mean in the context of building production systems.
+
+---
+
+## A
+
+**ANN (Approximate Nearest Neighbor):** A search algorithm that trades exact accuracy for speed. Instead of computing similarity to every vector in the index, ANN algorithms use data structures (like HNSW or IVF) to quickly find vectors that are probably among the most similar. See [Module 1: Indexing and ANN search](/docs/rag/01-foundations/04-indexing-and-ann-search).
+
+**ACL (Access Control List):** A list specifying which users or roles have permission to access a resource. In RAG, ACLs determine which documents a user's query can retrieve. See [Module 4: Filtering and ACL-safe retrieval](/docs/rag/04-retrieval/05-filtering-and-acl-safe-retrieval).
+
+---
+
+## B
+
+**BM25:** A keyword-based ranking algorithm that scores documents based on term frequency and inverse document frequency. Unlike vector search, BM25 matches exact terms. Often combined with vector search in hybrid retrieval. See [Module 4: Hybrid retrieval](/docs/rag/04-retrieval/02-hybrid-retrieval-bm25-plus-vectors).
+
+**Bi-encoder:** An embedding model architecture that encodes queries and documents independently. This allows pre-computing document embeddings but limits the model's ability to compare query-document pairs directly. Contrast with cross-encoder.
+
+---
+
+## C
+
+**Chunk:** A segment of a larger document, created during ingestion. Chunks are the unit of retrieval—when you query a RAG system, you retrieve chunks, not whole documents. Chunk size affects both retrieval precision and the context available to the LLM. See [Module 1: Chunking foundations](/docs/rag/01-foundations/02-chunking-foundations).
+
+**Circuit breaker:** A reliability pattern that stops calling a failing service to prevent cascading failures. When failure rates exceed a threshold, the circuit "opens" and fails fast. After a timeout, it tests recovery before fully reopening. See [Module 8: Reliability](/docs/rag/08-production-and-ops/05-reliability-fallbacks-and-degraded-modes).
+
+**Context window:** The maximum number of tokens an LLM can process in a single request. Retrieved chunks must fit within this window along with the system prompt, user query, and space for the response.
+
+**Cross-encoder:** A model that jointly encodes a query and a passage, producing a relevance score. More accurate than bi-encoders for ranking but too slow for initial retrieval because it must score each candidate individually. Used for reranking. See [Module 5: Cross-encoder rerankers](/docs/rag/05-reranking-and-context/02-cross-encoder-rerankers).
+
+**Cosine similarity:** A similarity metric that measures the angle between two vectors, ignoring magnitude. Values range from -1 (opposite) to 1 (identical). The most common similarity metric for text embeddings.
+
+---
+
+## D
+
+**Document:** In RAG terminology, a document is any content item before chunking. A "document" might be a PDF, a web page, a database record, or any other content unit. Documents are split into chunks during ingestion.
+
+**Dot product:** A similarity metric computed by multiplying corresponding vector components and summing. For normalized vectors, dot product equals cosine similarity. Some embedding models optimize for dot product similarity.
+
+---
+
+## E
+
+**Embedding:** A fixed-length vector representation of text (or other content) that captures semantic meaning. Embeddings enable semantic search—texts with similar meanings have similar embeddings, even if they use different words. See [Module 1: Embeddings and semantic search](/docs/rag/01-foundations/01-embeddings-and-semantic-search).
+
+**Embedding model:** A model that converts text into embeddings. Examples include OpenAI's text-embedding-3, Cohere's embed-v3, and open models like BGE and E5. Different models have different dimensions, costs, and quality characteristics.
+
+**Euclidean distance:** A similarity metric that measures the straight-line distance between two vectors. Lower values mean higher similarity. Less common than cosine similarity for text embeddings.
+
+---
+
+## F
+
+**Faithfulness:** A measure of whether a generated answer is supported by the provided context. A faithful answer only makes claims that can be verified from the sources. Unfaithful answers contain hallucinations. See [Module 7: What to measure](/docs/rag/07-evaluation/01-what-to-measure).
+
+**Few-shot prompting:** Including examples of desired input-output pairs in the prompt to guide the model's behavior. In RAG, few-shot examples can demonstrate how to cite sources or format answers.
+
+---
+
+## G
+
+**Grounding:** Connecting LLM generation to retrieved evidence. A well-grounded response cites its sources and avoids claims not supported by the context. Grounding is the core mechanism that makes RAG more reliable than pure LLM generation. See [Module 6: Grounding prompts](/docs/rag/06-generation/01-grounding-prompts-and-rules).
+
+---
+
+## H
+
+**Hallucination:** When a model generates information that isn't true or isn't supported by the provided context. RAG reduces but doesn't eliminate hallucination—models can still confabulate details even with good context. See [Module 6: Hallucinations, refusal, and verification](/docs/rag/06-generation/05-hallucinations-refusal-and-verification).
+
+**HNSW (Hierarchical Navigable Small World):** A popular ANN index algorithm that builds a multi-layer graph of vectors. Offers a good balance of speed, accuracy, and memory usage. Supported by most vector databases.
+
+**Hybrid retrieval:** Combining multiple retrieval methods, typically vector search (for semantic matching) and keyword search (for exact term matching). Results are merged using fusion techniques. See [Module 4: Hybrid retrieval](/docs/rag/04-retrieval/02-hybrid-retrieval-bm25-plus-vectors).
+
+---
+
+## I
+
+**Ingestion:** The process of processing source content into a form suitable for retrieval: extracting text, chunking, embedding, and storing in the vector database. See [Module 2: Data and ingestion](/docs/rag/02-data-and-ingestion).
+
+**IVF (Inverted File Index):** An ANN index algorithm that partitions vectors into clusters. Searches only examine relevant clusters. Faster to build than HNSW but often less accurate.
+
+---
+
+## L
+
+**Latency budget:** An allocation of the total allowed response time across pipeline stages. Setting latency budgets forces explicit tradeoffs between quality and speed. See [Module 8: Latency budgets](/docs/rag/08-production-and-ops/02-latency-budgets-and-fast-paths).
+
+**LLM-as-judge:** Using an LLM to evaluate the quality of RAG outputs according to a rubric. Common for measuring faithfulness, completeness, and helpfulness at scale. See [Module 7: LLM-as-judge](/docs/rag/07-evaluation/05-llm-as-judge-and-rubrics).
+
+---
+
+## M
+
+**MMR (Maximal Marginal Relevance):** A diversification algorithm that balances relevance with novelty. When selecting results, MMR penalizes candidates that are similar to already-selected items. See [Module 4: Diversity and deduplication](/docs/rag/04-retrieval/06-diversity-and-deduplication).
+
+**MRR (Mean Reciprocal Rank):** An evaluation metric that measures where the first relevant result appears. If the first relevant result is at position k, its reciprocal rank is 1/k. MRR averages this across queries.
+
+**Multi-tenancy:** Running a single system to serve multiple independent customers (tenants) with data isolation between them. See [Module 8: Scaling and multi-tenancy](/docs/rag/08-production-and-ops/07-scaling-and-multi-tenancy).
+
+---
+
+## N
+
+**nDCG (Normalized Discounted Cumulative Gain):** An evaluation metric that accounts for graded relevance and position. Higher scores indicate that more relevant results appear earlier in the ranking. More sophisticated than recall or precision.
+
+**Noisy neighbor:** In multi-tenant systems, a tenant whose behavior (high traffic, large corpus) negatively affects other tenants' performance.
+
+---
+
+## O
+
+**Overlap:** In chunking, the portion of text shared between adjacent chunks. Overlap helps preserve context across chunk boundaries and improves retrieval of information that spans chunks. See [Module 1: Chunking foundations](/docs/rag/01-foundations/02-chunking-foundations).
+
+---
+
+## P
+
+**Parent-child chunking:** A retrieval strategy where small chunks are used for precise matching, but larger parent sections are returned for context. Balances retrieval precision with generation context. See [Module 3: Parent-child and hierarchical retrieval](/docs/rag/03-chunking-and-representation/05-parent-child-and-hierarchical-retrieval).
+
+**Precision@K:** The fraction of the top K results that are relevant. High precision means less noise in your retrieved context.
+
+**Prompt injection:** An attack where malicious text causes an LLM to deviate from its intended behavior. In RAG, prompt injection can occur through retrieved content, not just user input. See [Module 8: Security and prompt injection](/docs/rag/08-production-and-ops/04-security-and-prompt-injection).
+
+---
+
+## Q
+
+**Query rewriting:** Transforming a user's query before retrieval to improve results. Techniques include expansion (adding synonyms), decomposition (splitting complex queries), and reformulation (rephrasing for clarity). See [Module 4: Query rewriting and decomposition](/docs/rag/04-retrieval/03-query-rewriting-and-decomposition).
+
+---
+
+## R
+
+**RAG (Retrieval-Augmented Generation):** A pattern where an LLM's response is informed by content retrieved from an external knowledge base. The retrieved context is injected into the prompt, allowing the model to answer based on specific, up-to-date information rather than relying solely on its training data.
+
+**Recall@K:** The fraction of relevant documents that appear in the top K results. High recall means you're retrieving the content you need.
+
+**Reindexing:** Reprocessing an entire corpus to update embeddings, typically needed when changing embedding models or chunking strategies. See [Module 2: Updates, deletes, and reindexing](/docs/rag/02-data-and-ingestion/05-updates-deletes-and-reindexing).
+
+**Reranking:** A second-stage ranking pass that reorders retrieval results for better precision. Rerankers (cross-encoders or LLMs) score each query-candidate pair jointly, which is more accurate than embedding similarity but slower. See [Module 5: Reranking and context optimization](/docs/rag/05-reranking-and-context).
+
+**RRF (Reciprocal Rank Fusion):** A method for combining rankings from multiple sources. Each result's score is based on its rank (1 / (k + rank)), and scores are summed across sources. Simple and effective for hybrid retrieval.
+
+---
+
+## S
+
+**Semantic search:** Search based on meaning rather than exact keyword matching. Semantic search uses embeddings to find content that is conceptually similar to the query, even when different words are used.
+
+**Similarity threshold:** A minimum similarity score below which results are discarded. Unlike topK (which always returns K results), thresholds ensure only sufficiently relevant results are included.
+
+**Streaming:** Sending LLM output to the client as it's generated, token by token, rather than waiting for the complete response. Reduces perceived latency significantly. See [Module 6: UX patterns](/docs/rag/06-generation/06-ux-patterns-streaming-sources-feedback).
+
+---
+
+## T
+
+**Token:** The basic unit of text that LLMs process. Roughly 4 characters or 0.75 words in English. Both context windows and pricing are measured in tokens.
+
+**topK:** The number of results to retrieve. A topK of 10 means retrieval returns the 10 most similar chunks. Higher topK increases recall but adds more (potentially irrelevant) context.
+
+**Trace:** A complete record of how a single query flowed through the RAG pipeline, including embeddings, retrieval results, reranking, context assembly, and generation. Essential for debugging. See [Module 8: Observability](/docs/rag/08-production-and-ops/01-observability-and-debugging).
+
+**TTFT (Time to First Token):** The time between submitting a request and receiving the first token of the response. A key latency metric for streaming responses.
+
+**Two-stage retrieval:** A pattern where a fast first stage (vector search) generates candidates, and a slower second stage (reranking) refines the ranking. Balances coverage with precision. See [Module 5: Two-stage retrieval](/docs/rag/05-reranking-and-context/01-two-stage-retrieval).
+
+---
+
+## V
+
+**Vector database:** A database optimized for storing and querying high-dimensional vectors. Supports similarity search over embeddings. Examples include Pinecone, Weaviate, Qdrant, Milvus, and PostgreSQL with pgvector.
+
+**Vector search:** Finding items similar to a query by comparing their vector representations. The core retrieval mechanism in semantic RAG systems.

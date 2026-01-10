@@ -1,0 +1,132 @@
+---
+title: Launch checklist
+description: A pre-launch checklist for shipping a RAG feature responsibly.
+---
+
+Before launching a RAG feature to production, work through this checklist. It covers the essential areas that teams often miss or underestimate. Use it as a pre-flight check—if you can't check an item, you have work to do or a risk to accept explicitly.
+
+---
+
+## Scope and expectations
+
+- **Use cases are defined.** You have a clear list of what the system is designed to do and what it's not designed to do.
+
+- **Refusal behavior is specified.** You've decided what happens when the system can't answer: does it say "I don't know," redirect to alternatives, or attempt a best-effort answer? This is documented and tested.
+
+- **Stakeholders have realistic expectations.** The team and stakeholders understand that RAG systems aren't perfect—there will be wrong answers, edge cases, and failures. Quality targets are defined and agreed upon.
+
+---
+
+## Data and ingestion
+
+- **Corpus is complete.** All content that should be searchable is ingested. You've verified that recent additions are indexed.
+
+- **Corpus quality is acceptable.** Content has been reviewed for errors, outdated information, and inappropriate material. Garbage in, garbage out.
+
+- **Chunking is appropriate.** You've validated that chunk sizes work for your content. Key information isn't split across boundaries in ways that break retrieval.
+
+- **Ingestion is automated.** New and updated content flows into the index automatically, or you have a documented manual process with owners.
+
+- **Deletion works.** When source documents are removed, their chunks and embeddings are also removed. You've tested this path.
+
+---
+
+## Access control and security
+
+- **ACLs are enforced pre-retrieval.** Users can only retrieve content they're authorized to see. Filtering happens before retrieval, not after.
+
+- **Prompt injection defenses are in place.** You've considered the risk of malicious content in your corpus and implemented appropriate mitigations (content scanning, prompt structure, output filtering).
+
+- **Sensitive data is handled appropriately.** PII, credentials, and other sensitive content are either excluded from the corpus or have appropriate access controls.
+
+- **Logs don't leak sensitive data.** Query logs and traces redact or exclude content that shouldn't be persisted.
+
+---
+
+## Quality and evaluation
+
+- **Eval dataset exists.** You have a test set covering your main use cases, edge cases, and failure modes.
+
+- **Baseline metrics are established.** You've measured retrieval metrics (recall, precision) and generation metrics (faithfulness, correctness) on your eval set.
+
+- **Regression gates are in place.** Changes to chunking, models, or prompts run against the eval set before deployment. Degradations are flagged.
+
+- **Eval coverage matches usage.** Your eval set includes query types that real users will send. It's not just the easy cases.
+
+---
+
+## Observability and debugging
+
+- **Traces are captured.** Every query can be traced through embedding, retrieval, reranking, context assembly, and generation.
+
+- **Latency is monitored.** You're tracking p50, p95, p99 latency broken down by stage.
+
+- **Error rates are monitored.** Failures at each stage are tracked and alerted on.
+
+- **Feedback can be correlated to traces.** When users report problems or give thumbs down, you can find the corresponding trace.
+
+- **Incident playbook exists.** The team knows how to diagnose common problems: bad retrieval, hallucinations, latency spikes.
+
+---
+
+## Latency and performance
+
+- **Latency budget is defined.** You have a target for acceptable end-to-end latency and know how it's allocated across stages.
+
+- **Latency meets the budget.** P95 latency under expected load is within your target.
+
+- **Streaming is implemented (if applicable).** For chat interfaces, tokens stream to the client to reduce perceived latency.
+
+- **Load testing is complete.** The system has been tested under expected peak load. Bottlenecks are identified.
+
+---
+
+## Cost and sustainability
+
+- **Cost per query is estimated.** You know the approximate cost breakdown (embedding, retrieval, reranking, generation).
+
+- **Cost is within budget.** At projected query volume, total cost is acceptable.
+
+- **Cost controls exist.** Rate limits, spend caps, or adaptive quality reduction are in place to prevent cost surprises.
+
+---
+
+## Reliability and fallbacks
+
+- **Graceful degradation is designed.** If embedding, retrieval, reranking, or generation fails, the system does something reasonable rather than crashing.
+
+- **Timeouts are configured.** Each stage has appropriate timeouts so a hung dependency doesn't block indefinitely.
+
+- **Dependency health is monitored.** You're tracking the availability of external services (embedding APIs, LLM providers) and alerting on degradation.
+
+---
+
+## Governance and compliance
+
+- **Data retention policies are implemented.** Logs, traces, and cached data have defined retention periods and automated cleanup.
+
+- **Deletion requests can be honored.** If a user requests data deletion, you can remove their queries, feedback, and any content attributable to them.
+
+- **Compliance requirements are met.** For regulated industries, relevant requirements (HIPAA, SOC 2, GDPR) are addressed.
+
+---
+
+## User experience
+
+- **Response format matches expectations.** Answers are the right length, style, and structure for your use case.
+
+- **Sources are displayed (if applicable).** Users can see what documents informed the answer, building trust and enabling verification.
+
+- **Feedback mechanism exists.** Users can report problems or rate responses, and this feedback is collected for improvement.
+
+- **Error states are handled gracefully.** When the system fails, users see a helpful message, not a stack trace or generic error.
+
+---
+
+## Documentation and handoff
+
+- **Architecture is documented.** The system's components, data flows, and dependencies are described for future maintainers.
+
+- **Operational runbooks exist.** Common tasks (reindexing, model updates, debugging) are documented.
+
+- **On-call responsibilities are assigned.** Someone owns production issues and knows how to respond.

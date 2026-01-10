@@ -17,6 +17,16 @@ Install deps:
 bun install
 ```
 
+## Utility scripts
+
+### Export Excalidraw diagrams
+
+There’s a small helper script to export `.excalidraw.json` files to PNG. It expects `excalidraw-brute-export-cli` to be available on your `PATH`.
+
+```bash
+bun run export:excalidraw -- --output ./output path/to/file1.excalidraw.json path/to/file2.excalidraw.json
+```
+
 Run everything:
 
 ```bash

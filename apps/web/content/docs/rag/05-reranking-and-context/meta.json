@@ -1,0 +1,14 @@
+{
+  "title": "Reranking and context optimization",
+  "description": "Turn candidates into useful context: reranking, compression, packing, citations, and conflict handling.",
+  "pages": [
+    "index",
+    "01-two-stage-retrieval",
+    "02-cross-encoder-rerankers",
+    "03-llm-reranking",
+    "04-context-compression",
+    "05-context-packing-and-citations",
+    "06-conflicts-staleness-and-freshness"
+  ]
+}
+

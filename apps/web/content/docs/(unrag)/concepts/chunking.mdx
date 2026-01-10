@@ -1,0 +1,152 @@
+---
+title: Chunking
+description: How documents are split into chunks and why it matters for retrieval quality.
+---
+
+Chunking is how Unrag splits your documents into smaller pieces before embedding them. The quality of your retrieval depends significantly on how well your chunking strategy matches your content type and use case.
+
+## Why chunk at all?
+
+Embedding models have context limits. OpenAI's text-embedding-3-small, for example, accepts up to 8,191 tokens per call. But even within that limit, longer texts produce less useful embeddings. A 5,000-word document embedded as a single vector captures the overall topic but loses the nuance of individual sections.
+
+Chunking solves this by breaking documents into pieces small enough that each embedding captures specific, queryable meaning. When someone searches for "how to configure authentication," you want to return the paragraph about authentication configuration, not an entire document that mentions authentication once.
+
+The tradeoff is that chunking can split information across boundaries. If an important concept spans two chunks, retrieval might only return one of them. Overlap helps with this—by repeating some text at chunk boundaries, you increase the chance that related content ends up in the same chunk.
+
+## The default chunker
+
+Unrag ships with a simple word-based chunker. It splits text on whitespace, groups words into chunks of the configured size, and creates overlap by starting each new chunk some words back from where the previous one ended.
+
+Default settings:
+- **chunkSize**: 200 words
+- **chunkOverlap**: 40 words
+
+These defaults work reasonably well for prose content like documentation, articles, and help center pages. They produce chunks of roughly 150-300 tokens, which embed efficiently and retrieve precisely.
+
+You can change the defaults in `unrag.config.ts`:
+
+```ts
+export const unrag = defineUnragConfig({
+  // ...
+  defaults: {
+  chunking: {
+    chunkSize: 300,
+    chunkOverlap: 60,
+  },
+  },
+} as const);
+```
+
+## Per-document overrides
+
+Different content types benefit from different chunking strategies. A long technical document might need larger chunks to keep code examples intact, while short FAQ entries might work better with smaller chunks.
+
+Override chunking for specific ingests:
+
+```ts
+// Large chunks for technical docs with code blocks
+await engine.ingest({
+  sourceId: "docs:api-reference",
+  content: technicalDoc,
+  chunking: { chunkSize: 500, chunkOverlap: 100 },
+});
+
+// Smaller chunks for FAQ-style content
+await engine.ingest({
+  sourceId: "faq:billing",
+  content: faqContent,
+  chunking: { chunkSize: 100, chunkOverlap: 20 },
+});
+```
+
+## Chunk size tradeoffs
+
+Choosing the right chunk size involves balancing several factors:
+
+**Smaller chunks** (50-150 words) give you more precise retrieval. Each chunk is about one idea, so when it matches a query, it's likely directly relevant. The downside is that you lose context—the chunk might not have enough surrounding information to be useful on its own. You also generate more embeddings, increasing cost and storage.
+
+**Larger chunks** (300-500 words) preserve more context and keep related information together. They're cheaper to embed and store. But they're less precise—a large chunk might match a query because of one sentence, then return a lot of irrelevant text along with it.
+
+**Very large chunks** (500+ words) are usually too broad for effective semantic search. The embedding becomes a vague average of many topics rather than a specific representation.
+
+For most applications, start with 150-250 words and adjust based on your retrieval quality. If you're getting good matches but not enough context, increase chunk size. If you're getting too much irrelevant text in results, decrease it.
+
+## Custom chunkers
+
+The default word-based chunker is simple but naive. It doesn't understand sentence boundaries, paragraphs, markdown structure, or code blocks. If your content has structure that matters, you might want a smarter chunker.
+
+To use a custom chunker, pass it when constructing the engine:
+
+```ts
+import { defineUnragConfig } from "@unrag/core";
+import type { Chunker, ChunkText, ChunkingOptions } from "@unrag/core";
+
+// A sentence-aware chunker (simplified example)
+const sentenceChunker: Chunker = (
+  content: string, 
+  options: ChunkingOptions
+): ChunkText[] => {
+  const sentences = content.split(/(?<=[.!?])\s+/);
+  const chunks: ChunkText[] = [];
+  
+  let current = "";
+  let wordCount = 0;
+  let index = 0;
+  
+  for (const sentence of sentences) {
+    const sentenceWords = sentence.split(/\s+/).length;
+    
+    if (wordCount + sentenceWords > options.chunkSize && current) {
+      chunks.push({
+        index: index++,
+        content: current.trim(),
+        tokenCount: wordCount,
+      });
+      current = "";
+      wordCount = 0;
+    }
+    
+    current += sentence + " ";
+    wordCount += sentenceWords;
+  }
+  
+  if (current.trim()) {
+    chunks.push({
+      index: index++,
+      content: current.trim(),
+      tokenCount: wordCount,
+    });
+  }
+  
+  return chunks;
+};
+
+// Use it in your engine config
+const unrag = defineUnragConfig({
+  defaults: {
+    chunking: { chunkSize: 200, chunkOverlap: 0 },
+    retrieval: { topK: 8 },
+  },
+  embedding: { provider: "custom", create: () => myEmbeddingProvider },
+  engine: {
+    chunker: sentenceChunker,
+  },
+} as const);
+
+const engine = unrag.createEngine({ store: myStore });
+```
+
+Common reasons to build a custom chunker:
+
+1. **Sentence boundaries**: Never split mid-sentence
+2. **Paragraph awareness**: Keep paragraphs together when possible
+3. **Markdown structure**: Respect heading boundaries, keep code blocks intact
+4. **Token-based sizing**: Count actual tokens instead of words for more predictable embedding behavior
+5. **Semantic sections**: Split on topic boundaries detected through heuristics or ML
+
+For most text content, the default chunker works fine. Invest in a custom chunker when you notice retrieval quality issues that trace back to poor chunk boundaries.
+
+<Callout title="Go deeper: Chunking strategies">
+The [RAG Handbook](/docs/rag) covers chunking in depth—including structure-aware strategies, multi-representation indexing, and how chunk size affects the quality-latency-cost triangle. See [Module 3: Chunking and Representation](/docs/rag/3-chunking-and-representation) for the full picture.
+</Callout>
+

@@ -1,0 +1,158 @@
+---
+title: Architecture
+description: How the ingest and retrieve pipelines work from end to end.
+---
+
+Understanding how Unrag processes your content helps you make good decisions about chunking parameters, embedding models, and performance optimization. Let's walk through both pipelines in detail.
+
+## The components
+
+Every Unrag instance is built from three pluggable pieces:
+
+**The embedding provider** turns text into vectors. It has one job: take a string, call an embedding model (local or remote), and return an array of numbers representing that text's position in semantic space. The default provider uses the Vercel AI SDK to call OpenAI models, but you can implement the interface for any embedding service.
+
+**The store adapter** handles persistence. It knows how to write documents, chunks, and their embeddings to your database, and how to query for similar vectors. Unrag ships adapters for Drizzle, Prisma, and raw SQL—all targeting Postgres with pgvector.
+
+**The chunker** splits documents into smaller pieces. The default implementation does simple word-based chunking with configurable size and overlap. If you need sentence-aware chunking, markdown-specific splitting, or token-based boundaries, you can provide your own chunker function.
+
+These components are assembled in your `unrag.config.ts` file to create a `ContextEngine` instance. The engine coordinates the components but doesn't contain business logic itself—it just calls the right methods in the right order.
+
+## The ingest pipeline
+
+When you call `engine.ingest({ sourceId, content, metadata, assets })`, here's what happens:
+
+<Steps>
+<Step>
+
+### Chunking
+
+The content string is passed to the chunker function along with your configured chunk size and overlap. The chunker returns an array of chunk objects, each containing the text, its position index, and an approximate token count.
+
+For example, with a chunk size of 200 words and 40-word overlap, a 500-word document becomes roughly 3-4 chunks. Each chunk shares some text with its neighbors, which helps preserve context across chunk boundaries.
+
+</Step>
+<Step>
+
+### Asset processing (optional)
+
+If you provide `assets` (or a connector like Notion or Google Drive does), Unrag can also turn rich media into chunks:
+
+- **PDFs**: if enabled via `assetProcessing.pdf.llmExtraction.enabled`, Unrag sends the PDF to an LLM (default: Gemini via AI Gateway) to extract text, then chunks and embeds that extracted text like any other content.
+- **Images**: if your embedding provider supports image embeddings (`embedImage`), Unrag can embed the image directly in the same vector space as text queries. If not, it falls back to embedding captions when available.
+- **Other asset kinds** (audio/video/files): in v1 they are skipped (or can be configured to fail ingest) unless you implement additional extraction.
+
+</Step>
+<Step>
+
+### Embedding
+
+Each chunk is sent to the embedding provider. This happens concurrently to minimize total latency. The provider returns a vector (array of floats) for each chunk. These vectors encode the semantic meaning of the chunk text.
+
+If you're using OpenAI's text-embedding-3-small model, each vector has 1,536 dimensions. Larger models produce higher-dimensional vectors (text-embedding-3-large uses 3,072 dimensions).
+
+</Step>
+<Step>
+
+### Storage
+
+The store adapter receives the chunks with their embeddings and writes them to your database in a transaction:
+
+1. Insert (or update) a row in the `documents` table with the full content and metadata
+2. Insert rows in the `chunks` table for each chunk
+3. Insert rows in the `embeddings` table with the vector for each chunk
+
+If you ingest with a `sourceId` that already exists, the adapter updates the existing document. The old chunks and embeddings are replaced with new ones.
+
+</Step>
+</Steps>
+
+<Callout>
+The ingest method returns detailed timing information. Embedding is typically the slowest step due to API latency.
+</Callout>
+
+```ts
+const result = await engine.ingest({ sourceId: "doc-1", content: "..." });
+console.log(result.durations);
+// { totalMs: 1523, chunkingMs: 2, embeddingMs: 1456, storageMs: 65 }
+```
+
+## The retrieve pipeline
+
+When you call `engine.retrieve({ query, topK, scope })`, the flow is simpler:
+
+<Steps>
+<Step>
+
+### Query embedding
+
+Your query string is passed to the same embedding provider used during ingestion. This produces a vector representing the query's semantic meaning.
+
+<Callout type="warn">
+Using the same embedding model for queries and documents is essential. Different models produce vectors in different semantic spaces that aren't directly comparable.
+</Callout>
+
+</Step>
+<Step>
+
+### Similarity search
+
+The store adapter receives the query embedding, the desired number of results (`topK`), and any scope filters. It runs a SQL query that computes the distance between the query vector and every stored chunk embedding, then returns the closest matches.
+
+With pgvector, this uses the `<=>` operator for cosine distance. Lower distances mean higher similarity. The adapter sorts ascending and limits to `topK` results.
+
+</Step>
+<Step>
+
+### Response assembly
+
+The engine packages the chunks, their scores, timing information, and metadata into a response object and returns it.
+
+```ts
+const result = await engine.retrieve({ query: "how does auth work?", topK: 5 });
+console.log(result.durations);
+// { totalMs: 234, embeddingMs: 189, retrievalMs: 45 }
+```
+
+</Step>
+</Steps>
+
+## Improving retrieval with reranking
+
+Vector similarity search is fast but imprecise. The embedding distance between a query and a chunk is a useful approximation of relevance, but it's not perfect. Chunks that are semantically related to your query might rank higher than chunks that directly answer it.
+
+Reranking addresses this with a two-stage approach. First, you retrieve a larger set of candidates using fast vector search—maybe 30 chunks instead of 10. Then you run those candidates through a reranker that directly scores each one against the query. The reranker is more expensive (it sees both the query and candidate text), but it makes much better relevance judgments.
+
+```ts
+// Stage 1: Fast vector retrieval
+const retrieved = await engine.retrieve({ query, topK: 30 });
+
+// Stage 2: Precise reranking
+const reranked = await engine.rerank({
+  query,
+  candidates: retrieved.chunks,
+  topK: 10,
+});
+```
+
+Reranking is optional and requires installing the reranker battery. The default implementation uses Cohere's rerank-v3.5 model, but you can bring your own reranker. See the [Reranker documentation](/docs/batteries/reranker) for details.
+
+## Where RAG happens
+
+It's worth noting what Unrag doesn't do: it doesn't call an LLM, build prompts, or generate answers. The "retrieval" in RAG is what Unrag handles. The "augmented generation" part—taking retrieved chunks and using them as context for an LLM—is your application's responsibility.
+
+This separation is intentional. Prompt engineering, context window management, streaming responses, and model selection vary dramatically by use case. Unrag gives you the retrieval primitive and trusts you to build the right generation layer for your application.
+
+A typical RAG flow looks like:
+
+1. User submits a question
+2. Call `engine.retrieve()` to get relevant chunks
+3. Format chunks into a context string
+4. Build a prompt with system instructions, context, and the user's question
+5. Call your LLM and stream the response
+
+Unrag handles step 2. Everything else is your code, using whatever patterns and libraries you prefer.
+
+<Callout title="Deep dive: RAG pipelines">
+For a comprehensive guide to RAG architecture—including the quality-latency-cost tradeoffs at each stage, common failure modes, and production considerations—see the [RAG Handbook](/docs/rag). The [Orientation](/docs/rag/0-orientation) module covers the two-pipeline mental model in depth.
+</Callout>
+

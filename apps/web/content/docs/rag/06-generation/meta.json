@@ -1,0 +1,14 @@
+{
+  "title": "Generation",
+  "description": "Grounded answering: prompting, formats, multi-turn chat, tool use, refusal behavior, and UX.",
+  "pages": [
+    "index",
+    "01-grounding-prompts-and-rules",
+    "02-answer-formats-and-product-ux",
+    "03-multi-turn-chat-and-memory",
+    "04-tools-agents-and-rag",
+    "05-hallucinations-refusal-and-verification",
+    "06-ux-patterns-streaming-sources-feedback"
+  ]
+}
+

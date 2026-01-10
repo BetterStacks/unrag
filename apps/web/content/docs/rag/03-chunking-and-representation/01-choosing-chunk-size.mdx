@@ -1,0 +1,102 @@
+---
+title: Choosing chunk size
+description: How to pick chunk sizes that match your corpus, your queries, and your context window.
+---
+
+Chunk size is one of the most consequential parameters in a RAG system, yet it's often left at framework defaults without much thought. The right chunk size depends on your content, your queries, and how you'll use the retrieved results. Understanding the tradeoffs helps you make intentional choices rather than hoping the defaults work.
+
+## The precision-context tradeoff
+
+At the heart of chunk sizing is a fundamental tension. Smaller chunks give you more precise retrieval—each chunk covers a narrower topic, so a match is more likely to be directly relevant. Larger chunks preserve more context—the chunk includes surrounding information that helps the LLM understand and use the content.
+
+Consider a documentation page about API authentication. If you chunk it into 50-word pieces, you might get one chunk about OAuth scopes, another about token expiration, another about error handling. When a user asks about token expiration, you retrieve exactly that chunk—high precision. But the chunk might not include the context about how tokens are obtained in the first place, making it harder for the LLM to give a complete answer.
+
+If you chunk the same page into 500-word pieces, the token expiration information sits alongside scope configuration and error handling. When you retrieve this chunk for a token expiration query, you're also including content that might not be relevant. The LLM has to sift through more noise—lower precision. But it has more context to work with, which might lead to a more complete answer.
+
+Neither extreme is right. The goal is finding the size that balances these concerns for your specific situation.
+
+![Chunk size tradeoffs: precision vs context vs cost](/diagrams/chunk-size-tradeoff.png)
+
+## What drives the optimal size
+
+Several factors influence where the sweet spot lies.
+
+**Query specificity** matters. If users ask narrow, specific questions ("What's the token expiration time?"), smaller chunks work well—you want to retrieve exactly the relevant sentence or paragraph. If users ask broader questions ("How does authentication work?"), larger chunks or multiple retrieved chunks are needed to cover the topic adequately.
+
+**Content density** varies by document type. Dense technical documentation, where each paragraph covers a distinct concept, benefits from smaller chunks. Narrative content, where meaning develops over many paragraphs, benefits from larger chunks that capture complete thoughts.
+
+**Context window budget** constrains how much you can retrieve. If you're including retrieved chunks in a 4,000-token prompt and leaving room for the question and instructions, you might have space for 2,000 tokens of context. Smaller chunks let you include more of them; larger chunks mean fewer but more complete pieces. The math depends on your prompt design and model choice.
+
+**Embedding model limits** impose hard caps. Most embedding models have maximum input lengths (512, 1,024, or 8,192 tokens depending on the model). Chunks longer than this limit get truncated, losing information. Size chunks to fit comfortably within your model's limits.
+
+## Starting points by content type
+
+While the optimal size is ultimately empirical, research and practice suggest reasonable starting ranges for different content types.
+
+<Accordions>
+<Accordion title="Technical documentation">
+
+Typically works well at 200-400 words. This is large enough to include a complete section with its examples, small enough to be topically focused.
+
+**With Unrag**: Default is 200 words, configurable in `unrag.config.ts`. See [chunking concepts](/docs/concepts/chunking).
+
+</Accordion>
+
+<Accordion title="Conversational content">
+
+Support tickets, chat logs, or FAQs often benefit from smaller chunks of 100-200 words. Each exchange or Q&A pair is a natural unit.
+
+</Accordion>
+
+<Accordion title="Long-form prose">
+
+Articles, reports, or legal documents often need larger chunks of 300-600 words to preserve narrative flow and complete arguments.
+
+</Accordion>
+
+<Accordion title="Code">
+
+A special case—size matters less than structure. A function might be 10 lines or 100 lines; what matters is keeping it intact. See [structure-aware chunking](/docs/rag/03-chunking-and-representation/02-structure-aware-chunking) for code-specific strategies.
+
+</Accordion>
+</Accordions>
+
+<Callout>
+These are starting points, not prescriptions. Test on your actual content and queries using [evaluation](/docs/rag/07-evaluation) to find what works.
+</Callout>
+
+## The overlap dimension
+
+Overlap—the amount of content shared between adjacent chunks—works alongside size to affect retrieval quality.
+
+With no overlap, concepts that span chunk boundaries get split. If the sentence explaining a key concept starts at the end of one chunk and continues at the beginning of the next, neither chunk captures the complete thought. Overlap ensures that boundary-spanning content appears in at least one chunk intact.
+
+Typical overlap is 10-20% of chunk size. A 200-word chunk with 40 words of overlap means consecutive chunks share 40 words. This catches most boundary issues without creating excessive redundancy.
+
+More overlap increases storage and embedding costs (more chunks total) and can cause retrieval to return redundant results (chunks that largely overlap all match the same query). Less overlap saves resources but risks missing content at boundaries.
+
+## Tuning with evaluation
+
+The only reliable way to find optimal chunk size is empirical testing. Create an evaluation set of queries with known-relevant documents. Test different chunk sizes and measure retrieval quality.
+
+Run the same queries against your index with 150-word, 250-word, and 400-word chunks. Measure recall (did you find the right content?) and precision (was the retrieved content actually relevant?). The size that maximizes your key metric is your answer.
+
+Be willing to use different sizes for different content types. If your index includes both FAQs and technical guides, they might perform better with different chunk sizes. Most systems can handle variable chunk sizes; the embedding and search don't require uniformity.
+
+## When defaults fail
+
+Framework defaults are chosen to be reasonable across many use cases. They fail when your use case has specific characteristics the defaults don't address.
+
+Signs that your chunk size is too small: retrieved chunks lack context, the LLM asks for clarification, answers are incomplete even when the information exists in your index.
+
+Signs that your chunk size is too large: retrieved chunks contain mostly irrelevant content, the same chunks match many unrelated queries, you're wasting context window on noise.
+
+If you're seeing these symptoms, chunk size is a likely culprit. Adjust and measure.
+
+## Next
+
+With size principles established, the next chapter covers structure-aware chunking: how to respect your content's natural boundaries rather than splitting arbitrarily.
+
+<Cards>
+  <Card title="Next: Structure-aware chunking" href="/docs/rag/03-chunking-and-representation/02-structure-aware-chunking" />
+</Cards>

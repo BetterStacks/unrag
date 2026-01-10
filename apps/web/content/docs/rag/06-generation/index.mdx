@@ -1,0 +1,40 @@
+---
+title: Introduction
+description: Grounded answering - prompting, formats, multi-turn chat, tool use, refusal behavior, and UX.
+---
+
+## Welcome to the Generation Module
+
+You've retrieved the right content, reranked it, and packed it into context. Now the LLM needs to produce an answer. This is where RAG either delivers value or falls apart. A model with perfect context can still hallucinate, ignore sources, produce unusable formats, or fail to refuse when it should.
+
+This module covers the generation side of RAG: how to instruct models to answer from evidence, how to design answer formats that serve your users, how to handle multi-turn conversations without degrading retrieval quality, how to compose RAG with tools and agents, how to manage hallucinations and refusal, and how to build UX that makes the system feel responsive and trustworthy.
+
+## What you'll learn in this module
+
+By the end of this module, you will understand:
+
+-   **Grounding prompts**: How to instruct the model to use context, cite sources, and refuse when evidence is missing.
+-   **Answer formats**: Choosing formats that match user intent—snippets, answers, reports—and the evaluation implications of each.
+-   **Multi-turn chat**: Preventing retrieval degradation over conversation turns through query rewriting and memory management.
+-   **Tools and agents**: How retrieval composes with tool calling, and where RAG fits in agentic systems.
+-   **Hallucinations and refusal**: Making failure safe through abstention, verification, and injection defense.
+-   **UX patterns**: Streaming, source display, and feedback loops that make the system feel great to use.
+
+## Chapters in this module
+
+<Cards>
+  <Card title="Grounding prompts and rules" href="/docs/rag/06-generation/01-grounding-prompts-and-rules" />
+  <Card title="Answer formats and product UX" href="/docs/rag/06-generation/02-answer-formats-and-product-ux" />
+  <Card title="Multi-turn chat and memory" href="/docs/rag/06-generation/03-multi-turn-chat-and-memory" />
+  <Card title="Tools, agents, and RAG" href="/docs/rag/06-generation/04-tools-agents-and-rag" />
+  <Card title="Hallucinations, refusal, and verification" href="/docs/rag/06-generation/05-hallucinations-refusal-and-verification" />
+  <Card title="UX patterns: streaming, sources, feedback" href="/docs/rag/06-generation/06-ux-patterns-streaming-sources-feedback" />
+</Cards>
+
+## Ready to begin?
+
+Let's start with the foundation: grounding prompts that make the model answer from your context rather than its training data.
+
+<Cards>
+  <Card title="Next: Grounding prompts and rules" href="/docs/rag/06-generation/01-grounding-prompts-and-rules" />
+</Cards>

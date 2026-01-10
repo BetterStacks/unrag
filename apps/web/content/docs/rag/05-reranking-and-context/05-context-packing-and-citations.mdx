@@ -1,0 +1,107 @@
+---
+title: "Context packing and citations"
+description: Pack evidence under token budgets and make answers traceable to sources.
+---
+
+How you structure context in the prompt affects how well the LLM uses it. Context packing is the art of arranging retrieved content—ordering, formatting, labeling—so the model can effectively extract and synthesize information. Citations make answers verifiable, letting users trace claims back to sources. Together, packing and citations turn retrieval results into trustworthy answers.
+
+## Ordering retrieved content
+
+The order in which you present chunks matters. LLMs have attention patterns that can favor certain positions.
+
+Relevance-first ordering puts the most relevant content at the top. This works well because the model sees the best evidence first, and if it needs to truncate attention, the most important content is preserved.
+
+Recency-first ordering might matter when freshness is important and multiple chunks cover the same topic at different points in time.
+
+Source grouping arranges content by source document rather than pure relevance. All chunks from Document A appear together, then all chunks from Document B. This can help the model understand context from each source but may interleave more and less relevant content.
+
+Experiments suggest that for most models, relevance-first ordering performs best. The model attends to the most useful content, which appears early, and synthesizes effectively. Test with your specific model and use case to confirm.
+
+## Formatting for clarity
+
+Clear formatting helps the model distinguish between sources and extract information accurately.
+
+![Context packing with citations](/diagrams/context-packing.png)
+
+Label each chunk with an identifier that can be referenced in citations: "[Source 1]", "[Document: FAQ.md]", or "[Chunk ID: abc123]". Consistent labeling allows the model to attribute specific claims to specific sources.
+
+Use clear delimiters between chunks. Newlines, horizontal rules, or explicit markers like "---" help the model understand where one source ends and another begins.
+
+Include relevant metadata inline: source name, date, section title. This gives the model context about what each chunk represents without requiring it to infer from content.
+
+Consider structured formats like XML-style tags for very long contexts:
+
+```
+<source id="1" title="Refund Policy" date="2024-01">
+Content of the chunk here...
+</source>
+<source id="2" title="FAQ" date="2024-03">
+Another chunk...
+</source>
+```
+
+This explicit structure helps some models parse complex contexts more reliably.
+
+## Managing redundancy
+
+Retrieved chunks often overlap in content, especially if your chunking uses overlap or if multiple documents cover the same information. Redundancy wastes tokens and can confuse the model.
+
+Deduplicate before packing. If two chunks are near-duplicates (high text or embedding similarity), include only one. Keep the one with the higher relevance score or from the more authoritative source.
+
+Merge related chunks when appropriate. If two chunks are consecutive sections from the same document, present them as a single unit rather than two separate sources.
+
+Summarize redundant information. If five chunks all say "returns are accepted within 30 days," you don't need all five. Include one representative chunk and note that multiple sources confirm this.
+
+## Token budget management
+
+Real prompts have multiple components competing for tokens: system instructions, conversation history, retrieved context, and space for generation. Context can't consume the entire budget.
+
+Reserve space for essentials first. If your system prompt is 200 tokens and you want 500 tokens for generation, subtract those from your context window to get the available context budget.
+
+Prioritize ruthlessly. If you have 2000 tokens for context and 10 chunks of 400 tokens each, you can't include all 10. Include the top 5 by relevance score. Or compress the top 10 to 200 tokens each.
+
+Truncate gracefully. If a chunk would push you over budget, either skip it entirely or truncate it intelligently (cut at sentence boundaries, keep the most relevant sentences).
+
+## Implementing citations
+
+Citations connect answer claims to retrieved sources. This serves two purposes: it helps users verify the answer, and it encourages the model to stay grounded in the provided context.
+
+Instruct the model to cite in your prompt. Be explicit: "For each claim in your answer, cite the source using [Source N]. Only make claims supported by the provided sources."
+
+Define a citation format that's easy for the model to produce and for your code to parse. [1], [Source 1], and [[FAQ.md]] are all workable. Avoid overly complex formats that the model might get wrong.
+
+Parse citations from the response and link them to the original sources. When displaying the answer, make citations clickable or expandable so users can see the source text.
+
+Handle missing citations. If the model makes a claim without citing, you can either post-process to add likely sources (based on content matching) or flag to the user that the claim isn't explicitly sourced.
+
+## Citation UX patterns
+
+How you present citations affects user trust and engagement.
+
+Inline citations place source references immediately after the relevant claim: "Returns are accepted within 30 days [1]." This is familiar from academic writing and makes verification easy.
+
+Footnote-style citations collect all sources at the end of the response. This is cleaner for reading but makes it harder to know which claims come from which sources.
+
+Expandable excerpts let users click a citation to see the original chunk inline. This provides immediate verification without leaving the conversation.
+
+Side-by-side views show the answer alongside the source chunks. Users can read the answer and glance at sources simultaneously. This is more complex UI but powerful for verification-heavy use cases.
+
+Consider your users. For internal tools where users trust the system, simple numbered citations may suffice. For external-facing products where trust is critical, expandable excerpts or side-by-side views provide the transparency users need.
+
+## Verifying citation accuracy
+
+The model might cite incorrectly—attributing a claim to the wrong source, or making a claim that isn't actually in any source.
+
+Post-process to verify that cited sources actually support the claims. This can be done with an LLM call ("Does Source 1 support the claim 'returns accepted within 30 days'?") or with simpler text matching.
+
+Monitor citation accuracy as a quality metric. If the model frequently makes unsupported claims or miscites, adjust your prompting, add verification steps, or consider a different model.
+
+Users will check citations, especially for important decisions. If they find citations don't support claims, trust collapses quickly.
+
+## Next
+
+Even with well-packed, well-cited context, sources sometimes disagree or contain outdated information. The next chapter covers handling conflicts, staleness, and freshness in retrieved content.
+
+<Cards>
+  <Card title="Next: Conflicts, staleness, and freshness" href="/docs/rag/05-reranking-and-context/06-conflicts-staleness-and-freshness" />
+</Cards>

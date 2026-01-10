@@ -1,0 +1,40 @@
+---
+title: Introduction
+description: Where production RAG usually succeeds or fails - data sourcing, pipelines, normalization, updates, and cost.
+---
+
+## Welcome to the Data and Ingestion Module
+
+The quality of your RAG system is bounded by the quality of your data. You can have the best embedding model, the most sophisticated retrieval strategy, and the most capable LLM—but if your content is stale, poorly structured, or missing entirely, none of that matters. Ingestion is where production RAG systems succeed or fail.
+
+This module covers the often-unglamorous work of getting content into your system reliably. It's less exciting than tuning retrieval parameters, but it's where most of the real-world problems hide.
+
+## What you'll learn in this module
+
+By the end of this module, you will understand:
+
+-   **How to choose and scope content sources**: What should go into your knowledge base, and what should stay out. How to think about freshness, ownership, and trust.
+-   **How to design robust ingestion pipelines**: Batch versus streaming, idempotency, retries, and the patterns that make pipelines reliable.
+-   **How to clean and normalize content**: Removing noise, preserving structure, and handling the messy reality of real-world documents.
+-   **How to model documents and maintain stable identifiers**: The foundation for updates, deletions, and auditing.
+-   **How to handle content lifecycle**: Updates, deletions, reindexing, and keeping your knowledge base current.
+-   **How to manage ingestion costs**: Where time and money go during ingestion, and how to optimize throughput.
+
+## Chapters in this module
+
+<Cards>
+  <Card title="Content sources" href="/docs/rag/02-data-and-ingestion/01-content-sources" />
+  <Card title="Ingestion pipelines" href="/docs/rag/02-data-and-ingestion/02-ingestion-pipelines" />
+  <Card title="Cleaning and normalization" href="/docs/rag/02-data-and-ingestion/03-cleaning-and-normalization" />
+  <Card title="Document modeling and stable IDs" href="/docs/rag/02-data-and-ingestion/04-document-modeling-and-stable-ids" />
+  <Card title="Updates, deletes, and reindexing" href="/docs/rag/02-data-and-ingestion/05-updates-deletes-and-reindexing" />
+  <Card title="Ingestion cost and throughput" href="/docs/rag/02-data-and-ingestion/06-ingestion-cost-and-throughput" />
+</Cards>
+
+## Ready to begin?
+
+Let's start by understanding how to choose what content goes into your knowledge base.
+
+<Cards>
+  <Card title="Next: Content sources" href="/docs/rag/02-data-and-ingestion/01-content-sources" />
+</Cards>

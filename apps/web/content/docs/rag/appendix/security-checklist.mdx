@@ -1,0 +1,114 @@
+---
+title: Security checklist
+description: Security and privacy guardrails for RAG systems.
+---
+
+RAG systems introduce security concerns that traditional applications don't face. This checklist covers the key areas to address before exposing your system to real users and real data.
+
+---
+
+## Access control
+
+- **ACLs are enforced at retrieval time.** Filtering happens before or during retrieval, not after. Users never "see" content they shouldn't access, even internally.
+
+- **Permission model is explicit.** You've documented who can access what content and how that's enforced in the retrieval layer.
+
+- **Metadata accurately reflects permissions.** Documents are tagged with correct access levels at ingestion time. You've audited for mismatches.
+
+- **Cross-tenant isolation is verified.** If you're multi-tenant, you've tested that one tenant cannot retrieve another tenant's content.
+
+- **Retrieval doesn't bypass application-level auth.** Just because content is in the corpus doesn't mean the current user should see it.
+
+---
+
+## Prompt injection defense
+
+- **Retrieved content is treated as untrusted input.** Your prompt design assumes that retrieved content could contain malicious text.
+
+- **Prompt structure separates instructions from data.** Context is clearly delimited. Instructions come after context where possible.
+
+- **Injection patterns are monitored.** You're watching for queries or documents that attempt to override system instructions.
+
+- **Content sources are risk-assessed.** User-uploaded content is treated more suspiciously than vetted internal content.
+
+- **Output is scanned for anomalies.** Responses that mention "ignore previous instructions" or reveal system prompts are flagged.
+
+---
+
+## Data exfiltration prevention
+
+- **Output doesn't leak unauthorized content.** The model can't be tricked into summarizing or quoting content the user shouldn't access.
+
+- **System prompts are protected.** Attempts to extract system prompts are refused or deflected.
+
+- **Bulk extraction is prevented.** Rate limits and monitoring prevent an attacker from systematically extracting corpus content through queries.
+
+---
+
+## Logging and tracing
+
+- **Query logs are access-controlled.** Only authorized personnel can view query logs, which may contain sensitive user information.
+
+- **PII is redacted in logs.** Personal information in queries is masked or excluded from persistent logs.
+
+- **Document content isn't logged unnecessarily.** Logs capture document IDs and metadata, not full content, where possible.
+
+- **Log retention follows policy.** Logs are automatically deleted after the retention period.
+
+- **Traces are queryable for incident response.** When investigating an issue, you can find relevant traces without exposing unrelated user data.
+
+---
+
+## Third-party services
+
+- **Data processing agreements are in place.** Embedding providers, LLM providers, and vector databases have appropriate contracts covering data handling.
+
+- **Data residency requirements are met.** If data must stay in a region, all services comply.
+
+- **Third-party training opt-out is configured.** Content sent to LLM providers isn't used for training (if that's your policy).
+
+- **API keys and credentials are secured.** Secrets aren't in code, logs, or client-side bundles.
+
+---
+
+## Corpus security
+
+- **Sensitive content is identified.** You know what sensitive information (credentials, PII, confidential data) exists in your corpus.
+
+- **Sensitive content is handled appropriately.** It's either excluded, access-controlled, or redacted.
+
+- **Content validation occurs at ingestion.** Uploaded documents are scanned for malicious content (prompt injection, malware, policy violations).
+
+- **Source provenance is tracked.** You know where each document came from and can remove content from compromised sources.
+
+---
+
+## Model security
+
+- **Model endpoints are authenticated.** Calls to embedding and LLM APIs require valid credentials.
+
+- **Model behavior is bounded.** The model has instructions limiting what it will do (no code execution, no system commands, no inappropriate content).
+
+- **Rate limits prevent abuse.** Both per-user and global limits prevent denial of service or cost attacks.
+
+---
+
+## Incident response
+
+- **Security incidents have a response plan.** You know how to handle a data breach, injection attack, or access control failure.
+
+- **Alerts exist for suspicious activity.** Unusual patterns (mass downloads, repeated injection attempts, access control failures) trigger alerts.
+
+- **Forensic data is available.** Logs and traces are sufficient to investigate an incident after the fact.
+
+- **Content can be purged quickly.** If malicious content enters the corpus, you can identify and remove it promptly.
+
+---
+
+## Regular review
+
+- **Access controls are audited periodically.** Permission assignments are reviewed to catch drift and unnecessary access.
+
+- **Security posture is reassessed.** As the system evolves, new risks are identified and addressed.
+
+- **Penetration testing includes RAG-specific attacks.** Security testing covers prompt injection, access control bypass, and data exfiltration through the RAG interface.

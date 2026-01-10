@@ -1,0 +1,40 @@
+---
+title: Introduction
+description: Beyond defaults - structure-aware chunking, multi-representation indexing, and debugging retrieval quality.
+---
+
+## Welcome to the Chunking and Representation Module
+
+In Module 1, we covered the foundational concept of chunking: why we split documents into smaller pieces and the basic tradeoffs involved. This module goes deeper. Chunking is one of the most impactful—and most overlooked—levers for improving retrieval quality. The default settings in most frameworks are reasonable starting points, but production systems almost always benefit from thoughtful customization.
+
+We'll move beyond naive word-count chunking to explore structure-aware approaches that respect your content's natural boundaries. We'll examine advanced representation strategies that go beyond "one chunk equals one vector." And we'll develop a systematic approach to debugging chunking problems when retrieval isn't working as expected.
+
+## What you'll learn in this module
+
+By the end of this module, you will understand:
+
+-   **How to choose optimal chunk sizes**: Balancing precision, context, and cost for your specific content and queries.
+-   **Structure-aware chunking techniques**: Respecting headings, code blocks, tables, and other structural elements that naive chunking destroys.
+-   **Token-based sizing**: Why word counts are a proxy, and how to size chunks based on actual token limits.
+-   **Multi-representation indexing**: Embedding summaries, titles, and alternate representations alongside raw chunks.
+-   **Hierarchical retrieval patterns**: Parent-child chunking and section expansion strategies.
+-   **Debugging chunking problems**: A systematic playbook for diagnosing and fixing chunking-related retrieval failures.
+
+## Chapters in this module
+
+<Cards>
+  <Card title="Choosing chunk size" href="/docs/rag/03-chunking-and-representation/01-choosing-chunk-size" />
+  <Card title="Structure-aware chunking" href="/docs/rag/03-chunking-and-representation/02-structure-aware-chunking" />
+  <Card title="Token-based sizing" href="/docs/rag/03-chunking-and-representation/03-token-based-sizing" />
+  <Card title="Multi-representation indexing" href="/docs/rag/03-chunking-and-representation/04-multi-representation-indexing" />
+  <Card title="Parent/child and hierarchical retrieval" href="/docs/rag/03-chunking-and-representation/05-parent-child-and-hierarchical-retrieval" />
+  <Card title="Chunking debugging playbook" href="/docs/rag/03-chunking-and-representation/06-chunking-debugging-playbook" />
+</Cards>
+
+## Ready to begin?
+
+Let's start by examining how to choose the right chunk size for your specific use case.
+
+<Cards>
+  <Card title="Next: Choosing chunk size" href="/docs/rag/03-chunking-and-representation/01-choosing-chunk-size" />
+</Cards>

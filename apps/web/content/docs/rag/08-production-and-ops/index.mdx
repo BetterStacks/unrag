@@ -1,0 +1,34 @@
+---
+title: Introduction
+description: Ship safely - observability, latency budgets, cost controls, security, reliability, governance, and scaling.
+---
+
+Building a RAG system that works in development is only half the job. Making it work reliably in production—under real traffic, with real users, and real consequences—requires thinking about operations from the start. This module covers what happens after your RAG system works: keeping it working, keeping it fast, keeping it affordable, and keeping it safe.
+
+Production RAG systems fail in ways that development systems don't reveal. Latency that seemed fine with one user becomes problematic with a hundred concurrent requests. Costs that seemed reasonable in testing multiply when real traffic arrives. Edge cases that never appeared in your test set show up daily in production. Security vulnerabilities that didn't matter in a sandbox suddenly matter a lot when real data is involved.
+
+The chapters ahead cover these operational concerns systematically. We'll start with observability—how to see what's happening in your production system so you can diagnose problems when they occur. Then we'll work through the practical tradeoffs of latency, cost, security, reliability, governance, and scale.
+
+## What you'll learn
+
+By the end of this module, you'll understand how to instrument and debug a production RAG pipeline. You'll know how to budget latency across retrieval, reranking, and generation so your system stays responsive. You'll have strategies for controlling costs without sacrificing quality. You'll understand the unique security challenges of RAG systems—particularly prompt injection through retrieved content—and how to defend against them.
+
+You'll also learn how to build systems that degrade gracefully when components fail, how to handle privacy and compliance requirements, and how to scale from single-tenant prototypes to multi-tenant production systems.
+
+## Chapters
+
+<Cards>
+  <Card title="Observability and debugging" href="/docs/rag/08-production-and-ops/01-observability-and-debugging" />
+  <Card title="Latency budgets and fast paths" href="/docs/rag/08-production-and-ops/02-latency-budgets-and-fast-paths" />
+  <Card title="Cost controls and model routing" href="/docs/rag/08-production-and-ops/03-cost-controls-and-model-routing" />
+  <Card title="Security and prompt injection" href="/docs/rag/08-production-and-ops/04-security-and-prompt-injection" />
+  <Card title="Reliability: fallbacks and degraded modes" href="/docs/rag/08-production-and-ops/05-reliability-fallbacks-and-degraded-modes" />
+  <Card title="Governance, privacy, and compliance" href="/docs/rag/08-production-and-ops/06-governance-privacy-and-compliance" />
+  <Card title="Scaling and multi-tenancy" href="/docs/rag/08-production-and-ops/07-scaling-and-multi-tenancy" />
+</Cards>
+
+## Next
+
+<Cards>
+  <Card title="Next: Observability and debugging" href="/docs/rag/08-production-and-ops/01-observability-and-debugging" />
+</Cards>

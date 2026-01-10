@@ -1,0 +1,15 @@
+{
+  "title": "Production and operations",
+  "description": "Ship safely: observability, latency budgets, cost controls, security, reliability, governance, and scaling.",
+  "pages": [
+    "index",
+    "01-observability-and-debugging",
+    "02-latency-budgets-and-fast-paths",
+    "03-cost-controls-and-model-routing",
+    "04-security-and-prompt-injection",
+    "05-reliability-fallbacks-and-degraded-modes",
+    "06-governance-privacy-and-compliance",
+    "07-scaling-and-multi-tenancy"
+  ]
+}
+

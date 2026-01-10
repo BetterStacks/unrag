@@ -1,0 +1,211 @@
+---
+title: Failure modes
+description: Symptom → likely cause → what to test next.
+---
+
+When your RAG system isn't working as expected, this index helps you diagnose the problem. Start with the symptom you're observing, review the likely causes, and follow the suggested investigations.
+
+---
+
+## Retrieval failures
+
+### "It returns irrelevant chunks"
+
+The retrieved content doesn't answer the question or isn't related to the query.
+
+**Likely causes:**
+- **Chunks too large:** Large chunks contain mixed topics, diluting the semantic signal. The chunk might be "about" the topic but not contain the specific answer.
+- **Embedding model mismatch:** The embedding model wasn't trained on your domain's vocabulary, or query and document embeddings aren't aligned.
+- **Missing metadata filters:** Results from wrong categories, tenants, or time periods are included because filtering isn't applied.
+- **No reranking:** Vector similarity approximates relevance but isn't perfect. Without reranking, less relevant chunks can outrank better ones.
+
+**What to investigate:**
+- Inspect the actual chunks being retrieved. Are they coherent units of information?
+- Check the similarity scores. If even top results have low scores, the embedding model may not be appropriate.
+- Verify that expected filters are being applied at query time.
+- Test adding a reranker to see if it improves precision.
+
+---
+
+### "It misses the obvious document"
+
+You know a document exists that should answer the query, but it's not retrieved.
+
+**Likely causes:**
+- **Chunking boundaries:** The answer spans a chunk boundary and neither chunk alone is a good match for the query.
+- **Vocabulary mismatch:** The query uses different terms than the document (synonyms, abbreviations, different phrasing).
+- **Insufficient topK:** The document is retrieved but ranked below your topK cutoff.
+- **Missing from index:** The document wasn't ingested, or ingestion failed silently.
+- **Filter excludes it:** Metadata filters are unintentionally excluding the document.
+
+**What to investigate:**
+- Manually search for the document ID in your index to confirm it's present.
+- Increase topK temporarily and check if the document appears at a lower rank.
+- Compare the query's embedding with the document chunk's embedding—is the similarity reasonable?
+- Test hybrid retrieval (BM25 + vector) to catch keyword matches that vector search misses.
+- Check if chunk overlap is sufficient to keep context together.
+
+---
+
+### "Results are too homogeneous / duplicative"
+
+Retrieved chunks are all very similar to each other, covering the same ground.
+
+**Likely causes:**
+- **No diversity enforcement:** Vector search naturally returns the most similar items, which may cluster around one subtopic.
+- **Duplicate content in corpus:** The same content appears multiple times (copies, versions, mirrors).
+- **Boilerplate contamination:** Headers, footers, or templates are embedded and match queries.
+
+**What to investigate:**
+- Apply MMR or similar diversity algorithms.
+- Check for and deduplicate identical or near-identical content in your corpus.
+- Review your chunks for boilerplate that should be stripped during preprocessing.
+
+---
+
+## Generation failures
+
+### "It hallucinates despite good context"
+
+The retrieved context contains the answer, but the generated response includes incorrect information.
+
+**Likely causes:**
+- **Context too long:** The model is losing track of information in a large context window.
+- **Weak grounding instructions:** The prompt doesn't strongly instruct the model to answer only from context.
+- **Model's training conflicts:** The model's parametric knowledge contradicts the context, and it follows its training instead.
+- **Answer buried in context:** The relevant information is present but surrounded by noise that distracts the model.
+
+**What to investigate:**
+- Test with shorter context (fewer chunks or compression) to see if accuracy improves.
+- Strengthen grounding instructions: "Answer only based on the provided context. If the answer isn't in the context, say so."
+- Reorder context to put the most relevant chunks first.
+- Try a different model; some models are better at following context.
+
+---
+
+### "It says 'I don't know' too often"
+
+The system refuses to answer questions it should be able to answer from the retrieved context.
+
+**Likely causes:**
+- **Threshold too aggressive:** Similarity threshold or reranking cutoffs are discarding relevant content.
+- **Refusal instructions too strong:** The grounding prompt encourages refusal even when context is adequate.
+- **Context not reaching the prompt:** A bug in context assembly is passing empty or truncated context.
+- **Retrieved but not relevant enough:** The context is tangentially related but doesn't directly answer the question.
+
+**What to investigate:**
+- Log the actual context being sent to the model. Is it present and relevant?
+- Relax similarity thresholds and compare behavior.
+- Review refusal instructions—are they too broad?
+- Check retrieval quality: is the content that would answer the question actually being retrieved?
+
+---
+
+### "Answers are too verbose / too terse"
+
+Response length doesn't match expectations.
+
+**Likely causes:**
+- **Prompt doesn't specify format:** Without guidance, models default to their training distribution.
+- **Context influences style:** If retrieved chunks are verbose or terse, the model may mimic their style.
+- **Wrong model for use case:** Some models are chattier than others.
+
+**What to investigate:**
+- Add explicit format instructions: "Respond in 2-3 sentences" or "Provide a detailed explanation."
+- Consider few-shot examples showing desired response length.
+- Test different models if format is critical to UX.
+
+---
+
+## Security and access control failures
+
+### "Users see content they shouldn't access"
+
+Sensitive content is being surfaced to unauthorized users.
+
+**Likely causes:**
+- **Filtering happens too late:** ACLs are checked after retrieval and context assembly, not before. The model may have already seen the content.
+- **Metadata missing or wrong:** Documents aren't tagged with correct permissions.
+- **Filtering applied to final answer only:** The system tries to redact responses rather than preventing retrieval.
+- **Prompt injection:** Malicious content in the corpus manipulates the model into revealing information.
+
+**What to investigate:**
+- Verify that filtering is pre-retrieval, not post-generation.
+- Audit metadata on sensitive documents.
+- Check for any content that could act as prompt injection.
+- Test with a user account that should have no access and verify nothing is retrieved.
+
+---
+
+### "Data leaks across tenants"
+
+One tenant's content appears in another tenant's results.
+
+**Likely causes:**
+- **Tenant ID not filtered:** Queries aren't scoped to the requesting tenant.
+- **Wrong tenant ID at ingestion:** Content was ingested with the wrong tenant metadata.
+- **Shared index without proper isolation:** Single index without reliable tenant filtering.
+
+**What to investigate:**
+- Trace a cross-tenant leak back to the specific chunk and verify its metadata.
+- Audit ingestion pipeline for tenant ID assignment.
+- Consider separate indexes per tenant for stronger isolation.
+
+---
+
+## Latency and performance failures
+
+### "P99 latency is too high"
+
+Occasional requests are much slower than typical requests.
+
+**Likely causes:**
+- **Cold cache hits:** First request to a new query pattern pays embedding and retrieval latency.
+- **Large context assembly:** Some queries retrieve much more content, slowing generation.
+- **Rate limit retries:** Hitting rate limits causes backoff delays.
+- **Network variability:** External API latency varies.
+
+**What to investigate:**
+- Compare slow traces to fast traces. What's different?
+- Check if slow requests correlate with cache misses.
+- Monitor rate limit responses from external services.
+- Look for queries that retrieve unusually many chunks.
+
+---
+
+### "Generation is slow even with good retrieval"
+
+Retrieval is fast, but overall latency is dominated by generation.
+
+**Likely causes:**
+- **Long context:** More tokens in context means slower generation.
+- **Long output:** Model is generating lengthy responses.
+- **Model choice:** Larger models are slower.
+- **Not streaming:** Waiting for complete response instead of streaming.
+
+**What to investigate:**
+- Measure TTFT vs total latency. If TTFT is fast, the issue is output length.
+- Apply context compression to reduce input tokens.
+- Consider smaller/faster models for simpler queries (model routing).
+- Implement streaming to improve perceived latency.
+
+---
+
+## Quality degradation over time
+
+### "Quality was good, now it's worse"
+
+The system worked well but has degraded without obvious changes.
+
+**Likely causes:**
+- **Corpus drift:** New content has different characteristics (length, quality, domain).
+- **Model changes:** Embedding model or LLM was updated by the provider.
+- **Query distribution shift:** Users are asking different types of questions.
+- **Index corruption or staleness:** Ingestion failures left gaps in the corpus.
+
+**What to investigate:**
+- Compare recent evals to historical baselines. Which metrics degraded?
+- Check if embedding model or LLM versions changed.
+- Sample recent queries—are they different from your eval set?
+- Audit ingestion logs for failures or backlogs.
+- Validate index freshness: are recent documents indexed?

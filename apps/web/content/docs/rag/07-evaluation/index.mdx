@@ -1,0 +1,40 @@
+---
+title: Introduction
+description: Measure retrieval and answer quality, build datasets, run regressions, and avoid evaluation traps.
+---
+
+## Welcome to the Evaluation Module
+
+You can't improve what you can't measure. RAG systems are complex—retrieval, reranking, generation, and user experience all affect the final result—and without proper evaluation, you're flying blind. Changes that feel like improvements might actually hurt quality. Regressions can go unnoticed until users complain. Evaluation turns RAG development from guesswork into engineering.
+
+This module covers how to measure RAG quality systematically: what metrics matter, how to build evaluation datasets that reflect real usage, how to run offline tests that catch regressions before they ship, how to learn from production feedback, how to use LLMs as judges, and how to debug problems by slicing your evaluation data.
+
+## What you'll learn in this module
+
+By the end of this module, you will understand:
+
+-   **What to measure**: Separating retrieval quality from answer quality, and choosing metrics that reflect product risk.
+-   **Building eval datasets**: Curating queries and ground truth that represent real usage without bias or leakage.
+-   **Offline evaluation**: Treating quality as a CI concern with deterministic runs, baselines, and release gates.
+-   **Online evaluation**: A/B tests, human review, and feedback loops that improve the system over time.
+-   **LLM-as-judge**: When automated judges help, when they fail, and how to design stable rubrics.
+-   **Debugging with slices**: Finding what's actually broken by slicing data by tenant, doc type, or query class.
+
+## Chapters in this module
+
+<Cards>
+  <Card title="What to measure" href="/docs/rag/07-evaluation/01-what-to-measure" />
+  <Card title="Building eval datasets" href="/docs/rag/07-evaluation/02-building-eval-datasets" />
+  <Card title="Offline evals and regression testing" href="/docs/rag/07-evaluation/03-offline-evals-and-regression-testing" />
+  <Card title="Online evaluation and feedback loops" href="/docs/rag/07-evaluation/04-online-evaluation-and-feedback-loops" />
+  <Card title="LLM-as-judge and rubrics" href="/docs/rag/07-evaluation/05-llm-as-judge-and-rubrics" />
+  <Card title="Debugging with eval slices" href="/docs/rag/07-evaluation/06-debugging-with-eval-slices" />
+</Cards>
+
+## Ready to begin?
+
+Let's start by understanding what to measure—and what not to over-index on.
+
+<Cards>
+  <Card title="Next: What to measure" href="/docs/rag/07-evaluation/01-what-to-measure" />
+</Cards>

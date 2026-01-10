@@ -1,0 +1,13 @@
+{
+  "title": "Foundations",
+  "description": "The core primitives behind RAG: embeddings, chunking, metadata, and indexing—explained without framework assumptions.",
+  "pages": [
+    "index",
+    "01-embeddings-and-semantic-search",
+    "02-chunking-foundations",
+    "03-metadata-filtering-and-permissions",
+    "04-indexing-and-ann-search",
+    "05-score-calibration-and-thresholds"
+  ]
+}
+

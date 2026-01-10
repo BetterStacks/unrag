@@ -1,0 +1,14 @@
+{
+  "title": "Data and ingestion",
+  "description": "Where production RAG usually succeeds or fails: data sourcing, pipelines, normalization, updates, and cost.",
+  "pages": [
+    "index",
+    "01-content-sources",
+    "02-ingestion-pipelines",
+    "03-cleaning-and-normalization",
+    "04-document-modeling-and-stable-ids",
+    "05-updates-deletes-and-reindexing",
+    "06-ingestion-cost-and-throughput"
+  ]
+}
+

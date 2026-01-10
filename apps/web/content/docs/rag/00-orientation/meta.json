@@ -1,0 +1,12 @@
+{
+  "title": "Orientation",
+  "description": "A practical introduction to RAG: what you’re building, why it fails, and how to reason about quality.",
+  "pages": [
+    "index",
+    "01-what-is-rag",
+    "02-anatomy-of-a-production-rag-system",
+    "03-use-cases-and-non-goals",
+    "04-the-rag-triangle-quality-latency-cost"
+  ]
+}
+

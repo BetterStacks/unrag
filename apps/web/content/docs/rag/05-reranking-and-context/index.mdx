@@ -1,0 +1,40 @@
+---
+title: Introduction
+description: Turn candidates into useful context - reranking, compression, packing, citations, and conflict handling.
+---
+
+## Welcome to the Reranking and Context Module
+
+Retrieval gives you candidates. What you do with those candidates determines whether your RAG system produces good answers. This module covers the critical stage between retrieval and generation: reranking candidates to surface the most relevant ones, compressing context to fit token budgets, packing information for effective LLM consumption, and handling the messy realities of conflicting or stale sources.
+
+The techniques in this module directly impact answer quality. A well-reranked, properly compressed context produces better answers than dumping raw retrieval results into a prompt. These steps are where you refine signal from noise.
+
+## What you'll learn in this module
+
+By the end of this module, you will understand:
+
+-   **Two-stage retrieval architecture**: Why fast retrieval followed by expensive reranking outperforms either alone.
+-   **Cross-encoder rerankers**: How they work, when to use them, and the latency/quality tradeoffs.
+-   **LLM-based reranking**: Using language models for relevance judgments when cross-encoders aren't available or sufficient.
+-   **Context compression**: Extractive and abstractive techniques for fitting more signal into limited token budgets.
+-   **Context packing and citations**: Structuring context for LLM consumption and making answers traceable to sources.
+-   **Handling conflicts and staleness**: Policies for when sources disagree or information is outdated.
+
+## Chapters in this module
+
+<Cards>
+  <Card title="Two-stage retrieval" href="/docs/rag/05-reranking-and-context/01-two-stage-retrieval" />
+  <Card title="Cross-encoder rerankers" href="/docs/rag/05-reranking-and-context/02-cross-encoder-rerankers" />
+  <Card title="LLM reranking" href="/docs/rag/05-reranking-and-context/03-llm-reranking" />
+  <Card title="Context compression" href="/docs/rag/05-reranking-and-context/04-context-compression" />
+  <Card title="Context packing and citations" href="/docs/rag/05-reranking-and-context/05-context-packing-and-citations" />
+  <Card title="Conflicts, staleness, and freshness" href="/docs/rag/05-reranking-and-context/06-conflicts-staleness-and-freshness" />
+</Cards>
+
+## Ready to begin?
+
+Let's start by understanding why two-stage retrieval—fast candidate generation followed by expensive relevance scoring—is the foundation of high-quality RAG systems.
+
+<Cards>
+  <Card title="Next: Two-stage retrieval" href="/docs/rag/05-reranking-and-context/01-two-stage-retrieval" />
+</Cards>

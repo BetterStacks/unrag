@@ -1,0 +1,98 @@
+---
+title: "Conflicts, staleness, and freshness"
+description: When sources disagree or are outdated, your system needs explicit rules—not vibes.
+---
+
+Real knowledge bases aren't perfectly consistent. Documentation drifts out of sync. Old policies coexist with new ones. Different sources express different perspectives. When your RAG system retrieves contradictory or outdated information, it needs explicit strategies for handling these situations—not hoping the LLM figures it out.
+
+## Why conflicts and staleness matter
+
+When sources disagree, the LLM faces an impossible task: synthesize a coherent answer from contradictory evidence. Without guidance, it might pick one arbitrarily, average them incorrectly, or invent a reconciliation that doesn't actually exist in any source.
+
+A user asking about the refund policy might retrieve a 2022 policy document (30-day window) and a 2024 policy document (60-day window). If the LLM averages or picks randomly, the user gets wrong information. If it presents both without context, the user is confused.
+
+Stale content is particularly dangerous because it looks authoritative. The old document was correct when written; it's only wrong because circumstances changed. The model has no way to know which is current unless you tell it.
+
+## Freshness signals
+
+Metadata is your primary tool for freshness. Every chunk should carry information about when it was created or last updated. This lets you make explicit decisions about recency.
+
+Document-level timestamps indicate when the source document was last modified. This is the minimum viable freshness signal.
+
+Content-level timestamps are more precise: when was this specific section last reviewed? A document modified today might contain sections that haven't been updated in years.
+
+Explicit versioning helps when documents go through formal releases. Version 2.3 supersedes version 2.2, regardless of modification timestamps.
+
+Include freshness metadata in the context provided to the LLM. When chunks are labeled with dates, the model can reason about recency: "The 2024 document says X, which supersedes the 2022 document's Y."
+
+## Retrieval-time freshness filtering
+
+For content where freshness is critical, filter at retrieval time rather than hoping the model handles it.
+
+Time-bounded retrieval restricts results to content from the last N days or months. If only current documentation matters, don't retrieve old documentation.
+
+Freshness-weighted scoring boosts recent content in your retrieval ranking. A document from last month might get a relevance boost over an equally similar document from last year.
+
+Archival separation puts historical content in a separate index. Only search the archive for explicitly historical queries; default to the current index.
+
+Be careful not to over-filter. Sometimes historical context is genuinely useful. A user asking "What changed in the 2024 policy update?" needs both old and new versions.
+
+## Latest-wins policies
+
+![Conflict resolution](/diagrams/conflict-resolution.png)
+
+The simplest conflict resolution is: the most recent source wins. When multiple sources address the same topic, use the newest one and ignore older versions.
+
+Implement this by including only the most recent chunk on a given topic, or by instructing the LLM: "When sources conflict, prefer the most recent source."
+
+Latest-wins works well for policies, procedures, and facts that genuinely supersede old versions. It doesn't work when both perspectives are valid (different opinions, different contexts) or when the old source is actually more authoritative.
+
+## Presenting conflicts explicitly
+
+Sometimes the right answer is to acknowledge the conflict rather than resolve it.
+
+When legitimate disagreement exists—different experts with different views—the model should present both perspectives rather than arbitrarily choosing one. "Source A says X; Source B says Y. The difference may reflect Z."
+
+When it's unclear which source is authoritative, presenting both with their provenance lets the user decide. "According to the 2022 policy, X. However, a 2024 FAQ says Y. We recommend confirming with the official policy portal."
+
+This is more honest than false certainty. Users can handle nuance; they can't recover from confidently wrong answers.
+
+## Instructing the model
+
+Your system prompt should include explicit guidance on handling conflicts and staleness.
+
+For latest-wins: "When sources contradict, prefer the source with the most recent date. Cite the date to make this clear."
+
+For explicit conflicts: "When sources present different information, acknowledge the discrepancy and cite both sources. Don't invent reconciliations."
+
+For freshness-critical domains: "If all retrieved sources are more than 6 months old, note that the information may be outdated and recommend checking current documentation."
+
+Without explicit instructions, the model will do something—but not necessarily what you want. Make your conflict resolution policy explicit.
+
+## Preventing invented reconciliation
+
+LLMs are helpful by nature. When presented with contradictory sources, they may try to reconcile them by inventing explanations that appear in neither source. "The policy may have changed" or "This applies to different situations" might be fabricated rather than sourced.
+
+Guard against this with clear instructions: "Do not infer or speculate about reasons for differences between sources. Only state what the sources explicitly say."
+
+Monitor for invented reconciliation in your evaluation. If the model frequently produces explanations not grounded in sources, adjust your prompting or add explicit warnings.
+
+For high-stakes applications, post-process to verify that any conflict explanations are actually present in the sources rather than generated by the model.
+
+## Freshness in citations
+
+When you display citations, include freshness information so users can assess reliability.
+
+Show dates: "[Source: Refund Policy, updated Jan 2024]" tells the user this is recent. "[Source: FAQ, last updated 2021]" signals potential staleness.
+
+Flag potential staleness explicitly. If your system knows a source is old, say so: "Note: This information is from 2021 and may be outdated."
+
+Consider freshness warnings in the answer itself, not just citations. "Based on documentation from 2022. Please verify current policies."
+
+## Next module
+
+With reranking and context optimization complete, Module 6 moves to the generation stage—prompting the LLM to produce grounded, accurate answers from the context you've prepared.
+
+<Cards>
+  <Card title="Next: Module 6 — Generation" href="/docs/rag/06-generation" />
+</Cards>

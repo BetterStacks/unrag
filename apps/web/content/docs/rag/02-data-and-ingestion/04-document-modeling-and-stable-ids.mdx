@@ -1,0 +1,84 @@
+---
+title: Document modeling and stable IDs
+description: Define documents, sections, and chunks so updates, deletes, and audits are possible.
+---
+
+Every chunk in your index needs an identity: a way to reference it, update it, delete it, and trace it back to its source. Get the identity model right, and operations like "update this document" or "remove all content from this source" become simple. Get it wrong, and you'll fight duplicates, orphaned chunks, and untraceable answers.
+
+## What counts as a document
+
+The term "document" is overloaded. It might mean a file, a web page, a database record, or a section of a larger piece of content. For RAG purposes, a document is the unit at which you track identity and manage lifecycle.
+
+Think about how content changes and how you want to handle those changes. If a web page updates, do you want to reprocess just that page? Then the page is your document. If updating one page should trigger reprocessing of related pages, maybe the group is your document. If a long PDF has sections that change independently, maybe each section is a document.
+
+The practical answer is usually: a document is whatever you can identify, fetch, and reprocess as a unit. For a CMS, it's a page. For a file system, it's a file. For a support system, it's a ticket. The source's natural boundaries often make sense.
+
+## Stable identifiers
+
+Every document—and every chunk—needs a stable identifier. Stable means the ID doesn't change when you reprocess the content. If you ingest a document today and again next week, it should have the same ID both times.
+
+**Why stable IDs matter.** Without stable IDs, each ingestion run creates new records. The old ones remain in the index, and now you have duplicates. Run the pipeline ten times, and you have ten copies of everything. Users see the same content repeated in results, and your index grows without bound.
+
+With stable IDs, reprocessing a document updates the existing record. The new content replaces the old. No duplicates, no growth, no drift.
+
+**Deriving stable IDs.** The ID should be derived from something inherent to the content, not generated randomly. Common patterns include:
+
+Using the source's own identifier, like a CMS page ID, database primary key, or file path. This works well when the source has reliable identifiers.
+
+Using a content-based hash, like a SHA-256 of the document's URL or canonical path. This works when you need to generate IDs yourself but have a stable way to reference the content.
+
+Combining source and position: if you're chunking a document into multiple pieces, each chunk's ID might be `{document_id}:chunk-{position}` or `{document_id}:{content_hash}`. This ensures each chunk is uniquely identified within its document.
+
+**What breaks stability.** Watch out for patterns that seem stable but aren't. File paths might change if someone renames a folder. URLs might change if the site restructures. Chunk positions might change if you adjust chunking parameters. Think through what changes might happen and whether your IDs would survive them.
+
+## Namespace and scoping
+
+When you have multiple content sources, or serve multiple tenants, IDs need scope. A document ID of `123` is ambiguous—document 123 from which source? For which tenant?
+
+Namespace your IDs. A pattern like `{source}:{document_id}` or `{tenant}:{source}:{document_id}` makes IDs globally unique and self-describing. When you see an ID like `docs:getting-started`, you know it's from the docs source. When you see `acme:support:ticket-456`, you know it's a support ticket for the acme tenant.
+
+Namespaced IDs also enable scoped operations. "Delete all content from the docs source" becomes "delete everything with an ID starting with `docs:`." "Reindex all support tickets for this tenant" becomes "reprocess everything matching `{tenant}:support:`."
+
+## Provenance: tracing back to source
+
+When a chunk appears in retrieval results, you need to know where it came from. Provenance metadata answers this.
+
+**Source URL or path** lets you generate links for citations. When the LLM cites a chunk, users should be able to click through to the original.
+
+**Ingestion timestamp** tells you when this version of the content was indexed. If a user reports a wrong answer, you can check whether they were seeing stale content.
+
+**Source version** helps when sources have their own versioning. Knowing that a chunk came from version 2.3 of the documentation (not version 2.4) can explain discrepancies.
+
+**Connector or pipeline ID** is useful when content comes through multiple pipelines. If you have separate pipelines for docs and support tickets, knowing which pipeline created a chunk helps with debugging.
+
+Store provenance as metadata on chunks. You'll use it for citations, debugging, and audit trails.
+
+## The document-chunk relationship
+
+Each document produces multiple chunks, and you need to track this relationship. When a document is updated, you need to find and update (or replace) all its chunks. When a document is deleted, you need to delete all its chunks.
+
+**Parent reference.** Store the document ID on each chunk. This enables queries like "find all chunks from document X" for deletion or debugging.
+
+**Chunk enumeration.** Know how many chunks a document produced and what their IDs are. This helps detect orphans—chunks whose parent document no longer exists—and ensures complete deletion.
+
+**Version or hash.** Store a version indicator on each chunk that changes when the document changes. This helps detect which chunks are stale after reprocessing.
+
+## Example: modeling a documentation site
+
+Suppose you're indexing a documentation site. Here's how the model might look.
+
+Each page is a document, identified by its URL path: `/docs/getting-started`, `/docs/api/users`. The path is stable (it rarely changes for established pages) and inherent to the content.
+
+When you chunk a page, each chunk gets an ID derived from the page ID and its position: `/docs/getting-started:0`, `/docs/getting-started:1`, etc. If chunking changes and the same page produces different chunks, the new chunks replace the old ones.
+
+Provenance metadata includes the full URL (for citations), the page title (for display), and the ingestion timestamp (for freshness).
+
+Scoped deletion is straightforward: to remove all documentation, delete everything with IDs starting with `/docs/`.
+
+## Next
+
+With documents modeled and identified, the next chapter covers the lifecycle operations: updates, deletes, and reindexing.
+
+<Cards>
+  <Card title="Next: Updates, deletes, and reindexing" href="/docs/rag/02-data-and-ingestion/05-updates-deletes-and-reindexing" />
+</Cards>

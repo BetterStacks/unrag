@@ -1,0 +1,102 @@
+---
+title: Content sources
+description: Decide what to ingest, how to scope it, and how to keep it aligned with product expectations.
+---
+
+Before you can build a RAG system, you need to decide what goes into it. This sounds obvious, but the decision is more nuanced than "ingest everything." The content you include—and exclude—determines what questions your system can answer, what risks you take on, and how much work you'll do to maintain it.
+
+## Thinking about content as product
+
+Your knowledge base isn't just a database; it's a product feature. The content you index defines what your RAG system knows, which in turn defines the user experience. If users expect your assistant to know about billing but you haven't indexed billing documentation, they'll be frustrated. If they expect current information but your content is stale, they'll lose trust.
+
+Start by asking product questions. What questions should your system be able to answer? What sources contain those answers? What level of freshness do users expect? The answers guide your content strategy.
+
+## Common content source patterns
+
+Different applications draw from different sources. Here are the patterns you'll encounter most often.
+
+<Accordions>
+<Accordion title="Product documentation">
+
+The classic RAG use case: help docs, API references, user guides, FAQs. This content is usually well-structured, written for humans, and updated through a controlled process. It's often the easiest to ingest because it's already meant to be consumed.
+
+**With Unrag**: See the [docs search example](/docs/examples/docs-search) for a complete implementation.
+
+</Accordion>
+
+<Accordion title="Internal knowledge bases">
+
+Like Confluence, Notion, or internal wikis contain institutional knowledge: how things work, decisions that were made, processes to follow. This content is valuable but often messy—inconsistent formatting, outdated pages, duplicated information across spaces. It requires more cleaning and curation.
+
+**With Unrag**: Use the [Notion connector](/docs/connectors/notion) or [Google Drive connector](/docs/connectors/google-drive) for seamless integration.
+
+</Accordion>
+
+<Accordion title="Support tickets and conversations">
+
+Contain real questions users ask and answers that worked. They're goldmines for understanding how users actually phrase things, but they also contain noise: back-and-forth troubleshooting, customer-specific details, and information that was true at the time but isn't anymore.
+
+</Accordion>
+
+<Accordion title="Code and technical artifacts">
+
+Source files, configuration, and API schemas can power developer-facing RAG systems. Code has structure that requires special handling (we'll cover this in [Module 3](/docs/rag/03-chunking-and-representation)), and it changes frequently, requiring robust update pipelines.
+
+</Accordion>
+
+<Accordion title="User-generated content">
+
+Community forums, reviews, or uploaded documents introduces trust and permission challenges. The content isn't authored by your team, so you can't guarantee its accuracy, and it might contain inappropriate material or adversarial content.
+
+</Accordion>
+
+<Accordion title="External sources">
+
+Web pages, third-party documentation, or public datasets can extend your knowledge base beyond what you control. But they come with freshness challenges (the source can change without notifying you), permission questions (are you allowed to index it?), and trust issues (you can't vouch for accuracy).
+
+</Accordion>
+</Accordions>
+
+## The freshness problem
+
+One of the most common RAG failures is stale answers. A user asks a question, your system retrieves content from six months ago, and the LLM generates an answer that was accurate then but isn't now. The user has no way to know the information is outdated.
+
+Freshness requirements vary by content type. Product documentation for a SaaS product might change weekly. Legal or compliance content might change quarterly. Historical reference material might never change. Your ingestion strategy should reflect these differences.
+
+Think about freshness in terms of user expectations and failure costs. If users expect current pricing information and you show them last year's prices, that's a high-cost failure. If users are researching historical decisions and the content is a few weeks behind, that might be acceptable.
+
+Build freshness into your pipeline design. How often will you sync each source? How will you detect changes? How will you handle content that disappears from the source? We'll cover the mechanics in the chapters on pipelines and updates.
+
+## Ownership and governance
+
+Every content source needs an owner—someone who decides what gets indexed, approves changes to the scope, and takes responsibility when things go wrong.
+
+This matters more than you might expect. Without clear ownership, you'll face questions that have no good answers. "Should we index this new internal wiki?" Who decides? "This content is outdated and causing bad answers." Who's responsible for fixing it? "A customer is upset that sensitive information appeared in a response." Who approved indexing that content?
+
+For each source, establish: Who owns the source content? Who approves its inclusion in the knowledge base? Who's responsible for freshness and accuracy? Who should be notified when there are problems?
+
+Governance also means defining what doesn't get indexed. Sensitive content, draft documents, content under access control, personally identifiable information—these all need explicit policies. It's easier to exclude content upfront than to deal with the consequences of accidentally surfacing it.
+
+## Trust and verification
+
+Not all content is equally trustworthy. Product documentation written by your team is authoritative. A Stack Overflow answer might be helpful but could also be wrong. A user-uploaded document could contain anything.
+
+Consider how trust levels affect your system. You might want to prioritize high-trust content in retrieval. You might want to tag results with their source so users can evaluate credibility. You might want to exclude low-trust content from certain use cases entirely.
+
+For user-generated or external content, think about adversarial scenarios. Could someone upload content designed to manipulate your RAG system? Could a prompt injection in indexed content cause your system to behave unexpectedly? We'll cover security considerations in more depth in Module 8, but be aware that your content is part of your attack surface.
+
+## Scoping for success
+
+A common mistake is trying to index everything. It feels comprehensive, but it creates problems. More content means more noise in retrieval results. More sources mean more maintenance burden. More variety means more edge cases in extraction and chunking.
+
+Start focused. Identify the content that covers the most common user questions and index that well. Measure retrieval quality. Add more sources incrementally, evaluating the impact each time. A well-indexed subset beats a poorly-indexed everything.
+
+Think about scope in terms of the user journey. What questions will users ask first? What sources answer those? Start there. Expand based on observed gaps—questions users ask that your system can't answer—rather than assumptions about what might be needed.
+
+## Next
+
+With content sources identified, the next chapter covers how to actually get that content into your system: ingestion pipelines.
+
+<Cards>
+  <Card title="Next: Ingestion pipelines" href="/docs/rag/02-data-and-ingestion/02-ingestion-pipelines" />
+</Cards>

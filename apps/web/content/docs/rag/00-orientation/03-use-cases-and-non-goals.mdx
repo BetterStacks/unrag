@@ -1,0 +1,92 @@
+---
+title: "Use cases and non-goals"
+description: Choose the right RAG architecture for your product and avoid mismatched expectations.
+---
+
+RAG is a pattern, not a product. The same underlying technology can power a documentation search widget, a customer support copilot, an internal knowledge assistant, or a codebase Q&A tool. But these use cases have different requirements, and building the wrong shape of RAG system leads to frustration even when the technical implementation is sound.
+
+This chapter helps you match RAG patterns to product requirements. Understanding what your use case actually needs—and what it doesn't—saves you from over-engineering some parts while under-investing in others.
+
+## Documentation search
+
+The classic RAG use case: users type a question, and you show them relevant passages from your documentation. The user clicks through to read the full source. The model might not even generate a response; it might just rank and highlight results.
+
+**What matters here**: Retrieval precision is critical. Users expect the top results to be directly relevant. False positives (returning plausible but wrong pages) erode trust quickly. You need good chunking that preserves the structure of documentation—keeping code examples intact, respecting section boundaries, handling tables sensibly.
+
+**What matters less**: Generation quality is less important because users are clicking through to source documents. Refusal behavior is also less critical—showing "no results found" is acceptable when nothing matches.
+
+**Common mistakes**: Over-investing in generation when the UX is really about surfacing links. Under-investing in chunking, leading to results that match keywords but don't actually answer the question. Ignoring the "no results" case entirely.
+
+## Support copilot
+
+A support agent is handling customer requests. The RAG system suggests relevant knowledge base articles, previous ticket resolutions, or product documentation that might help. The agent reviews the suggestions and incorporates them into their response.
+
+**What matters here**: Recall is as important as precision. Missing a relevant article means the agent has to search manually, which defeats the purpose. The system should surface multiple candidates even if some are imperfect—agents can filter. Latency matters but not as much as in consumer-facing products; agents are multitasking anyway.
+
+**What matters less**: The generated response doesn't need to be customer-ready. Agents will rewrite it. What matters is giving them the right source material quickly.
+
+**Common mistakes**: Building for precision at the expense of recall. Not accounting for the variety of ways customers describe problems (which is often different from how documentation describes solutions). Ignoring the agent's workflow and showing results in a way that doesn't fit how they work.
+
+## Customer-facing assistant
+
+The model generates answers directly to customers. This is the highest-stakes RAG use case: wrong answers damage trust, and you can't rely on a human to catch mistakes before they reach the user.
+
+**What matters here**: Everything. Retrieval needs high precision (wrong context leads to wrong answers) and reasonable recall (missing context leads to "I don't know" too often). Generation needs to be faithful to the context (no hallucination) and appropriately cautious (refuse when unsure). Citations need to be present and accurate so users can verify. Access control must be airtight—customers should never see content meant for other customers or internal teams.
+
+**What matters less**: Latency tolerance is higher than you might think. Users will wait a few seconds for a helpful answer. Don't sacrifice quality for speed.
+
+**Common mistakes**: Shipping without evaluation. Assuming access control "just works" without testing it. Not defining refusal behavior, leading to confident wrong answers. Not logging enough to debug when things go wrong.
+
+## Internal knowledge assistant
+
+Employees search across internal documents: Confluence pages, Google Docs, Notion, Slack threads, internal wikis. The corpus is messy, permissions are complex, and the stakes are medium—wrong answers waste time but usually don't reach customers.
+
+**What matters here**: Permissions. Internal systems have complex ACLs, and leaking information across teams or projects is a real risk. The retrieval system needs to respect document-level permissions and ideally filter before retrieval rather than after (to avoid leaking that a document exists). Content freshness also matters—internal docs are often out of date, and surfacing stale information creates confusion.
+
+**What matters less**: Perfect precision. Employees are more forgiving of imperfect results than customers, especially if the alternative is digging through Confluence manually. Generation doesn't need to be polished; internal users accept "here are the relevant docs" as a useful answer.
+
+**Common mistakes**: Underestimating permission complexity. Not handling stale content (showing results with "last updated 2 years ago" without warning). Trying to index everything without thinking about what's actually useful.
+
+## Codebase assistant
+
+Developers ask questions about a codebase: "How does authentication work?" "Where is the payment logic?" "What does this function do?" The RAG system searches code, documentation, and possibly commit history to answer.
+
+**What matters here**: Structure-aware retrieval. Code has structure (functions, classes, files, dependencies) that naive chunking destroys. Symbol-level indexing (being able to find a specific function by name) complements semantic search. The relationship between code and documentation matters—ideally you can trace from a question to both the implementation and any relevant docs.
+
+**What matters less**: Refusal behavior. Developers expect to iterate. "I'm not sure, but this might be relevant" is useful; "I can't help with that" is not.
+
+**Common mistakes**: Treating code like prose text. Not indexing documentation alongside code. Chunking at fixed character counts instead of respecting language structure. Ignoring file paths and directory structure as retrieval signals.
+
+## What RAG shouldn't be used for
+
+Some use cases look like RAG problems but aren't.
+
+**Real-time data.** If the answer depends on information that changes second-by-second (stock prices, live inventory, current system status), RAG isn't the right pattern. Use tool calling to query live systems instead.
+
+**Complex reasoning over structured data.** If the question requires aggregating numbers, filtering by multiple criteria, or joining across tables, you probably want text-to-SQL or a structured query interface. RAG can help find relevant records, but it's not a replacement for a database query.
+
+**Tasks where correctness is legally or safety-critical.** RAG can assist human experts, but you shouldn't deploy it as the sole decision-maker for medical diagnoses, legal judgments, or safety-critical systems. The failure modes are too serious.
+
+## Choosing your architecture
+
+Before building, answer these questions:
+
+**Who is the user?** Internal employees have different tolerance for imperfection than external customers. Support agents will filter suggestions; end users take answers at face value.
+
+**What's the output?** Links to sources, generated responses, or both? The answer changes how much you invest in generation vs retrieval.
+
+**What's the failure cost?** Wrong answers to internal employees waste time. Wrong answers to customers damage trust. Wrong answers in regulated domains create liability.
+
+**How complex are permissions?** Simple (all users see all content) vs complex (per-document ACLs, team-based access, customer data isolation).
+
+**How fast does content change?** Static documentation can be indexed once. Rapidly changing content needs continuous sync and freshness handling.
+
+Your answers to these questions should drive your architecture decisions throughout the build.
+
+## Next
+
+The next chapter introduces the core tradeoff that underlies most RAG architecture decisions: the tension between quality, latency, and cost.
+
+<Cards>
+  <Card title="Next: The RAG triangle" href="/docs/rag/00-orientation/04-the-rag-triangle-quality-latency-cost" />
+</Cards>
