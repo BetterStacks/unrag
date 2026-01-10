@@ -33,7 +33,7 @@ cp .env.example .env
 
 Required environment variables:
 - `DATABASE_URL` - PostgreSQL connection string
-- `OPENAI_API_KEY` - OpenAI API key for embeddings
+- `AI_GATEWAY_API_KEY` - AI Gateway API key for embeddings
 
 ### 3. Setup database
 
@@ -50,6 +50,8 @@ bun run db:push
 ```
 
 ### 4. Seed and ingest data
+
+In ideal case, you would use your own data to ingest into the vector store. For this example, we are using mock data.
 
 Seed the database with mock support tickets:
 
