@@ -161,7 +161,7 @@ UPSTASH_REDIS_REST_TOKEN=...
 
 ### Removing Rate Limiting
 
-To remove rate limiting entirely, simply delete `middleware.ts`. The app works without it.
+To remove rate limiting entirely, simply delete `proxy.ts`. The app works without it.
 
 ## Learn More
 

@@ -1,7 +1,7 @@
 /**
  * Rate Limiting Middleware
  *
- * This middleware uses Upstash Redis to rate limit API requests.
+ * This proxy uses Upstash Redis to rate limit API requests.
  * It's completely optional - if UPSTASH_REDIS_REST_URL is not set,
  * rate limiting is disabled and all requests pass through.
  *
@@ -48,7 +48,7 @@ const rateLimiters = redis
   }
   : null;
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Skip rate limiting if not configured
   if (!rateLimiters) {
     return NextResponse.next();
