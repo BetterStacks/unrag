@@ -1,0 +1,9 @@
+{
+  "thresholds": {
+    "min": {
+      "recallAtK": 0.75
+    }
+  },
+  "cleanup": "none",
+  "ingest": true
+}
