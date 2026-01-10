@@ -1,17 +1,142 @@
 ---
 title: Evaluation checklist
 description: A practical checklist for setting up evals and monitoring.
+---
+
+Evaluation is how you know whether your RAG system works. This checklist covers setting up a robust evaluation practice—not just running evals once, but building them into your development and operations workflow.
 
 ---
 
-<Callout type="warn" title="Status: Stub">
-This page is a stub.
-</Callout>
+## Dataset fundamentals
 
-## Planned checklist
+- **Eval dataset exists.** You have a defined set of queries with expected results or ground truth answers.
 
-- Dataset coverage: query classes, tenants, doc types, risk levels
-- Retrieval metrics tracked over time
-- Regression gating in CI for high-impact changes
-- Online feedback loop integrated into triage + dataset updates
+- **Dataset covers major use cases.** Each primary use case your system is designed for is represented in the dataset.
 
+- **Dataset includes edge cases.** Queries that are ambiguous, complex, or likely to fail are included, not just the easy cases.
+
+- **Dataset includes negative cases.** Queries that should result in refusal ("I don't know") are included to test refusal behavior.
+
+- **Dataset is realistic.** Queries resemble what real users actually ask, not just what developers imagine they'll ask.
+
+- **Dataset is versioned.** Changes to the dataset are tracked so you can compare results over time.
+
+- **Dataset maintenance is assigned.** Someone owns keeping the dataset current as the system evolves.
+
+---
+
+## Ground truth quality
+
+- **Ground truth is documented.** For each query, you've recorded what a correct answer looks like.
+
+- **Ground truth includes sources.** You know which documents should be retrieved to answer each query.
+
+- **Ground truth is validated.** Someone has reviewed the ground truth annotations for accuracy.
+
+- **Ambiguous cases are acknowledged.** Where multiple answers could be correct, the evaluation accounts for this.
+
+---
+
+## Metric selection
+
+- **Retrieval metrics are tracked.** You're measuring recall@K, precision@K, MRR, or similar for the retrieval stage.
+
+- **Generation metrics are tracked.** You're measuring faithfulness, correctness, or usefulness for the generation stage.
+
+- **Metrics match product goals.** The metrics you're optimizing actually matter for your use case (high-stakes domains prioritize faithfulness; efficiency domains prioritize task completion).
+
+- **Metric definitions are documented.** The team agrees on how each metric is calculated and what thresholds are acceptable.
+
+---
+
+## Retrieval evaluation
+
+- **You can identify relevant documents.** For each test query, you know which document(s) should be retrieved.
+
+- **Retrieval is evaluated independently.** You measure retrieval quality separately from generation quality.
+
+- **topK settings are validated.** You've confirmed that your topK value balances recall with noise.
+
+- **Thresholds are calibrated.** If you use similarity thresholds, you've tested that they filter appropriately.
+
+---
+
+## Generation evaluation
+
+- **Faithfulness is measured.** You check whether generated answers are supported by the provided context.
+
+- **Citation accuracy is verified (if applicable).** If your system cites sources, you verify that citations are correct.
+
+- **Refusal behavior is tested.** Queries that should refuse are confirmed to refuse appropriately.
+
+- **Format compliance is checked.** Answers match expected format (length, structure, style).
+
+---
+
+## LLM-as-judge setup
+
+- **Rubric is defined.** If using LLM-as-judge, you have a clear rubric specifying what constitutes good/bad answers.
+
+- **Judge prompt is tested.** The judge prompt produces consistent, reasonable scores on sample cases.
+
+- **Judge has access to context.** The judge sees the retrieved context, not just the question and answer, to assess faithfulness.
+
+- **Judge scores are validated against humans.** A sample of judge scores has been compared to human ratings to verify alignment.
+
+- **Judge model is appropriate.** The judge model is capable enough to evaluate responses reliably.
+
+---
+
+## Regression testing
+
+- **Baseline is established.** You have stored results from a known-good configuration to compare against.
+
+- **Regressions are detected.** When metrics degrade beyond a threshold, it's flagged.
+
+- **Blocking regressions are defined.** You've decided which regressions should block deployment and which are acceptable.
+
+- **CI integration is in place (if applicable).** Evals run automatically on relevant changes.
+
+---
+
+## Slicing and debugging
+
+- **Results are sliceable.** You can break down metrics by query type, content category, or other dimensions.
+
+- **Failure cases are reviewable.** You can inspect individual failing queries to understand what went wrong.
+
+- **Retrieval and generation failures are distinguished.** You can tell whether a bad answer came from bad retrieval or bad generation.
+
+---
+
+## Online evaluation
+
+- **Production metrics are tracked.** You're measuring something in production (task completion, user satisfaction, escalation rate).
+
+- **User feedback is collected.** Users can rate or flag responses, and this data is captured.
+
+- **Feedback is actionable.** Negative feedback can be traced to specific queries and investigated.
+
+- **Feedback loop exists.** Production feedback informs dataset updates and system improvements.
+
+---
+
+## Monitoring and alerting
+
+- **Quality metrics are monitored over time.** You can see trends in retrieval and generation quality.
+
+- **Alerts exist for quality degradation.** Significant drops in key metrics trigger investigation.
+
+- **Evaluation runs regularly.** Evals aren't just for launch—they run periodically to catch drift.
+
+---
+
+## Process and ownership
+
+- **Eval process is documented.** The team knows how to run evals, interpret results, and update datasets.
+
+- **Eval ownership is assigned.** Someone is responsible for maintaining the evaluation infrastructure and datasets.
+
+- **Results are reviewed.** Eval results are actively used to make decisions, not just collected.
+
+- **Dataset evolves with the product.** As features change and usage patterns shift, the eval dataset is updated to match.
