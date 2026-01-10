@@ -27,8 +27,8 @@ interface RerankFunction {
     query: string;
   }): Promise<{
     ranking: Array<{
-      index: number;
-      relevanceScore?: number;
+      originalIndex: number;
+      score: number;
     }>;
   }>;
 }
@@ -104,9 +104,9 @@ export const createCohereReranker = (config?: CohereRerankerConfig): Reranker =>
       const scores: number[] = [];
 
       for (const item of result.ranking) {
-        order.push(item.index);
-        if (item.relevanceScore !== undefined) {
-          scores.push(item.relevanceScore);
+        order.push(item.originalIndex);
+        if (item.score !== undefined) {
+          scores.push(item.score);
         }
       }
 
