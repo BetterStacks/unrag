@@ -1,16 +1,78 @@
 ---
-title: "6. Chunking debugging playbook"
+title: Chunking debugging playbook
 description: A practical method to diagnose chunking problems using targeted queries and labeled failures.
-
 ---
 
-<Callout type="warn" title="Status: Stub">
-This chapter is a stub.
-</Callout>
+When retrieval isn't working—when users don't get good answers even though the information exists in your index—chunking is a frequent culprit. But chunking problems can look like embedding problems, like indexing problems, or like content gaps. This chapter provides a systematic approach to diagnosing and fixing chunking-specific issues.
 
-## Planned topics
+## The debugging mindset
 
-- Symptom → likely root cause mapping
-- Spotting boundary splits and redundancy
-- Designing eval slices that isolate chunking effects
+Before diving into diagnosis, establish the right mindset. Chunking problems are empirical: you can't reason your way to the right chunk size or structure, you have to test hypotheses against real data. Build evaluation into your workflow so you can measure the impact of changes.
 
+Also recognize that chunking problems compound. Bad chunking produces bad chunks that produce bad embeddings that produce bad retrieval. Improvements at the chunking layer propagate through the entire system.
+
+## Symptom: Relevant content exists but isn't retrieved
+
+The user asks a question. You know the answer is in your index (you can find it manually). But retrieval returns other content or nothing at all.
+
+**First, check if it's a chunking problem.** Find the chunk that should match. Look at its text. Does it actually contain the answer? If the chunk is there and contains the answer, the problem might be embedding or query processing, not chunking. If the answer is split across chunks, or buried in irrelevant content within a chunk, it's a chunking problem.
+
+**Diagnosis: Boundary split.** The relevant information starts at the end of one chunk and continues in the next. Neither chunk, alone, is a good match for the query. **Solution:** Increase overlap, or switch to structure-aware chunking that respects paragraph or sentence boundaries.
+
+**Diagnosis: Diluted signal.** The chunk contains the answer, but it's one sentence in a 500-word chunk about other things. The embedding represents the whole chunk, not the specific relevant part. **Solution:** Decrease chunk size so each chunk is more topically focused.
+
+**Diagnosis: Missing context.** The chunk contains the answer but lacks the words that would match the query. The answer is "3 days" but the chunk doesn't mention "expiration" or "token lifetime" — that context is in a previous chunk. **Solution:** Add overlap, use parent-child retrieval to include surrounding context, or prepend section headings to chunks.
+
+## Symptom: Retrieved content is topically related but doesn't answer the question
+
+Retrieval returns chunks that are about the right topic but don't contain the specific answer.
+
+**Diagnosis: Chunks too large.** The chunk is about authentication in general; the query is about a specific authentication method. The chunk matches because it's topically relevant but doesn't contain the specific information. **Solution:** Decrease chunk size for more granular retrieval.
+
+**Diagnosis: Structure destroyed.** A table or code block was split, and the retrieved chunk has rows without headers or code without context. **Solution:** Implement structure-aware chunking that keeps tables and code intact.
+
+## Symptom: Same chunk matches many unrelated queries
+
+A chunk appears in retrieval results for queries on different topics.
+
+**Diagnosis: Chunk too large or too generic.** The chunk covers multiple topics or is mostly boilerplate with a few specific terms. It matches many queries poorly rather than few queries well. **Solution:** Decrease chunk size. Also consider cleaning to remove boilerplate that causes spurious matches.
+
+**Diagnosis: Indexing a document that's too general.** A summary page, index page, or overview page that mentions many topics without depth will match queries about any of those topics. **Solution:** Consider excluding such pages from indexing, or break them into more specific chunks manually.
+
+## Symptom: Duplicate or near-duplicate content in results
+
+Multiple retrieved chunks contain essentially the same information, wasting context window space.
+
+**Diagnosis: Excessive overlap.** If overlap is 50% and chunks are 200 words, consecutive chunks share 100 words. Queries matching that shared content will retrieve both chunks. **Solution:** Reduce overlap to 10-20%.
+
+**Diagnosis: Duplicate source content.** The same information appears in multiple source documents (a topic covered in FAQs and in documentation), creating duplicate chunks. **Solution:** Deduplicate at ingestion time, or deduplicate results at retrieval time.
+
+## Building a diagnostic eval set
+
+To debug systematically, create an evaluation set that isolates chunking effects.
+
+**Include boundary cases.** Create queries where you know the answer spans where chunks would split with naive chunking. If these fail, boundary handling needs work.
+
+**Include single-chunk answers.** Create queries where the entire answer should be in one chunk. If these fail, the chunk might be too large or the answer fragmented.
+
+**Include context-dependent queries.** Create queries that can only be answered with surrounding context, not just the specific chunk. If these fail, you need more overlap or parent-child retrieval.
+
+**Label root causes.** For each failure in your eval set, diagnose whether it's a chunking problem, embedding problem, or content gap. Track what percentage are chunking-related. Fix those first if they're the majority.
+
+## Iterating on fixes
+
+When you change chunking parameters, measure the impact.
+
+Run your evaluation queries before and after the change. Did the targeted problems improve? Did anything regress?
+
+Chunking changes affect the entire index. You'll need to reprocess all content after changing chunk size or structure handling. Budget for this reindexing time and cost when planning changes.
+
+Make one change at a time so you can attribute improvements or regressions to specific modifications.
+
+## Next module
+
+With chunking thoroughly covered, Module 4 moves to retrieval: how to find the right content once you have well-formed chunks in your index.
+
+<Cards>
+  <Card title="Next: Module 4 — Retrieval" href="/docs/rag/04-retrieval" />
+</Cards>

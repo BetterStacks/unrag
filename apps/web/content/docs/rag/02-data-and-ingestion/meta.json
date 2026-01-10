@@ -1,5 +1,5 @@
 {
-  "title": "Module 2: Data and ingestion",
+  "title": "Data and ingestion",
   "description": "Where production RAG usually succeeds or fails: data sourcing, pipelines, normalization, updates, and cost.",
   "pages": [
     "index",

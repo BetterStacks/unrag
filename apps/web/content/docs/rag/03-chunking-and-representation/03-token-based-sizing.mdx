@@ -1,16 +1,70 @@
 ---
-title: "3. Token-based sizing"
+title: Token-based sizing
 description: Word counts are a proxy—token-aware chunking makes performance and packing predictable.
-
 ---
 
-<Callout type="warn" title="Status: Stub">
-This chapter is a stub.
-</Callout>
+When we discuss chunk sizes in terms of words, we're using a proxy for what actually matters: tokens. Embedding models have token limits. LLM context windows are measured in tokens. Costs are calculated per token. If you're sizing chunks by word count but your limits are in tokens, you're operating on approximations that can cause problems at the edges.
 
-## Planned topics
+## Why tokens differ from words
 
-- Why token counts matter (embedding limits and LLM context windows)
-- Counting tokens without coupling to one vendor tokenizer
-- Packing strategies that rely on token budgets
+A token is the basic unit that language models work with. It's often a word, but not always. Common words might be single tokens; uncommon words get split into multiple tokens; punctuation and whitespace become their own tokens; code and special characters often produce multiple tokens per visible character.
 
+The word "authentication" is one word but might be two or three tokens depending on the tokenizer. A JSON code block with curly braces, colons, and quoted strings produces many more tokens than the same information in prose would.
+
+Different models use different tokenizers. OpenAI's models use one tokenization scheme; Anthropic's use another; open-source models vary widely. A chunk that's 500 tokens with one tokenizer might be 450 or 550 with another.
+
+This matters because limits are enforced in tokens. If your embedding model has an 8,192-token limit and you send a chunk that's 8,500 tokens, it gets truncated. If you're packing context into a 4,096-token window, you need to know actual token counts, not estimated word counts.
+
+## The 0.75 rule of thumb
+
+A common approximation is that one word equals roughly 1.3-1.5 tokens, or equivalently, one token equals roughly 0.75 words. This works reasonably well for typical English prose.
+
+A 400-word chunk is approximately 500-600 tokens. A 4,000-token context window fits roughly 3,000 words.
+
+This approximation breaks down for code (usually more tokens per word due to syntax), for languages other than English (tokenization varies significantly), and for documents with many special characters, URLs, or formatted elements.
+
+Use the rule of thumb for initial planning, but verify with actual tokenization for precision.
+
+## Token-aware chunking
+
+For production systems, consider chunking based on token counts rather than word counts. The approach is straightforward: instead of counting words to decide where to split, count tokens.
+
+The challenge is that token counting requires a tokenizer, and tokenizers are model-specific. If you use OpenAI's tokenizer to count tokens but then embed with a different model, your counts might be wrong.
+
+Practical strategies include using a representative tokenizer that's close to what you'll use in practice (GPT-4's tokenizer is reasonable for many models), using the actual tokenizer for your embedding model if available, or adding a safety margin (aim for 80% of the limit to absorb variation).
+
+For most applications, setting chunk size targets in tokens rather than words (like "target 400 tokens, maximum 500 tokens") leads to more predictable behavior than word-based targets.
+
+## Packing context windows
+
+Token awareness becomes critical when packing retrieved chunks into an LLM's context window. You have a budget—say, 4,000 tokens for context—and you need to fit as many relevant chunks as possible without exceeding it.
+
+With token-counted chunks, packing is predictable. A 400-token chunk plus a 350-token chunk plus a 380-token chunk totals 1,130 tokens. You can pack greedily until you hit your budget.
+
+With word-counted chunks, you're estimating. A "300-word" chunk might be anywhere from 350 to 500 tokens. You either under-pack (wasting context space) or risk truncation (losing content).
+
+For sophisticated retrieval systems, retrieve more chunks than you'll use, then pack as many as fit by token count, starting with the most relevant.
+
+## Costs and token counting
+
+Many embedding providers charge per token embedded. Knowing your actual token counts lets you predict costs accurately.
+
+If you're processing a million-word corpus and estimating at 1.3 million tokens, your cost estimate might be off by 20% if the actual tokenization produces 1.6 million tokens due to code and special formatting.
+
+For cost-sensitive applications, run a sample of your content through the actual tokenizer to get accurate per-document token counts, then project total costs from that sample.
+
+## Tooling for token counting
+
+Most model providers offer tokenization libraries or APIs. OpenAI's `tiktoken` library tokenizes text the same way their models do. Anthropic provides token counting endpoints. Hugging Face transformers include tokenizers for each model.
+
+Build token counting into your chunking pipeline. Before storing a chunk, record its token count in metadata. This enables efficient context packing and cost tracking without re-tokenizing at query time.
+
+If your chunker is language-agnostic or your chunks flow through a general pipeline, consider adding a tokenization step that annotates each chunk with its token count for your target models.
+
+## Next
+
+With sizing covered at both the word and token level, the next chapter explores multi-representation indexing: going beyond single embeddings per chunk to improve retrieval recall.
+
+<Cards>
+  <Card title="Next: Multi-representation indexing" href="/docs/rag/03-chunking-and-representation/04-multi-representation-indexing" />
+</Cards>

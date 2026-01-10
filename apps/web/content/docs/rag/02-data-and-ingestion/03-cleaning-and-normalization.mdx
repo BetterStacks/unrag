@@ -1,22 +1,84 @@
 ---
-title: "3. Cleaning and normalization"
+title: Cleaning and normalization
 description: Make retrieval reliable by removing noise, normalizing structure, and preserving meaning.
-
 ---
 
-<Callout type="warn" title="Status: Stub">
-This chapter is a stub.
-</Callout>
+Raw content from the real world is messy. Web pages have navigation elements, cookie banners, and footer links. Documents have boilerplate headers and redundant sections. Support tickets have email signatures and forwarded thread histories. If you index this noise, it pollutes your retrieval results—chunks match queries because they contain common boilerplate, not because they're actually relevant.
 
-## Planned topics
+Cleaning removes what shouldn't be there. Normalization makes what remains consistent and predictable. Together, they transform raw content into something your retrieval system can work with reliably.
 
-- Boilerplate removal (nav, footers, cookie banners)
-- Deduplication strategies
-- Preserving structure (headings, lists, code blocks)
-- PII handling and redaction
+## What to remove
 
-## Common mistakes
+The goal of cleaning is to eliminate content that adds noise without adding value. The specific targets depend on your content type, but common patterns appear everywhere.
 
-- Over-cleaning (removing the information users actually need)
-- Losing section boundaries (hurts chunking and citations)
+**Navigation and chrome** appear on every page of a website: headers, sidebars, footers, breadcrumbs. They're useful for browsing but useless for retrieval. If every chunk from your docs site contains "Home > Products > Documentation," that text will match searches about products or documentation even when the actual content is unrelated.
 
+**Boilerplate and templates** repeat across documents: legal disclaimers, copyright notices, standard headers, template text that wasn't filled in. Like navigation, boilerplate dilutes the semantic signal of your chunks.
+
+**Duplicate content** appears when the same information exists in multiple places: a changelog also embedded in release notes, the same FAQ appearing in multiple articles, a summary that repeats the introduction. Deduplication ensures users don't see the same answer multiple times and helps the model avoid confusion from redundant context.
+
+**Formatting artifacts** from document conversion: multiple blank lines, inconsistent whitespace, escaped characters that should have been unescaped, markdown syntax that wasn't rendered. These don't usually hurt retrieval directly, but they waste tokens and can confuse extraction of structure.
+
+**Irrelevant sections** that happen to be in your source but don't belong in your knowledge base: internal notes, TODO comments, sections marked as drafts, content in languages you don't support.
+
+## What to preserve
+
+Aggressive cleaning can be as harmful as no cleaning. Some content that looks like noise actually carries signal.
+
+**Document structure** provides context that helps both retrieval and generation. Headings indicate what a section is about. Lists group related items. Code blocks contain examples that users search for. If your cleaning removes headings, your chunks lose the context that makes them understandable.
+
+**Semantic markers** help users and models understand content type. "Warning:" or "Note:" prefixes indicate important asides. "Example:" sections demonstrate concepts. "FAQ" headers signal question-answer format. Preserve these markers so they can inform retrieval and generation.
+
+**Metadata-in-content** sometimes appears inline. "Last updated: January 2024" tells users about freshness. "Applies to: Enterprise plan" scopes the information. These might look like boilerplate, but they carry meaning.
+
+The rule of thumb: if removing something changes the meaning or usefulness of the content for a reader, don't remove it.
+
+## Normalization for consistency
+
+Normalization makes content uniform so that chunking and retrieval behave predictably.
+
+**Whitespace normalization** collapses multiple spaces and newlines into single ones, removes leading and trailing whitespace, and ensures consistent line endings. This makes chunk boundaries more predictable and prevents edge cases from subtle formatting differences.
+
+**Encoding normalization** ensures all text is in a consistent encoding (UTF-8) and handles special characters correctly. Documents from different sources might have different encodings; normalizing them prevents character corruption and inconsistent matching.
+
+**Structure normalization** ensures consistent representation of headings, lists, and other elements. If some documents use ATX-style markdown headings (`# Heading`) and others use underline-style (`Heading\n=====`), normalize to one style. This makes structure-aware chunking more reliable.
+
+**Case normalization** is sometimes appropriate for specific fields (like tags or categories) but rarely for content. Preserve original casing in body text since it often carries meaning.
+
+## Deduplication strategies
+
+Duplicate content causes two problems: wasted storage and embedding costs, and retrieval results that surface the same information multiple times.
+
+**Exact deduplication** removes chunks that are character-for-character identical. This catches copy-pasted content and boilerplate that appears verbatim.
+
+**Near-duplicate detection** identifies chunks that are almost identical—same content with minor variations like different timestamps or formatting. This is harder to implement (usually requiring similarity comparison) but catches more real-world duplication.
+
+**Source-level deduplication** prevents ingesting the same document from multiple sources. If your documentation appears in both your CMS and a mirrored archive, you should index it once, not twice.
+
+The appropriate strategy depends on how much duplication you have and how much it matters. For most systems, exact deduplication plus source-level controls are sufficient.
+
+## Handling PII and sensitive content
+
+Some content shouldn't be indexed at all; other content should be indexed with parts redacted.
+
+**PII (personally identifiable information)** like email addresses, phone numbers, and names might appear in support tickets, user-generated content, or internal documents. Depending on your compliance requirements and use case, you might need to redact this before indexing.
+
+**Sensitive business information** like pricing details, unreleased product plans, or internal strategy might appear in documents that are otherwise appropriate to index. Consider whether to exclude these documents entirely or redact specific sections.
+
+**Credentials and secrets** sometimes appear in documentation or configuration examples. API keys, passwords, and access tokens should never be indexed—both for security and because they're useless for retrieval.
+
+PII handling intersects with legal and compliance requirements. Consult your legal team about what applies to your situation. From a technical standpoint, detection is the hard part. Regex patterns catch obvious cases (email addresses, phone numbers), but detecting names or contextual PII often requires specialized models or manual review.
+
+## When cleaning goes wrong
+
+The most common cleaning mistake is removing useful content because it looked like noise. You implement a boilerplate detector that strips repeated phrases, and it removes a standard warning that appears in many documents—a warning that's actually important context.
+
+Test cleaning changes against real retrieval queries. Take a sample of questions users ask, run retrieval before and after the cleaning change, and verify that the right chunks still surface. If cleaning improves some results but breaks others, adjust the rules or make them more targeted.
+
+## Next
+
+With content cleaned and normalized, the next chapter covers how to model documents and assign stable identifiers—the foundation for updates and deletions.
+
+<Cards>
+  <Card title="Next: Document modeling and stable IDs" href="/docs/rag/02-data-and-ingestion/04-document-modeling-and-stable-ids" />
+</Cards>

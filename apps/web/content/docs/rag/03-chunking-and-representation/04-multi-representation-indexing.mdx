@@ -1,16 +1,64 @@
 ---
-title: "4. Multi-representation indexing"
-description: Index summaries, titles, and sections (not just raw chunks) to improve recall and reduce noise.
-
+title: Multi-representation indexing
+description: Index summaries, titles, and sections—not just raw chunks—to improve recall and reduce noise.
 ---
 
-<Callout type="warn" title="Status: Stub">
-This chapter is a stub.
-</Callout>
+The standard RAG approach embeds each chunk as-is and retrieves based on similarity between the query and chunk text. This works well when queries resemble the language in chunks. It fails when they don't—when users phrase questions differently than content is written, when important concepts are implied rather than stated, or when the chunk text is too detailed to match a high-level query.
 
-## Planned topics
+Multi-representation indexing addresses these gaps by embedding multiple representations of the same content. Instead of one vector per chunk, you might have vectors for the chunk text, for a summary of the chunk, for extracted keywords, or for the section title. A query that matches any of these representations retrieves the underlying content.
 
-- Title + body embeddings
-- Section summaries as retrieval anchors
-- Multi-vector approaches (chunk vector + parent vector)
+## The vocabulary mismatch problem
 
+Consider a chunk from API documentation that explains "To refresh an access token, POST to the /oauth/token endpoint with grant_type=refresh_token..." A user might ask "how do I renew my login session?" The vocabulary doesn't overlap much: "renew" vs "refresh," "login session" vs "access token." The concepts are the same, but the embedding might not place these close enough for retrieval.
+
+A summary of the chunk might be: "How to refresh expired authentication tokens using the OAuth endpoint." This uses different vocabulary that might bridge to more user phrasings. If both the raw chunk and the summary are indexed, a query matching either will surface the content.
+
+## Common multi-representation strategies
+
+Several strategies have proven useful in practice.
+
+**Summaries** are condensed versions of chunks that capture the main point without detail. You generate summaries (often using an LLM) during ingestion and embed both the summary and the full chunk, linking them so retrieval of the summary returns the full chunk.
+
+**Titles or headings** extracted from document structure often describe what a section is about more directly than the content itself. Embedding the heading alongside the content increases the chance that a query phrased as a question matches.
+
+**Questions** that a chunk might answer are perhaps the most direct way to bridge the vocabulary gap. Generate hypothetical questions for each chunk and embed those. When a user asks a similar question, it matches the generated question embedding, retrieving the chunk that answers it.
+
+**Keywords or concepts** extracted from chunks and embedded separately can help with terminology-focused queries. If a chunk is about "OAuth," embedding "OAuth" directly ensures any query mentioning OAuth has a match.
+
+## Implementation patterns
+
+There are two main ways to implement multi-representation indexing.
+
+**Separate vectors with references.** Each representation gets its own vector in the index, with metadata linking it to the original chunk. When you retrieve, any matching vector points you to the underlying content. This is flexible but increases index size (multiple vectors per chunk).
+
+**Concatenated representations.** Combine representations into a single text that's embedded once. For example, embed "Title: Authentication Setup. Summary: How to configure OAuth. Content: [full chunk]." The single embedding captures multiple representations. This keeps index size manageable but dilutes each signal.
+
+**Retrieval-time expansion.** Instead of indexing multiple representations, expand the query at retrieval time to include synonyms or paraphrases. This achieves similar goals without increasing index size, but adds latency and complexity to the query path.
+
+The right choice depends on your scale and where you're willing to accept complexity.
+
+## Generating summaries and questions
+
+Generating good summaries and questions typically requires an LLM. During ingestion, for each chunk, you make an additional LLM call to produce the representations you want.
+
+This adds cost and latency to ingestion. For a corpus of 100,000 chunks, generating summaries means 100,000 additional LLM calls. At $0.002 per 1,000 tokens, that's $200-400 depending on chunk and summary sizes. The cost compounds with each representation type you generate.
+
+The tradeoff is retrieval quality. If multi-representation indexing significantly improves recall—finding content that single-representation misses—the ingestion cost may be justified.
+
+Strategies to manage cost include generating representations only for high-value content, using smaller or cheaper models for summary generation, and caching or reusing representations across index rebuilds.
+
+## When multi-representation helps most
+
+Multi-representation indexing is most valuable when there's significant vocabulary mismatch between queries and content, when your content is dense and technical while queries are casual and varied, when content implies concepts that aren't stated explicitly, and when you observe retrieval misses where the content exists but isn't found.
+
+It's less necessary when queries closely match content language (like developer searching developer documentation), when your embedding model already handles paraphrasing well, or when your content is simple and topically clear.
+
+As with all retrieval improvements, measure the impact. Compare retrieval quality with and without multi-representation to determine if the complexity and cost are justified for your use case.
+
+## Next
+
+Building on multi-representation, the next chapter explores parent-child and hierarchical retrieval: retrieving at one granularity and expanding to another.
+
+<Cards>
+  <Card title="Next: Parent/child and hierarchical retrieval" href="/docs/rag/03-chunking-and-representation/05-parent-child-and-hierarchical-retrieval" />
+</Cards>

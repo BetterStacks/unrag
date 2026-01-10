@@ -1,20 +1,92 @@
 ---
-title: "6. Ingestion cost and throughput"
+title: Ingestion cost and throughput
 description: Embedding throughput, batching, concurrency, and why ingestion cost is an engineering problem.
-
 ---
 
-<Callout type="warn" title="Status: Stub">
-This chapter is a stub.
-</Callout>
+Ingestion isn't free. Every document you process consumes compute, API calls, and time. As your knowledge base grows, these costs compound. Understanding where time and money go during ingestion—and how to optimize—is essential for operating at scale.
 
-## Planned topics
+## Where ingestion cost comes from
 
-- Where ingestion time and cost goes (embedding usually dominates)
-- Batching and concurrency limits
-- Background jobs and backpressure
+Breaking down ingestion into its component steps reveals where resources are spent.
 
-## Optional: how this maps to Unrag
+**Fetching content** is usually cheap. Network calls to pull documents from a CMS, file system, or API take time but minimal compute. Costs appear if you're charged per API call to the source, but this is typically small compared to other stages.
 
-Unrag exposes batching/concurrency controls and returns timing breakdowns. See `/docs/concepts/performance`.
+**Extraction** varies wildly by content type. Plain text and HTML are essentially free. PDFs require parsing, which is fast for simple documents but slow for scanned images requiring OCR. Audio and video transcription are expensive—both in compute (if self-hosted) and API costs (if using a service). LLM-based extraction is expensive but sometimes necessary for complex layouts.
 
+**Cleaning and normalization** is almost always cheap—string manipulation and regex don't take meaningful time.
+
+**Chunking** is cheap. Splitting text into pieces is fast.
+
+**Embedding is usually the dominant cost.** For most pipelines, the majority of both time and money goes to embedding. Each chunk requires an API call (or local inference), and you might have thousands or millions of chunks. At $0.0001 per 1,000 tokens, a million-word corpus might cost $50-100 in embedding. A billion-word corpus costs proportionally more.
+
+**Storage writes** are usually cheap per operation but add up at scale. Vector databases charge for storage and sometimes for writes. Traditional databases are similar.
+
+The practical implication: most ingestion optimization focuses on embedding, because that's where most of the cost is.
+
+![Ingestion cost breakdown: embedding typically dominates](/diagrams/ingestion-cost-breakdown.png)
+
+## Batching for efficiency
+
+Embedding APIs typically accept batches of text, not just single pieces. Batching reduces overhead and often reduces cost.
+
+Instead of making one API call per chunk, collect chunks into batches of 50, 100, or whatever your provider supports. Send the batch in a single request. The provider embeds all texts and returns all vectors at once.
+
+Batching reduces latency (fewer round trips), reduces cost (some providers charge less per embedding when batched), and reduces rate-limit pressure (fewer requests per second).
+
+The trade-off is complexity: you need to collect chunks before sending, handle partial failures (if one text in a batch fails), and manage batch boundaries. Most embedding clients handle this for you, but verify that batching is actually happening.
+
+## Concurrency and rate limits
+
+You can often parallelize ingestion: multiple documents processing simultaneously, multiple embedding requests in flight. Parallelism speeds up total ingestion time but hits limits.
+
+**Provider rate limits** cap how many requests you can make per second or minute. Exceed them and your requests fail or queue. Respect these limits by throttling your concurrency.
+
+**Connection limits** on your side or the provider's can become bottlenecks. Too many simultaneous connections might cause timeouts or errors.
+
+**Resource limits** like CPU, memory, or database connections can constrain how much work you process in parallel. If you're running extraction on complex PDFs, you might hit CPU limits before network limits.
+
+Find the concurrency level that maximizes throughput without hitting limits. This is usually empirical: start low, increase until you see failures or diminishing returns, back off slightly.
+
+## Incremental versus full ingestion costs
+
+Incremental ingestion (only processing what changed) is cheaper per run than full ingestion (reprocessing everything). The math is straightforward: if 1% of documents change daily, incremental ingestion costs 1% of what full ingestion would.
+
+This is why incremental pipelines are worth the investment. The upfront complexity pays off in ongoing operational costs. A pipeline that reprocesses everything nightly costs 100x per month what an incremental pipeline costs.
+
+But incremental pipelines have failure modes that occasionally require full reprocessing. Budget for periodic full reindexes even if you run incrementally day-to-day.
+
+## Optimizing embedding costs
+
+If embedding is the dominant cost, optimizations focus there.
+
+**Avoid redundant embeddings.** Don't reembed content that hasn't changed. This requires tracking what's already embedded and comparing to the current state. Content hashes help: if the hash of a chunk's text matches what's in the index, skip it.
+
+**Choose the right embedding model.** Cheaper models might be sufficient for your use case. Run evaluations comparing models at different price points. The most expensive model isn't always the best for your specific content and queries.
+
+**Consider dimensionality.** Some embedding models offer lower-dimensional outputs. Fewer dimensions means less storage and potentially faster retrieval. If quality is acceptable at lower dimensions, the savings compound.
+
+**Self-host if it makes sense.** At very high volumes, running your own embedding model on your own infrastructure might be cheaper than API calls. This adds operational burden but can dramatically reduce per-embedding costs.
+
+## Monitoring ingestion performance
+
+You can't optimize what you don't measure. Track key metrics.
+
+**Throughput** is chunks per second or documents per hour. This tells you how fast you're processing.
+
+**Latency** per document tells you where time goes. Break it down by stage: fetch time, extraction time, embedding time, storage time.
+
+**Cost** per document or per chunk lets you project total costs and compare strategies.
+
+**Error rate** tells you how often documents fail to process. High error rates mean wasted time on retries or missing content.
+
+**Queue depth** (if using queues) shows how much work is pending. Growing queues might indicate you're falling behind.
+
+Build dashboards for these metrics. Set alerts for anomalies—sudden throughput drops, cost spikes, or error rate increases.
+
+## Next module
+
+With data sourcing and ingestion covered, Module 3 dives deeper into chunking: how to choose chunk sizes, respect content structure, and use advanced representations to improve retrieval.
+
+<Cards>
+  <Card title="Next: Module 3 — Chunking and representation" href="/docs/rag/03-chunking-and-representation" />
+</Cards>
