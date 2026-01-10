@@ -1,5 +1,5 @@
 {
-  "title": "Module 5: Reranking and context optimization",
+  "title": "Reranking and context optimization",
   "description": "Turn candidates into useful context: reranking, compression, packing, citations, and conflict handling.",
   "pages": [
     "index",

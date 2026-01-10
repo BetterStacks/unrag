@@ -1,16 +1,72 @@
 ---
-title: "4. Context compression"
+title: "Context compression"
 description: Keep the evidence, drop the noise - extractive snippets, summaries, and query-focused compression.
-
 ---
 
-<Callout type="warn" title="Status: Stub">
-This chapter is a stub.
-</Callout>
+Even after reranking, your selected chunks might contain more text than you can fit in the context window, or more text than is useful. Context compression reduces the size of retrieved content while preserving the information that matters for answering the query. Done well, compression improves answer quality by focusing the LLM on relevant evidence rather than diluting it with tangential content.
 
-## Planned topics
+## Why compress context
 
-- Extractive vs abstractive compression
-- Query-focused summarization
-- Preserving citations through compression
+Token budgets are real constraints. If your context window is 4K tokens and each chunk is 500 tokens, you can include at most 8 chunks—and that leaves no room for system prompts, conversation history, or generation. Compression lets you include more sources within the same budget.
 
+Even without hard limits, less can be more. LLMs can be distracted by irrelevant content in long contexts. A focused 1000-token context often produces better answers than a rambling 4000-token context that includes tangentially related information.
+
+Compression also reduces cost. If you're paying per token, sending less context means spending less money. For high-volume applications, the savings add up.
+
+## Extractive compression
+
+![Context compression](/diagrams/context-compression.png)
+
+Extractive compression selects the most relevant portions of each chunk rather than including the full text. You keep the original words; you just keep fewer of them.
+
+Sentence-level extraction identifies the sentences within each chunk that are most relevant to the query and includes only those. This can be done with similarity scoring (embed sentences, compare to query) or with a model trained for extractive summarization.
+
+Passage highlighting is a variant where you identify the specific spans that contain the answer rather than full sentences. This is more aggressive and works well when chunks are long but answers are localized.
+
+The advantage of extractive compression is faithfulness—you're using the source's exact words, reducing the risk of distortion. The disadvantage is that extracted fragments can lose context, making them harder to understand or cite accurately.
+
+## Abstractive compression
+
+Abstractive compression rewrites content in shorter form while preserving the key information. This is summarization: a 500-token chunk becomes a 100-token summary.
+
+Query-focused summarization is particularly valuable for RAG. Instead of producing a generic summary, you produce a summary focused on what's relevant to the specific query. A chunk about a product might summarize differently for "What are the features?" versus "What are the limitations?"
+
+LLMs are natural fits for abstractive compression. You can prompt them with the query and chunk and ask for a summary focused on information relevant to the query. This produces highly compressed, query-relevant context.
+
+The risk with abstractive compression is distortion. The summarization process might introduce errors, lose important nuances, or inadvertently change the meaning. Since the compressed text differs from the source, citations become harder—users can't verify the summary against the original without extra work.
+
+## Hybrid approaches
+
+Practical systems often combine extractive and abstractive techniques.
+
+Extract first, then summarize: identify the relevant sentences extractively, then apply abstractive compression only to those sentences. This limits the scope for distortion while still achieving high compression.
+
+Use extraction for citation-critical content (legal, medical, financial) where exact wording matters, and abstraction for general content where gist is sufficient.
+
+Apply different compression levels based on relevance: highly relevant chunks get light or no compression; marginally relevant chunks get heavy compression or are dropped entirely.
+
+## Preserving citation ability
+
+If your application includes citations—and it should—compression must preserve the link between context and source. Users need to verify that the answer actually comes from the cited sources.
+
+For extractive compression, maintain character or sentence offsets so you can highlight exactly where in the original document the extracted content came from.
+
+For abstractive compression, consider including both the summary (for the LLM) and the original text (for citation display). The LLM uses the compressed version; the UI shows the original when users click a citation.
+
+Alternatively, perform compression only for the LLM context while maintaining original chunks in a separate data structure for citation rendering. This separates "what the model sees" from "what users can verify."
+
+## Compression quality evaluation
+
+Measure whether compression hurts answer quality. Compare answers generated with full chunks versus compressed chunks using your evaluation dataset. If compression significantly degrades quality, you're compressing too aggressively or your compression method is lossy in harmful ways.
+
+Also check citation accuracy. Can users trace the answer back to source? If compression distorts content enough that citations become misleading, that's a problem even if answer quality metrics look fine.
+
+Measure compression ratio—how much are you actually compressing?—and verify it achieves the goal (fitting in context window, reducing costs). If 30% compression isn't enough to fit your context budget, you need more aggressive compression or fewer chunks.
+
+## Next
+
+With content compressed, you need to pack it into the prompt effectively. The next chapter covers context packing—ordering, formatting, and making answers traceable through citations.
+
+<Cards>
+  <Card title="Next: Context packing and citations" href="/docs/rag/05-reranking-and-context/05-context-packing-and-citations" />
+</Cards>
