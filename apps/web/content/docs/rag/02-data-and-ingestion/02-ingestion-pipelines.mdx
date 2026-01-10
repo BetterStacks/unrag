@@ -17,23 +17,53 @@ Each step can fail independently, and the pipeline needs to handle those failure
 
 There are two fundamental approaches to running ingestion.
 
-**Batch ingestion** processes content in scheduled runs. You might run a full sync every night, or process a queue of changed documents every hour. Batch is simpler to implement: you write a script that fetches everything, processes it, and updates the index. It's easier to reason about because each run is independent.
+<Tabs items={["Batch", "Streaming"]}>
+<Tab value="Batch">
 
-The downside of batch is latency. If your batch runs nightly, a document updated at 8 AM won't be searchable until the next morning. For content that changes frequently or where freshness matters, this lag is unacceptable.
+**Batch ingestion** processes content in scheduled runs. You might run a full sync every night, or process a queue of changed documents every hour.
 
-**Streaming ingestion** processes content as it changes. When a document is created or updated, an event triggers processing immediately (or within minutes). Streaming provides better freshness but is more complex: you need event infrastructure, you need to handle out-of-order events, and you need to think about partial failures differently.
+**Advantages:**
+- Simpler to implement: write a script that fetches everything, processes it, and updates the index
+- Easier to reason about because each run is independent
+- Better for full reprocessing and backfills
 
-Many production systems use both. Streaming handles incremental updates for low latency. Periodic batch runs serve as a safety net, catching anything the streaming pipeline missed and reconciling the index with the source of truth.
+**Disadvantages:**
+- Higher latency: if your batch runs nightly, a document updated at 8 AM won't be searchable until the next morning
+- Not suitable for content that changes frequently
+
+**With Unrag**: Run a script that calls `engine.ingest()` on a schedule. See [admin reingest example](/docs/examples/admin-reingest) for patterns.
+
+</Tab>
+<Tab value="Streaming">
+
+**Streaming ingestion** processes content as it changes. When a document is created or updated, an event triggers processing immediately (or within minutes).
+
+**Advantages:**
+- Better freshness: changes are searchable within minutes
+- Lower total resource usage (only process what changed)
+
+**Disadvantages:**
+- More complex: need event infrastructure, handle out-of-order events
+- Different failure modes (partial failures, retries)
+
+**Recommended approach**: Many production systems use both. Streaming handles incremental updates for low latency. Periodic batch runs serve as a safety net, catching anything the streaming pipeline missed.
+
+</Tab>
+</Tabs>
 
 ![Batch vs streaming ingestion: latency and operational tradeoffs](/diagrams/batch-vs-streaming.png)
 
 ## Idempotency is non-negotiable
 
+<Callout type="warn">
 An idempotent operation produces the same result whether you run it once or multiple times. For ingestion, this means processing the same document twice should leave your index in the same state as processing it once.
+</Callout>
 
 Without idempotency, you get duplicates. Run the pipeline twice, and every document appears twice in your index. Retry a failed batch, and the documents that succeeded the first time now have duplicates. Users see the same content repeated in results, or worse, conflicting versions of the same information.
 
-Idempotency requires stable identifiers. Each chunk needs an ID that's derived from its content and position, not randomly generated. When you process a document, you update existing chunks rather than creating new ones. We'll cover identifier design in the chapter on document modeling.
+Idempotency requires stable identifiers. Each chunk needs an ID that's derived from its content and position, not randomly generated. When you process a document, you update existing chunks rather than creating new ones.
+
+**With Unrag**: Use consistent `sourceId` values when calling `engine.ingest()`. The same `sourceId` replaces existing content rather than duplicating it. See [document modeling](/docs/rag/02-data-and-ingestion/04-document-modeling-and-stable-ids) for best practices.
 
 ## Handling changes correctly
 

@@ -23,15 +23,37 @@ Measuring at multiple layers lets you diagnose where failures occur and focus im
 
 Standard information retrieval metrics apply to the retrieval stage.
 
-**Recall@K** measures whether the relevant documents appear anywhere in the top K results. If the correct document is in positions 1-10, recall@10 is 1; if it's at position 15, recall@10 is 0. This tells you whether relevant content is being retrieved at all.
+<Accordions>
+<Accordion title="Recall@K">
 
-**Precision@K** measures what fraction of the top K results are relevant. If 3 of the top 5 are relevant, precision@5 is 0.6. High precision means less noise in context; low precision means you're including irrelevant content.
+Measures whether the relevant documents appear anywhere in the top K results. If the correct document is in positions 1-10, recall@10 is 1; if it's at position 15, recall@10 is 0. This tells you whether relevant content is being retrieved at all.
 
-**Mean Reciprocal Rank (MRR)** measures where the first relevant result appears. If the first relevant result is at position 3, its reciprocal rank is 1/3. MRR averages this across queries. Higher MRR means relevant content appears earlier.
+</Accordion>
 
-**nDCG (Normalized Discounted Cumulative Gain)** accounts for graded relevance (some documents are more relevant than others) and position. It rewards having highly relevant documents ranked early.
+<Accordion title="Precision@K">
 
-These metrics require ground truth: for each test query, you need to know which documents are relevant. Creating this ground truth is covered in the next chapter.
+Measures what fraction of the top K results are relevant. If 3 of the top 5 are relevant, precision@5 is 0.6. High precision means less noise in context; low precision means you're including irrelevant content.
+
+</Accordion>
+
+<Accordion title="Mean Reciprocal Rank (MRR)">
+
+Measures where the first relevant result appears. If the first relevant result is at position 3, its reciprocal rank is 1/3. MRR averages this across queries. Higher MRR means relevant content appears earlier.
+
+</Accordion>
+
+<Accordion title="nDCG (Normalized Discounted Cumulative Gain)">
+
+Accounts for graded relevance (some documents are more relevant than others) and position. It rewards having highly relevant documents ranked early.
+
+</Accordion>
+</Accordions>
+
+<Callout>
+These metrics require ground truth: for each test query, you need to know which documents are relevant. Creating this ground truth is covered in the [next chapter](/docs/rag/07-evaluation/02-building-eval-datasets).
+
+**With Unrag**: Use the built-in [eval framework](/docs/batteries/eval) to measure these metrics systematically.
+</Callout>
 
 ## What retrieval metrics miss
 

@@ -9,15 +9,34 @@ The whole point of RAG is to make the model answer from your content rather than
 
 ![Grounding prompt structure](/diagrams/grounding-prompt-structure.png)
 
-Your system prompt sets expectations for how the model should behave. For RAG, this means establishing several key principles.
+Your system prompt sets expectations for how the model should behave. For RAG, this means establishing several key principles:
 
-First, the model should answer from the provided context. A clear instruction like "Answer the user's question using only the information provided in the sources below. Do not use information from your training data unless it is confirmed by the sources" establishes this expectation.
+<Accordions>
+<Accordion title="Rule 1: Answer from provided context">
 
-Second, the model should cite sources. Specify the format: "Cite sources using [1], [2], etc. Every factual claim should have a citation." This makes answers verifiable and helps users trust the response.
+The model should answer from the provided context. A clear instruction like "Answer the user's question using only the information provided in the sources below. Do not use information from your training data unless it is confirmed by the sources" establishes this expectation.
 
-Third, the model should acknowledge limitations. "If the sources don't contain enough information to answer the question, say so. Don't guess or make up information." This is crucial for preventing hallucinations.
+</Accordion>
 
-A complete grounding prompt might look like:
+<Accordion title="Rule 2: Cite sources">
+
+The model should cite sources. Specify the format: "Cite sources using [1], [2], etc. Every factual claim should have a citation." This makes answers verifiable and helps users trust the response.
+
+See [Context packing and citations](/docs/rag/05-reranking-and-context/05-context-packing-and-citations) for implementation patterns.
+
+</Accordion>
+
+<Accordion title="Rule 3: Acknowledge limitations">
+
+The model should acknowledge limitations. "If the sources don't contain enough information to answer the question, say so. Don't guess or make up information." This is crucial for preventing hallucinations.
+
+See [topK and thresholds](/docs/rag/04-retrieval/01-topk-thresholds-and-no-good-match) for handling no-match cases.
+
+</Accordion>
+</Accordions>
+
+<Callout>
+**Example grounding prompt:**
 
 ```
 You are a helpful assistant that answers questions using the provided sources.
@@ -28,6 +47,9 @@ Rules:
 - If the sources don't answer the question, say "I don't have enough information to answer that"
 - Don't make up information or use knowledge not in the sources
 ```
+
+**With Unrag**: See [Use with chat](/docs/guides/use-with-chat) for complete prompt examples.
+</Callout>
 
 ## Rules that work versus rules that get ignored
 

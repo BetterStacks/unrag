@@ -53,15 +53,37 @@ This is more work to maintain, but it can significantly improve precision on que
 
 When nothing passes your threshold, you need a user experience that doesn't just fail. Several patterns work depending on your use case.
 
-Acknowledging the gap honestly is often best: "I don't have information about that in my knowledge base." This is better than a hallucinated answer because it's true and doesn't damage trust.
+<Accordions>
+<Accordion title="Acknowledge the gap honestly">
 
-Suggesting related topics can help users who phrased their query poorly: "I didn't find an exact match, but here are some related topics..." Show the top results even if they're below threshold, but present them as suggestions rather than answers.
+"I don't have information about that in my knowledge base." This is better than a hallucinated answer because it's true and doesn't damage trust.
 
-Offering to escalate is appropriate for support contexts: "I can't answer that directly, but I can connect you with a support agent who can help."
+**With Unrag**: Check the `chunks` array length or the best score before generating an answer.
 
-Falling back to general knowledge, with caveats, works for some applications: "I don't have specific information in my documentation, but based on general knowledge..." This should be explicit so users know the answer isn't grounded in your content.
+</Accordion>
 
+<Accordion title="Suggest related topics">
+
+"I didn't find an exact match, but here are some related topics..." Show the top results even if they're below threshold, but present them as suggestions rather than answers.
+
+</Accordion>
+
+<Accordion title="Offer to escalate">
+
+Appropriate for support contexts: "I can't answer that directly, but I can connect you with a support agent who can help."
+
+</Accordion>
+
+<Accordion title="Fall back to general knowledge (with caveats)">
+
+Works for some applications: "I don't have specific information in my documentation, but based on general knowledge..." This should be explicit so users know the answer isn't grounded in your content.
+
+</Accordion>
+</Accordions>
+
+<Callout type="warn">
 The worst response is pretending you have an answer when you don't. Users eventually discover the deception and lose trust in your entire system.
+</Callout>
 
 ## The score-is-not-confidence trap
 

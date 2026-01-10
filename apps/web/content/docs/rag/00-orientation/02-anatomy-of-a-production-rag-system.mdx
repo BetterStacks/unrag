@@ -21,33 +21,112 @@ The index sits between these pipelines. The ingestion pipeline writes to it; the
 
 ## Inside the ingestion pipeline
 
-The ingestion pipeline transforms raw content into something you can search. The major steps are:
+The ingestion pipeline transforms raw content into something you can search. Let's walk through each stage:
 
-**Content sourcing** is where you decide what goes into your knowledge base. This might be documentation from a CMS, support tickets from Zendesk, product data from a database, or files from Google Drive. Each source has its own format, update frequency, and access patterns. Getting content into your system is often messier than the actual RAG implementation.
+<Steps>
+<Step>
 
-**Extraction** handles content that isn't plain text. PDFs need text extraction (or OCR, or LLM-based extraction). Images might need captions. Audio and video need transcription. The quality of extraction directly affects retrieval quality—if you can't extract the text accurately, you can't search it accurately.
+### Content sourcing
 
-**Cleaning and normalization** removes noise and standardizes formatting. Real content has navigation elements, boilerplate, duplicate sections, and formatting artifacts. Cleaning this up before indexing improves retrieval precision. Normalization ensures consistent structure so your chunking and embedding behave predictably.
+Decide what goes into your knowledge base. This might be documentation from a CMS, support tickets from Zendesk, product data from a database, or files from Google Drive. Each source has its own format, update frequency, and access patterns.
 
-**Chunking** splits documents into smaller pieces. Embedding models and LLM context windows have limits, but more importantly, smaller chunks let you retrieve specific information rather than entire documents. How you chunk—by sentences, paragraphs, sections, or semantic boundaries—significantly affects what queries can find what content.
+With Unrag, you can use built-in [connectors](/docs/connectors) for [Notion](/docs/connectors/notion) and [Google Drive](/docs/connectors/google-drive), or ingest from [filesystem](/docs/guides/ingest-from-filesystem).
 
-**Embedding** converts text chunks into vectors: arrays of numbers that represent semantic meaning. Similar texts produce similar vectors, which is what makes semantic search work. The embedding model you choose affects both quality (what counts as "similar") and cost (API calls add up).
+</Step>
+<Step>
 
-**Storage** writes the chunks and their embeddings to your index. This is typically a vector database or a traditional database with vector search capabilities. The storage layer also holds metadata (source URLs, timestamps, permissions) that you'll need for filtering and attribution.
+### Extraction
+
+Handle content that isn't plain text. PDFs need text extraction (or OCR, or LLM-based extraction). Images might need captions. Audio and video need transcription. The quality of extraction directly affects retrieval quality—if you can't extract the text accurately, you can't search it accurately.
+
+Unrag provides [extractors](/docs/extractors) for [PDFs](/docs/extractors/pdf), [images](/docs/extractors/image), [audio](/docs/extractors/audio), [video](/docs/extractors/video), and various [file formats](/docs/extractors/file).
+
+</Step>
+<Step>
+
+### Cleaning and normalization
+
+Remove noise and standardize formatting. Real content has navigation elements, boilerplate, duplicate sections, and formatting artifacts. Cleaning this up before indexing improves retrieval precision. Normalization ensures consistent structure so your chunking and embedding behave predictably.
+
+</Step>
+<Step>
+
+### Chunking
+
+Split documents into smaller pieces. Embedding models and LLM context windows have limits, but more importantly, smaller chunks let you retrieve specific information rather than entire documents. How you chunk—by sentences, paragraphs, sections, or semantic boundaries—significantly affects what queries can find what content.
+
+Learn more about [chunking concepts](/docs/concepts/chunking) and how to configure it in Unrag.
+
+</Step>
+<Step>
+
+### Embedding
+
+Convert text chunks into vectors: arrays of numbers that represent semantic meaning. Similar texts produce similar vectors, which is what makes semantic search work. The embedding model you choose affects both quality (what counts as "similar") and cost (API calls add up).
+
+Unrag supports [multiple embedding providers](/docs/providers) including OpenAI, Cohere, Voyage, and others. See [model selection guide](/docs/embedding/model-selection).
+
+</Step>
+<Step>
+
+### Storage
+
+Write the chunks and their embeddings to your index. This is typically a vector database or a traditional database with vector search capabilities. The storage layer also holds metadata (source URLs, timestamps, permissions) that you'll need for filtering and attribution.
+
+Unrag uses Postgres with pgvector and provides [adapters](/docs/adapters/overview) for Drizzle, Prisma, and raw SQL.
+
+</Step>
+</Steps>
 
 ## Inside the retrieval pipeline
 
-The retrieval pipeline finds relevant content for a user's query. The major steps are:
+The retrieval pipeline finds relevant content for a user's query. Here's how it works:
 
-**Query processing** prepares the user's input for search. At minimum, this means embedding the query using the same model you used for documents. More sophisticated systems might rewrite ambiguous queries, expand abbreviations, or decompose complex questions into sub-queries.
+<Steps>
+<Step>
 
-**Candidate retrieval** searches the index for chunks whose embeddings are similar to the query embedding. This is usually approximate nearest neighbor search: fast but not perfectly accurate. You retrieve more candidates than you'll ultimately use, because later stages will filter them down.
+### Query processing
 
-**Filtering** removes candidates the user shouldn't see. This is where access control happens. If a user doesn't have permission to view a document, chunks from that document shouldn't appear in their results—even if they're semantically relevant. Filtering can also apply business logic: only show content from certain sources, only show recent content, etc.
+Prepare the user's input for search. At minimum, this means embedding the query using the same model you used for documents. More sophisticated systems might rewrite ambiguous queries, expand abbreviations, or decompose complex questions into sub-queries.
 
-**Reranking** re-scores the candidates using a more sophisticated relevance model. Vector similarity is a useful first pass, but it's not a precise measure of relevance. Rerankers (cross-encoders or LLM-based) look at the query and each candidate together to make better relevance judgments. This is more expensive than vector search, which is why you do it on a filtered candidate set rather than the whole index.
+</Step>
+<Step>
 
-**Context assembly** takes the top-ranked candidates and formats them for the LLM. This involves decisions about how many chunks to include, how to order them, whether to include metadata like source URLs, and how to handle cases where you don't have good matches.
+### Candidate retrieval
+
+Search the index for chunks whose embeddings are similar to the query embedding. This is usually approximate nearest neighbor search: fast but not perfectly accurate. You retrieve more candidates than you'll ultimately use, because later stages will filter them down.
+
+In Unrag, this is the `retrieve()` method with configurable [topK and thresholds](/docs/rag/04-retrieval/01-topk-thresholds-and-no-good-match).
+
+</Step>
+<Step>
+
+### Filtering
+
+Remove candidates the user shouldn't see. This is where access control happens. If a user doesn't have permission to view a document, chunks from that document shouldn't appear in their results—even if they're semantically relevant. Filtering can also apply business logic: only show content from certain sources, only show recent content, etc.
+
+See [metadata filtering and permissions](/docs/concepts/metadata-and-scoping) for implementation with Unrag.
+
+</Step>
+<Step>
+
+### Reranking
+
+Re-score the candidates using a more sophisticated relevance model. Vector similarity is a useful first pass, but it's not a precise measure of relevance. Rerankers (cross-encoders or LLM-based) look at the query and each candidate together to make better relevance judgments. This is more expensive than vector search, which is why you do it on a filtered candidate set rather than the whole index.
+
+Unrag provides a built-in [reranker](/docs/batteries/reranker) powered by Cohere.
+
+</Step>
+<Step>
+
+### Context assembly
+
+Take the top-ranked candidates and format them for the LLM. This involves decisions about how many chunks to include, how to order them, whether to include metadata like source URLs, and how to handle cases where you don't have good matches.
+
+See [Use with chat](/docs/guides/use-with-chat) for examples of building prompts with retrieved context.
+
+</Step>
+</Steps>
 
 ## The generation step
 

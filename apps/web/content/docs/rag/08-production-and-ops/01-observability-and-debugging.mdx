@@ -5,7 +5,9 @@ description: Instrument retrieval and generation so regressions and incidents ar
 
 When your RAG system returns a wrong answer in production, you need to understand why. Was the right document not retrieved? Was it retrieved but ranked too low? Was the context correct but the generation went astray? Without observability, you're left guessing. With good instrumentation, you can trace exactly what happened and fix it.
 
+<Callout type="warn">
 RAG observability is harder than traditional application observability because the pipeline has multiple stages, each with its own failure modes. A request touches embedding, retrieval, reranking, context assembly, and generation—any of which might be the culprit. Your instrumentation needs to capture enough at each stage to reconstruct what happened without capturing so much that you drown in data or create privacy risks.
+</Callout>
 
 ## The diagnostic trace
 

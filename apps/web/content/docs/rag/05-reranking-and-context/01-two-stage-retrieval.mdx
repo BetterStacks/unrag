@@ -23,11 +23,33 @@ Two-stage retrieval splits the problem into what each stage does best.
 
 ![Two-stage retrieval](/diagrams/two-stage-retrieval.png)
 
-The first stage is fast candidate generation. Vector search retrieves a larger set of candidates—typically 20 to 100 chunks—that are approximately relevant. This stage prioritizes recall: you want to make sure the truly relevant chunks are somewhere in this set. Speed matters here because you're scanning potentially millions of vectors.
+<Steps>
+<Step>
 
-The second stage is precise reranking. A more expensive model scores each candidate against the query to assess true relevance. This stage prioritizes precision: you want to identify which of the candidates are actually useful. Speed matters less because you're only scoring a small set.
+### Stage 1: Fast candidate generation
 
-After reranking, you take the top results—typically 3 to 10—for inclusion in the LLM context. These are the chunks most likely to help answer the query.
+Vector search retrieves a larger set of candidates—typically 20 to 100 chunks—that are approximately relevant. This stage prioritizes recall: you want to make sure the truly relevant chunks are somewhere in this set. Speed matters here because you're scanning potentially millions of vectors.
+
+**With Unrag**: Use `engine.retrieve()` with a higher `topK` value to retrieve candidates. See [ANN search](/docs/rag/01-foundations/04-indexing-and-ann-search).
+
+</Step>
+<Step>
+
+### Stage 2: Precise reranking
+
+A more expensive model scores each candidate against the query to assess true relevance. This stage prioritizes precision: you want to identify which of the candidates are actually useful. Speed matters less because you're only scoring a small set.
+
+**With Unrag**: Use the built-in [reranker](/docs/batteries/reranker) powered by Cohere's rerank API, or implement custom reranking.
+
+</Step>
+<Step>
+
+### Final selection
+
+Take the top results—typically 3 to 10—for inclusion in the LLM context. These are the chunks most likely to help answer the query.
+
+</Step>
+</Steps>
 
 ## Candidate set sizing
 

@@ -31,10 +31,47 @@ If you're looking for specific guidance, here are two common paths:
 
 When examples appear, they're written to illustrate the general concept rather than any specific framework. When an example uses Unrag specifically, it's marked as one concrete implementation of the pattern. You should be able to apply the same ideas with any RAG stack.
 
-## Start reading
+## Module overview
 
 <Cards>
   <Card title="Module 0: Orientation" href="/docs/rag/00-orientation">
-    What RAG is, what problems it solves, and how to think about the tradeoffs
+    Understand RAG fundamentals, production architecture, use cases, and tradeoffs
+  </Card>
+  <Card title="Module 1: Foundations" href="/docs/rag/01-foundations">
+    Embeddings, chunking, metadata filtering, indexing, and score calibration
+  </Card>
+  <Card title="Module 2: Data and Ingestion" href="/docs/rag/02-data-and-ingestion">
+    Content sources, pipelines, cleaning, document modeling, and updates
+  </Card>
+  <Card title="Module 3: Chunking" href="/docs/rag/03-chunking-and-representation">
+    Chunk sizing, structure-aware strategies, multi-representation indexing
+  </Card>
+  <Card title="Module 4: Retrieval" href="/docs/rag/04-retrieval">
+    topK and thresholds, hybrid retrieval, query rewriting, filtering, caching
+  </Card>
+  <Card title="Module 5: Reranking" href="/docs/rag/05-reranking-and-context">
+    Two-stage retrieval, cross-encoders, LLM reranking, context compression
+  </Card>
+  <Card title="Module 6: Generation" href="/docs/rag/06-generation">
+    Grounding prompts, answer formats, chat, agents, hallucinations, UX patterns
+  </Card>
+  <Card title="Module 7: Evaluation" href="/docs/rag/07-evaluation">
+    What to measure, building datasets, offline evals, online feedback
+  </Card>
+  <Card title="Module 8: Production" href="/docs/rag/08-production-and-ops">
+    Observability, latency, cost controls, security, reliability, scaling
+  </Card>
+  <Card title="Appendix" href="/docs/rag/appendix">
+    Checklists, glossary, and failure modes reference
   </Card>
 </Cards>
+
+## Quick navigation
+
+<Callout>
+**New to RAG?** Start with [Module 0: Orientation](/docs/rag/00-orientation) to understand the fundamentals.
+
+**Building with Unrag?** Check out the practical [examples](/docs/examples/docs-search) and [guides](/docs/guides/build-a-search-endpoint) alongside the handbook.
+
+**Debugging production issues?** Jump to [Module 7: Evaluation](/docs/rag/07-evaluation) to set up measurement, then use results to identify which module addresses your specific problem.
+</Callout>

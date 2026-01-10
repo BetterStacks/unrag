@@ -15,17 +15,47 @@ Start by asking product questions. What questions should your system be able to 
 
 Different applications draw from different sources. Here are the patterns you'll encounter most often.
 
-**Product documentation** is the classic RAG use case: help docs, API references, user guides, FAQs. This content is usually well-structured, written for humans, and updated through a controlled process. It's often the easiest to ingest because it's already meant to be consumed.
+<Accordions>
+<Accordion title="Product documentation">
 
-**Internal knowledge bases** like Confluence, Notion, or internal wikis contain institutional knowledge: how things work, decisions that were made, processes to follow. This content is valuable but often messy—inconsistent formatting, outdated pages, duplicated information across spaces. It requires more cleaning and curation.
+The classic RAG use case: help docs, API references, user guides, FAQs. This content is usually well-structured, written for humans, and updated through a controlled process. It's often the easiest to ingest because it's already meant to be consumed.
 
-**Support tickets and conversations** contain real questions users ask and answers that worked. They're goldmines for understanding how users actually phrase things, but they also contain noise: back-and-forth troubleshooting, customer-specific details, and information that was true at the time but isn't anymore.
+**With Unrag**: See the [docs search example](/docs/examples/docs-search) for a complete implementation.
 
-**Code and technical artifacts** like source files, configuration, and API schemas can power developer-facing RAG systems. Code has structure that requires special handling (we'll cover this in Module 3), and it changes frequently, requiring robust update pipelines.
+</Accordion>
 
-**User-generated content** like community forums, reviews, or uploaded documents introduces trust and permission challenges. The content isn't authored by your team, so you can't guarantee its accuracy, and it might contain inappropriate material or adversarial content.
+<Accordion title="Internal knowledge bases">
 
-**External sources** like web pages, third-party documentation, or public datasets can extend your knowledge base beyond what you control. But they come with freshness challenges (the source can change without notifying you), permission questions (are you allowed to index it?), and trust issues (you can't vouch for accuracy).
+Like Confluence, Notion, or internal wikis contain institutional knowledge: how things work, decisions that were made, processes to follow. This content is valuable but often messy—inconsistent formatting, outdated pages, duplicated information across spaces. It requires more cleaning and curation.
+
+**With Unrag**: Use the [Notion connector](/docs/connectors/notion) or [Google Drive connector](/docs/connectors/google-drive) for seamless integration.
+
+</Accordion>
+
+<Accordion title="Support tickets and conversations">
+
+Contain real questions users ask and answers that worked. They're goldmines for understanding how users actually phrase things, but they also contain noise: back-and-forth troubleshooting, customer-specific details, and information that was true at the time but isn't anymore.
+
+</Accordion>
+
+<Accordion title="Code and technical artifacts">
+
+Source files, configuration, and API schemas can power developer-facing RAG systems. Code has structure that requires special handling (we'll cover this in [Module 3](/docs/rag/03-chunking-and-representation)), and it changes frequently, requiring robust update pipelines.
+
+</Accordion>
+
+<Accordion title="User-generated content">
+
+Community forums, reviews, or uploaded documents introduces trust and permission challenges. The content isn't authored by your team, so you can't guarantee its accuracy, and it might contain inappropriate material or adversarial content.
+
+</Accordion>
+
+<Accordion title="External sources">
+
+Web pages, third-party documentation, or public datasets can extend your knowledge base beyond what you control. But they come with freshness challenges (the source can change without notifying you), permission questions (are you allowed to index it?), and trust issues (you can't vouch for accuracy).
+
+</Accordion>
+</Accordions>
 
 ## The freshness problem
 

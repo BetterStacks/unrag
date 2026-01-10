@@ -15,13 +15,19 @@ This sounds straightforward, and in a sense it is. The complexity comes from mak
 
 The most common alternative to RAG is fine-tuning: training a model on your specific data so it "knows" your information directly. Fine-tuning works for some use cases, but RAG has several advantages that make it the default choice for most production applications.
 
+<Accordions>
+<Accordion title="Key advantages of RAG over fine-tuning">
+
 **Freshness.** Fine-tuned models are frozen at training time. If your documentation changes weekly or your product data updates hourly, fine-tuning can't keep up. RAG systems query current data, so answers reflect what's true now rather than what was true when you last ran a training job.
 
 **Auditability.** When a RAG system generates an answer, you can trace it back to specific source documents. You can show users where the information came from, verify that the model didn't hallucinate, and debug cases where the answer was wrong. Fine-tuned models give you no such visibility—the knowledge is baked into weights you can't inspect.
 
-**Access control.** Real applications have permissions. Different users should see different information. RAG lets you filter retrieval results based on who's asking, ensuring the model only sees content the user is allowed to access. Fine-tuned models have no concept of per-request permissions.
+**Access control.** Real applications have permissions. Different users should see different information. RAG lets you filter retrieval results based on who's asking, ensuring the model only sees content the user is allowed to access. Fine-tuned models have no concept of per-request permissions. See [Multi-tenant](/docs/guides/multi-tenant) for how to implement this with Unrag.
 
 **Cost and iteration speed.** Fine-tuning requires training infrastructure, datasets, and time. RAG requires a search index and an API call. You can update your knowledge base in minutes, test changes immediately, and iterate without waiting for training jobs to complete.
+
+</Accordion>
+</Accordions>
 
 ## What RAG is not
 
@@ -35,13 +41,19 @@ Finally, RAG is distinct from tool use and agents, though they often appear toge
 
 Understanding RAG's failure modes helps you build systems that handle them gracefully.
 
-**Retrieval misses the right content.** The user asks a question, the answer exists in your knowledge base, but your retrieval system doesn't find it. This is a false negative: the system fails silently by returning irrelevant results or nothing at all. The causes range from poor chunking (the relevant information is split across chunks in ways that don't match the query) to embedding model limitations (the query and document use different terminology for the same concept).
+<Callout type="warn">
+RAG systems have specific failure modes that require proactive mitigation. Being aware of these patterns helps you design systems that handle them gracefully.
+</Callout>
 
-**Retrieval returns plausible-but-wrong content.** The user asks a question, your retrieval system returns documents that seem relevant but actually aren't, and the model generates a confident answer based on the wrong information. This is a false positive, and it's often worse than returning nothing because the user has no reason to doubt the response.
+### Common failure patterns
 
-**The model ignores the context.** You retrieve the right documents, pack them into the prompt, and the model generates an answer that contradicts or ignores what you provided. This happens more often than you'd expect, especially with longer contexts or when the retrieved information conflicts with the model's training data.
+1. **Retrieval misses the right content.** The user asks a question, the answer exists in your knowledge base, but your retrieval system doesn't find it. This is a false negative: the system fails silently by returning irrelevant results or nothing at all. The causes range from poor [chunking](/docs/rag/01-foundations/02-chunking-foundations) (the relevant information is split across chunks in ways that don't match the query) to embedding model limitations (the query and document use different terminology for the same concept).
 
-**The context attacks the model.** If your knowledge base includes user-generated content or external data, that content might contain prompt injections—text designed to manipulate the model's behavior. The model treats retrieved content as trusted input, so malicious content in your knowledge base can hijack responses.
+2. **Retrieval returns plausible-but-wrong content.** The user asks a question, your retrieval system returns documents that seem relevant but actually aren't, and the model generates a confident answer based on the wrong information. This is a false positive, and it's often worse than returning nothing because the user has no reason to doubt the response.
+
+3. **The model ignores the context.** You retrieve the right documents, pack them into the prompt, and the model generates an answer that contradicts or ignores what you provided. This happens more often than you'd expect, especially with longer contexts or when the retrieved information conflicts with the model's training data.
+
+4. **The context attacks the model.** If your knowledge base includes user-generated content or external data, that content might contain prompt injections—text designed to manipulate the model's behavior. The model treats retrieved content as trusted input, so malicious content in your knowledge base can hijack responses. See [Security and prompt injection](/docs/rag/08-production-and-ops/04-security-and-prompt-injection) for mitigation strategies.
 
 Each of these failure modes has mitigation strategies that we'll cover throughout the handbook. For now, the point is that RAG is not "retrieval + LLM = done." Building a system that works reliably requires understanding where things go wrong and designing around those failure modes.
 

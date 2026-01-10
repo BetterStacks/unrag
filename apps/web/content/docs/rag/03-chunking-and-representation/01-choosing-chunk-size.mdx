@@ -33,15 +33,37 @@ Several factors influence where the sweet spot lies.
 
 While the optimal size is ultimately empirical, research and practice suggest reasonable starting ranges for different content types.
 
-**Technical documentation** typically works well at 200-400 words. This is large enough to include a complete section with its examples, small enough to be topically focused.
+<Accordions>
+<Accordion title="Technical documentation">
 
-**Conversational content** like support tickets, chat logs, or FAQs often benefits from smaller chunks of 100-200 words. Each exchange or Q&A pair is a natural unit.
+Typically works well at 200-400 words. This is large enough to include a complete section with its examples, small enough to be topically focused.
 
-**Long-form prose** like articles, reports, or legal documents often needs larger chunks of 300-600 words to preserve narrative flow and complete arguments.
+**With Unrag**: Default is 200 words, configurable in `unrag.config.ts`. See [chunking concepts](/docs/concepts/chunking).
 
-**Code** is a special case—size matters less than structure. A function might be 10 lines or 100 lines; what matters is keeping it intact. We'll cover code chunking specifically in the structure-aware chunking chapter.
+</Accordion>
 
-These are starting points, not prescriptions. Test on your actual content and queries to find what works.
+<Accordion title="Conversational content">
+
+Support tickets, chat logs, or FAQs often benefit from smaller chunks of 100-200 words. Each exchange or Q&A pair is a natural unit.
+
+</Accordion>
+
+<Accordion title="Long-form prose">
+
+Articles, reports, or legal documents often need larger chunks of 300-600 words to preserve narrative flow and complete arguments.
+
+</Accordion>
+
+<Accordion title="Code">
+
+A special case—size matters less than structure. A function might be 10 lines or 100 lines; what matters is keeping it intact. See [structure-aware chunking](/docs/rag/03-chunking-and-representation/02-structure-aware-chunking) for code-specific strategies.
+
+</Accordion>
+</Accordions>
+
+<Callout>
+These are starting points, not prescriptions. Test on your actual content and queries using [evaluation](/docs/rag/07-evaluation) to find what works.
+</Callout>
 
 ## The overlap dimension
 

@@ -49,15 +49,39 @@ Understanding these limitations helps you design systems that work around them. 
 
 The embedding model you choose affects everything downstream. Here are the dimensions that matter:
 
-**Dimensionality** is the length of the vector. Higher dimensions can capture more nuance but require more storage and slightly slower search. Most models produce 384-1536 dimensions. The quality difference between a 384-dimensional model and a 1536-dimensional model is usually smaller than the difference between different model architectures.
+<Accordions>
+<Accordion title="Dimensionality">
 
-**Quality** is how well the model captures relevant similarity for your use case. This is hard to evaluate without testing on your actual queries and documents. Public benchmarks (MTEB, BEIR) give rough guidance, but your domain might behave differently.
+The length of the vector. Higher dimensions can capture more nuance but require more storage and slightly slower search. Most models produce 384-1536 dimensions. The quality difference between a 384-dimensional model and a 1536-dimensional model is usually smaller than the difference between different model architectures.
 
-**Speed** matters for both ingestion (you're embedding all your content) and query time (you're embedding each search). Some models are 10x faster than others for comparable quality. For high-throughput applications, this matters.
+</Accordion>
 
-**Cost** varies dramatically between providers. OpenAI's embedding models cost money per token. Open-source models running locally cost compute time. The economics depend on your volume and infrastructure.
+<Accordion title="Quality">
 
-**Domain fit** describes how well the model handles your specific content. A model trained primarily on web text might struggle with legal documents, code, or domain-specific jargon. Some providers offer domain-specific models.
+How well the model captures relevant similarity for your use case. This is hard to evaluate without testing on your actual queries and documents. Public benchmarks (MTEB, BEIR) give rough guidance, but your domain might behave differently.
+
+</Accordion>
+
+<Accordion title="Speed">
+
+Matters for both ingestion (you're embedding all your content) and query time (you're embedding each search). Some models are 10x faster than others for comparable quality. For high-throughput applications, this matters.
+
+</Accordion>
+
+<Accordion title="Cost">
+
+Varies dramatically between providers. OpenAI's embedding models cost money per token. Open-source models running locally cost compute time. The economics depend on your volume and infrastructure.
+
+</Accordion>
+
+<Accordion title="Domain fit">
+
+How well the model handles your specific content. A model trained primarily on web text might struggle with legal documents, code, or domain-specific jargon. Some providers offer domain-specific models.
+
+</Accordion>
+</Accordions>
+
+**With Unrag**: Supports [multiple embedding providers](/docs/providers) including OpenAI, Cohere, Voyage, and more. See the [model selection guide](/docs/embedding/model-selection) for detailed comparisons.
 
 Start with a mainstream model (OpenAI's text-embedding-3-small, Cohere's embed-v3, or an open-source model like nomic-embed-text) and evaluate on your actual data before optimizing.
 
