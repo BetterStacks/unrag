@@ -1,5 +1,12 @@
 # unrag
 
+## 0.2.10
+
+### Patch Changes
+
+- Fixed numerous type issues in vendored code causing build failures
+- Fixed reranker response property naming bug causing reranking to fail
+
 ## 0.2.9
 
 ### Minor Changes
