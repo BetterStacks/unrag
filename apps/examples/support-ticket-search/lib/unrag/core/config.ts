@@ -8,6 +8,7 @@ import type {
 } from "./types";
 import { defaultChunker, resolveChunkingOptions } from "./chunking";
 import { mergeDeep } from "./deep-merge";
+import type { DeepPartial } from "./types";
 
 export const defineConfig = (config: ContextEngineConfig): ContextEngineConfig =>
   config;
