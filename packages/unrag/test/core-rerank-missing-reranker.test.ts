@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { rerank } from "../registry/core/rerank";
+import { rerank } from "@registry/core/rerank";
 import type {
   RerankCandidate,
   ResolvedContextEngineConfig,
-} from "../registry/core/types";
+} from "@registry/core/types";
 
 /**
  * Creates test candidates.

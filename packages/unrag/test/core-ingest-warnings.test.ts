@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { ingest } from "../registry/core/ingest";
-import type { ResolvedContextEngineConfig } from "../registry/core/types";
+import { ingest } from "@registry/core/ingest";
+import type { ResolvedContextEngineConfig } from "@registry/core/types";
 
 describe("core ingest warnings", () => {
   test("emits warnings for skipped assets (unsupported kind, pdf extraction disabled, image without caption + no multimodal)", async () => {

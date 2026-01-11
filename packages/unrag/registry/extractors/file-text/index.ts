@@ -1,7 +1,7 @@
-import type { AssetExtractor } from "../../core/types";
-import { getAssetBytes } from "../_shared/fetch";
-import { extFromFilename, normalizeMediaType } from "../_shared/media";
-import { capText, toUtf8String } from "../_shared/text";
+import type { AssetExtractor } from "@registry/core/types";
+import { getAssetBytes } from "@registry/extractors/_shared/fetch";
+import { extFromFilename, normalizeMediaType } from "@registry/extractors/_shared/media";
+import { capText, toUtf8String } from "@registry/extractors/_shared/text";
 
 const stripHtml = (html: string) => {
   const withoutScripts = html

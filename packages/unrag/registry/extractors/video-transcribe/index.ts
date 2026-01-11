@@ -1,6 +1,6 @@
 import { experimental_transcribe as transcribe, type TranscriptionModel } from "ai";
-import type { AssetExtractor, ExtractedTextItem } from "../../core/types";
-import { getAssetBytes } from "../_shared/fetch";
+import type { AssetExtractor, ExtractedTextItem } from "@registry/core/types";
+import { getAssetBytes } from "@registry/extractors/_shared/fetch";
 
 /**
  * Model reference type that accepts both string gateway IDs and TranscriptionModel instances.

@@ -1,7 +1,7 @@
 import { test, expect, describe, beforeEach, afterEach } from "bun:test";
 import path from "node:path";
 import { mkdir, rm, writeFile, readFile } from "node:fs/promises";
-import { initCommand } from "../cli/commands/init";
+import { initCommand } from "@cli/commands/init";
 
 const workspaceTmpRoot = path.join(process.cwd(), "tmp", "test-runs");
 

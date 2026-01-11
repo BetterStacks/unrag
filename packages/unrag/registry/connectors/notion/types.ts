@@ -1,5 +1,5 @@
-import type { ContextEngine } from "../../core";
-import type { AssetInput, IngestInput } from "../../core";
+import type { ContextEngine } from "@registry/core";
+import type { AssetInput, IngestInput } from "@registry/core";
 
 export type NotionSyncProgressEvent =
   | { type: "page:start"; pageId: string; sourceId: string }

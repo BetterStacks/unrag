@@ -1,4 +1,4 @@
-import type { ContextEngine, AssetInput, IngestInput } from "../../core";
+import type { ContextEngine, AssetInput, IngestInput } from "@registry/core";
 
 /**
  * Service account credentials structure.

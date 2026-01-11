@@ -15,17 +15,17 @@ import {
   copyBatteryFiles,
   copyRegistryFiles,
   type RegistrySelection,
-} from "../lib/registry";
-import { readJsonFile, writeJsonFile } from "../lib/json";
+} from "@cli/lib/registry";
+import { readJsonFile, writeJsonFile } from "@cli/lib/json";
 import {
   ensureDir,
   exists,
   findUp,
   normalizePosixPath,
   tryFindProjectRoot,
-} from "../lib/fs";
-import { readRegistryManifest } from "../lib/manifest";
-import { fetchPreset, type PresetPayloadV1 } from "../lib/preset";
+} from "@cli/lib/fs";
+import { readRegistryManifest } from "@cli/lib/manifest";
+import { fetchPreset, type PresetPayloadV1 } from "@cli/lib/preset";
 import {
   depsForAdapter,
   depsForConnector,
@@ -42,15 +42,15 @@ import {
   depsForEmbeddingProvider,
   depsForBattery,
   writePackageJson,
-} from "../lib/packageJson";
-import { patchTsconfigPaths } from "../lib/tsconfig";
+} from "@cli/lib/packageJson";
+import { patchTsconfigPaths } from "@cli/lib/tsconfig";
 import { writeFile } from "node:fs/promises";
 import {
   EVAL_CONFIG_DEFAULT,
   EVAL_PACKAGE_JSON_SCRIPTS,
   EVAL_SAMPLE_DATASET_V1,
   renderEvalRunnerScript,
-} from "../lib/evalBatteryScaffold";
+} from "@cli/lib/evalBatteryScaffold";
 
 type InitConfig = {
   installDir: string;

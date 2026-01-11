@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { computeMetricsAtK, uniqueSourceIdsInOrder } from "../registry/eval/metrics";
+import { computeMetricsAtK, uniqueSourceIdsInOrder } from "@registry/eval/metrics";
 
 describe("eval metrics", () => {
   test("uniqueSourceIdsInOrder de-dupes while preserving first occurrence", () => {

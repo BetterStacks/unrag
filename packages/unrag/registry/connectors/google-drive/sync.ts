@@ -1,5 +1,5 @@
-import type { IngestResult, Metadata } from "../../core";
-import type { AssetInput } from "../../core/types";
+import type { IngestResult, Metadata } from "@registry/core";
+import type { AssetInput } from "@registry/core/types";
 import type { DriveClient, DriveFile } from "./_api-types";
 import { createGoogleDriveClient } from "./client";
 import {

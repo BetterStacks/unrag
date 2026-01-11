@@ -1,5 +1,5 @@
 import { documents, chunks, embeddings } from "./schema";
-import type { Chunk, VectorStore } from "../../core/types";
+import type { Chunk, VectorStore } from "@registry/core/types";
 import { eq, like, sql, type SQL } from "drizzle-orm";
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 

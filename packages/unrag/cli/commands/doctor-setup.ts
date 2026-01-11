@@ -16,15 +16,15 @@ import {
   spinner,
   text,
 } from "@clack/prompts";
-import { exists, tryFindProjectRoot, ensureDir } from "../lib/fs";
-import { readJsonFile, writeJsonFile } from "../lib/json";
-import { inferInstallState, inferTableNames } from "../lib/doctor/infer";
+import { exists, tryFindProjectRoot, ensureDir } from "@cli/lib/fs";
+import { readJsonFile, writeJsonFile } from "@cli/lib/json";
+import { inferInstallState, inferTableNames } from "@cli/lib/doctor/infer";
 import {
   type DoctorConfig,
   DOCTOR_CONFIG_VERSION,
   DEFAULT_ENV_LOAD_FILES,
-} from "../lib/doctor/doctorConfig";
-import { docsUrl } from "../lib/constants";
+} from "@cli/lib/doctor/doctorConfig";
+import { docsUrl } from "@cli/lib/constants";
 
 const DEFAULT_CONFIG_PATH = ".unrag/doctor.json";
 

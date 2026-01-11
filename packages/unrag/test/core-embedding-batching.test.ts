@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { ingest } from "../registry/core/ingest";
-import type { ResolvedContextEngineConfig } from "../registry/core/types";
+import { ingest } from "@registry/core/ingest";
+import type { ResolvedContextEngineConfig } from "@registry/core/types";
 
 const multiChunker: ResolvedContextEngineConfig["chunker"] = (content) => {
   const parts = String(content ?? "")

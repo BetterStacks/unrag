@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@cli/*": ["./cli/*"],
+      "@registry/*": ["./registry/*"],
+      "@test/*": ["./test/*"]
+    }
+  },
+  "include": ["cli/**/*.ts", "registry/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

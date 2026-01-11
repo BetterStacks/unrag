@@ -1,5 +1,5 @@
-import type { AssetInput, Metadata } from "../core/types";
-import type { ContextEngine } from "../core/context-engine";
+import type { AssetInput, Metadata } from "@registry/core/types";
+import type { ContextEngine } from "@registry/core/context-engine";
 
 import {
   readEvalDatasetFromFile,

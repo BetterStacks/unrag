@@ -1,4 +1,4 @@
-import type { AssetInput, AssetKind, Metadata } from "../../core";
+import type { AssetInput, AssetKind, Metadata } from "@registry/core";
 
 type RichText = { plain_text?: string };
 
