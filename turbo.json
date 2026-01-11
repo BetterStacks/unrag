@@ -3,15 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**"],
-      "env": [
-        "DATABASE_URL",
-        "AI_GATEWAY_API_KEY",
-        "COHERE_API_KEY",
-        "UPSTASH_REDIS_REST_URL",
-        "UPSTASH_REDIS_REST_TOKEN",
-        "UNRAG_SITE_URL"
-      ]
+      "outputs": ["dist/**", ".next/**"]
     },
     "test": {
       "dependsOn": ["^build"]
