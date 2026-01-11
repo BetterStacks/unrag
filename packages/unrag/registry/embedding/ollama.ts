@@ -6,7 +6,7 @@ import { requireOptional } from "./_shared";
  * Ollama provider instance interface.
  */
 interface OllamaProvider {
-  textEmbeddingModel: (model: string) => EmbeddingModel<string>;
+  textEmbeddingModel: (model: string) => EmbeddingModel;
 }
 
 /**
