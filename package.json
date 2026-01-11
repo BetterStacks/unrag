@@ -6,6 +6,7 @@
   "packageManager": "bun@1.2.22",
   "workspaces": [
     "apps/*",
+    "apps/examples/*",
     "packages/*"
   ],
   "scripts": {
