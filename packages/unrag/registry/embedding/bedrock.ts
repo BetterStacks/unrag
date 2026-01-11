@@ -7,7 +7,7 @@ import { requireOptional } from "./_shared";
  */
 interface BedrockModule {
   bedrock: {
-    embedding: (model: string) => EmbeddingModel<string>;
+    embedding: (model: string) => EmbeddingModel;
   };
 }
 
