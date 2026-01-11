@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  basePath: "/example/support-ticket-search",
+  // No basePath needed - the web app handles path prefixing via rewrites
 };
 
 export default nextConfig;

@@ -8,14 +8,14 @@ const config = {
   async rewrites() {
     return [
       // Example 1: Support Ticket Search
-      // The external app uses basePath: "/example/support-ticket-search"
+      // The external app doesn't use basePath - we handle the path prefix here
       {
         source: "/example/support-ticket-search",
-        destination: "https://unrag-example-support-ticket-search.vercel.app/example/support-ticket-search",
+        destination: "https://unrag-example-support-ticket-search.vercel.app",
       },
       {
         source: "/example/support-ticket-search/:path*",
-        destination: "https://unrag-example-support-ticket-search.vercel.app/example/support-ticket-search/:path*",
+        destination: "https://unrag-example-support-ticket-search.vercel.app/:path*",
       },
     ];
   },
