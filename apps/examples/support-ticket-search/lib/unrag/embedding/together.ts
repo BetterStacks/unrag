@@ -7,8 +7,8 @@ import { requireOptional } from "./_shared";
  */
 interface TogetherAiModule {
   togetherai: {
-    embeddingModel?: (model: string) => EmbeddingModel<string>;
-    textEmbeddingModel?: (model: string) => EmbeddingModel<string>;
+    embeddingModel?: (model: string) => EmbeddingModel;
+    textEmbeddingModel?: (model: string) => EmbeddingModel;
   };
 }
 
@@ -36,6 +36,10 @@ export const createTogetherEmbeddingProvider = (
     typeof togetherai.embeddingModel === "function"
       ? togetherai.embeddingModel(model)
       : togetherai.textEmbeddingModel?.(model);
+
+  if (!embeddingModel) {
+    throw new Error("Together.ai embedding model function not available");
+  }
 
   return {
     name: `together:${model}`,

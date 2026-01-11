@@ -7,9 +7,9 @@ import { requireOptional } from "./_shared";
  */
 interface VoyageModule {
   voyage: {
-    embeddingModel?: (model: string) => EmbeddingModel<string>;
-    textEmbeddingModel?: (model: string) => EmbeddingModel<string>;
-    multimodalEmbeddingModel?: (model: string) => EmbeddingModel<unknown>;
+    embeddingModel?: (model: string) => EmbeddingModel;
+    textEmbeddingModel?: (model: string) => EmbeddingModel;
+    multimodalEmbeddingModel?: (model: string) => EmbeddingModel;
   };
 }
 

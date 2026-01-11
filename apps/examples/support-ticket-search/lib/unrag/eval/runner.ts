@@ -3,6 +3,7 @@ import type { ContextEngine } from "../core/context-engine";
 
 import {
   readEvalDatasetFromFile,
+  type EvalDatasetDocument,
   type EvalDatasetV1,
   type EvalMode,
   type EvalThresholds,
@@ -294,7 +295,7 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
 }
 
 async function resolveDocumentContent(
-  doc: EvalDatasetV1["documents"][number],
+  doc: EvalDatasetDocument,
   loadByRef: EvalRunArgs["loadDocumentByRef"]
 ): Promise<string> {
   if (typeof doc.content === "string" && doc.content.trim().length > 0) return doc.content;

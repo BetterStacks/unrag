@@ -7,7 +7,7 @@ import { requireOptional } from "./_shared";
  */
 interface VertexModule {
   vertex: {
-    embeddingModel: (model: string) => EmbeddingModel<string>;
+    embeddingModel: (model: string) => EmbeddingModel;
   };
 }
 

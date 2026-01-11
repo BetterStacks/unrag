@@ -7,7 +7,7 @@ import { requireOptional } from "./_shared";
  */
 interface MistralModule {
   mistral: {
-    embedding: (model: string) => EmbeddingModel<string>;
+    embedding: (model: string) => EmbeddingModel;
   };
 }
 
