@@ -70,7 +70,7 @@ export function TicketSearch({ initialTickets }: TicketSearchProps) {
     setHasSearched(true);
     try {
       const response = await fetch(
-        `/api/search?q=${encodeURIComponent(searchQuery)}&topK=10&rerank=${rerank}`
+        `/example/support-ticket-search/api/search?q=${encodeURIComponent(searchQuery)}&topK=10&rerank=${rerank}`
       );
 
       if (response.status === 429) {

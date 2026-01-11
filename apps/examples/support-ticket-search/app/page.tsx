@@ -2,8 +2,6 @@ import { db, schema } from "@/db";
 import { desc } from "drizzle-orm";
 import { TicketSearch } from "@/components/ticket-search";
 
-export const dynamic = "force-dynamic";
-
 export default async function Page() {
   const tickets = await db
     .select()
