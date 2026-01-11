@@ -70,7 +70,7 @@ export function TicketSearch({ initialTickets }: TicketSearchProps) {
     setHasSearched(true);
     try {
       const response = await fetch(
-        `/api/search?q=${encodeURIComponent(searchQuery)}&topK=10&rerank=${rerank}`
+        `${process.env.NEXT_PUBLIC_SELF_URL}/api/search?q=${encodeURIComponent(searchQuery)}&topK=10&rerank=${rerank}`
       );
 
       if (response.status === 429) {
@@ -220,7 +220,7 @@ export function TicketSearch({ initialTickets }: TicketSearchProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <p className="text-muted-foreground text-xs">
-                {displayTickets.length} results for "{query}"
+                {displayTickets.length} results for &#34;{query}&#34;
               </p>
               <label className="text-muted-foreground flex items-center gap-2 text-xs">
                 <Switch
