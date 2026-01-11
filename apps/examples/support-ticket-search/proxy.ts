@@ -48,15 +48,34 @@ const rateLimiters = redis
   }
   : null;
 
+// CORS headers to allow all origins
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
+
 export async function proxy(request: NextRequest) {
-  // Skip rate limiting if not configured
-  if (!rateLimiters) {
+  // Only apply to API routes
+  if (!request.nextUrl.pathname.startsWith("/api")) {
     return NextResponse.next();
   }
 
-  // Only rate limit API routes
-  if (!request.nextUrl.pathname.startsWith("/api")) {
-    return NextResponse.next();
+  // Handle preflight requests
+  if (request.method === "OPTIONS") {
+    return new NextResponse(null, {
+      status: 200,
+      headers: corsHeaders,
+    });
+  }
+
+  // Skip rate limiting if not configured
+  if (!rateLimiters) {
+    const response = NextResponse.next();
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return response;
   }
 
   // Get client IP for rate limiting
@@ -83,6 +102,7 @@ export async function proxy(request: NextRequest) {
         {
           status: 429,
           headers: {
+            ...corsHeaders,
             "X-RateLimit-Limit": limit.toString(),
             "X-RateLimit-Remaining": "0",
             "X-RateLimit-Reset": reset.toString(),
@@ -92,8 +112,11 @@ export async function proxy(request: NextRequest) {
       );
     }
 
-    // Add rate limit headers to successful responses
+    // Add rate limit headers and CORS headers to successful responses
     const response = NextResponse.next();
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
     response.headers.set("X-RateLimit-Limit", limit.toString());
     response.headers.set("X-RateLimit-Remaining", remaining.toString());
     response.headers.set("X-RateLimit-Reset", reset.toString());
@@ -103,7 +126,11 @@ export async function proxy(request: NextRequest) {
     // If rate limiting fails, allow the request through
     // This prevents Redis outages from breaking the app
     console.error("[rate-limit] Error:", error);
-    return NextResponse.next();
+    const response = NextResponse.next();
+    Object.entries(corsHeaders).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+    return response;
   }
 }
 
