@@ -340,4 +340,244 @@ describe("unrag@latest init", () => {
   });
 });
 
+describe("unrag init - TypeScript import alias (non-Next.js)", () => {
+  let runDir: string;
+  let originalCwd: string;
+
+  beforeEach(async () => {
+    originalCwd = process.cwd();
+    runDir = path.join(workspaceTmpRoot, crypto.randomUUID());
+    await rm(runDir, { recursive: true, force: true });
+    await mkdir(runDir, { recursive: true });
+  });
+
+  afterEach(async () => {
+    process.chdir(originalCwd);
+    await rm(runDir, { recursive: true, force: true });
+  });
+
+  test("patches tsconfig for plain TypeScript project (no Next.js)", async () => {
+    // Plain TypeScript project without Next.js
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "ts-proj",
+      private: true,
+      type: "module",
+      dependencies: {
+        typescript: "^5.0.0",
+      },
+    });
+    await writeJson(path.join(runDir, "tsconfig.json"), {
+      compilerOptions: {
+        target: "ES2022",
+        module: "ESNext",
+        moduleResolution: "bundler",
+        strict: true,
+      },
+    });
+
+    process.chdir(runDir);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag", "--no-install"]);
+
+    const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
+    expect(tsconfig.compilerOptions.baseUrl).toBe(".");
+    expect(tsconfig.compilerOptions.paths["@unrag/*"]).toEqual(["./lib/unrag/*"]);
+    expect(tsconfig.compilerOptions.paths["@unrag/config"]).toEqual(["./unrag.config.ts"]);
+  });
+
+  test("creates tsconfig when missing for plain TypeScript project", async () => {
+    // TypeScript project without tsconfig.json
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "ts-proj",
+      private: true,
+      type: "module",
+      dependencies: {
+        typescript: "^5.0.0",
+      },
+    });
+
+    process.chdir(runDir);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag", "--no-install"]);
+
+    expect(await pathExists(path.join(runDir, "tsconfig.json"))).toBe(true);
+    const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
+    expect(tsconfig.compilerOptions.baseUrl).toBe(".");
+    expect(tsconfig.compilerOptions.paths["@unrag/*"]).toEqual(["./lib/unrag/*"]);
+    expect(tsconfig.compilerOptions.paths["@unrag/config"]).toEqual(["./unrag.config.ts"]);
+  });
+
+  test("patches tsconfig preserving existing paths for plain TypeScript project", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "ts-proj",
+      private: true,
+      type: "module",
+      dependencies: {
+        typescript: "^5.0.0",
+      },
+    });
+    await writeJson(path.join(runDir, "tsconfig.json"), {
+      compilerOptions: {
+        target: "ES2022",
+        module: "ESNext",
+        moduleResolution: "bundler",
+        baseUrl: ".",
+        paths: {
+          "@/*": ["./src/*"],
+          "@utils/*": ["./src/utils/*"],
+        },
+      },
+      include: ["src/**/*.ts"],
+    });
+
+    process.chdir(runDir);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag", "--no-install"]);
+
+    const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
+    // Existing paths preserved
+    expect(tsconfig.compilerOptions.paths["@/*"]).toEqual(["./src/*"]);
+    expect(tsconfig.compilerOptions.paths["@utils/*"]).toEqual(["./src/utils/*"]);
+    // New unrag paths added
+    expect(tsconfig.compilerOptions.paths["@unrag/*"]).toEqual(["./lib/unrag/*"]);
+    expect(tsconfig.compilerOptions.paths["@unrag/config"]).toEqual(["./unrag.config.ts"]);
+    // Other fields preserved
+    expect(tsconfig.include).toEqual(["src/**/*.ts"]);
+  });
+
+  test("supports custom install directory in tsconfig paths", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "ts-proj",
+      private: true,
+      type: "module",
+      dependencies: {},
+    });
+    await writeJson(path.join(runDir, "tsconfig.json"), {
+      compilerOptions: { target: "ES2022" },
+    });
+
+    process.chdir(runDir);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "src/lib/rag", "--no-install"]);
+
+    const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
+    expect(tsconfig.compilerOptions.paths["@unrag/*"]).toEqual(["./src/lib/rag/*"]);
+  });
+
+  test("supports custom alias base for plain TypeScript project", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "ts-proj",
+      private: true,
+      type: "module",
+      dependencies: {},
+    });
+    await writeJson(path.join(runDir, "tsconfig.json"), {
+      compilerOptions: { target: "ES2022" },
+    });
+
+    process.chdir(runDir);
+    await initCommand([
+      "--yes",
+      "--store",
+      "drizzle",
+      "--dir",
+      "lib/unrag",
+      "--alias",
+      "@myrag",
+      "--no-install",
+    ]);
+
+    const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
+    expect(tsconfig.compilerOptions.paths["@myrag/*"]).toEqual(["./lib/unrag/*"]);
+    expect(tsconfig.compilerOptions.paths["@myrag/config"]).toEqual(["./unrag.config.ts"]);
+    // Should not have @unrag paths
+    expect(tsconfig.compilerOptions.paths["@unrag/*"]).toBeUndefined();
+  });
+
+  test("generated unrag.config.ts has valid imports from install directory", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "ts-proj",
+      private: true,
+      type: "module",
+      dependencies: {},
+    });
+    await writeJson(path.join(runDir, "tsconfig.json"), {
+      compilerOptions: { target: "ES2022" },
+    });
+
+    process.chdir(runDir);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag", "--no-install"]);
+
+    const config = await readFile(path.join(runDir, "unrag.config.ts"), "utf8");
+    // Config should import from the install directory
+    expect(config).toContain("./lib/unrag/");
+    expect(config).toContain("defineUnragConfig");
+    expect(config).toContain("createDrizzleVectorStore");
+  });
+
+  test("works with Bun TypeScript project", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "bun-proj",
+      private: true,
+      type: "module",
+      devDependencies: {
+        "bun-types": "^1.0.0",
+      },
+    });
+    await writeJson(path.join(runDir, "tsconfig.json"), {
+      compilerOptions: {
+        target: "ESNext",
+        module: "ESNext",
+        moduleResolution: "bundler",
+        types: ["bun-types"],
+      },
+    });
+
+    process.chdir(runDir);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag", "--no-install"]);
+
+    const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
+    expect(tsconfig.compilerOptions.baseUrl).toBe(".");
+    expect(tsconfig.compilerOptions.paths["@unrag/*"]).toEqual(["./lib/unrag/*"]);
+    // Existing types preserved
+    expect(tsconfig.compilerOptions.types).toEqual(["bun-types"]);
+  });
+
+  test("works with Deno TypeScript project", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "deno-proj",
+      private: true,
+      type: "module",
+      dependencies: {},
+    });
+    // Deno-style tsconfig
+    await writeJson(path.join(runDir, "tsconfig.json"), {
+      compilerOptions: {
+        lib: ["deno.window"],
+        strict: true,
+      },
+    });
+
+    process.chdir(runDir);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag", "--no-install"]);
+
+    const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
+    expect(tsconfig.compilerOptions.baseUrl).toBe(".");
+    expect(tsconfig.compilerOptions.paths["@unrag/*"]).toEqual(["./lib/unrag/*"]);
+    // Existing lib preserved
+    expect(tsconfig.compilerOptions.lib).toEqual(["deno.window"]);
+  });
+
+  test("works with minimal package.json (no dependencies)", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "minimal-proj",
+      private: true,
+    });
+
+    process.chdir(runDir);
+    await initCommand(["--yes", "--store", "drizzle", "--dir", "lib/unrag", "--no-install"]);
+
+    // Should create tsconfig and patch it
+    expect(await pathExists(path.join(runDir, "tsconfig.json"))).toBe(true);
+    const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
+    expect(tsconfig.compilerOptions.paths["@unrag/*"]).toEqual(["./lib/unrag/*"]);
+  });
+});
+
 
