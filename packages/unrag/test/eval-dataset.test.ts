@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseEvalDataset } from "../registry/eval/dataset";
+import { parseEvalDataset } from "@registry/eval/dataset";
 
 describe("eval dataset parsing", () => {
   test("parses minimal valid dataset", () => {

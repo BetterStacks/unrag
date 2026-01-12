@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { deleteDocuments } from "../registry/core/delete";
-import { createRawSqlVectorStore } from "../registry/store/raw-sql-postgres-pgvector/store";
+import { deleteDocuments } from "@registry/core/delete";
+import { createRawSqlVectorStore } from "@registry/store/raw-sql-postgres-pgvector/store";
 
 describe("core deleteDocuments", () => {
   test("throws when neither sourceId nor sourceIdPrefix is provided", async () => {

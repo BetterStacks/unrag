@@ -1,6 +1,6 @@
-import type { AssetExtractor } from "../../core/types";
-import { getAssetBytes } from "../_shared/fetch";
-import { capText } from "../_shared/text";
+import type { AssetExtractor } from "@registry/core/types";
+import { getAssetBytes } from "@registry/extractors/_shared/fetch";
+import { capText } from "@registry/extractors/_shared/text";
 
 /**
  * Text content item from pdfjs-dist.

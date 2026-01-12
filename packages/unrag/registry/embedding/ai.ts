@@ -1,5 +1,5 @@
 import { embed, embedMany } from "ai";
-import type { EmbeddingProvider } from "../core/types";
+import type { EmbeddingProvider } from "@registry/core/types";
 
 type BaseConfig = {
   /**

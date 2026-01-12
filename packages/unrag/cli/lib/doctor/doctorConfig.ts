@@ -7,8 +7,8 @@
  */
 
 import path from "node:path";
-import { exists } from "../fs";
-import { readJsonFile } from "../json";
+import { exists } from "@cli/lib/fs";
+import { readJsonFile } from "@cli/lib/json";
 import type { ParsedDoctorArgs } from "./types";
 
 /**

@@ -1,4 +1,4 @@
-import { docsUrl, UNRAG_SITE_URL } from "./constants";
+import { docsUrl, UNRAG_SITE_URL } from "@cli/lib/constants";
 
 export type PresetPayloadV1 = {
   version: 1;

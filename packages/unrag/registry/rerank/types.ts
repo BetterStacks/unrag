@@ -9,7 +9,7 @@ export type {
   Reranker,
   RerankerRerankArgs,
   RerankerRerankResult,
-} from "../core/types";
+} from "@registry/core/types";
 
 /**
  * Configuration for creating a Cohere reranker.

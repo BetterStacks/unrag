@@ -1,4 +1,4 @@
-import type { IngestResult, Metadata } from "../../core";
+import type { IngestResult, Metadata } from "@registry/core";
 import { isFullPage } from "@notionhq/client";
 import type {
   GetPageResponse,

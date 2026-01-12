@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { ingest } from "../registry/core/ingest";
-import type { ResolvedContextEngineConfig } from "../registry/core/types";
+import { ingest } from "@registry/core/ingest";
+import type { ResolvedContextEngineConfig } from "@registry/core/types";
 
 describe("image embedding URL hardening", () => {
   test("fetches image URL using assetProcessing.fetch and passes bytes (not URL) to embedImage", async () => {

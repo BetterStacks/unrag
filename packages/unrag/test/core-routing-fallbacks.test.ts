@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { ingest } from "../registry/core/ingest";
-import { defaultAssetProcessingConfig } from "../registry/core/config";
-import type { AssetExtractor, ResolvedContextEngineConfig } from "../registry/core/types";
+import { ingest } from "@registry/core/ingest";
+import { defaultAssetProcessingConfig } from "@registry/core/config";
+import type { AssetExtractor, ResolvedContextEngineConfig } from "@registry/core/types";
 
 const oneChunker: ResolvedContextEngineConfig["chunker"] = (content) => {
   const text = String(content ?? "").trim();
