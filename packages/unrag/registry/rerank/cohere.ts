@@ -4,7 +4,7 @@
  * Uses Cohere's rerank-v3.5 model by default for high-quality relevance scoring.
  */
 
-import type { Reranker } from "../core/types";
+import type { Reranker } from "@registry/core/types";
 import type { CohereRerankerConfig } from "./types";
 
 const DEFAULT_MODEL = "rerank-v3.5";

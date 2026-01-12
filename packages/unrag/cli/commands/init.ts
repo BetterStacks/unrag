@@ -15,17 +15,17 @@ import {
   copyBatteryFiles,
   copyRegistryFiles,
   type RegistrySelection,
-} from "../lib/registry";
-import { readJsonFile, writeJsonFile } from "../lib/json";
+} from "@cli/lib/registry";
+import { readJsonFile, writeJsonFile } from "@cli/lib/json";
 import {
   ensureDir,
   exists,
   findUp,
   normalizePosixPath,
   tryFindProjectRoot,
-} from "../lib/fs";
-import { readRegistryManifest } from "../lib/manifest";
-import { fetchPreset, type PresetPayloadV1 } from "../lib/preset";
+} from "@cli/lib/fs";
+import { readRegistryManifest } from "@cli/lib/manifest";
+import { fetchPreset, type PresetPayloadV1 } from "@cli/lib/preset";
 import {
   depsForAdapter,
   depsForConnector,
@@ -42,15 +42,15 @@ import {
   depsForEmbeddingProvider,
   depsForBattery,
   writePackageJson,
-} from "../lib/packageJson";
-import { patchTsconfigPaths } from "../lib/tsconfig";
+} from "@cli/lib/packageJson";
+import { patchTsconfigPaths } from "@cli/lib/tsconfig";
 import { writeFile } from "node:fs/promises";
 import {
   EVAL_CONFIG_DEFAULT,
   EVAL_PACKAGE_JSON_SCRIPTS,
   EVAL_SAMPLE_DATASET_V1,
   renderEvalRunnerScript,
-} from "../lib/evalBatteryScaffold";
+} from "@cli/lib/evalBatteryScaffold";
 
 type InitConfig = {
   installDir: string;
@@ -647,13 +647,11 @@ export async function initCommand(args: string[]) {
         ? `Next: run \`${installCmd(pm)}\``
         : "Dependencies installed.";
 
-  const isNext =
-    Boolean((merged.pkg.dependencies ?? {})["next"]) ||
-    Boolean((merged.pkg.devDependencies ?? {})["next"]);
-
-  const tsconfigResult = isNext
-    ? await patchTsconfigPaths({ projectRoot: root, installDir, aliasBase })
-    : { changed: false as const };
+  const tsconfigResult = await patchTsconfigPaths({
+    projectRoot: root,
+    installDir,
+    aliasBase,
+  });
 
   const envHint = (() => {
     if (embeddingProvider === "ai") {
@@ -770,11 +768,9 @@ export async function initCommand(args: string[]) {
       richMediaEnabled
         ? `  Tip: you can tweak extractors + assetProcessing flags in unrag.config.ts later.`
         : `  Tip: re-run \`unrag init --rich-media\` (or edit unrag.config.ts) to enable rich media later.`,
-      isNext
-        ? tsconfigResult.changed
-          ? `- Next.js: updated ${tsconfigResult.file} (added aliases)`
-          : `- Next.js: no tsconfig changes needed`
-        : `- Next.js: not detected`,
+      tsconfigResult.changed
+        ? `- TypeScript: updated ${tsconfigResult.file} (added aliases)`
+        : `- TypeScript: no tsconfig changes needed`,
       "",
       merged.changes.length > 0
         ? `Added deps: ${merged.changes.map((c) => c.name).join(", ")}`

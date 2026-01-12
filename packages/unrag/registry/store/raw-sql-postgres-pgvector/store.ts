@@ -1,4 +1,4 @@
-import type { Chunk, VectorStore } from "../../core/types";
+import type { Chunk, VectorStore } from "@registry/core/types";
 import type { Pool, PoolClient } from "pg";
 
 const sanitizeMetadata = (metadata: unknown) => {

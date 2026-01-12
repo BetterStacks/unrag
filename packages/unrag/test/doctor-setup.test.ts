@@ -1,7 +1,7 @@
 import { test, expect, describe, beforeEach, afterEach } from "bun:test";
 import path from "node:path";
 import { mkdir, rm, writeFile, readFile } from "node:fs/promises";
-import { doctorSetupCommand } from "../cli/commands/doctor-setup";
+import { doctorSetupCommand } from "@cli/commands/doctor-setup";
 import {
   readDoctorConfig,
   mergeDoctorArgsWithConfig,

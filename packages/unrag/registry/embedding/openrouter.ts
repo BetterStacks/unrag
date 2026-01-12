@@ -1,4 +1,4 @@
-import type { EmbeddingProvider } from "../core/types";
+import type { EmbeddingProvider } from "@registry/core/types";
 import { requireOptional } from "./_shared";
 
 export type OpenRouterEmbeddingConfig = {

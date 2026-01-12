@@ -1,8 +1,8 @@
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { confirm, isCancel, cancel } from "@clack/prompts";
-import { ensureDir, exists, listFilesRecursive } from "./fs";
-import type { ExtractorName } from "./packageJson";
+import { ensureDir, exists, listFilesRecursive } from "@cli/lib/fs";
+import type { ExtractorName } from "@cli/lib/packageJson";
 
 export type RegistrySelection = {
   projectRoot: string;

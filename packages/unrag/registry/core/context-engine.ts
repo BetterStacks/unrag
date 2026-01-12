@@ -3,18 +3,18 @@ import { ingest, planIngest } from "./ingest";
 import { rerank } from "./rerank";
 import { retrieve } from "./retrieve";
 import { defineConfig, resolveConfig } from "./config";
-import { createAiEmbeddingProvider } from "../embedding/ai";
-import { createOpenAiEmbeddingProvider } from "../embedding/openai";
-import { createGoogleEmbeddingProvider } from "../embedding/google";
-import { createOpenRouterEmbeddingProvider } from "../embedding/openrouter";
-import { createAzureEmbeddingProvider } from "../embedding/azure";
-import { createVertexEmbeddingProvider } from "../embedding/vertex";
-import { createBedrockEmbeddingProvider } from "../embedding/bedrock";
-import { createCohereEmbeddingProvider } from "../embedding/cohere";
-import { createMistralEmbeddingProvider } from "../embedding/mistral";
-import { createTogetherEmbeddingProvider } from "../embedding/together";
-import { createOllamaEmbeddingProvider } from "../embedding/ollama";
-import { createVoyageEmbeddingProvider } from "../embedding/voyage";
+import { createAiEmbeddingProvider } from "@registry/embedding/ai";
+import { createOpenAiEmbeddingProvider } from "@registry/embedding/openai";
+import { createGoogleEmbeddingProvider } from "@registry/embedding/google";
+import { createOpenRouterEmbeddingProvider } from "@registry/embedding/openrouter";
+import { createAzureEmbeddingProvider } from "@registry/embedding/azure";
+import { createVertexEmbeddingProvider } from "@registry/embedding/vertex";
+import { createBedrockEmbeddingProvider } from "@registry/embedding/bedrock";
+import { createCohereEmbeddingProvider } from "@registry/embedding/cohere";
+import { createMistralEmbeddingProvider } from "@registry/embedding/mistral";
+import { createTogetherEmbeddingProvider } from "@registry/embedding/together";
+import { createOllamaEmbeddingProvider } from "@registry/embedding/ollama";
+import { createVoyageEmbeddingProvider } from "@registry/embedding/voyage";
 import type {
   AssetExtractor,
   ContextEngineConfig,

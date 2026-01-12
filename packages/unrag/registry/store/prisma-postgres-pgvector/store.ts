@@ -1,4 +1,4 @@
-import type { Chunk, VectorStore } from "../../core/types";
+import type { Chunk, VectorStore } from "@registry/core/types";
 import type { PrismaClient } from "@prisma/client";
 import { empty, sqltag as sql } from "@prisma/client/runtime/library";
 

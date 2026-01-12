@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import path from "node:path";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 
-import { runEval } from "../registry/eval/runner";
+import { runEval } from "@registry/eval/runner";
 
 const workspaceTmpRoot = path.join(process.cwd(), "tmp", "test-runs");
 

@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { rerank } from "../registry/core/rerank";
+import { rerank } from "@registry/core/rerank";
 import type {
   Reranker,
   RerankCandidate,
   ResolvedContextEngineConfig,
-} from "../registry/core/types";
+} from "@registry/core/types";
 
 /**
  * Creates a reranker that assigns the same score to all documents (tie scenario).

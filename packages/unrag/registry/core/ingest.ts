@@ -13,7 +13,7 @@ import type {
   ResolvedContextEngineConfig,
 } from "./types";
 import { mergeDeep } from "./deep-merge";
-import { getAssetBytes } from "../extractors/_shared/fetch";
+import { getAssetBytes } from "@registry/extractors/_shared/fetch";
 
 const now = () => performance.now();
 

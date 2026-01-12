@@ -4,7 +4,7 @@
  * Use this to bring your own reranking logic or integrate with other providers.
  */
 
-import type { Reranker } from "../core/types";
+import type { Reranker } from "@registry/core/types";
 import type { CustomRerankerConfig } from "./types";
 
 /**
