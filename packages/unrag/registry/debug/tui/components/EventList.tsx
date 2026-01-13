@@ -4,9 +4,11 @@
 
 import React, { useState, useMemo } from "react";
 import { Box, Text, useInput } from "ink";
-import type { DebugEvent, DebugEventType } from "@registry/core/debug-events";
+import type { DebugEvent } from "@registry/core/debug-events";
 import { EventRow } from "./EventRow";
 import { EventDetail } from "./EventDetail";
+import { chars, theme } from "../theme";
+import { useTerminalSize } from "../hooks/useTerminalSize";
 
 type EventListProps = {
   events: DebugEvent[];
@@ -14,18 +16,19 @@ type EventListProps = {
 
 type FilterType = "all" | "ingest" | "retrieve" | "rerank" | "delete";
 
-const FILTERS: { id: FilterType; label: string; shortcut: string }[] = [
-  { id: "all", label: "All", shortcut: "a" },
-  { id: "ingest", label: "Ingest", shortcut: "i" },
-  { id: "retrieve", label: "Retrieve", shortcut: "r" },
-  { id: "rerank", label: "Rerank", shortcut: "k" },
-  { id: "delete", label: "Delete", shortcut: "d" },
+const FILTERS: { id: FilterType; label: string; shortcut: string; color: string }[] = [
+  { id: "all", label: "all", shortcut: "a", color: theme.muted },
+  { id: "ingest", label: "ingest", shortcut: "i", color: theme.ingest },
+  { id: "retrieve", label: "retrieve", shortcut: "r", color: theme.retrieve },
+  { id: "rerank", label: "rerank", shortcut: "k", color: theme.rerank },
+  { id: "delete", label: "delete", shortcut: "d", color: theme.delete },
 ];
 
 export function EventList({ events }: EventListProps) {
   const [filter, setFilter] = useState<FilterType>("all");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
+  const { columns } = useTerminalSize();
 
   const filteredEvents = useMemo(() => {
     if (filter === "all") return events;
@@ -43,6 +46,7 @@ export function EventList({ events }: EventListProps) {
   );
 
   const selectedEvent = displayEvents[boundedIndex];
+  const canSplit = columns >= 120;
 
   useInput((input, key) => {
     // Filter shortcuts
@@ -78,45 +82,55 @@ export function EventList({ events }: EventListProps) {
   });
 
   return (
-    <Box flexDirection="column" flexGrow={1}>
-      {/* Filter bar */}
-      <Box gap={2} marginBottom={1}>
-        {FILTERS.map((f) => (
-          <Text
-            key={f.id}
-            inverse={filter === f.id}
-            color={filter === f.id ? "cyan" : undefined}
-          >
-            {" "}
-            [{f.shortcut}] {f.label}{" "}
-          </Text>
-        ))}
+    <Box flexDirection="column" flexGrow={1} paddingY={1}>
+      {/* Filter bar + count */}
+      <Box justifyContent="space-between" marginBottom={1}>
+        <Box gap={1}>
+          {FILTERS.map((f) => {
+            const isActive = filter === f.id;
+            return isActive ? (
+              <Text key={f.id} backgroundColor={f.color} color="black" bold>
+                {" "}{f.shortcut} {f.label.toUpperCase()}{" "}
+              </Text>
+            ) : (
+              <Text key={f.id} color={theme.muted}>
+                {" "}{f.shortcut} {f.label}{" "}
+              </Text>
+            );
+          })}
+        </Box>
+        <Text color={theme.fg} bold>
+          {displayEvents.length}
+        </Text>
       </Box>
 
-      {/* Event count */}
-      <Text dimColor>
-        Showing {displayEvents.length} events
-        {filter !== "all" && ` (filtered: ${filter})`}
-      </Text>
+      {/* Main content: list + detail panel */}
+      <Box flexDirection={canSplit ? "row" : "column"} flexGrow={1}>
+        {/* Event list */}
+        <Box
+          flexDirection="column"
+          flexGrow={1}
+          borderStyle="round"
+          borderColor={theme.borderActive}
+          paddingX={1}
+          width={canSplit ? Math.floor(columns * 0.55) : undefined}
+        >
+          {/* List header */}
+          <Box marginBottom={1}>
+            <Text backgroundColor={theme.border} color={theme.fg}>
+              {" "}EVENTS{" "}
+            </Text>
+            <Text color={theme.muted}> j/k navigate · enter inspect</Text>
+          </Box>
 
-      {showDetail && selectedEvent ? (
-        /* Detail view */
-        <Box flexDirection="column" marginTop={1}>
-          <Text dimColor>Press Escape or Enter to close detail view</Text>
-          <EventDetail event={selectedEvent} />
-        </Box>
-      ) : (
-        /* List view */
-        <Box flexDirection="column" marginTop={1} flexGrow={1}>
-          <Text dimColor>
-            j/k or arrows: navigate | Enter/e: expand | Filter shortcuts shown
-            above
-          </Text>
-          <Box flexDirection="column" marginTop={1}>
+          {/* Event rows */}
+          <Box flexDirection="column">
             {displayEvents.length === 0 ? (
-              <Text dimColor>No events matching filter.</Text>
+              <Text color={theme.muted}>
+                No events.
+              </Text>
             ) : (
-              displayEvents.slice(0, 20).map((event, i) => (
+              displayEvents.slice(0, 25).map((event, i) => (
                 <EventRow
                   key={`${event.timestamp}-${i}`}
                   event={event}
@@ -125,12 +139,48 @@ export function EventList({ events }: EventListProps) {
                 />
               ))
             )}
-            {displayEvents.length > 20 && (
-              <Text dimColor>... and {displayEvents.length - 20} more</Text>
+            {displayEvents.length > 25 && (
+              <Text color={theme.muted}>
+                {chars.arrow} {displayEvents.length - 25} more
+              </Text>
             )}
           </Box>
         </Box>
-      )}
+
+        {/* Detail panel */}
+        {(canSplit || showDetail) && (
+          <Box
+            flexDirection="column"
+            flexGrow={1}
+            marginLeft={canSplit ? 1 : 0}
+            marginTop={!canSplit ? 1 : 0}
+            borderStyle="round"
+            borderColor={selectedEvent ? theme.accent : theme.border}
+            paddingX={1}
+          >
+            {/* Detail header */}
+            <Box marginBottom={1}>
+              <Text backgroundColor={theme.accent} color="black" bold>
+                {" "}DETAILS{" "}
+              </Text>
+              {!canSplit && (
+                <Text color={theme.muted}>
+                  {" "}(enter to close)
+                </Text>
+              )}
+            </Box>
+
+            {/* Detail content */}
+            {selectedEvent ? (
+              <EventDetail event={selectedEvent} />
+            ) : (
+              <Text color={theme.muted}>
+                Select an event.
+              </Text>
+            )}
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 }

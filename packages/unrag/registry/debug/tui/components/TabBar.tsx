@@ -4,6 +4,7 @@
 
 import React from "react";
 import { Box, Text } from "ink";
+import { chars, theme } from "../theme";
 
 type TabDefinition = {
   id: string;
@@ -19,23 +20,21 @@ type TabBarProps = {
 
 export function TabBar({ tabs, activeTab, onSelect }: TabBarProps) {
   return (
-    <Box paddingX={1} gap={2}>
+    <Box paddingX={1} paddingY={1} gap={2}>
       {tabs.map((tab) => {
         const isActive = tab.id === activeTab;
 
         return (
           <Box key={tab.id}>
-            <Text
-              bold={isActive}
-              color={isActive ? "cyan" : undefined}
-              inverse={isActive}
-            >
-              {" "}
-              {tab.shortcut && (
-                <Text dimColor={!isActive}>[{tab.shortcut}]</Text>
-              )}{" "}
-              {tab.label}{" "}
-            </Text>
+            {isActive ? (
+              <Text backgroundColor={theme.accent} color="black" bold>
+                {" "}{tab.shortcut} {tab.label.toUpperCase()}{" "}
+              </Text>
+            ) : (
+              <Text color={theme.muted}>
+                {" "}{tab.shortcut} {tab.label}{" "}
+              </Text>
+            )}
           </Box>
         );
       })}

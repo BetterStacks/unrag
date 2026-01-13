@@ -4,6 +4,7 @@
 
 import React from "react";
 import { Box, Text, useInput } from "ink";
+import { chars, pad, theme } from "../theme";
 
 type HelpOverlayProps = {
   onClose: () => void;
@@ -11,50 +12,38 @@ type HelpOverlayProps = {
 
 type Shortcut = {
   keys: string;
-  description: string;
+  desc: string;
 };
 
-const GLOBAL_SHORTCUTS: Shortcut[] = [
-  { keys: "q / Ctrl+C", description: "Quit" },
-  { keys: "? / h", description: "Toggle help" },
-  { keys: "Tab", description: "Next tab" },
-  { keys: "Shift+Tab", description: "Previous tab" },
-  { keys: "1-2", description: "Switch to tab by number" },
+const SHORTCUTS: { section: string; items: Shortcut[] }[] = [
+  {
+    section: "Navigation",
+    items: [
+      { keys: "1 / 2", desc: "Switch tab" },
+      { keys: "Tab", desc: "Cycle tabs" },
+      { keys: "j / k", desc: "Navigate list" },
+      { keys: "Enter", desc: "Inspect event" },
+      { keys: "Esc", desc: "Close panel" },
+    ],
+  },
+  {
+    section: "Filters",
+    items: [
+      { keys: "a", desc: "All events" },
+      { keys: "i", desc: "Ingest only" },
+      { keys: "r", desc: "Retrieve only" },
+      { keys: "k", desc: "Rerank only" },
+      { keys: "d", desc: "Delete only" },
+    ],
+  },
+  {
+    section: "General",
+    items: [
+      { keys: "?", desc: "Toggle help" },
+      { keys: "q", desc: "Quit" },
+    ],
+  },
 ];
-
-const EVENT_LIST_SHORTCUTS: Shortcut[] = [
-  { keys: "j / Down", description: "Move down" },
-  { keys: "k / Up", description: "Move up" },
-  { keys: "Enter / e", description: "Toggle event details" },
-  { keys: "Escape", description: "Close details" },
-  { keys: "a", description: "Show all events" },
-  { keys: "i", description: "Filter ingest events" },
-  { keys: "r", description: "Filter retrieve events" },
-  { keys: "k", description: "Filter rerank events" },
-  { keys: "d", description: "Filter delete events" },
-];
-
-function ShortcutSection({
-  title,
-  shortcuts,
-}: {
-  title: string;
-  shortcuts: Shortcut[];
-}) {
-  return (
-    <Box flexDirection="column" marginBottom={1}>
-      <Text bold color="cyan">
-        {title}
-      </Text>
-      {shortcuts.map((s, i) => (
-        <Box key={i}>
-          <Text color="yellow">{s.keys.padEnd(16)}</Text>
-          <Text dimColor>{s.description}</Text>
-        </Box>
-      ))}
-    </Box>
-  );
-}
 
 export function HelpOverlay({ onClose }: HelpOverlayProps) {
   useInput((input, key) => {
@@ -67,24 +56,42 @@ export function HelpOverlay({ onClose }: HelpOverlayProps) {
     <Box
       flexDirection="column"
       borderStyle="double"
-      borderColor="cyan"
-      padding={1}
+      borderColor={theme.accent}
+      paddingX={2}
+      paddingY={1}
       marginTop={1}
     >
+      {/* Header */}
       <Box marginBottom={1}>
-        <Text bold color="cyan">
-          Keyboard Shortcuts
+        <Text backgroundColor={theme.accent} color="black" bold>
+          {" "}KEYBOARD SHORTCUTS{" "}
         </Text>
-        <Text dimColor> (Press ? or Escape to close)</Text>
+        <Text color={theme.muted}> press ? or esc to close</Text>
       </Box>
 
-      <ShortcutSection title="Global" shortcuts={GLOBAL_SHORTCUTS} />
-      <ShortcutSection title="Events Tab" shortcuts={EVENT_LIST_SHORTCUTS} />
+      {/* Shortcuts grid */}
+      <Box gap={4}>
+        {SHORTCUTS.map((group) => (
+          <Box key={group.section} flexDirection="column">
+            <Text color={theme.fg} bold>
+              {group.section}
+            </Text>
+            {group.items.map((s, i) => (
+              <Box key={i}>
+                <Text backgroundColor={theme.border} color={theme.fg}>
+                  {" "}{pad(s.keys, 8)}{" "}
+                </Text>
+                <Text color={theme.muted}> {s.desc}</Text>
+              </Box>
+            ))}
+          </Box>
+        ))}
+      </Box>
 
+      {/* Tip */}
       <Box marginTop={1}>
-        <Text dimColor>
-          Tip: The debug TUI connects to your app via WebSocket on port 3847.
-          Make sure UNRAG_DEBUG=true is set in your app environment.
+        <Text color={theme.warning}>
+          {chars.arrow} Set UNRAG_DEBUG=true in your app · ws://localhost:3847
         </Text>
       </Box>
     </Box>

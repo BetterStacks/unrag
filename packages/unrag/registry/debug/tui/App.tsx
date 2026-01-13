@@ -1,11 +1,11 @@
 /**
  * Main Debug TUI Application.
  *
- * A Claude Code-like terminal interface for debugging Unrag RAG operations.
+ * Terminal interface for debugging Unrag RAG operations.
  * Uses Ink (React for CLI) for rendering.
  */
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { render, Box, Text, useInput, useApp } from "ink";
 import { Header } from "./components/Header";
 import { TabBar } from "./components/TabBar";
@@ -16,6 +16,8 @@ import { HelpOverlay } from "./components/HelpOverlay";
 import { useConnection } from "./hooks/useConnection";
 import { useEvents } from "./hooks/useEvents";
 import type { DebugEvent } from "@registry/core/debug-events";
+import { chars, hr, theme } from "./theme";
+import { useTerminalSize } from "./hooks/useTerminalSize";
 
 export type Tab = "dashboard" | "events";
 
@@ -27,6 +29,7 @@ export function App({ url }: AppProps) {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [showHelp, setShowHelp] = useState(false);
   const { exit } = useApp();
+  const { columns } = useTerminalSize();
 
   const connection = useConnection(url);
   const events = useEvents(connection);
@@ -77,12 +80,14 @@ export function App({ url }: AppProps) {
 
   return (
     <Box flexDirection="column" width="100%" height="100%">
+      {/* Header bar */}
       <Header
         title="Unrag Debug"
         status={connection.status}
         sessionId={connection.sessionId}
       />
 
+      {/* Tab bar */}
       <TabBar
         tabs={[
           { id: "dashboard", label: "Dashboard", shortcut: "1" },
@@ -92,6 +97,7 @@ export function App({ url }: AppProps) {
         onSelect={(tab) => setActiveTab(tab as Tab)}
       />
 
+      {/* Main content */}
       <Box flexGrow={1} flexDirection="column" paddingX={1}>
         {activeTab === "dashboard" && (
           <Dashboard events={events} connection={connection} />
@@ -99,12 +105,14 @@ export function App({ url }: AppProps) {
         {activeTab === "events" && <EventList events={events} />}
       </Box>
 
+      {/* Status bar */}
       <StatusBar
-        hint="Tab: switch tabs | ?: help | q: quit"
+        hint="? help · q quit"
         eventCount={events.length}
         status={connection.status}
       />
 
+      {/* Help overlay */}
       {showHelp && <HelpOverlay onClose={() => setShowHelp(false)} />}
     </Box>
   );

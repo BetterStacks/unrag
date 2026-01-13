@@ -5,6 +5,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import type { DebugEvent } from "@registry/core/debug-events";
+import { chars, theme, truncate, pad, formatDuration } from "../theme";
 
 type EventDetailProps = {
   event: DebugEvent;
@@ -13,106 +14,125 @@ type EventDetailProps = {
 function formatValue(value: unknown): string {
   if (typeof value === "string") return value;
   if (typeof value === "number") return value.toLocaleString();
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (Array.isArray(value)) return `[${value.length} items]`;
-  if (value === null || value === undefined) return "-";
+  if (typeof value === "boolean") return value ? "yes" : "no";
+  if (Array.isArray(value)) return `[${value.length}]`;
+  if (value === null || value === undefined) return "–";
   return JSON.stringify(value);
 }
 
-function KeyValue({ label, value }: { label: string; value: unknown }) {
+function Row({ label, value, highlight }: { label: string; value: unknown; highlight?: boolean }) {
   return (
     <Box>
-      <Text dimColor>{label.padEnd(20)}</Text>
-      <Text>{formatValue(value)}</Text>
+      <Text color={theme.muted}>
+        {pad(label, 14)}
+      </Text>
+      {highlight ? (
+        <Text backgroundColor={theme.accent} color="black" bold>
+          {" "}{truncate(formatValue(value), 40)}{" "}
+        </Text>
+      ) : (
+        <Text color={theme.fg} bold>
+          {truncate(formatValue(value), 50)}
+        </Text>
+      )}
     </Box>
   );
 }
 
 export function EventDetail({ event }: EventDetailProps) {
-  const timestamp = new Date(event.timestamp).toLocaleString();
+  const timestamp = new Date(event.timestamp).toLocaleTimeString("en-US", {
+    hour12: false,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 
-  // Common fields
-  const commonFields = (
-    <>
-      <KeyValue label="Type" value={event.type} />
-      <KeyValue label="Timestamp" value={timestamp} />
-      <KeyValue label="Session ID" value={event.sessionId} />
-    </>
+  // Extract event type info for colored header
+  const eventColor = event.type.includes("error")
+    ? theme.error
+    : event.type.startsWith("ingest")
+    ? theme.ingest
+    : event.type.startsWith("retrieve")
+    ? theme.retrieve
+    : event.type.startsWith("rerank")
+    ? theme.rerank
+    : theme.delete;
+
+  // Common header
+  const header = (
+    <Box marginBottom={1} flexDirection="column">
+      <Box gap={2}>
+        <Text backgroundColor={eventColor} color="black" bold>
+          {" "}{event.type.toUpperCase()}{" "}
+        </Text>
+        <Text color={theme.muted}>{timestamp}</Text>
+      </Box>
+    </Box>
   );
 
   // Event-specific fields
-  const specificFields = (() => {
+  const fields = (() => {
     switch (event.type) {
       case "ingest:start":
         return (
           <>
-            <KeyValue label="Source ID" value={event.sourceId} />
-            <KeyValue label="Document ID" value={event.documentId} />
-            <KeyValue label="Content Length" value={`${event.contentLength} bytes`} />
-            <KeyValue label="Asset Count" value={event.assetCount} />
+            <Row label="source" value={event.sourceId} />
+            <Row label="document" value={event.documentId} />
+            <Row label="size" value={`${event.contentLength}b`} />
+            <Row label="assets" value={event.assetCount} />
           </>
         );
 
       case "ingest:chunking-complete":
         return (
           <>
-            <KeyValue label="Source ID" value={event.sourceId} />
-            <KeyValue label="Document ID" value={event.documentId} />
-            <KeyValue label="Chunk Count" value={event.chunkCount} />
-            <KeyValue label="Duration" value={`${event.durationMs.toFixed(2)}ms`} />
+            <Row label="source" value={event.sourceId} />
+            <Row label="chunks" value={event.chunkCount} />
+            <Row label="duration" value={formatDuration(event.durationMs)} />
           </>
         );
 
       case "ingest:embedding-start":
         return (
           <>
-            <KeyValue label="Source ID" value={event.sourceId} />
-            <KeyValue label="Document ID" value={event.documentId} />
-            <KeyValue label="Chunk Count" value={event.chunkCount} />
-            <KeyValue label="Provider" value={event.embeddingProvider} />
+            <Row label="source" value={event.sourceId} />
+            <Row label="chunks" value={event.chunkCount} />
+            <Row label="provider" value={event.embeddingProvider} />
           </>
         );
 
       case "ingest:embedding-batch":
         return (
           <>
-            <KeyValue label="Source ID" value={event.sourceId} />
-            <KeyValue label="Document ID" value={event.documentId} />
-            <KeyValue label="Batch Index" value={event.batchIndex} />
-            <KeyValue label="Batch Size" value={event.batchSize} />
-            <KeyValue label="Duration" value={`${event.durationMs.toFixed(2)}ms`} />
+            <Row label="batch" value={`${event.batchIndex + 1}/${event.batchSize}`} />
+            <Row label="duration" value={formatDuration(event.durationMs)} />
           </>
         );
 
       case "ingest:embedding-complete":
         return (
           <>
-            <KeyValue label="Source ID" value={event.sourceId} />
-            <KeyValue label="Document ID" value={event.documentId} />
-            <KeyValue label="Total Embeddings" value={event.totalEmbeddings} />
-            <KeyValue label="Duration" value={`${event.durationMs.toFixed(2)}ms`} />
+            <Row label="embeddings" value={event.totalEmbeddings} />
+            <Row label="duration" value={formatDuration(event.durationMs)} />
           </>
         );
 
       case "ingest:storage-complete":
         return (
           <>
-            <KeyValue label="Source ID" value={event.sourceId} />
-            <KeyValue label="Document ID" value={event.documentId} />
-            <KeyValue label="Chunks Stored" value={event.chunksStored} />
-            <KeyValue label="Duration" value={`${event.durationMs.toFixed(2)}ms`} />
+            <Row label="stored" value={event.chunksStored} />
+            <Row label="duration" value={formatDuration(event.durationMs)} />
           </>
         );
 
       case "ingest:complete":
         return (
           <>
-            <KeyValue label="Source ID" value={event.sourceId} />
-            <KeyValue label="Document ID" value={event.documentId} />
-            <KeyValue label="Total Chunks" value={event.totalChunks} />
-            <KeyValue label="Total Duration" value={`${event.totalDurationMs.toFixed(2)}ms`} />
+            <Row label="source" value={event.sourceId} />
+            <Row label="chunks" value={event.totalChunks} />
+            <Row label="total" value={formatDuration(event.totalDurationMs)} highlight />
             {event.warnings.length > 0 && (
-              <KeyValue label="Warnings" value={event.warnings.join(", ")} />
+              <Row label="warnings" value={event.warnings.join(", ")} />
             )}
           </>
         );
@@ -120,13 +140,9 @@ export function EventDetail({ event }: EventDetailProps) {
       case "ingest:error":
         return (
           <>
-            <KeyValue label="Source ID" value={event.sourceId} />
-            {event.documentId && <KeyValue label="Document ID" value={event.documentId} />}
-            <Box flexDirection="column" marginTop={1}>
-              <Text color="red" bold>
-                Error:
-              </Text>
-              <Text color="red">{event.error}</Text>
+            <Row label="source" value={event.sourceId} />
+            <Box marginTop={1}>
+              <Text color={theme.error}>{chars.cross} {event.error}</Text>
             </Box>
           </>
         );
@@ -134,79 +150,74 @@ export function EventDetail({ event }: EventDetailProps) {
       case "retrieve:start":
         return (
           <>
-            <KeyValue label="Query" value={event.query} />
-            <KeyValue label="Top K" value={event.topK} />
-            {event.scope && <KeyValue label="Scope" value={event.scope} />}
+            <Row label="query" value={event.query} />
+            <Row label="topK" value={event.topK} />
+            {event.scope && <Row label="scope" value={event.scope} />}
           </>
         );
 
       case "retrieve:embedding-complete":
         return (
           <>
-            <KeyValue label="Query" value={event.query} />
-            <KeyValue label="Provider" value={event.embeddingProvider} />
-            <KeyValue label="Dimension" value={event.embeddingDimension} />
-            <KeyValue label="Duration" value={`${event.durationMs.toFixed(2)}ms`} />
+            <Row label="provider" value={event.embeddingProvider} />
+            <Row label="dimension" value={event.embeddingDimension} />
+            <Row label="duration" value={formatDuration(event.durationMs)} />
           </>
         );
 
       case "retrieve:database-complete":
         return (
           <>
-            <KeyValue label="Query" value={event.query} />
-            <KeyValue label="Results Count" value={event.resultsCount} />
-            <KeyValue label="Duration" value={`${event.durationMs.toFixed(2)}ms`} />
+            <Row label="results" value={event.resultsCount} />
+            <Row label="duration" value={formatDuration(event.durationMs)} />
           </>
         );
 
       case "retrieve:complete":
         return (
           <>
-            <KeyValue label="Query" value={event.query} />
-            <KeyValue label="Results" value={`${event.resultsCount}/${event.topK}`} />
-            <KeyValue label="Total Duration" value={`${event.totalDurationMs.toFixed(2)}ms`} />
-            <KeyValue label="Embedding Time" value={`${event.embeddingMs.toFixed(2)}ms`} />
-            <KeyValue label="Retrieval Time" value={`${event.retrievalMs.toFixed(2)}ms`} />
+            <Row label="query" value={event.query} />
+            <Row label="results" value={`${event.resultsCount}/${event.topK}`} />
+            <Row label="embed" value={formatDuration(event.embeddingMs)} />
+            <Row label="db" value={formatDuration(event.retrievalMs)} />
+            <Row label="total" value={formatDuration(event.totalDurationMs)} highlight />
           </>
         );
 
       case "rerank:start":
         return (
           <>
-            <KeyValue label="Query" value={event.query} />
-            <KeyValue label="Candidates" value={event.candidateCount} />
-            <KeyValue label="Top K" value={event.topK} />
-            <KeyValue label="Reranker" value={event.rerankerName} />
+            <Row label="query" value={event.query} />
+            <Row label="candidates" value={event.candidateCount} />
+            <Row label="topK" value={event.topK} />
+            <Row label="reranker" value={event.rerankerName} />
           </>
         );
 
       case "rerank:complete":
         return (
           <>
-            <KeyValue label="Query" value={event.query} />
-            <KeyValue label="Input Count" value={event.inputCount} />
-            <KeyValue label="Output Count" value={event.outputCount} />
-            <KeyValue label="Reranker" value={event.rerankerName} />
-            {event.model && <KeyValue label="Model" value={event.model} />}
-            <KeyValue label="Rerank Time" value={`${event.rerankMs.toFixed(2)}ms`} />
-            <KeyValue label="Total Time" value={`${event.totalMs.toFixed(2)}ms`} />
+            <Row label="in/out" value={`${event.inputCount}→${event.outputCount}`} />
+            <Row label="reranker" value={event.rerankerName} />
+            {event.model && <Row label="model" value={event.model} />}
+            <Row label="total" value={formatDuration(event.totalMs)} highlight />
           </>
         );
 
       case "delete:start":
         return (
           <>
-            <KeyValue label="Mode" value={event.mode} />
-            <KeyValue label="Value" value={event.value} />
+            <Row label="mode" value={event.mode} />
+            <Row label="target" value={event.value} />
           </>
         );
 
       case "delete:complete":
         return (
           <>
-            <KeyValue label="Mode" value={event.mode} />
-            <KeyValue label="Value" value={event.value} />
-            <KeyValue label="Duration" value={`${event.durationMs.toFixed(2)}ms`} />
+            <Row label="mode" value={event.mode} />
+            <Row label="target" value={event.value} />
+            <Row label="duration" value={formatDuration(event.durationMs)} highlight />
           </>
         );
 
@@ -216,23 +227,9 @@ export function EventDetail({ event }: EventDetailProps) {
   })();
 
   return (
-    <Box
-      flexDirection="column"
-      borderStyle="round"
-      borderColor="cyan"
-      paddingX={1}
-      paddingY={1}
-    >
-      <Text bold color="cyan">
-        Event Details
-      </Text>
-      <Box flexDirection="column" marginTop={1}>
-        {commonFields}
-        <Box marginY={1}>
-          <Text dimColor>{"─".repeat(40)}</Text>
-        </Box>
-        {specificFields}
-      </Box>
+    <Box flexDirection="column">
+      {header}
+      <Box flexDirection="column">{fields}</Box>
     </Box>
   );
 }
