@@ -7,15 +7,15 @@
 
 import React, { useState, useCallback } from "react";
 import { render, Box, useInput, useApp } from "ink";
-import { Header } from "./components/Header";
-import { TabBar } from "./components/TabBar";
-import { StatusBar } from "./components/StatusBar";
-import { Dashboard } from "./components/Dashboard";
-import { EventList } from "./components/EventList";
-import { HelpOverlay } from "./components/HelpOverlay";
-import { useConnection } from "./hooks/useConnection";
-import { useEvents } from "./hooks/useEvents";
-import { useTerminalSize } from "./hooks/useTerminalSize";
+import { Dashboard } from "@registry/debug/tui/components/Dashboard";
+import { EventList } from "@registry/debug/tui/components/EventList";
+import { Header } from "@registry/debug/tui/components/Header";
+import { HelpOverlay } from "@registry/debug/tui/components/HelpOverlay";
+import { StatusBar } from "@registry/debug/tui/components/StatusBar";
+import { TabBar } from "@registry/debug/tui/components/TabBar";
+import { useConnection } from "@registry/debug/tui/hooks/useConnection";
+import { useEvents } from "@registry/debug/tui/hooks/useEvents";
+import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
 
 export type Tab = "dashboard" | "events";
 

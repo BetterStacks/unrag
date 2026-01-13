@@ -4,7 +4,7 @@
 
 import React from "react";
 import { Box, Text } from "ink";
-import { chars, theme } from "../theme";
+import { chars, theme } from "@registry/debug/tui/theme";
 
 type TabDefinition = {
   id: string;

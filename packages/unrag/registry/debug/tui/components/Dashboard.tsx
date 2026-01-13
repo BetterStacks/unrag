@@ -4,12 +4,11 @@
 
 import React, { useMemo } from "react";
 import { Box, Text } from "ink";
-import type { DebugEvent } from "@registry/core/debug-events";
-import type { DebugConnection } from "../../types";
-import { EventRow } from "./EventRow";
-import { MetricCard } from "./MetricCard";
-import { Sparkline } from "./Sparkline";
-import { chars, hr, theme } from "../theme";
+import type { DebugConnection, DebugEvent } from "@registry/debug/types";
+import { EventRow } from "@registry/debug/tui/components/EventRow";
+import { MetricCard } from "@registry/debug/tui/components/MetricCard";
+import { Sparkline } from "@registry/debug/tui/components/Sparkline";
+import { chars, theme } from "@registry/debug/tui/theme";
 
 type DashboardProps = {
   events: DebugEvent[];

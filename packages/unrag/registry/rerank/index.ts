@@ -26,8 +26,8 @@
  */
 
 // Factories
-export { createCohereReranker } from "./cohere";
-export { createCustomReranker } from "./custom";
+export { createCohereReranker } from "@registry/rerank/cohere";
+export { createCustomReranker } from "@registry/rerank/custom";
 
 // Types
 export type {
@@ -36,4 +36,4 @@ export type {
   RerankerRerankResult,
   CohereRerankerConfig,
   CustomRerankerConfig,
-} from "./types";
+} from "@registry/rerank/types";

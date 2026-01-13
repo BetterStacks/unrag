@@ -4,8 +4,8 @@ import type {
   RerankCandidate,
   RerankRankingItem,
   ResolvedContextEngineConfig,
-} from "./types";
-import { getDebugEmitter } from "./debug-emitter";
+} from "@registry/core/types";
+import { getDebugEmitter } from "@registry/core/debug-emitter";
 
 const now = () => performance.now();
 

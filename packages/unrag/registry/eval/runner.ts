@@ -6,14 +6,18 @@ import {
   type EvalDatasetV1,
   type EvalMode,
   type EvalThresholds,
-} from "./dataset";
-import { computeMetricsAtK, uniqueSourceIdsInOrder, type EvalMetricsAtK } from "./metrics";
+} from "@registry/eval/dataset";
+import {
+  computeMetricsAtK,
+  uniqueSourceIdsInOrder,
+  type EvalMetricsAtK,
+} from "@registry/eval/metrics";
 import {
   percentiles,
   type EvalCleanupPolicy,
   type EvalQueryResult,
   type EvalReportV1,
-} from "./report";
+} from "@registry/eval/report";
 
 export type EvalRunArgs = {
   engine: ContextEngine;

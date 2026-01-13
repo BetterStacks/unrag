@@ -1,10 +1,10 @@
-export { createGoogleDriveClient } from "./client";
+export { createGoogleDriveClient } from "@registry/connectors/google-drive/client";
 export {
   loadGoogleDriveFileDocument,
   syncGoogleDriveFiles,
   buildGoogleDriveFileIngestInput,
-} from "./sync";
-export * from "./types";
-export * from "./mime";
+} from "@registry/connectors/google-drive/sync";
+export * from "@registry/connectors/google-drive/types";
+export * from "@registry/connectors/google-drive/mime";
 
 

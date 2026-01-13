@@ -2,9 +2,8 @@
  * Hook for managing debug event stream.
  */
 
-import { useState, useEffect, useCallback } from "react";
-import type { DebugEvent } from "@registry/core/debug-events";
-import type { DebugConnection } from "../../types";
+import { useState, useEffect } from "react";
+import type { DebugConnection, DebugEvent } from "@registry/debug/types";
 
 const MAX_EVENTS = 1000;
 

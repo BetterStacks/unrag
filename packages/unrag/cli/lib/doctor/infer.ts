@@ -5,9 +5,9 @@
 
 import path from "node:path";
 import { readdir, readFile } from "node:fs/promises";
-import { exists, tryFindProjectRoot } from "../fs";
-import { readJsonFile } from "../json";
-import type { InferredInstallState, UnragJsonConfig } from "./types";
+import { exists, tryFindProjectRoot } from "@cli/lib/fs";
+import { readJsonFile } from "@cli/lib/json";
+import type { InferredInstallState, UnragJsonConfig } from "@cli/lib/doctor/types";
 
 const CONFIG_FILE = "unrag.json";
 const CONFIG_TS_FILE = "unrag.config.ts";

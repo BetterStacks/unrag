@@ -4,8 +4,8 @@
 
 import React from "react";
 import { Box, Text } from "ink";
-import type { DebugEvent } from "@registry/core/debug-events";
-import { chars, eventTypeColor, eventTypeIcon, formatTime, truncate, theme, pad } from "../theme";
+import type { DebugEvent } from "@registry/debug/types";
+import { chars, eventTypeColor, eventTypeIcon, formatTime, truncate, theme, pad } from "@registry/debug/tui/theme";
 
 type EventRowProps = {
   event: DebugEvent;

@@ -1,5 +1,5 @@
-import type { DeleteInput, ResolvedContextEngineConfig } from "./types";
-import { getDebugEmitter } from "./debug-emitter";
+import type { DeleteInput, ResolvedContextEngineConfig } from "@registry/core/types";
+import { getDebugEmitter } from "@registry/core/debug-emitter";
 
 const now = () => performance.now();
 

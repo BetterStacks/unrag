@@ -2,10 +2,10 @@ import { cancel, confirm, isCancel, outro, select, text } from "@clack/prompts";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ensureDir, exists, findUp, tryFindProjectRoot } from "../lib/fs";
-import { readJsonFile, writeJsonFile } from "../lib/json";
-import { readRegistryManifest } from "../lib/manifest";
-import { copyBatteryFiles, copyConnectorFiles, copyExtractorFiles } from "../lib/registry";
+import { ensureDir, exists, findUp, tryFindProjectRoot } from "@cli/lib/fs";
+import { readJsonFile, writeJsonFile } from "@cli/lib/json";
+import { readRegistryManifest } from "@cli/lib/manifest";
+import { copyBatteryFiles, copyConnectorFiles, copyExtractorFiles } from "@cli/lib/registry";
 import {
   depsForBattery,
   depsForConnector,
@@ -17,8 +17,8 @@ import {
   type BatteryName,
   type ConnectorName,
   type ExtractorName,
-} from "../lib/packageJson";
-import { docsUrl } from "../lib/constants";
+} from "@cli/lib/packageJson";
+import { docsUrl } from "@cli/lib/constants";
 
 type InitConfig = {
   installDir: string;
@@ -316,7 +316,7 @@ export async function addCommand(args: string[]) {
         ingest: true,
       };
 
-      const installImportBase = `../${config.installDir.replace(/\\/g, "/")}`;
+      const aliasBase = String(config.aliasBase ?? "").trim() || "@unrag";
       const script = `/**
  * Unrag eval runner entrypoint (generated).
  *
@@ -326,7 +326,7 @@ export async function addCommand(args: string[]) {
 import path from "node:path";
 import { access, readFile } from "node:fs/promises";
 
-import { createUnragEngine } from "../unrag.config";
+import { createUnragEngine } from "${aliasBase}/config";
 import {
   runEval,
   readEvalReportFromFile,
@@ -338,7 +338,7 @@ import {
   type EvalMode,
   type EvalThresholds,
   type EvalCleanupPolicy,
-} from "${installImportBase}/eval";
+} from "${aliasBase}/eval";
 
 type CliArgs = {
   dataset?: string;

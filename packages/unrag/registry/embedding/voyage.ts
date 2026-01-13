@@ -1,6 +1,6 @@
 import { embed, embedMany, type EmbeddingModel } from "ai";
 import type { EmbeddingProvider, ImageEmbeddingInput } from "@registry/core/types";
-import { requireOptional } from "./_shared";
+import { requireOptional } from "@registry/embedding/_shared";
 
 /**
  * Voyage AI provider module interface.

@@ -4,7 +4,7 @@
 
 import React from "react";
 import { Box, Text } from "ink";
-import { formatDuration, formatTime, theme } from "../theme";
+import { formatDuration, formatTime, theme } from "@registry/debug/tui/theme";
 
 type MetricCardProps = {
   title: string;

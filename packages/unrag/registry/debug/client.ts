@@ -14,7 +14,7 @@ import type {
   DebugCommandResult,
   ServerMessage,
   ClientMessage,
-} from "./types";
+} from "@registry/debug/types";
 
 // Default configuration values
 const DEFAULT_URL = "ws://localhost:3847";

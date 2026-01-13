@@ -4,9 +4,9 @@
 
 import React from "react";
 import { Box, Text } from "ink";
-import type { DebugConnectionStatus } from "../../types";
-import { chars, statusColor, statusLabel, theme, truncate } from "../theme";
-import { Logo } from "./Logo";
+import type { DebugConnectionStatus } from "@registry/debug/types";
+import { Logo } from "@registry/debug/tui/components/Logo";
+import { chars, statusColor, statusLabel, theme, truncate } from "@registry/debug/tui/theme";
 
 type HeaderProps = {
   title: string;

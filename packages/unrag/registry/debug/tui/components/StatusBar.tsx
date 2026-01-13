@@ -4,8 +4,8 @@
 
 import React from "react";
 import { Box, Text } from "ink";
-import type { DebugConnectionStatus } from "../../types";
-import { chars, statusColor, theme } from "../theme";
+import type { DebugConnectionStatus } from "@registry/debug/types";
+import { chars, statusColor, theme } from "@registry/debug/tui/theme";
 
 type StatusBarProps = {
   hint: string;

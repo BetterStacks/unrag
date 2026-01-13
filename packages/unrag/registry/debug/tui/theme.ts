@@ -8,7 +8,7 @@
  * - Subtle borders for structure
  */
 
-import type { DebugConnectionStatus } from "../types";
+import type { DebugConnectionStatus } from "@registry/debug/types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Color palette

@@ -12,22 +12,22 @@ import type {
   CheckResult,
   DoctorReport,
   ParsedDoctorArgs,
-} from "../lib/doctor/types";
-import { inferInstallState } from "../lib/doctor/infer";
-import { runStaticChecks } from "../lib/doctor/staticChecks";
-import { runConfigCoherenceChecks } from "../lib/doctor/configScan";
-import { runDbChecks } from "../lib/doctor/dbChecks";
-import { formatReport, formatJson } from "../lib/doctor/output";
-import { loadEnvFilesFromList } from "../lib/doctor/env";
-import { docsUrl } from "../lib/constants";
-import { tryFindProjectRoot } from "../lib/fs";
+} from "@cli/lib/doctor/types";
+import { inferInstallState } from "@cli/lib/doctor/infer";
+import { runStaticChecks } from "@cli/lib/doctor/staticChecks";
+import { runConfigCoherenceChecks } from "@cli/lib/doctor/configScan";
+import { runDbChecks } from "@cli/lib/doctor/dbChecks";
+import { formatReport, formatJson } from "@cli/lib/doctor/output";
+import { loadEnvFilesFromList } from "@cli/lib/doctor/env";
+import { docsUrl } from "@cli/lib/constants";
+import { tryFindProjectRoot } from "@cli/lib/fs";
 import {
   readDoctorConfig,
   mergeDoctorArgsWithConfig,
   getEnvFilesToLoad,
   resolveConfigPath,
-} from "../lib/doctor/doctorConfig";
-import { doctorSetupCommand } from "./doctor-setup";
+} from "@cli/lib/doctor/doctorConfig";
+import { doctorSetupCommand } from "@cli/commands/doctor-setup";
 
 type ParsedDoctorArgsWithConfig = ParsedDoctorArgs & {
   config?: string;

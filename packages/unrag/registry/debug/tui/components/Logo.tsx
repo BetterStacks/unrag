@@ -3,8 +3,8 @@ import { Box, Text } from "ink";
 import chalk from "chalk";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { UNRAG_LOGO_LINES } from "../assets/unragLogo";
-import { clamp, theme } from "../theme";
+import { UNRAG_LOGO_LINES } from "@registry/debug/tui/assets/unragLogo";
+import { clamp, theme } from "@registry/debug/tui/theme";
 
 type LogoProps = {
   columns: number;

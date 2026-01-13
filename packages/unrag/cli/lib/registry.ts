@@ -1,8 +1,8 @@
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { confirm, isCancel, cancel } from "@clack/prompts";
-import { ensureDir, exists, listFilesRecursive } from "./fs";
-import type { ExtractorName } from "./packageJson";
+import { ensureDir, exists, listFilesRecursive } from "@cli/lib/fs";
+import type { EmbeddingProviderName, ExtractorName } from "@cli/lib/packageJson";
 
 export type RegistrySelection = {
   projectRoot: string;
@@ -10,7 +10,7 @@ export type RegistrySelection = {
   installDir: string; // project-relative posix
   storeAdapter: "drizzle" | "prisma" | "raw-sql";
   aliasBase: string; // e.g. "@unrag"
-  embeddingProvider?: import("./packageJson").EmbeddingProviderName;
+  embeddingProvider?: EmbeddingProviderName;
   yes?: boolean; // non-interactive
   overwrite?: "skip" | "force"; // behavior when dest exists
   presetConfig?: {
@@ -125,7 +125,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
   const embeddingProvider =
     selection.embeddingProvider ??
     (typeof preset?.embedding?.provider === "string"
-      ? (preset.embedding.provider as import("./packageJson").EmbeddingProviderName)
+      ? (preset.embedding.provider as EmbeddingProviderName)
       : undefined) ??
     "ai";
 

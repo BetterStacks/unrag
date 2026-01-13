@@ -1,5 +1,5 @@
-import type { AssetKind, Chunk } from "./types";
-import { hasAssetMetadata } from "./types";
+import type { AssetKind, Chunk } from "@registry/core/types";
+import { hasAssetMetadata } from "@registry/core/types";
 
 export type ChunkAssetRef = {
   assetId: string;

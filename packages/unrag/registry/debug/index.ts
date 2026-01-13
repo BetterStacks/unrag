@@ -22,10 +22,10 @@
  */
 
 // Server exports (for user's app)
-export { startDebugServer, stopDebugServer, getDebugServer } from "./server";
+export { startDebugServer, stopDebugServer, getDebugServer } from "@registry/debug/server";
 
 // Client exports (for debug TUI)
-export { connectDebugClient, createAutoReconnectClient } from "./client";
+export { connectDebugClient, createAutoReconnectClient } from "@registry/debug/client";
 
 // Type exports
 export type {
@@ -60,7 +60,7 @@ export type {
   // Message types
   ServerMessage,
   ClientMessage,
-} from "./types";
+} from "@registry/debug/types";
 
 // Re-export event types for user reference
 export type {

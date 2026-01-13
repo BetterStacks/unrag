@@ -3,10 +3,43 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import type { DebugConnection, DebugConnectionStatus } from "../../types";
-import { connectDebugClient } from "../../client";
+import type {
+  DebugCommandResult,
+  DebugCommandType,
+  DebugConnection,
+  DebugConnectionStatus,
+} from "@registry/debug/types";
+import { connectDebugClient } from "@registry/debug/client";
 
 const DEFAULT_URL = "ws://localhost:3847";
+
+function assertNever(x: never): never {
+  throw new Error(`Unexpected value: ${String(x)}`);
+}
+
+function notConnectedResult(type: DebugCommandType): DebugCommandResult {
+  const base = { success: false, error: "Not connected" } as const;
+  switch (type) {
+    case "query":
+      return { type, ...base };
+    case "list-documents":
+      return { type, ...base };
+    case "get-document":
+      return { type, ...base };
+    case "delete-document":
+      return { type, ...base };
+    case "store-stats":
+      return { type, ...base };
+    case "ping":
+      return { type, ...base };
+    case "clear-buffer":
+      return { type, ...base };
+    case "get-buffer":
+      return { type, ...base };
+    default:
+      return assertNever(type);
+  }
+}
 
 export function useConnection(url?: string): DebugConnection {
   const connectionRef = useRef<DebugConnection | null>(null);
@@ -71,11 +104,7 @@ export function useConnection(url?: string): DebugConnection {
       if (connectionRef.current) {
         return connectionRef.current.sendCommand(command);
       }
-      return {
-        type: command.type,
-        success: false,
-        error: "Not connected",
-      } as any;
+      return notConnectedResult(command.type);
     },
     disconnect: () => {
       if (connectionRef.current) {

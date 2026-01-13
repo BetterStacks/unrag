@@ -4,7 +4,7 @@
 
 import React from "react";
 import { Box, Text, useInput } from "ink";
-import { chars, pad, theme } from "../theme";
+import { chars, pad, theme } from "@registry/debug/tui/theme";
 
 type HelpOverlayProps = {
   onClose: () => void;

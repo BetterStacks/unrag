@@ -7,9 +7,9 @@
  */
 
 import path from "node:path";
-import { exists } from "../fs";
-import { readJsonFile } from "../json";
-import type { ParsedDoctorArgs } from "./types";
+import { exists } from "@cli/lib/fs";
+import { readJsonFile } from "@cli/lib/json";
+import type { ParsedDoctorArgs } from "@cli/lib/doctor/types";
 
 /**
  * Doctor config file schema (JSON).

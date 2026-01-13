@@ -17,7 +17,7 @@ import type {
   GetDocumentResult,
   DeleteDocumentResult,
   StoreStatsResult,
-} from "./types";
+} from "@registry/debug/types";
 
 /**
  * Handle a debug command and return the result.

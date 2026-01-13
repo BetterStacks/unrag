@@ -5,9 +5,9 @@
  */
 
 import path from "node:path";
-import { docsUrl } from "../constants";
-import { inferTableNames } from "./infer";
-import type { CheckResult, InferredInstallState } from "./types";
+import { docsUrl } from "@cli/lib/constants";
+import { inferTableNames } from "@cli/lib/doctor/infer";
+import type { CheckResult, InferredInstallState } from "@cli/lib/doctor/types";
 
 type DbCheckOptions = {
   databaseUrl?: string;

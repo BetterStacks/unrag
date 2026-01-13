@@ -11,8 +11,8 @@ import type {
   IngestWarning,
   Metadata,
   ResolvedContextEngineConfig,
-} from "./types";
-import { mergeDeep } from "./deep-merge";
+} from "@registry/core/types";
+import { mergeDeep } from "@registry/core/deep-merge";
 import { getAssetBytes } from "@registry/extractors/_shared/fetch";
 import { getDebugEmitter } from "@registry/core/debug-emitter";
 

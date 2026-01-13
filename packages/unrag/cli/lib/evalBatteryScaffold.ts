@@ -43,8 +43,8 @@ export const EVAL_PACKAGE_JSON_SCRIPTS: Record<string, string> = {
   "unrag:eval:ci": `bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json --ci`,
 } as const;
 
-export function renderEvalRunnerScript(opts: { installDir: string }): string {
-  const installImportBase = `../${opts.installDir.replace(/\\/g, "/")}`;
+export function renderEvalRunnerScript(opts: { aliasBase: string }): string {
+  const aliasBase = String(opts.aliasBase ?? "").trim() || "@unrag";
 
   return `/**
  * Unrag eval runner entrypoint (generated).
@@ -55,7 +55,7 @@ export function renderEvalRunnerScript(opts: { installDir: string }): string {
 import path from "node:path";
 import { access, readFile } from "node:fs/promises";
 
-import { createUnragEngine } from "../unrag.config";
+import { createUnragEngine } from "${aliasBase}/config";
 import {
   runEval,
   readEvalReportFromFile,
@@ -67,7 +67,7 @@ import {
   type EvalMode,
   type EvalThresholds,
   type EvalCleanupPolicy,
-} from "${installImportBase}/eval";
+} from "${aliasBase}/eval";
 
 type CliArgs = {
   dataset?: string;

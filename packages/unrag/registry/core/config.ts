@@ -5,9 +5,9 @@ import type {
   AssetProcessingConfig,
   ContentStorageConfig,
   EmbeddingProcessingConfig,
-} from "./types";
-import { defaultChunker, resolveChunkingOptions } from "./chunking";
-import { mergeDeep } from "./deep-merge";
+} from "@registry/core/types";
+import { defaultChunker, resolveChunkingOptions } from "@registry/core/chunking";
+import { mergeDeep } from "@registry/core/deep-merge";
 
 export const defineConfig = (config: ContextEngineConfig): ContextEngineConfig =>
   config;

@@ -4,8 +4,8 @@
 
 import React from "react";
 import { Box, Text } from "ink";
-import type { DebugEvent } from "@registry/core/debug-events";
-import { chars, theme, truncate, pad, formatDuration } from "../theme";
+import type { DebugEvent } from "@registry/debug/types";
+import { chars, theme, truncate, pad, formatDuration } from "@registry/debug/tui/theme";
 
 type EventDetailProps = {
   event: DebugEvent;

@@ -14,8 +14,8 @@ import type {
   ClientMessage,
   ServerMessage,
   DebugCommandResult,
-} from "./types";
-import { handleCommand } from "./commands";
+} from "@registry/debug/types";
+import { handleCommand } from "@registry/debug/commands";
 
 // Default configuration values
 const DEFAULT_PORT = 3847;
