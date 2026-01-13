@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useCallback } from "react";
-import { render, Box, Text, useInput, useApp } from "ink";
+import { render, Box, useInput, useApp } from "ink";
 import { Header } from "./components/Header";
 import { TabBar } from "./components/TabBar";
 import { StatusBar } from "./components/StatusBar";
@@ -15,8 +15,6 @@ import { EventList } from "./components/EventList";
 import { HelpOverlay } from "./components/HelpOverlay";
 import { useConnection } from "./hooks/useConnection";
 import { useEvents } from "./hooks/useEvents";
-import type { DebugEvent } from "@registry/core/debug-events";
-import { chars, hr, theme } from "./theme";
 import { useTerminalSize } from "./hooks/useTerminalSize";
 
 export type Tab = "dashboard" | "events";
@@ -29,7 +27,7 @@ export function App({ url }: AppProps) {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
   const [showHelp, setShowHelp] = useState(false);
   const { exit } = useApp();
-  const { columns } = useTerminalSize();
+  const { columns, rows } = useTerminalSize();
 
   const connection = useConnection(url);
   const events = useEvents(connection);
@@ -41,7 +39,7 @@ export function App({ url }: AppProps) {
     (direction: 1 | -1) => {
       const currentIndex = tabs.indexOf(activeTab);
       const newIndex = (currentIndex + direction + tabs.length) % tabs.length;
-      setActiveTab(tabs[newIndex]);
+      setActiveTab(tabs[newIndex] ?? "dashboard");
     },
     [activeTab, tabs]
   );
@@ -85,6 +83,8 @@ export function App({ url }: AppProps) {
         title="Unrag Debug"
         status={connection.status}
         sessionId={connection.sessionId}
+        columns={columns}
+        rows={rows}
       />
 
       {/* Tab bar */}

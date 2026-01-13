@@ -4,32 +4,53 @@
 
 import React from "react";
 import { Box, Text } from "ink";
-import { chars, formatDuration, theme } from "../theme";
+import { formatDuration, formatTime, theme } from "../theme";
 
 type MetricCardProps = {
   title: string;
   count: number;
   lastMs?: number;
+  avgMs?: number;
+  lastAt?: number;
   color: string;
 };
 
-export function MetricCard({ title, count, lastMs, color }: MetricCardProps) {
+export function MetricCard({ title, count, lastMs, avgMs, lastAt, color }: MetricCardProps) {
   return (
     <Box
       flexDirection="column"
       borderStyle="single"
       borderColor={color}
-      paddingX={1}
-      minWidth={14}
+      paddingX={2}
+      paddingY={1}
+      minWidth={22}
+      flexGrow={1}
     >
-      <Text color={color} bold>{title}</Text>
-      <Box gap={1}>
-        <Text color={theme.fg} bold>{count}</Text>
-        {lastMs !== undefined && (
-          <Text color={theme.muted}>
-            {formatDuration(lastMs)}
-          </Text>
+      <Box justifyContent="space-between">
+        <Text color={color} bold>
+          {title}
+        </Text>
+        {lastAt !== undefined && (
+          <Text color={theme.muted}>{formatTime(lastAt)}</Text>
         )}
+      </Box>
+
+      <Box marginTop={1} justifyContent="space-between">
+        <Text color={theme.fg} bold>
+          {count} ops
+        </Text>
+        <Text color={theme.muted}>
+          last {lastMs !== undefined ? formatDuration(lastMs) : "—"}
+        </Text>
+      </Box>
+
+      <Box justifyContent="space-between">
+        <Text color={theme.muted}>
+          avg {avgMs !== undefined ? formatDuration(avgMs) : "—"}
+        </Text>
+        <Text color={theme.dim}>
+          window 10
+        </Text>
       </Box>
     </Box>
   );

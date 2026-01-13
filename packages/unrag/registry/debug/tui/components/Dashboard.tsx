@@ -17,10 +17,10 @@ type DashboardProps = {
 };
 
 type Stats = {
-  ingest: { count: number; lastMs?: number };
-  retrieve: { count: number; lastMs?: number };
-  rerank: { count: number; lastMs?: number };
-  delete: { count: number; lastMs?: number };
+  ingest: { count: number; lastMs?: number; lastAt?: number; avgMs?: number };
+  retrieve: { count: number; lastMs?: number; lastAt?: number; avgMs?: number };
+  rerank: { count: number; lastMs?: number; lastAt?: number; avgMs?: number };
+  delete: { count: number; lastMs?: number; lastAt?: number; avgMs?: number };
   errors: number;
   latencyHistory: number[];
 };
@@ -35,26 +35,44 @@ function computeStats(events: DebugEvent[]): Stats {
     latencyHistory: [],
   };
 
+  const ingestWindow: number[] = [];
+  const retrieveWindow: number[] = [];
+  const rerankWindow: number[] = [];
+  const deleteWindow: number[] = [];
+
+  const pushWindow = (arr: number[], value: number) => {
+    arr.push(value);
+    if (arr.length > 10) arr.shift();
+  };
+
   for (const event of events) {
     switch (event.type) {
       case "ingest:complete":
         stats.ingest.count++;
         stats.ingest.lastMs = event.totalDurationMs;
+        stats.ingest.lastAt = event.timestamp;
+        pushWindow(ingestWindow, event.totalDurationMs);
         stats.latencyHistory.push(event.totalDurationMs);
         break;
       case "retrieve:complete":
         stats.retrieve.count++;
         stats.retrieve.lastMs = event.totalDurationMs;
+        stats.retrieve.lastAt = event.timestamp;
+        pushWindow(retrieveWindow, event.totalDurationMs);
         stats.latencyHistory.push(event.totalDurationMs);
         break;
       case "rerank:complete":
         stats.rerank.count++;
         stats.rerank.lastMs = event.totalMs;
+        stats.rerank.lastAt = event.timestamp;
+        pushWindow(rerankWindow, event.totalMs);
         stats.latencyHistory.push(event.totalMs);
         break;
       case "delete:complete":
         stats.delete.count++;
         stats.delete.lastMs = event.durationMs;
+        stats.delete.lastAt = event.timestamp;
+        pushWindow(deleteWindow, event.durationMs);
         stats.latencyHistory.push(event.durationMs);
         break;
       case "ingest:error":
@@ -62,6 +80,12 @@ function computeStats(events: DebugEvent[]): Stats {
         break;
     }
   }
+
+  const avg = (arr: number[]) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : undefined);
+  stats.ingest.avgMs = avg(ingestWindow);
+  stats.retrieve.avgMs = avg(retrieveWindow);
+  stats.rerank.avgMs = avg(rerankWindow);
+  stats.delete.avgMs = avg(deleteWindow);
 
   // Keep only last 30 latency points
   stats.latencyHistory = stats.latencyHistory.slice(-30);
@@ -88,11 +112,39 @@ export function Dashboard({ events, connection }: DashboardProps) {
       {/* Stats row */}
       <Box flexDirection="column">
         <SectionHeader title="Operations" />
-        <Box gap={3} paddingX={1} paddingY={1}>
-          <MetricCard title="INGEST" count={stats.ingest.count} lastMs={stats.ingest.lastMs} color={theme.ingest} />
-          <MetricCard title="RETRIEVE" count={stats.retrieve.count} lastMs={stats.retrieve.lastMs} color={theme.retrieve} />
-          <MetricCard title="RERANK" count={stats.rerank.count} lastMs={stats.rerank.lastMs} color={theme.rerank} />
-          <MetricCard title="DELETE" count={stats.delete.count} lastMs={stats.delete.lastMs} color={theme.delete} />
+        <Box gap={2} paddingX={1} paddingY={1} width="100%">
+          <MetricCard
+            title="INGEST"
+            count={stats.ingest.count}
+            lastMs={stats.ingest.lastMs}
+            avgMs={stats.ingest.avgMs}
+            lastAt={stats.ingest.lastAt}
+            color={theme.ingest}
+          />
+          <MetricCard
+            title="RETRIEVE"
+            count={stats.retrieve.count}
+            lastMs={stats.retrieve.lastMs}
+            avgMs={stats.retrieve.avgMs}
+            lastAt={stats.retrieve.lastAt}
+            color={theme.retrieve}
+          />
+          <MetricCard
+            title="RERANK"
+            count={stats.rerank.count}
+            lastMs={stats.rerank.lastMs}
+            avgMs={stats.rerank.avgMs}
+            lastAt={stats.rerank.lastAt}
+            color={theme.rerank}
+          />
+          <MetricCard
+            title="DELETE"
+            count={stats.delete.count}
+            lastMs={stats.delete.lastMs}
+            avgMs={stats.delete.avgMs}
+            lastAt={stats.delete.lastAt}
+            color={theme.delete}
+          />
           {stats.errors > 0 && (
             <Box gap={1}>
               <Text backgroundColor={theme.error} color="white" bold>
