@@ -570,6 +570,20 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       dest: path.join(installBaseAbs, "core/rerank.ts"),
     },
 
+    // extractor shared utilities (used by core ingestion and extractor modules)
+    {
+      src: path.join(selection.registryRoot, "extractors/_shared/fetch.ts"),
+      dest: path.join(installBaseAbs, "extractors/_shared/fetch.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "extractors/_shared/media.ts"),
+      dest: path.join(installBaseAbs, "extractors/_shared/media.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "extractors/_shared/text.ts"),
+      dest: path.join(installBaseAbs, "extractors/_shared/text.ts"),
+    },
+
     // embedding
     {
       src: path.join(selection.registryRoot, "embedding/_shared.ts"),
