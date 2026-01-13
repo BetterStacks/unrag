@@ -198,7 +198,6 @@ export type DebugEventType = DebugEvent["type"];
  * Helper to create a typed event without base fields.
  * Used by the debug emitter to add timestamp and sessionId.
  */
-export type DebugEventPayload<T extends DebugEventType> = Omit<
-  Extract<DebugEvent, { type: T }>,
-  "timestamp" | "sessionId"
->;
+export type DebugEventPayload<T extends DebugEventType> = T extends DebugEventType
+  ? Omit<Extract<DebugEvent, { type: T }>, "timestamp" | "sessionId">
+  : never;

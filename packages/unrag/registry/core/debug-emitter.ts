@@ -11,12 +11,16 @@
  * - No memory is allocated for event buffers
  */
 
-import type { DebugEvent } from "@registry/core/debug-events";
+import type {
+  DebugEvent,
+  DebugEventPayload,
+  DebugEventType,
+} from "@registry/core/debug-events";
 
 /**
  * Payload for emitting a debug event (without timestamp and sessionId).
  */
-export type DebugEventInput = Omit<DebugEvent, "timestamp" | "sessionId">;
+export type DebugEventInput = DebugEventPayload<DebugEventType>;
 
 /**
  * Configuration for the debug emitter.
