@@ -223,7 +223,10 @@ export function depsForBattery(battery: BatteryName) {
   }
 
   if (battery === "debug") {
-    // No deps: the debug server runs in the user's app (Bun) and the TUI ships with the CLI.
+    // The debug server runs in the user's app:
+    // - Bun runtimes use Bun.serve (no extra deps)
+    // - Node runtimes (Next.js, etc.) fall back to `ws`
+    deps["ws"] = "^8.18.0";
   }
 
   return { deps, devDeps };

@@ -6,7 +6,6 @@
  * debug commands for interactive inspection.
  */
 
-import type { ServerWebSocket } from "bun";
 import type { DebugEvent } from "@registry/core/debug-events";
 import { getDebugEmitter } from "@registry/core/debug-emitter";
 import type {
@@ -26,16 +25,32 @@ const DEFAULT_MAX_CLIENTS = 5;
 // Global server instance
 let serverInstance: DebugServerInstance | null = null;
 
-type ClientData = {
-  id: string;
+type ClientLike = {
+  send: (data: string) => void;
+  close: (code?: number, reason?: string) => void;
 };
 
 type DebugServerInstance = DebugServer & {
+  // bun runtime
   bunServer: ReturnType<typeof Bun.serve> | null;
-  clients: Set<ServerWebSocket<ClientData>>;
+  // node runtime
+  nodeHttpServer: import("node:http").Server | null;
+  nodeWss: { close: (cb?: () => void) => void } | null;
+  clients: Set<ClientLike>;
   unsubscribe: (() => void) | null;
   startTime: number;
 };
+
+function hasBunServe(): boolean {
+  return typeof (globalThis as any).Bun?.serve === "function";
+}
+
+async function createClientId(): Promise<string> {
+  const c = (globalThis as any).crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  const { randomUUID } = await import("node:crypto");
+  return randomUUID();
+}
 
 /**
  * Start the debug WebSocket server.
@@ -59,7 +74,7 @@ export async function startDebugServer(
   const port = config?.port ?? DEFAULT_PORT;
   const host = config?.host ?? DEFAULT_HOST;
   const maxClients = config?.maxClients ?? DEFAULT_MAX_CLIENTS;
-  const clients = new Set<ServerWebSocket<ClientData>>();
+  const clients = new Set<ClientLike>();
   const startTime = Date.now();
 
   const instance: DebugServerInstance = {
@@ -67,6 +82,8 @@ export async function startDebugServer(
     host,
     clientCount: 0,
     bunServer: null,
+    nodeHttpServer: null,
+    nodeWss: null,
     clients,
     unsubscribe: null,
     startTime,
@@ -95,6 +112,15 @@ export async function startDebugServer(
         instance.bunServer = null;
       }
 
+      if (instance.nodeWss) {
+        await new Promise<void>((resolve) => instance.nodeWss!.close(() => resolve()));
+        instance.nodeWss = null;
+      }
+      if (instance.nodeHttpServer) {
+        await new Promise<void>((resolve) => instance.nodeHttpServer!.close(() => resolve()));
+        instance.nodeHttpServer = null;
+      }
+
       serverInstance = null;
     },
   };
@@ -104,89 +130,165 @@ export async function startDebugServer(
     instance.broadcast(event);
   });
 
-  // Start the WebSocket server
+  // Start the WebSocket server (Bun or Node)
   try {
-    instance.bunServer = Bun.serve<ClientData>({
-      port,
-      hostname: host,
-      fetch(req, server) {
-        // Upgrade HTTP connection to WebSocket
-        const upgraded = server.upgrade(req, {
-          data: { id: crypto.randomUUID() },
-        });
+    if (hasBunServe()) {
+      const BunRef = (globalThis as any).Bun as typeof Bun;
+      instance.bunServer = BunRef.serve({
+        port,
+        hostname: host,
+        fetch(req, server) {
+          const upgraded = server.upgrade(req, {
+            data: { id: "bun" },
+          });
+          if (upgraded) return undefined;
+          return new Response("Upgrade Required", {
+            status: 426,
+            headers: { Upgrade: "websocket" },
+          });
+        },
+        websocket: {
+          open(ws) {
+            if (clients.size >= maxClients) {
+              ws.close(1013, "Maximum clients reached");
+              return;
+            }
 
-        if (upgraded) {
-          return undefined;
+            clients.add(ws as unknown as ClientLike);
+            instance.clientCount = clients.size;
+
+            const welcome: ServerMessage = {
+              type: "welcome",
+              sessionId: emitter.getSessionId(),
+              bufferedEvents: emitter.getBuffer(),
+            };
+            ws.send(JSON.stringify(welcome));
+
+            console.log(`[unrag:debug] Client connected (${clients.size}/${maxClients})`);
+          },
+          message(ws, rawMessage) {
+            try {
+              const text =
+                typeof rawMessage === "string" ? rawMessage : rawMessage.toString();
+              const message = JSON.parse(text) as ClientMessage;
+
+              if (message.type === "command") {
+                handleCommand(message.command, emitter, instance.startTime)
+                  .then((result) => {
+                    const response: ServerMessage = {
+                      type: "result",
+                      requestId: message.requestId,
+                      result,
+                    };
+                    ws.send(JSON.stringify(response));
+                  })
+                  .catch((error) => {
+                    const errorResult: DebugCommandResult = {
+                      type: message.command.type,
+                      success: false,
+                      error: error instanceof Error ? error.message : String(error),
+                    } as DebugCommandResult;
+                    const response: ServerMessage = {
+                      type: "result",
+                      requestId: message.requestId,
+                      result: errorResult,
+                    };
+                    ws.send(JSON.stringify(response));
+                  });
+              }
+            } catch {
+              // Ignore malformed messages
+            }
+          },
+          close(ws) {
+            clients.delete(ws as unknown as ClientLike);
+            instance.clientCount = clients.size;
+            console.log(`[unrag:debug] Client disconnected (${clients.size}/${maxClients})`);
+          },
+        },
+      });
+    } else {
+      // Node runtime fallback (Next.js, etc.). Requires `ws`.
+      let Ws: any;
+      try {
+        Ws = await import("ws");
+      } catch {
+        throw new Error(
+          "[unrag:debug] Node runtime detected but 'ws' is not installed. Install it in your app: `bun add ws` (or `npm i ws`)."
+        );
+      }
+
+      const { createServer } = await import("node:http");
+      const httpServer = createServer();
+      const WebSocketServer = Ws.WebSocketServer ?? Ws.Server;
+      const wss = new WebSocketServer({ server: httpServer, maxPayload: 1024 * 1024 });
+
+      wss.on("connection", async (ws: any) => {
+        if (clients.size >= maxClients) {
+          ws.close(1013, "Maximum clients reached");
+          return;
         }
 
-        // Return 426 Upgrade Required for non-WebSocket requests
-        return new Response("Upgrade Required", {
-          status: 426,
-          headers: { Upgrade: "websocket" },
-        });
-      },
-      websocket: {
-        open(ws) {
-          if (clients.size >= maxClients) {
-            ws.close(1013, "Maximum clients reached");
-            return;
-          }
+        clients.add(ws as ClientLike);
+        instance.clientCount = clients.size;
 
-          clients.add(ws);
-          instance.clientCount = clients.size;
+        const welcome: ServerMessage = {
+          type: "welcome",
+          sessionId: emitter.getSessionId(),
+          bufferedEvents: emitter.getBuffer(),
+        };
+        ws.send(JSON.stringify(welcome));
 
-          // Send welcome message with session info and buffered events
-          const welcome: ServerMessage = {
-            type: "welcome",
-            sessionId: emitter.getSessionId(),
-            bufferedEvents: emitter.getBuffer(),
-          };
-          ws.send(JSON.stringify(welcome));
+        console.log(`[unrag:debug] Client connected (${clients.size}/${maxClients})`);
 
-          console.log(`[unrag:debug] Client connected (${clients.size}/${maxClients})`);
-        },
-
-        message(ws, rawMessage) {
+        ws.on("message", (raw: any) => {
           try {
-            const text = typeof rawMessage === "string" ? rawMessage : rawMessage.toString();
+            const text = typeof raw === "string" ? raw : raw.toString();
             const message = JSON.parse(text) as ClientMessage;
+            if (message.type !== "command") return;
 
-            if (message.type === "command") {
-              handleCommand(message.command, emitter, instance.startTime)
-                .then((result) => {
-                  const response: ServerMessage = {
-                    type: "result",
-                    requestId: message.requestId,
-                    result,
-                  };
-                  ws.send(JSON.stringify(response));
-                })
-                .catch((error) => {
-                  const errorResult: DebugCommandResult = {
-                    type: message.command.type,
-                    success: false,
-                    error: error instanceof Error ? error.message : String(error),
-                  } as DebugCommandResult;
-                  const response: ServerMessage = {
-                    type: "result",
-                    requestId: message.requestId,
-                    result: errorResult,
-                  };
-                  ws.send(JSON.stringify(response));
-                });
-            }
+            handleCommand(message.command, emitter, instance.startTime)
+              .then((result) => {
+                const response: ServerMessage = {
+                  type: "result",
+                  requestId: message.requestId,
+                  result,
+                };
+                ws.send(JSON.stringify(response));
+              })
+              .catch((error) => {
+                const errorResult: DebugCommandResult = {
+                  type: message.command.type,
+                  success: false,
+                  error: error instanceof Error ? error.message : String(error),
+                } as DebugCommandResult;
+                const response: ServerMessage = {
+                  type: "result",
+                  requestId: message.requestId,
+                  result: errorResult,
+                };
+                ws.send(JSON.stringify(response));
+              });
           } catch {
-            // Ignore malformed messages
+            // ignore malformed
           }
-        },
+        });
 
-        close(ws) {
-          clients.delete(ws);
+        ws.on("close", () => {
+          clients.delete(ws as ClientLike);
           instance.clientCount = clients.size;
           console.log(`[unrag:debug] Client disconnected (${clients.size}/${maxClients})`);
-        },
-      },
-    });
+        });
+      });
+
+      await new Promise<void>((resolve, reject) => {
+        httpServer.once("error", reject);
+        httpServer.listen(port, host, () => resolve());
+      });
+
+      instance.nodeHttpServer = httpServer;
+      instance.nodeWss = wss;
+    }
 
     serverInstance = instance;
     console.log(`[unrag:debug] Server started at ws://${host}:${port}`);
