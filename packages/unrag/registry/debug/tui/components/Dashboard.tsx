@@ -9,6 +9,7 @@ import type { DebugConnection } from "../../types";
 import { EventRow } from "./EventRow";
 import { MetricCard } from "./MetricCard";
 import { Sparkline } from "./Sparkline";
+import { chars, hr, theme } from "../theme";
 
 type DashboardProps = {
   events: DebugEvent[];
@@ -68,85 +69,70 @@ function computeStats(events: DebugEvent[]): Stats {
   return stats;
 }
 
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <Box marginBottom={1}>
+      <Text backgroundColor={theme.border} color={theme.fg} bold>
+        {" "}{chars.section} {title.toUpperCase()}{" "}
+      </Text>
+    </Box>
+  );
+}
+
 export function Dashboard({ events, connection }: DashboardProps) {
   const stats = useMemo(() => computeStats(events), [events]);
-  const recentEvents = useMemo(() => events.slice(-8).reverse(), [events]);
+  const recentEvents = useMemo(() => events.slice(-10).reverse(), [events]);
 
   return (
-    <Box flexDirection="column" gap={1}>
-      {/* Connection Info */}
-      <Box borderStyle="round" borderColor="blue" paddingX={1} flexDirection="column">
-        <Text bold color="blue">
-          Connection
-        </Text>
-        <Box gap={4} marginTop={1}>
-          <Text>
-            Status:{" "}
-            <Text color={connection.status === "connected" ? "green" : "yellow"}>
-              {connection.status}
-            </Text>
-          </Text>
-          {connection.sessionId && (
-            <Text dimColor>Session: {connection.sessionId.slice(0, 8)}...</Text>
+    <Box flexDirection="column" paddingY={1}>
+      {/* Stats row */}
+      <Box flexDirection="column">
+        <SectionHeader title="Operations" />
+        <Box gap={3} paddingX={1} paddingY={1}>
+          <MetricCard title="INGEST" count={stats.ingest.count} lastMs={stats.ingest.lastMs} color={theme.ingest} />
+          <MetricCard title="RETRIEVE" count={stats.retrieve.count} lastMs={stats.retrieve.lastMs} color={theme.retrieve} />
+          <MetricCard title="RERANK" count={stats.rerank.count} lastMs={stats.rerank.lastMs} color={theme.rerank} />
+          <MetricCard title="DELETE" count={stats.delete.count} lastMs={stats.delete.lastMs} color={theme.delete} />
+          {stats.errors > 0 && (
+            <Box gap={1}>
+              <Text backgroundColor={theme.error} color="white" bold>
+                {" "}{chars.cross} {stats.errors} ERRORS{" "}
+              </Text>
+            </Box>
           )}
         </Box>
       </Box>
 
-      {/* Metrics Grid */}
-      <Box gap={2}>
-        <MetricCard
-          title="Ingest"
-          count={stats.ingest.count}
-          lastMs={stats.ingest.lastMs}
-          color="green"
-        />
-        <MetricCard
-          title="Retrieve"
-          count={stats.retrieve.count}
-          lastMs={stats.retrieve.lastMs}
-          color="cyan"
-        />
-        <MetricCard
-          title="Rerank"
-          count={stats.rerank.count}
-          lastMs={stats.rerank.lastMs}
-          color="magenta"
-        />
-        <MetricCard
-          title="Delete"
-          count={stats.delete.count}
-          lastMs={stats.delete.lastMs}
-          color="yellow"
-        />
-      </Box>
-
-      {/* Errors */}
-      {stats.errors > 0 && (
-        <Box>
-          <Text color="red">Errors: {stats.errors}</Text>
-        </Box>
-      )}
-
-      {/* Latency Chart */}
+      {/* Latency sparkline */}
       {stats.latencyHistory.length > 0 && (
-        <Box flexDirection="column">
-          <Text bold>Latency (last 30 ops)</Text>
-          <Sparkline data={stats.latencyHistory} width={50} />
+        <Box flexDirection="column" marginTop={1}>
+          <SectionHeader title="Latency" />
+          <Box paddingX={1}>
+            <Sparkline data={stats.latencyHistory} width={60} />
+          </Box>
         </Box>
       )}
 
-      {/* Recent Events */}
+      {/* Recent events */}
       <Box flexDirection="column" marginTop={1}>
-        <Text bold>Recent Events</Text>
-        {recentEvents.length === 0 ? (
-          <Text dimColor>No events yet. Waiting for activity...</Text>
-        ) : (
-          <Box flexDirection="column">
-            {recentEvents.map((event, i) => (
+        <SectionHeader title="Recent Events" />
+        <Box
+          flexDirection="column"
+          borderStyle="round"
+          borderColor={theme.borderActive}
+          paddingX={1}
+          paddingY={0}
+        >
+          {recentEvents.length === 0 ? (
+            <Text color={theme.muted}>
+              Waiting for events…
+            </Text>
+          ) : (
+            recentEvents.map((event, i) => (
               <EventRow key={`${event.timestamp}-${i}`} event={event} compact />
-            ))}
-          </Box>
-        )}
+            ))
+          )}
+        </Box>
       </Box>
     </Box>
   );

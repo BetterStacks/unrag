@@ -5,6 +5,7 @@
 import React from "react";
 import { Box, Text } from "ink";
 import type { DebugConnectionStatus } from "../../types";
+import { chars, statusColor, statusLabel, theme, truncate } from "../theme";
 
 type HeaderProps = {
   title: string;
@@ -12,50 +13,32 @@ type HeaderProps = {
   sessionId?: string;
 };
 
-function getStatusDisplay(status: DebugConnectionStatus): {
-  text: string;
-  color: string;
-} {
-  switch (status) {
-    case "connected":
-      return { text: "Connected", color: "green" };
-    case "connecting":
-      return { text: "Connecting...", color: "yellow" };
-    case "reconnecting":
-      return { text: "Reconnecting...", color: "yellow" };
-    case "disconnected":
-      return { text: "Disconnected", color: "red" };
-    case "error":
-      return { text: "Error", color: "red" };
-  }
-}
-
 export function Header({ title, status, sessionId }: HeaderProps) {
-  const statusDisplay = getStatusDisplay(status);
+  const label = statusLabel(status);
+  const color = statusColor(status);
 
   return (
-    <Box
-      borderStyle="single"
-      borderColor="blue"
-      paddingX={1}
-      justifyContent="space-between"
-    >
-      <Box>
-        <Text bold color="blue">
-          {title}
+    <Box paddingX={2} paddingY={0} justifyContent="space-between" backgroundColor={theme.headerBg}>
+      {/* Left: branding */}
+      <Box gap={1}>
+        <Text color="white" bold>
+          {chars.section} UNRAG DEBUG
         </Text>
       </Box>
 
+      {/* Right: session + status */}
       <Box gap={2}>
         {sessionId && (
-          <Text dimColor>
-            Session: {sessionId.slice(0, 8)}...
+          <Text color="white" dimColor>
+            {truncate(sessionId, 8)}
           </Text>
         )}
-        <Text>
-          Status:{" "}
-          <Text color={statusDisplay.color}>{statusDisplay.text}</Text>
-        </Text>
+        <Box gap={1}>
+          <Text color={color} bold>
+            {chars.dot}
+          </Text>
+          <Text color="white">{label.toUpperCase()}</Text>
+        </Box>
       </Box>
     </Box>
   );

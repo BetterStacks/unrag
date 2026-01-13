@@ -4,6 +4,7 @@
 
 import React from "react";
 import { Box, Text } from "ink";
+import { chars, formatDuration, theme } from "../theme";
 
 type MetricCardProps = {
   title: string;
@@ -15,21 +16,21 @@ type MetricCardProps = {
 export function MetricCard({ title, count, lastMs, color }: MetricCardProps) {
   return (
     <Box
+      flexDirection="column"
       borderStyle="single"
       borderColor={color}
       paddingX={1}
-      flexDirection="column"
-      minWidth={16}
+      minWidth={14}
     >
-      <Text bold color={color}>
-        {title}
-      </Text>
-      <Text>
-        Count: <Text bold>{count}</Text>
-      </Text>
-      {lastMs !== undefined && (
-        <Text dimColor>Last: {lastMs.toFixed(0)}ms</Text>
-      )}
+      <Text color={color} bold>{title}</Text>
+      <Box gap={1}>
+        <Text color={theme.fg} bold>{count}</Text>
+        {lastMs !== undefined && (
+          <Text color={theme.muted}>
+            {formatDuration(lastMs)}
+          </Text>
+        )}
+      </Box>
     </Box>
   );
 }
