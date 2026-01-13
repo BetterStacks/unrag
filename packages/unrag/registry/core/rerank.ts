@@ -5,6 +5,7 @@ import type {
   RerankRankingItem,
   ResolvedContextEngineConfig,
 } from "./types";
+import { getDebugEmitter } from "./debug-emitter";
 
 const now = () => performance.now();
 
@@ -18,6 +19,7 @@ export const rerank = async (
   config: ResolvedContextEngineConfig,
   input: RerankInput
 ): Promise<RerankResult> => {
+  const debug = getDebugEmitter();
   const totalStart = now();
   const warnings: string[] = [];
 
@@ -60,6 +62,14 @@ export const rerank = async (
       "Reranker not configured. Install the reranker battery (`unrag add battery reranker`) and wire it in your config, or use `onMissingReranker: 'skip'`."
     );
   }
+
+  debug.emit({
+    type: "rerank:start",
+    query,
+    candidateCount: candidates.length,
+    topK,
+    rerankerName: config.reranker.name,
+  });
 
   // Resolve text for each candidate
   const documents: string[] = [];
@@ -141,6 +151,17 @@ export const rerank = async (
   const chunks: RerankCandidate[] = topKRanking.map((r) => candidates[r.index]!);
 
   const totalMs = now() - totalStart;
+
+  debug.emit({
+    type: "rerank:complete",
+    query,
+    inputCount: candidates.length,
+    outputCount: chunks.length,
+    rerankMs,
+    totalMs,
+    rerankerName: config.reranker.name,
+    model: result.model,
+  });
 
   return {
     chunks,

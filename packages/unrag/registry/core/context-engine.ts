@@ -37,6 +37,30 @@ export class ContextEngine {
 
   constructor(config: ContextEngineConfig) {
     this.config = resolveConfig(config);
+
+    // Auto-start debug server when UNRAG_DEBUG=true
+    if (process.env.UNRAG_DEBUG === "true") {
+      this.initDebugServer();
+    }
+  }
+
+  /**
+   * Initialize the debug WebSocket server.
+   * This is done asynchronously to avoid blocking engine creation.
+   */
+  private initDebugServer(): void {
+    import("@registry/debug/server")
+      .then(({ startDebugServer }) => {
+        startDebugServer().catch((err) => {
+          console.warn(
+            "[unrag:debug] Failed to start debug server:",
+            err instanceof Error ? err.message : String(err)
+          );
+        });
+      })
+      .catch(() => {
+        // Debug battery not installed - silently ignore
+      });
   }
 
   async ingest(input: IngestInput): Promise<IngestResult> {

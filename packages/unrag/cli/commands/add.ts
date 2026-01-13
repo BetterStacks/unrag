@@ -2,10 +2,10 @@ import { cancel, confirm, isCancel, outro, select, text } from "@clack/prompts";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ensureDir, exists, findUp, tryFindProjectRoot } from "@cli/lib/fs";
-import { readJsonFile, writeJsonFile } from "@cli/lib/json";
-import { readRegistryManifest } from "@cli/lib/manifest";
-import { copyBatteryFiles, copyConnectorFiles, copyExtractorFiles } from "@cli/lib/registry";
+import { ensureDir, exists, findUp, tryFindProjectRoot } from "../lib/fs";
+import { readJsonFile, writeJsonFile } from "../lib/json";
+import { readRegistryManifest } from "../lib/manifest";
+import { copyBatteryFiles, copyConnectorFiles, copyExtractorFiles } from "../lib/registry";
 import {
   depsForBattery,
   depsForConnector,
@@ -17,8 +17,8 @@ import {
   type BatteryName,
   type ConnectorName,
   type ExtractorName,
-} from "@cli/lib/packageJson";
-import { docsUrl } from "@cli/lib/constants";
+} from "../lib/packageJson";
+import { docsUrl } from "../lib/constants";
 
 type InitConfig = {
   installDir: string;
@@ -607,6 +607,68 @@ main().catch((err) => {
           "Next:",
           "  bun run unrag:eval",
           "  bun run unrag:eval:ci",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      );
+
+      return;
+    }
+
+    // Debug battery scaffolding
+    if (battery === "debug") {
+      const configAbs = path.join(root, ".unrag/debug/config.json");
+
+      const debugConfig = {
+        port: 3847,
+        host: "localhost",
+      };
+
+      if (await shouldWriteFile(configAbs, root, nonInteractive)) {
+        await writeTextFile(configAbs, JSON.stringify(debugConfig, null, 2) + "\n");
+      }
+
+      const scriptsToAdd: Record<string, string> = {
+        "unrag:debug": "bunx unrag debug",
+      };
+
+      const scriptsResult = await addPackageJsonScripts({
+        projectRoot: root,
+        pkg,
+        scripts: scriptsToAdd,
+        nonInteractive,
+      });
+
+      outro(
+        [
+          `Installed battery: ${battery}.`,
+          "",
+          `- Code: ${path.join(config.installDir, "debug")}`,
+          `- Config: .unrag/debug/config.json`,
+          "",
+          merged.changes.length > 0
+            ? `Added deps: ${merged.changes.map((c) => c.name).join(", ")}`
+            : "Added deps: none",
+          merged.changes.length > 0 && !noInstall
+            ? "Dependencies installed."
+            : merged.changes.length > 0 && noInstall
+              ? "Dependencies not installed (skipped)."
+              : "",
+          scriptsResult.added.length > 0
+            ? `Added scripts: ${scriptsResult.added.join(", ")}`
+            : "Added scripts: none",
+          scriptsResult.kept.length > 0 ? `Kept existing scripts: ${scriptsResult.kept.join(", ")}` : "",
+          "",
+          "Usage:",
+          "  1. Set UNRAG_DEBUG=true in your app's environment",
+          "  2. Run your app (debug server auto-starts on port 3847)",
+          "  3. In another terminal: bun run unrag:debug",
+          "",
+          "The debug panel will connect to your app and show live events for:",
+          "  - Ingest operations (chunking, embedding, storage)",
+          "  - Retrieve operations (embedding, database queries)",
+          "  - Rerank operations (scoring, reordering)",
+          "  - Delete operations",
         ]
           .filter(Boolean)
           .join("\n")

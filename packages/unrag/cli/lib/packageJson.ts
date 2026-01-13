@@ -1,7 +1,7 @@
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
-import { exists } from "@cli/lib/fs";
+import { exists } from "./fs";
 
 type PackageJson = {
   name?: string;
@@ -207,7 +207,7 @@ export function depsForEmbeddingProvider(provider: EmbeddingProviderName) {
   return { deps, devDeps };
 }
 
-export type BatteryName = "reranker" | "eval";
+export type BatteryName = "reranker" | "eval" | "debug";
 
 export function depsForBattery(battery: BatteryName) {
   const deps: Record<string, string> = {};
@@ -220,6 +220,10 @@ export function depsForBattery(battery: BatteryName) {
 
   if (battery === "eval") {
     // Intentionally no deps: runner is dependency-free and uses project wiring.
+  }
+
+  if (battery === "debug") {
+    // No deps: the debug server runs in the user's app (Bun) and the TUI ships with the CLI.
   }
 
   return { deps, devDeps };

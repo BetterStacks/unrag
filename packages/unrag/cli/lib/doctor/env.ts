@@ -7,7 +7,7 @@
 
 import path from "node:path";
 import { readFile } from "node:fs/promises";
-import { exists } from "@cli/lib/fs";
+import { exists } from "../fs";
 
 export type EnvLoadResult = {
   loadedFiles: string[];

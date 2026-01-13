@@ -1,8 +1,8 @@
 import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { confirm, isCancel, cancel } from "@clack/prompts";
-import { ensureDir, exists, listFilesRecursive } from "@cli/lib/fs";
-import type { ExtractorName } from "@cli/lib/packageJson";
+import { ensureDir, exists, listFilesRecursive } from "./fs";
+import type { ExtractorName } from "./packageJson";
 
 export type RegistrySelection = {
   projectRoot: string;
@@ -911,6 +911,17 @@ export async function copyBatteryFiles(selection: BatterySelection) {
   }
 
   const batteryFiles = await listFilesRecursive(batteryRegistryAbs);
+  const filteredBatteryFiles = batteryFiles.filter((abs) => {
+    // For the debug battery, only install the runtime (server/client/types/commands).
+    // The Ink/React TUI is shipped with the CLI as a prebuilt bundle.
+    if (batteryRegistryDir === "debug") {
+      const rel = path
+        .relative(batteryRegistryAbs, abs)
+        .replace(/\\/g, "/");
+      if (rel === "tui" || rel.startsWith("tui/")) return false;
+    }
+    return true;
+  });
 
   const destRootAbs = path.join(installBaseAbs, batteryRegistryDir);
 
@@ -945,7 +956,7 @@ export async function copyBatteryFiles(selection: BatterySelection) {
   };
 
   // Copy battery files.
-  for (const src of batteryFiles) {
+  for (const src of filteredBatteryFiles) {
     if (!(await exists(src))) {
       throw new Error(`Registry file missing: ${src}`);
     }

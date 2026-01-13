@@ -3,6 +3,7 @@ import type {
   RetrieveResult,
   ResolvedContextEngineConfig,
 } from "./types";
+import { getDebugEmitter } from "./debug-emitter";
 
 const now = () => performance.now();
 
@@ -12,7 +13,16 @@ export const retrieve = async (
   config: ResolvedContextEngineConfig,
   input: RetrieveInput
 ): Promise<RetrieveResult> => {
+  const debug = getDebugEmitter();
   const totalStart = now();
+  const topK = input.topK ?? DEFAULT_TOP_K;
+
+  debug.emit({
+    type: "retrieve:start",
+    query: input.query,
+    topK,
+    scope: input.scope,
+  });
 
   const embeddingStart = now();
   const queryEmbedding = await config.embedding.embed({
@@ -24,15 +34,40 @@ export const retrieve = async (
   });
   const embeddingMs = now() - embeddingStart;
 
+  debug.emit({
+    type: "retrieve:embedding-complete",
+    query: input.query,
+    embeddingProvider: config.embedding.name,
+    embeddingDimension: queryEmbedding.length,
+    durationMs: embeddingMs,
+  });
+
   const retrievalStart = now();
   const chunks = await config.store.query({
     embedding: queryEmbedding,
-    topK: input.topK ?? DEFAULT_TOP_K,
+    topK,
     scope: input.scope,
   });
   const retrievalMs = now() - retrievalStart;
 
+  debug.emit({
+    type: "retrieve:database-complete",
+    query: input.query,
+    resultsCount: chunks.length,
+    durationMs: retrievalMs,
+  });
+
   const totalMs = now() - totalStart;
+
+  debug.emit({
+    type: "retrieve:complete",
+    query: input.query,
+    resultsCount: chunks.length,
+    topK,
+    totalDurationMs: totalMs,
+    embeddingMs,
+    retrievalMs,
+  });
 
   return {
     chunks,
