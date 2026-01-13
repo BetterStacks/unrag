@@ -250,6 +250,7 @@ export async function addCommand(args: string[]) {
       projectRoot: root,
       registryRoot,
       installDir: config.installDir,
+      aliasBase: config.aliasBase ?? "@unrag",
       battery,
       yes: nonInteractive,
     });
@@ -733,6 +734,7 @@ main().catch((err) => {
       projectRoot: root,
       registryRoot,
       installDir: config.installDir,
+      aliasBase: config.aliasBase ?? "@unrag",
       connector,
       yes: nonInteractive,
     });
@@ -795,6 +797,7 @@ main().catch((err) => {
     projectRoot: root,
     registryRoot,
     installDir: config.installDir,
+    aliasBase: config.aliasBase ?? "@unrag",
     extractor,
     yes: nonInteractive,
   });

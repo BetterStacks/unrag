@@ -57,6 +57,11 @@ describe("unrag@latest init", () => {
     expect(await pathExists(path.join(runDir, "lib/unrag/core/delete.ts"))).toBe(true);
     expect(await pathExists(path.join(runDir, "lib/unrag/core/deep-merge.ts"))).toBe(true);
 
+    // Vendored sources should not retain internal monorepo alias imports.
+    const ingest = await readFile(path.join(runDir, "lib/unrag/core/ingest.ts"), "utf8");
+    expect(ingest).not.toContain("@registry/");
+    expect(ingest).toContain('from "@unrag/');
+
     expect(
       await pathExists(
         path.join(runDir, "lib/unrag/store/drizzle/schema.ts")
@@ -193,6 +198,10 @@ describe("unrag@latest init", () => {
     const tsconfig = await readJson<any>(path.join(runDir, "tsconfig.json"));
     expect(tsconfig.compilerOptions.paths["@rag/*"]).toEqual(["./lib/unrag/*"]);
     expect(tsconfig.compilerOptions.paths["@rag/config"]).toEqual(["./unrag.config.ts"]);
+
+    const ingest = await readFile(path.join(runDir, "lib/unrag/core/ingest.ts"), "utf8");
+    expect(ingest).not.toContain("@registry/");
+    expect(ingest).toContain('from "@rag/');
   });
 
   test("can enable rich media + selected extractors non-interactively", async () => {
@@ -242,6 +251,13 @@ describe("unrag@latest init", () => {
         path.join(runDir, "lib/unrag", "extractors", "file-text", "index.ts")
       )
     ).toBe(true);
+
+    const pdfTextLayer = await readFile(
+      path.join(runDir, "lib/unrag", "extractors", "pdf-text-layer", "index.ts"),
+      "utf8"
+    );
+    expect(pdfTextLayer).not.toContain("@registry/");
+    expect(pdfTextLayer).toContain('from "@unrag/');
 
     const unragJson = await readJson<any>(path.join(runDir, "unrag.json"));
     expect(unragJson.extractors).toEqual(["file-text", "pdf-text-layer"]);
@@ -325,6 +341,9 @@ describe("unrag@latest init", () => {
 
     // Battery module code should be vendored.
     expect(await pathExists(path.join(runDir, "lib/unrag", "eval", "index.ts"))).toBe(true);
+    const runner = await readFile(path.join(runDir, "lib/unrag", "eval", "runner.ts"), "utf8");
+    expect(runner).not.toContain("@registry/");
+    expect(runner).toContain('from "@unrag/');
 
     // Eval scaffolding should be created.
     expect(await pathExists(path.join(runDir, ".unrag/eval/datasets/sample.json"))).toBe(true);

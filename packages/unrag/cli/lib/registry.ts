@@ -46,6 +46,15 @@ const writeText = async (filePath: string, content: string) => {
   await writeFile(filePath, content, "utf8");
 };
 
+const rewriteRegistryAliasImports = (content: string, aliasBase: string) => {
+  // The registry sources are authored against an internal monorepo alias `@registry/*`.
+  // When we vendor these sources into a user repo we must rewrite them to the user's configured
+  // alias base (e.g. `@unrag/*` or `@rag/*`) so TS path mapping works.
+  if (!content.includes("@registry")) return content;
+  // Most imports are `@registry/...`. Rewrite that form (and also handles `@registry/*`).
+  return content.replaceAll("@registry/", `${aliasBase}/`);
+};
+
 const EXTRACTOR_FACTORY: Record<ExtractorName, string> = {
   "pdf-llm": "createPdfLlmExtractor",
   "pdf-text-layer": "createPdfTextLayerExtractor",
@@ -708,7 +717,8 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
     }
 
     const raw = await readText(mapping.src);
-    const content = mapping.transform ? mapping.transform(raw) : raw;
+    const transformed = mapping.transform ? mapping.transform(raw) : raw;
+    const content = rewriteRegistryAliasImports(transformed, selection.aliasBase);
     await writeText(mapping.dest, content);
   }
 }
@@ -717,6 +727,7 @@ export type ConnectorSelection = {
   projectRoot: string;
   registryRoot: string;
   installDir: string; // project-relative posix
+  aliasBase: string; // e.g. "@unrag"
   connector: string; // e.g. "notion"
   yes?: boolean; // non-interactive skip-overwrite
   overwrite?: "skip" | "force";
@@ -779,7 +790,8 @@ export async function copyConnectorFiles(selection: ConnectorSelection) {
     }
 
     const raw = await readText(src);
-    await writeText(dest, raw);
+    const content = rewriteRegistryAliasImports(raw, selection.aliasBase);
+    await writeText(dest, content);
   }
 }
 
@@ -787,6 +799,7 @@ export type ExtractorSelection = {
   projectRoot: string;
   registryRoot: string;
   installDir: string; // project-relative posix
+  aliasBase: string; // e.g. "@unrag"
   extractor: string; // e.g. "pdf-llm"
   yes?: boolean; // non-interactive skip-overwrite
   overwrite?: "skip" | "force";
@@ -836,7 +849,8 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
     // If the contents are identical, don't prompt.
     try {
       const [srcRaw, destRaw] = await Promise.all([readText(src), readText(dest)]);
-      if (srcRaw === destRaw) return false;
+      const nextSrc = rewriteRegistryAliasImports(srcRaw, selection.aliasBase);
+      if (nextSrc === destRaw) return false;
     } catch {
       // If reads fail for any reason, fall back to prompting.
     }
@@ -863,7 +877,8 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
     if (!(await shouldWrite(src, dest))) continue;
 
     const raw = await readText(src);
-    await writeText(dest, raw);
+    const content = rewriteRegistryAliasImports(raw, selection.aliasBase);
+    await writeText(dest, content);
   }
 
   // Copy shared extractor utilities (if present).
@@ -877,7 +892,8 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
     if (!(await shouldWrite(src, dest))) continue;
 
     const raw = await readText(src);
-    await writeText(dest, raw);
+    const content = rewriteRegistryAliasImports(raw, selection.aliasBase);
+    await writeText(dest, content);
   }
 }
 
@@ -885,6 +901,7 @@ export type BatterySelection = {
   projectRoot: string;
   registryRoot: string;
   installDir: string; // project-relative posix
+  aliasBase: string; // e.g. "@unrag"
   battery: string; // e.g. "reranker"
   yes?: boolean; // non-interactive skip-overwrite
   overwrite?: "skip" | "force";
@@ -939,7 +956,8 @@ export async function copyBatteryFiles(selection: BatterySelection) {
     // If the contents are identical, don't prompt.
     try {
       const [srcRaw, destRaw] = await Promise.all([readText(src), readText(dest)]);
-      if (srcRaw === destRaw) return false;
+      const nextSrc = rewriteRegistryAliasImports(srcRaw, selection.aliasBase);
+      if (nextSrc === destRaw) return false;
     } catch {
       // If reads fail for any reason, fall back to prompting.
     }
@@ -966,7 +984,8 @@ export async function copyBatteryFiles(selection: BatterySelection) {
     if (!(await shouldWrite(src, dest))) continue;
 
     const raw = await readText(src);
-    await writeText(dest, raw);
+    const content = rewriteRegistryAliasImports(raw, selection.aliasBase);
+    await writeText(dest, content);
   }
 }
 

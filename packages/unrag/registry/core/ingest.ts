@@ -14,7 +14,7 @@ import type {
 } from "./types";
 import { mergeDeep } from "./deep-merge";
 import { getAssetBytes } from "@registry/extractors/_shared/fetch";
-import { getDebugEmitter } from "./debug-emitter";
+import { getDebugEmitter } from "@registry/core/debug-emitter";
 
 const now = () => performance.now();
 
