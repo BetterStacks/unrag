@@ -6,10 +6,10 @@
 
 import path from "node:path";
 import { readFile } from "node:fs/promises";
-import { exists } from "@cli/lib/fs";
-import { docsUrl } from "@cli/lib/constants";
-import type { CheckResult, InferredInstallState } from "@cli/lib/doctor/types";
-import { EXTRACTOR_CONFIG_FLAGS, EXTRACTOR_FACTORIES } from "@cli/lib/doctor/types";
+import { exists } from "../fs";
+import { docsUrl } from "../constants";
+import type { CheckResult, InferredInstallState } from "./types";
+import { EXTRACTOR_CONFIG_FLAGS, EXTRACTOR_FACTORIES } from "./types";
 
 const CONFIG_TS_FILE = "unrag.config.ts";
 

@@ -2,10 +2,10 @@ import { cancel, confirm, isCancel, outro, select, text } from "@clack/prompts";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ensureDir, exists, findUp, tryFindProjectRoot } from "@cli/lib/fs";
-import { readJsonFile, writeJsonFile } from "@cli/lib/json";
-import { readRegistryManifest } from "@cli/lib/manifest";
-import { copyBatteryFiles, copyConnectorFiles, copyExtractorFiles } from "@cli/lib/registry";
+import { ensureDir, exists, findUp, tryFindProjectRoot } from "../lib/fs";
+import { readJsonFile, writeJsonFile } from "../lib/json";
+import { readRegistryManifest } from "../lib/manifest";
+import { copyBatteryFiles, copyConnectorFiles, copyExtractorFiles } from "../lib/registry";
 import {
   depsForBattery,
   depsForConnector,
@@ -17,8 +17,8 @@ import {
   type BatteryName,
   type ConnectorName,
   type ExtractorName,
-} from "@cli/lib/packageJson";
-import { docsUrl } from "@cli/lib/constants";
+} from "../lib/packageJson";
+import { docsUrl } from "../lib/constants";
 
 type InitConfig = {
   installDir: string;

@@ -3,7 +3,7 @@
  * Handles human-readable and JSON output formats.
  */
 
-import type { CheckResult, CheckStatus, DoctorReport } from "@cli/lib/doctor/types";
+import type { CheckResult, CheckStatus, DoctorReport } from "./types";
 
 const STATUS_ICONS: Record<CheckStatus, string> = {
   pass: "✓",
