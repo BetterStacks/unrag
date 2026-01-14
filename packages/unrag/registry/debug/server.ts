@@ -62,7 +62,7 @@ type NodeWebSocketClient = WebSocketClient & {
   on: {
     (event: "message", handler: (data: WsMessageData) => void): void;
     (event: "close", handler: () => void): void;
-  };
+};
 };
 
 /**
@@ -284,13 +284,13 @@ export async function startDebugServer(
   };
 
   const handleOpen = (ws: WebSocketClient) => {
-    if (clients.size >= maxClients) {
-      ws.close(1013, "Maximum clients reached");
-      return;
-    }
+          if (clients.size >= maxClients) {
+            ws.close(1013, "Maximum clients reached");
+            return;
+          }
 
-    clients.add(ws);
-    instance.clientCount = clients.size;
+          clients.add(ws);
+          instance.clientCount = clients.size;
 
     // Handshake: server hello, then wait for client hello before sending welcome.
     const hello: ServerMessage = {
@@ -302,7 +302,7 @@ export async function startDebugServer(
         pid: typeof process !== "undefined" ? process.pid : undefined,
         runtime,
       },
-    };
+          };
     ws.send(JSON.stringify(hello));
 
     const timer = setTimeout(() => {
@@ -316,14 +316,14 @@ export async function startDebugServer(
 
     clientState.set(ws, { helloReceived: false, welcomeSent: false, timer });
 
-    console.log(`[unrag:debug] Client connected (${clients.size}/${maxClients})`);
+          console.log(`[unrag:debug] Client connected (${clients.size}/${maxClients})`);
   };
 
   const handleMessage = (ws: WebSocketClient, rawMessage: WsMessageData) => {
-    try {
+          try {
       const text = decodeWsMessage(rawMessage);
       if (!text) return;
-      const message = JSON.parse(text) as ClientMessage;
+            const message = JSON.parse(text) as ClientMessage;
 
       if (message.type === "hello") {
         const supported = Array.isArray(message.supportedProtocolVersions)
@@ -364,7 +364,7 @@ export async function startDebugServer(
         return;
       }
 
-      if (message.type === "command") {
+            if (message.type === "command") {
         // Legacy clients might send commands without ever sending hello.
         const state = clientState.get(ws);
         if (state && !state.welcomeSent) {
@@ -374,41 +374,41 @@ export async function startDebugServer(
           sendWelcome(ws);
         }
 
-        handleCommand(message.command, emitter, instance.startTime)
-          .then((result) => {
-            const response: ServerMessage = {
-              type: "result",
-              requestId: message.requestId,
-              result,
-            };
-            ws.send(JSON.stringify(response));
-          })
+              handleCommand(message.command, emitter, instance.startTime)
+                .then((result) => {
+                  const response: ServerMessage = {
+                    type: "result",
+                    requestId: message.requestId,
+                    result,
+                  };
+                  ws.send(JSON.stringify(response));
+                })
           .catch((error: unknown) => {
-            const errorResult: DebugCommandResult = {
-              type: message.command.type,
-              success: false,
-              error: error instanceof Error ? error.message : String(error),
-            } as DebugCommandResult;
-            const response: ServerMessage = {
-              type: "result",
-              requestId: message.requestId,
-              result: errorResult,
-            };
-            ws.send(JSON.stringify(response));
-          });
-      }
-    } catch {
-      // Ignore malformed messages
-    }
+                  const errorResult: DebugCommandResult = {
+                    type: message.command.type,
+                    success: false,
+                    error: error instanceof Error ? error.message : String(error),
+                  } as DebugCommandResult;
+                  const response: ServerMessage = {
+                    type: "result",
+                    requestId: message.requestId,
+                    result: errorResult,
+                  };
+                  ws.send(JSON.stringify(response));
+                });
+            }
+          } catch {
+            // Ignore malformed messages
+          }
   };
 
   const handleClose = (ws: WebSocketClient) => {
     const state = clientState.get(ws);
     if (state?.timer) clearTimeout(state.timer);
     clientState.delete(ws);
-    clients.delete(ws);
-    instance.clientCount = clients.size;
-    console.log(`[unrag:debug] Client disconnected (${clients.size}/${maxClients})`);
+          clients.delete(ws);
+          instance.clientCount = clients.size;
+          console.log(`[unrag:debug] Client disconnected (${clients.size}/${maxClients})`);
   };
 
   // Start the WebSocket server (Bun or Node)
@@ -431,8 +431,8 @@ export async function startDebugServer(
           open: handleOpen,
           message: handleMessage,
           close: handleClose,
-        },
-      });
+      },
+    });
     } else {
       // Node runtime fallback (Next.js, etc.). Requires `ws`.
       const wsModule = await loadWsModule();

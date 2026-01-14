@@ -8,6 +8,7 @@ import type { DebugConnection, DebugCommandResult } from "@registry/debug/types"
 import { chars, clamp, theme, truncate } from "@registry/debug/tui/theme";
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
 import { useScrollWindow } from "@registry/debug/tui/hooks/useScrollWindow";
+import { ScrollableText } from "@registry/debug/tui/components/ScrollableText";
 
 type DocsProps = {
   connection: DebugConnection;
@@ -125,16 +126,10 @@ export function Docs({ connection }: DocsProps) {
     viewportRows: chunkViewportRows,
     resetKey: selectedSourceId ?? "",
   });
-
-  const truncateMultiline = (text: string, maxLines: number, maxChars: number) => {
-    const s = String(text ?? "");
-    const lines = s.split(/\r?\n/);
-    const head = lines.slice(0, Math.max(1, maxLines));
-    let out = head.join("\n");
-    if (out.length > maxChars) out = out.slice(0, maxChars - 1) + "…";
-    if (lines.length > maxLines) out += "\n…";
-    return out;
-  };
+  const [contentScrollTop, setContentScrollTop] = useState(0);
+  useEffect(() => {
+    setContentScrollTop(0);
+  }, [selectedChunk?.id, selectedSourceId]);
 
   const refreshList = async () => {
     setDocsRes(null);
@@ -230,6 +225,20 @@ export function Docs({ connection }: DocsProps) {
       return;
     }
 
+    // Scroll selected chunk content (like less)
+    if (key.pageUp || (key.ctrl && input === "u")) {
+      setContentScrollTop((t) => Math.max(0, t - 8));
+      return;
+    }
+    if (key.pageDown || (key.ctrl && input === "d")) {
+      setContentScrollTop((t) => t + 8);
+      return;
+    }
+    if (key.home) {
+      setContentScrollTop(0);
+      return;
+    }
+
     if (input === "f") {
       setMode((m) => (m === "editingPrefix" ? "idle" : "editingPrefix"));
       return;
@@ -279,6 +288,20 @@ export function Docs({ connection }: DocsProps) {
 
   const tokenHist = useMemo(() => histogram(chunkTokenCounts, [50, 100, 200, 400, 800]), [chunkTokenCounts]);
   const anyContent = useMemo(() => chunks.some((c) => (c.content ?? "").trim().length > 0), [chunks]);
+
+  const docsPanelWidth = canSplit ? Math.floor(columns * 0.48) : columns;
+  const detailPanelWidth = canSplit ? Math.floor(columns * 0.52) : columns;
+  // Borders + padding eat a few cols; keep this conservative to avoid accidental wrapping.
+  const docsInnerWidth = Math.max(20, docsPanelWidth - 6);
+  const detailInnerWidth = Math.max(24, detailPanelWidth - 6);
+
+  const formatCreatedAt = (iso: string | undefined) => {
+    const s = String(iso ?? "").trim();
+    if (!s) return "";
+    // ISO: 2026-01-14T07:19:20.123Z → 2026-01-14 07:19
+    const t = s.replace("T", " ");
+    return t.length >= 16 ? t.slice(0, 16) : t;
+  };
 
   const headerHint =
     mode === "confirmDelete"
@@ -382,22 +405,25 @@ export function Docs({ connection }: DocsProps) {
               {documents.slice(docsScroll.windowStart, docsScroll.windowEnd).map((d, idx) => {
                 const i = docsScroll.windowStart + idx;
                 const isSel = i === Math.min(selectedDocIndex, Math.max(0, documents.length - 1));
+                const chunksLabel = `${String(d.chunkCount).padStart(3)} chunks`;
+                const createdLabel = formatCreatedAt(d.createdAt);
+                const showCreated = Boolean(createdLabel) && docsInnerWidth >= 70;
+                const rightWidth = showCreated ? (chunksLabel.length + 1 + 16) : chunksLabel.length;
+                const maxSource = clamp(docsInnerWidth - rightWidth - 4 /* selector + spacing */, 16, 140);
                 return (
-                  <Box key={`${d.sourceId}-${i}`} gap={1}>
+                  <Box key={`${d.sourceId}-${i}`} justifyContent="space-between">
                     <Text color={isSel ? theme.accent : theme.muted} bold={isSel}>
                       {isSel ? chars.pointer : " "}
                     </Text>
-                    <Text color={theme.fg} bold={isSel}>
-                      {truncate(d.sourceId, canSplit ? 48 : 36)}
-                    </Text>
-                    <Text color={theme.muted}>·</Text>
-                    <Text color={theme.muted}>{String(d.chunkCount).padStart(3)} chunks</Text>
-                    {d.createdAt && (
-                      <>
-                        <Text color={theme.muted}>·</Text>
-                        <Text color={theme.muted}>{truncate(d.createdAt, 19)}</Text>
-                      </>
-                    )}
+                    <Box flexGrow={1}>
+                      <Text color={theme.fg} bold={isSel}>
+                        {truncate(d.sourceId, maxSource)}
+                      </Text>
+                    </Box>
+                    <Box width={rightWidth} justifyContent="flex-end" gap={1}>
+                      <Text color={theme.muted}>{chunksLabel}</Text>
+                      {showCreated && <Text color={theme.muted}>{createdLabel}</Text>}
+                    </Box>
                   </Box>
                 );
               })}
@@ -453,6 +479,9 @@ export function Docs({ connection }: DocsProps) {
                       const i = chunkScroll.windowStart + idx;
                       const isSel = i === boundedChunkIndex;
                       const tok = chunkTokenCounts[i] ?? 0;
+                      const leftFixed = 2 /* selector */ + 1 + 3 /* seq */ + 3 /* dots/spaces */ + 8 /* tok */ + 2;
+                      const maxContent = clamp(detailInnerWidth - leftFixed, 18, 200);
+                      const content = (c.content ?? "").replace(/\s+/g, " ").trim();
                       return (
                         <Box key={`${c.id}-${i}`} gap={1}>
                           <Text color={isSel ? theme.accent : theme.muted} bold={isSel}>
@@ -460,9 +489,9 @@ export function Docs({ connection }: DocsProps) {
                           </Text>
                           <Text color={theme.muted}>{String(c.sequence).padStart(3)}</Text>
                           <Text color={theme.muted}>·</Text>
-                          <Text color={theme.muted}>{String(tok).padStart(4)} tok</Text>
+                          <Text color={theme.muted}>{`${String(tok).padStart(4)} tok`.padStart(8)}</Text>
                           <Text color={theme.fg} bold={isSel}>
-                            {truncate((c.content ?? "").replace(/\s+/g, " ").trim(), canSplit ? 72 : 44)}
+                            {truncate(content, maxContent)}
                           </Text>
                         </Box>
                       );
@@ -476,13 +505,14 @@ export function Docs({ connection }: DocsProps) {
 
                   <Box flexDirection="column">
                     <Text color={theme.muted}>selected chunk</Text>
-                    <Box borderStyle="round" borderColor={theme.border} paddingX={1}>
-                      <Text color={theme.fg}>
-                        {selectedChunk?.content?.trim()
-                          ? truncateMultiline(selectedChunk.content, canSplit ? 8 : 6, 900)
-                          : "—"}
-                      </Text>
-                    </Box>
+                    <ScrollableText
+                      text={selectedChunk?.content}
+                      width={detailInnerWidth - 2}
+                      // Keep conservative: details pane includes histogram + chunk list above.
+                      height={clamp(rows - (canSplit ? 38 : 40), 4, 10)}
+                      scrollTop={contentScrollTop}
+                      borderColor={theme.border}
+                    />
                   </Box>
                 </Box>
               )}

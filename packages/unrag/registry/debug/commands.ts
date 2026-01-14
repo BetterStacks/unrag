@@ -111,7 +111,7 @@ async function handleRunEval(command: {
       success: false,
       error:
         "Eval module is not installed in your vendored Unrag code. " +
-        "Install it with `unrag add battery eval` and re-run.",
+        "Install it with `unrag@latest add battery eval` and re-run.",
     };
   }
 
@@ -127,7 +127,7 @@ async function handleRunEval(command: {
         success: false,
         error:
           "Eval module is installed but did not export `runEval`. " +
-          "Try reinstalling the eval battery (`unrag add battery eval`).",
+          "Try reinstalling the eval battery (`unrag@latest add battery eval`).",
       };
     }
 

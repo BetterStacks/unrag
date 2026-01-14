@@ -5,9 +5,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Box, Text, useInput } from "ink";
 import type { DebugConnection, DebugCommandResult } from "@registry/debug/types";
-import { chars, formatDuration, theme, truncate } from "@registry/debug/tui/theme";
+import { chars, clamp, formatDuration, theme, truncate } from "@registry/debug/tui/theme";
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
 import { useScrollWindow } from "@registry/debug/tui/hooks/useScrollWindow";
+import { ScrollableText } from "@registry/debug/tui/components/ScrollableText";
 
 type QueryRunnerProps = {
   connection: DebugConnection;
@@ -27,7 +28,12 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
   const [topK, setTopK] = useState(8);
   const [result, setResult] = useState<DebugCommandResult | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [contentScrollTop, setContentScrollTop] = useState(0);
   const canSplit = columns >= 120;
+  const resultsPanelWidth = canSplit ? Math.floor(columns * 0.55) : columns;
+  const resultsInnerWidth = Math.max(24, resultsPanelWidth - 6); // borders+padding
+  const detailsPanelWidth = canSplit ? Math.floor(columns * 0.45) : columns;
+  const detailsInnerWidth = Math.max(24, detailsPanelWidth - 6);
 
   const queryCapable = canQuery(connection);
 
@@ -56,6 +62,9 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
     // keep selection in bounds when result changes
     setSelectedIndex(0);
   }, [chunks.length]);
+  useEffect(() => {
+    setContentScrollTop(0);
+  }, [selected?.id]);
 
   const run = async () => {
     setMode("running");
@@ -109,6 +118,20 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
     }
     if (input === "r") {
       void run();
+      return;
+    }
+
+    // Scroll details content (like less)
+    if (key.pageUp || (key.ctrl && input === "u")) {
+      setContentScrollTop((t) => Math.max(0, t - 8));
+      return;
+    }
+    if (key.pageDown || (key.ctrl && input === "d")) {
+      setContentScrollTop((t) => t + 8);
+      return;
+    }
+    if (key.home) {
+      setContentScrollTop(0);
       return;
     }
 
@@ -173,19 +196,23 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
           flexGrow={1}
           width={canSplit ? Math.floor(columns * 0.55) : undefined}
         >
-          <Box marginBottom={1} gap={1}>
-            <Text backgroundColor={theme.border} color={theme.fg}>
-              {" "}RESULTS{" "}
-            </Text>
-            {chunks.length > 0 && (
-              <Text color={theme.muted}>
-                {scroll.windowStart + 1}-{scroll.windowEnd} of {chunks.length}
+          <Box marginBottom={1} justifyContent="space-between">
+            <Box gap={1}>
+              <Text backgroundColor={theme.border} color={theme.fg}>
+                {" "}RESULTS{" "}
               </Text>
-            )}
+              {chunks.length > 0 && (
+                <Text color={theme.muted}>
+                  {scroll.windowStart + 1}-{scroll.windowEnd} of {chunks.length}
+                </Text>
+              )}
+            </Box>
             {durations && (
               <Text color={theme.muted}>
-                total {formatDuration(durations.totalMs)} · embed {formatDuration(durations.embeddingMs)} · db{" "}
-                {formatDuration(durations.retrievalMs)}
+                {truncate(
+                  `total ${formatDuration(durations.totalMs)} · embed ${formatDuration(durations.embeddingMs)} · db ${formatDuration(durations.retrievalMs)}`,
+                  Math.max(18, resultsInnerWidth - 24)
+                )}
               </Text>
             )}
           </Box>
@@ -205,18 +232,40 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
           {chunks.slice(scroll.windowStart, scroll.windowEnd).map((c, idx) => {
             const i = scroll.windowStart + idx;
             const isSel = i === boundedIndex;
+
+            const scoreW = 7; // "0.6684"
+            const docW = 10;
+            let contentW = clamp(Math.floor(resultsInnerWidth * 0.46), 22, canSplit ? 80 : 44);
+            let sourceW = resultsInnerWidth - (2 + scoreW + docW + contentW + 4);
+            if (sourceW < 16) {
+              const deficit = 16 - sourceW;
+              contentW = Math.max(16, contentW - deficit);
+              sourceW = resultsInnerWidth - (2 + scoreW + docW + contentW + 4);
+            }
+
+            const content = String(c.content ?? "").replace(/\s+/g, " ").trim();
+
             return (
               <Box key={`${c.id}-${i}`} gap={1}>
-                <Text color={isSel ? theme.accent : theme.muted} bold={isSel}>
-                  {isSel ? chars.pointer : " "}
-                </Text>
-                <Text color={theme.muted}>{c.score.toFixed(4)}</Text>
-                <Text color={theme.fg} bold={isSel}>
-                  {truncate(c.sourceId, 28)}
-                </Text>
-                <Text color={theme.muted}>·</Text>
-                <Text color={theme.muted}>{truncate(c.documentId, 10)}</Text>
-                <Text color={theme.fg}>{truncate(c.content ?? "", canSplit ? 60 : 36)}</Text>
+                <Box width={2}>
+                  <Text color={isSel ? theme.accent : theme.muted} bold={isSel}>
+                    {isSel ? chars.pointer : " "}
+                  </Text>
+                </Box>
+                <Box width={scoreW}>
+                  <Text color={theme.muted}>{c.score.toFixed(4).padStart(scoreW)}</Text>
+                </Box>
+                <Box width={Math.max(16, sourceW)} flexShrink={0}>
+                  <Text color={theme.fg} bold={isSel}>
+                    {truncate(c.sourceId, Math.max(16, sourceW))}
+                  </Text>
+                </Box>
+                <Box width={docW} flexShrink={0}>
+                  <Text color={theme.muted}>{truncate(c.documentId, docW)}</Text>
+                </Box>
+                <Box width={Math.max(16, contentW)} flexShrink={0}>
+                  <Text color={theme.fg}>{truncate(content, Math.max(16, contentW))}</Text>
+                </Box>
               </Box>
             );
           })}
@@ -255,7 +304,14 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
               </Box>
               <Box flexDirection="column">
                 <Text color={theme.muted}>content</Text>
-                <Text color={theme.fg}>{selected.content || "—"}</Text>
+                <ScrollableText
+                  text={selected.content}
+                  width={detailsInnerWidth - 2}
+                  // Keep conservative: details pane also contains metadata rows above.
+                  height={clamp(rows - (canSplit ? 26 : 28), 4, 14)}
+                  scrollTop={contentScrollTop}
+                  borderColor={theme.border}
+                />
               </Box>
             </Box>
           )}

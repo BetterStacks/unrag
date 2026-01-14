@@ -147,7 +147,7 @@ export function Eval({ connection }: EvalProps) {
             {connection.status !== "connected"
               ? "Not connected to server yet."
               : queryCapable
-                ? "Eval module isn't installed in your vendored Unrag code."
+                ? "Eval module isn't installed in your Unrag."
                 : "Engine isn't registered for debug commands yet."}
           </Text>
           {connection.status === "connected" && queryCapable && (
