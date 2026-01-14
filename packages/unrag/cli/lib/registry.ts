@@ -645,21 +645,21 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       {
         src: path.join(
           selection.registryRoot,
-          "store/drizzle-postgres-pgvector/index.ts"
+          "store/drizzle/index.ts"
         ),
         dest: path.join(installBaseAbs, "store/drizzle/index.ts"),
       },
       {
         src: path.join(
           selection.registryRoot,
-          "store/drizzle-postgres-pgvector/schema.ts"
+          "store/drizzle/schema.ts"
         ),
         dest: path.join(installBaseAbs, "store/drizzle/schema.ts"),
       },
       {
         src: path.join(
           selection.registryRoot,
-          "store/drizzle-postgres-pgvector/store.ts"
+          "store/drizzle/store.ts"
         ),
         dest: path.join(installBaseAbs, "store/drizzle/store.ts"),
       }
@@ -669,14 +669,14 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       {
         src: path.join(
           selection.registryRoot,
-          "store/raw-sql-postgres-pgvector/index.ts"
+          "store/raw-sql/index.ts"
         ),
         dest: path.join(installBaseAbs, "store/raw-sql/index.ts"),
       },
       {
         src: path.join(
           selection.registryRoot,
-          "store/raw-sql-postgres-pgvector/store.ts"
+          "store/raw-sql/store.ts"
         ),
         dest: path.join(installBaseAbs, "store/raw-sql/store.ts"),
       }
@@ -686,14 +686,14 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       {
         src: path.join(
           selection.registryRoot,
-          "store/prisma-postgres-pgvector/index.ts"
+          "store/prisma/index.ts"
         ),
         dest: path.join(installBaseAbs, "store/prisma/index.ts"),
       },
       {
         src: path.join(
           selection.registryRoot,
-          "store/prisma-postgres-pgvector/store.ts"
+          "store/prisma/store.ts"
         ),
         dest: path.join(installBaseAbs, "store/prisma/store.ts"),
       }
