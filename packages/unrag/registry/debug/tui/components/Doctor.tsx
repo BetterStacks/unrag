@@ -112,7 +112,7 @@ export function Doctor({ connection }: DoctorProps) {
         {/* Checks */}
         <Box
           flexDirection="column"
-          borderStyle="round"
+          borderStyle="single"
           borderColor={theme.borderActive}
           paddingX={1}
           flexGrow={1}
@@ -176,7 +176,7 @@ export function Doctor({ connection }: DoctorProps) {
         {/* Info */}
         <Box
           flexDirection="column"
-          borderStyle="round"
+          borderStyle="single"
           borderColor={theme.border}
           paddingX={1}
           flexGrow={1}
@@ -192,7 +192,7 @@ export function Doctor({ connection }: DoctorProps) {
           <Box flexDirection="column" gap={1}>
             <Box flexDirection="column">
               <Text color={theme.muted}>selected check</Text>
-              <Box borderStyle="round" borderColor={selectedCheck ? statusColor(selectedCheck.status) : theme.border} paddingX={1}>
+              <Box borderStyle="single" borderColor={selectedCheck ? statusColor(selectedCheck.status) : theme.border} paddingX={1}>
                 {!selectedCheck ? (
                   <Text color={theme.muted}>—</Text>
                 ) : (

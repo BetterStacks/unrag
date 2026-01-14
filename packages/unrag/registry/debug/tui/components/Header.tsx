@@ -29,7 +29,8 @@ export function Header({ title, status, sessionId, columns, rows }: HeaderProps)
       <Box
         marginTop={1}
         width="100%"
-        backgroundColor={theme.accentBg}
+        borderStyle="classic"
+        borderColor={theme.accentBg}
         paddingX={1}
         justifyContent="space-between"
       >

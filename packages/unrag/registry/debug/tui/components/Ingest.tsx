@@ -258,7 +258,7 @@ export function Ingest({ connection }: IngestProps) {
       </Box>
 
       {!ingestCapable ? (
-        <Box borderStyle="round" borderColor={theme.borderActive} paddingX={1} paddingY={1}>
+        <Box borderStyle="single" borderColor={theme.borderActive} paddingX={1} paddingY={1}>
           <Text color={theme.warning}>
             {chars.cross} Server does not advertise ingest capability. In your app, call{" "}
             <Text bold color={theme.fg}>
@@ -270,7 +270,7 @@ export function Ingest({ connection }: IngestProps) {
       ) : (
         <>
           <Box
-            borderStyle="round"
+            borderStyle="single"
             borderColor={theme.border}
             paddingX={1}
             paddingY={1}
@@ -304,7 +304,7 @@ export function Ingest({ connection }: IngestProps) {
           )}
 
           {err && (
-            <Box borderStyle="round" borderColor={theme.error} paddingX={1} paddingY={1}>
+            <Box borderStyle="single" borderColor={theme.error} paddingX={1} paddingY={1}>
               <Text color={theme.error} bold>
                 {chars.cross} {err}
               </Text>
@@ -312,7 +312,7 @@ export function Ingest({ connection }: IngestProps) {
           )}
 
           {ok && out && (
-            <Box borderStyle="round" borderColor={theme.ok} paddingX={1} paddingY={1}>
+            <Box borderStyle="single" borderColor={theme.ok} paddingX={1} paddingY={1}>
               <Box gap={2} flexWrap="wrap">
                 <Text color={theme.muted}>docId</Text>
                 <Text color={theme.fg} bold>

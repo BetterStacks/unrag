@@ -16,13 +16,13 @@ import type { DebugConnectionStatus } from "@registry/debug/types";
 
 export const theme = {
   // Primary text
-  fg: "white",
+  fg: "#ffffff",
   // Secondary/dim text
   muted: "gray",
   dim: "gray",
   // Borders and separators
   border: "gray",
-  borderActive: "white",
+  borderActive: "#ffffff",
   // Accent color (selection, active states)
   accent: "#7CCE00",
   accentBg: "#7CCE00",

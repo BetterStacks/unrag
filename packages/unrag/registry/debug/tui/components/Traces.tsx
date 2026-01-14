@@ -204,7 +204,7 @@ export function Traces({ events }: TracesProps) {
         {/* Left list */}
         <Box
           flexDirection="column"
-          borderStyle="round"
+          borderStyle="single"
           borderColor={theme.borderActive}
           paddingX={1}
           paddingY={0}
@@ -240,7 +240,7 @@ export function Traces({ events }: TracesProps) {
         {/* Right details */}
         <Box
           flexDirection="column"
-          borderStyle="round"
+          borderStyle="single"
           borderColor={theme.border}
           paddingX={1}
           paddingY={0}

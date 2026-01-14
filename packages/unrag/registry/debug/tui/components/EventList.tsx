@@ -118,7 +118,7 @@ export function EventList({ events }: EventListProps) {
         <Box
           flexDirection="column"
           flexGrow={1}
-          borderStyle="round"
+          borderStyle="single"
           borderColor={theme.borderActive}
           paddingX={1}
           width={canSplit ? Math.floor(columns * 0.55) : undefined}
@@ -168,7 +168,7 @@ export function EventList({ events }: EventListProps) {
             flexGrow={1}
             marginLeft={canSplit ? 1 : 0}
             marginTop={!canSplit ? 1 : 0}
-            borderStyle="round"
+            borderStyle="single"
             borderColor={selectedEvent ? theme.accent : theme.border}
             paddingX={1}
           >

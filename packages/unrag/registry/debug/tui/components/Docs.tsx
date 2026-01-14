@@ -363,7 +363,7 @@ export function Docs({ connection }: DocsProps) {
       </Box>
 
       {!docsCapable ? (
-        <Box borderStyle="round" borderColor={theme.borderActive} paddingX={1} paddingY={1}>
+        <Box borderStyle="single" borderColor={theme.borderActive} paddingX={1} paddingY={1}>
           <Text color={theme.warning}>
             {chars.cross} Server does not advertise docs capability. In your app, call{" "}
             <Text bold color={theme.fg}>
@@ -375,7 +375,7 @@ export function Docs({ connection }: DocsProps) {
       ) : (
         <>
           {/* Store stats */}
-          <Box borderStyle="round" borderColor={theme.border} paddingX={1} paddingY={0} marginBottom={1}>
+          <Box borderStyle="single" borderColor={theme.border} paddingX={1} paddingY={0} marginBottom={1}>
             {stats ? (
               <Box gap={2} flexWrap="wrap">
                 <Text color={theme.muted}>adapter</Text>
@@ -410,7 +410,7 @@ export function Docs({ connection }: DocsProps) {
             {/* Doc list */}
             <Box
               flexDirection="column"
-              borderStyle="round"
+              borderStyle="single"
               borderColor={focus === "docs" ? theme.borderActive : theme.border}
               paddingX={1}
               flexGrow={1}
@@ -467,7 +467,7 @@ export function Docs({ connection }: DocsProps) {
             {/* Detail */}
             <Box
               flexDirection="column"
-              borderStyle="round"
+              borderStyle="single"
               borderColor={focus === "chunks" ? theme.borderActive : theme.border}
               paddingX={1}
               flexGrow={1}

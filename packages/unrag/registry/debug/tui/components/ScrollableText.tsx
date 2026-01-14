@@ -87,7 +87,7 @@ export function ScrollableText({
     <Box flexDirection="column">
       <Box
         flexDirection="column"
-        borderStyle="round"
+        borderStyle="single"
         borderColor={borderColor}
         paddingX={1}
         height={safeHeight + 2}

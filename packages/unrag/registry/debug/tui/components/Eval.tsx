@@ -143,7 +143,7 @@ export function Eval({ connection }: EvalProps) {
       </Box>
 
       {!evalCapable ? (
-        <Box borderStyle="round" borderColor={theme.borderActive} paddingX={1} paddingY={1}>
+        <Box borderStyle="single" borderColor={theme.borderActive} paddingX={1} paddingY={1}>
           <Text color={theme.warning}>
             {chars.cross}{" "}
             {connection.status !== "connected"
@@ -173,7 +173,7 @@ export function Eval({ connection }: EvalProps) {
         </Box>
       ) : (
         <>
-          <Box borderStyle="round" borderColor={theme.borderActive} paddingX={1} marginBottom={1}>
+          <Box borderStyle="single" borderColor={theme.borderActive} paddingX={1} marginBottom={1}>
             <Box gap={1}>
               <Text color={theme.muted}>dataset</Text>
               <Text color={mode === "editingDataset" ? theme.accent : theme.fg} bold={mode === "editingDataset"}>
@@ -186,7 +186,7 @@ export function Eval({ connection }: EvalProps) {
           <Box flexDirection={canSplit ? "row" : "column"} flexGrow={1} gap={2}>
             <Box
               flexDirection="column"
-              borderStyle="round"
+              borderStyle="single"
               borderColor={theme.borderActive}
               paddingX={1}
               flexGrow={1}
@@ -289,7 +289,7 @@ export function Eval({ connection }: EvalProps) {
 
             <Box
               flexDirection="column"
-              borderStyle="round"
+              borderStyle="single"
               borderColor={theme.border}
               paddingX={1}
               flexGrow={1}

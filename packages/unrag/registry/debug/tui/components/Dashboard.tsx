@@ -118,7 +118,7 @@ export function Dashboard({ events, connection }: DashboardProps) {
             lastMs={stats.ingest.lastMs}
             avgMs={stats.ingest.avgMs}
             lastAt={stats.ingest.lastAt}
-            color={theme.ingest}
+            color={theme.muted}
           />
           <MetricCard
             title="RETRIEVE"
@@ -126,7 +126,7 @@ export function Dashboard({ events, connection }: DashboardProps) {
             lastMs={stats.retrieve.lastMs}
             avgMs={stats.retrieve.avgMs}
             lastAt={stats.retrieve.lastAt}
-            color={theme.retrieve}
+            color={theme.muted}
           />
           <MetricCard
             title="RERANK"
@@ -134,7 +134,7 @@ export function Dashboard({ events, connection }: DashboardProps) {
             lastMs={stats.rerank.lastMs}
             avgMs={stats.rerank.avgMs}
             lastAt={stats.rerank.lastAt}
-            color={theme.rerank}
+            color={theme.muted}
           />
           <MetricCard
             title="DELETE"
@@ -142,7 +142,7 @@ export function Dashboard({ events, connection }: DashboardProps) {
             lastMs={stats.delete.lastMs}
             avgMs={stats.delete.avgMs}
             lastAt={stats.delete.lastAt}
-            color={theme.delete}
+            color={theme.muted}
           />
           {stats.errors > 0 && (
             <Box gap={1}>
@@ -169,7 +169,7 @@ export function Dashboard({ events, connection }: DashboardProps) {
         <SectionHeader title="Recent Events" />
         <Box
           flexDirection="column"
-          borderStyle="round"
+          borderStyle="single"
           borderColor={theme.borderActive}
           paddingX={1}
           paddingY={0}

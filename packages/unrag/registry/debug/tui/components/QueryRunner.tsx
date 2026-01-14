@@ -171,7 +171,7 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
       </Box>
 
       {/* Input panel */}
-      <Box borderStyle="round" borderColor={theme.borderActive} paddingX={1} paddingY={0} marginBottom={1}>
+      <Box borderStyle="single" borderColor={theme.borderActive} paddingX={1} paddingY={0} marginBottom={1}>
         <Box flexDirection="column">
           <Box gap={1}>
             <Text color={theme.muted}>query</Text>
@@ -192,7 +192,7 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
       <Box flexDirection={canSplit ? "row" : "column"} flexGrow={1} gap={2}>
         <Box
           flexDirection="column"
-          borderStyle="round"
+          borderStyle="single"
           borderColor={theme.borderActive}
           paddingX={1}
           flexGrow={1}
@@ -275,7 +275,7 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
 
         <Box
           flexDirection="column"
-          borderStyle="round"
+          borderStyle="single"
           borderColor={theme.border}
           paddingX={1}
           flexGrow={1}
