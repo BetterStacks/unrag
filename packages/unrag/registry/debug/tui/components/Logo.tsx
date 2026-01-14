@@ -105,7 +105,10 @@ export function Logo({ columns, rows }: LogoProps) {
 
   // Keep the header logo from consuming the whole screen.
   const targetMaxHeight = clamp(Math.floor(rows * 0.25), 4, 10);
-  const availableWidth = Math.max(20, columns - 4);
+  // Cap width so the logo doesn't "blow up" on ultra-wide terminals.
+  // (Upscaling isn't implemented; this is purely a max render width.)
+  const LOGO_MAX_WIDTH = 110;
+  const availableWidth = Math.min(LOGO_MAX_WIDTH, Math.max(20, columns - 4));
 
   // Choose scale factors so the logo fits.
   const xFactor = Math.max(1, Math.ceil(rawWidth / availableWidth));
