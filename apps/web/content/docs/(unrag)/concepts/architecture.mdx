@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: How the ingest and retrieve pipelines work from end to end.
+description: How the ingest, retrieve, delete, and rerank pipelines work from end to end.
 ---
 
 Understanding how Unrag processes your content helps you make good decisions about chunking parameters, embedding models, and performance optimization. Let's walk through both pipelines in detail.
@@ -115,6 +115,33 @@ console.log(result.durations);
 
 </Step>
 </Steps>
+
+## The delete pipeline
+
+When you call `engine.delete({ sourceId })` or `engine.delete({ sourceIdPrefix })`, the engine removes content from the database:
+
+<Steps>
+<Step>
+
+### Identify documents
+
+For exact deletion (`sourceId`), the adapter finds the single document with that source ID. For prefix deletion (`sourceIdPrefix`), it finds all documents whose source ID starts with the given prefix.
+
+</Step>
+<Step>
+
+### Cascade delete
+
+The adapter deletes the matching document rows. Thanks to foreign key constraints with `ON DELETE CASCADE`, the database automatically removes the associated chunks and embeddings. This keeps your index consistent without requiring multiple queries.
+
+</Step>
+</Steps>
+
+Deletion is useful for:
+- Removing outdated content after updates
+- Honoring user deletion requests (GDPR/privacy compliance)
+- Cleaning up test data
+- Removing entire namespaces (e.g., `tenant:acme:` prefix)
 
 ## Improving retrieval with reranking
 
