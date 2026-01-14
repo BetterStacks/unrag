@@ -1,0 +1,114 @@
+---
+title: Eval Panel
+description: Run evaluation datasets and view retrieval quality metrics.
+---
+
+The Eval panel runs evaluation datasets against your RAG pipeline and displays quality metrics. This is useful for measuring retrieval performance, tracking quality over time, and identifying problematic queries.
+
+## Setup requirements
+
+The Eval panel requires:
+
+1. **The eval battery installed** — Run `bunx unrag add battery eval` to add evaluation capabilities
+
+2. **Engine registered** — Call `registerUnragDebug({ engine })` in your app
+
+3. **A dataset file** — Evaluation datasets in JSON format (a sample is created when you install the battery)
+
+If these requirements aren't met, the panel displays instructions for what's missing.
+
+## Running an evaluation
+
+The panel shows an input field for the dataset path and displays results after running:
+
+1. Press `e` to edit the dataset path
+2. Enter the path to your dataset file (e.g., `.unrag/eval/datasets/sample.json`)
+3. Press `Enter` to confirm
+4. Press `r` to run the evaluation
+
+The evaluation:
+- Reads the dataset from the specified path (in the app's file system)
+- Runs each query against your retrieval pipeline
+- Compares results to expected answers
+- Calculates quality metrics
+
+## Configuration options
+
+| Key | Action |
+|-----|--------|
+| `e` | Edit dataset path |
+| `r` | Run evaluation |
+| `m` | Cycle mode: auto → retrieve → retrieve+rerank |
+| `+` | Increase topK |
+| `-` | Decrease topK |
+| `n` | Toggle nDCG calculation |
+
+**Mode** controls whether reranking is included:
+- **auto** — Uses reranking if a reranker is configured
+- **retrieve** — Vector search only
+- **retrieve+rerank** — Always include reranking
+
+**topK** sets how many results to retrieve per query.
+
+**nDCG** enables normalized discounted cumulative gain calculation (more computationally expensive but useful for graded relevance).
+
+## Understanding results
+
+The Summary panel shows:
+
+**Pass/fail status** — Based on threshold configuration in your dataset
+
+**Configuration** — Mode, topK, scope prefix used
+
+**Engine info** — Embedding model and reranker used
+
+**Retrieved metrics (mean):**
+- **recall** — Fraction of expected results found
+- **mrr** — Mean reciprocal rank (how high the first correct result ranks)
+- **hit** — Whether at least one correct result was found
+
+**Reranked metrics** — Same metrics after reranking (if applicable)
+
+**Timing percentiles** — p50 and p95 latencies for retrieval, reranking, and total
+
+**Threshold failures** — Which quality thresholds weren't met
+
+## Charts panel
+
+The right side shows per-query visualizations:
+
+**Recall sparkline** — Shows recall for each query. Low points indicate queries that performed poorly.
+
+**MRR sparkline** — Shows reciprocal rank for each query. Low points indicate queries where the correct answer ranked low.
+
+**Worst queries** — Lists the queries with lowest recall and MRR, helping you identify specific problems.
+
+## Safety guardrails
+
+The TUI enforces safety guardrails for evaluation runs:
+
+- **No dangerous prefix deletion** — The `allowNonEvalPrefix` and `confirmedDangerousDelete` flags are disabled
+- **No asset ingestion** — The `allowAssets` flag is disabled
+
+For advanced eval configurations (like testing with production-like prefixes), use the CLI directly with appropriate flags.
+
+## Interpreting results
+
+**High recall, low MRR** — Your system finds the right documents but not at the top of results. Consider adding reranking.
+
+**Low recall** — Relevant documents aren't being found. Check chunking (is relevant content in separate chunks?) or query phrasing.
+
+**High variance in sparklines** — Some queries work much better than others. Examine the worst-performing queries to understand why.
+
+**Timing issues** — If p95 is much higher than p50, you have outlier queries that are slow. Consider caching or query optimization.
+
+## What's next
+
+<Cards>
+  <Card title="Eval Documentation" href="/docs/eval">
+    Full guide to evaluation datasets and metrics
+  </Card>
+  <Card title="Doctor Panel" href="/docs/debugging/panels/doctor">
+    Check your configuration for issues
+  </Card>
+</Cards>

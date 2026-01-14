@@ -1,0 +1,107 @@
+---
+title: Doctor Panel
+description: Configuration diagnostics and health checks.
+---
+
+The Doctor panel runs configuration checks against your Unrag installation and displays the results. It helps you identify misconfiguration, missing setup steps, and potential issues before they cause problems in production.
+
+## How it works
+
+When you open the Doctor panel (or when the TUI connects), it automatically runs a series of non-invasive checks. These checks examine:
+
+- Environment variables and configuration
+- Debug runtime registration status
+- Engine configuration details
+- Store adapter setup
+
+The checks don't modify any data or execute expensive operations. They're designed to be safe to run at any time.
+
+## Check statuses
+
+Each check displays one of three statuses:
+
+| Status | Icon | Meaning |
+|--------|------|---------|
+| **OK** | ✓ (green) | Configuration is correct |
+| **WARN** | • (yellow) | Non-critical issue or recommendation |
+| **ERROR** | ✗ (red) | Critical configuration problem |
+
+The summary in the header shows counts: "3 ok · 1 warn · 0 err"
+
+## Navigation
+
+| Key | Action |
+|-----|--------|
+| `j` or `↓` | Move to next check |
+| `k` or `↑` | Move to previous check |
+| `r` | Re-run all checks |
+
+## What gets checked
+
+The Doctor panel verifies multiple aspects of your setup:
+
+**Environment configuration** — Is `UNRAG_DEBUG` set? Are required API keys present?
+
+**Runtime registration** — Is the debug runtime registered? Does it have the engine and store inspector?
+
+**Engine configuration** — What embedding model is configured? What are the chunking defaults? Is a reranker configured?
+
+**Capabilities** — What debug capabilities are available based on the current registration?
+
+## Check details
+
+When you select a check, the Info panel shows:
+
+- **Full description** — What the check is verifying
+- **Suggested fix** — For warnings and errors, actionable steps to resolve the issue
+
+For example, if the engine isn't registered:
+
+> ✗ Engine not registered
+> → Fix: Call `registerUnragDebug({ engine })` after creating your engine
+
+## Info panel
+
+The right side shows runtime information gathered during the handshake:
+
+**Protocol** — Debug protocol version negotiated with the server
+
+**Session** — Unique session identifier
+
+**Capabilities** — List of capabilities advertised by the server (traces, query, ingest, docs, etc.)
+
+**Uptime** — How long the debug server has been running
+
+**Runtime** — Registration status:
+- `registered` — Whether `registerUnragDebug` was called
+- `hasEngine` — Whether an engine is available for commands
+- `hasStoreInspector` — Whether document inspection is available
+
+**Engine config** (when available):
+- Embedding model name and dimensions
+- Batch and image support
+- Storage settings (storeChunkContent, storeDocumentContent)
+- Chunking defaults (chunkSize, chunkOverlap)
+- Extractor count
+- Reranker name (if configured)
+
+## Common issues
+
+**"Engine not registered"** — Add `registerUnragDebug({ engine })` after creating your engine.
+
+**"Store inspector not available"** — Add `storeInspector: engine.storeInspector` to the registration call to enable the Docs panel.
+
+**"Query capability not available"** — The engine isn't registered, or there was an error during registration.
+
+**"Eval capability not available"** — The eval battery isn't installed, or the eval module isn't present in the vendored directory.
+
+## What's next
+
+<Cards>
+  <Card title="Getting Started" href="/docs/debugging/getting-started">
+    Set up the debug panel correctly
+  </Card>
+  <Card title="Eval Panel" href="/docs/debugging/panels/eval">
+    Run evaluation datasets to measure quality
+  </Card>
+</Cards>

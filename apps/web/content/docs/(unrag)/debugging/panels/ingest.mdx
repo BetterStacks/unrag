@@ -1,0 +1,111 @@
+---
+title: Ingest Panel
+description: Interactive document ingestion for quick testing.
+---
+
+The Ingest panel lets you ingest documents directly from the TUI without modifying your application code. This is useful for quickly adding test content, experimenting with chunking settings, and validating your ingestion pipeline.
+
+## Setup requirements
+
+The Ingest panel requires that your engine is registered:
+
+```ts
+import { registerUnragDebug } from "@unrag/debug";
+
+registerUnragDebug({ engine });
+```
+
+The debug server must advertise the `ingest` capability for this panel to function.
+
+## Input modes
+
+The panel supports two modes for providing content:
+
+**File mode** (default) — Specify a file path that the debug server reads from the application's file system. This is better for large or multiline documents.
+
+**Inline mode** — Enter content directly in the TUI. This is limited to single-line content but convenient for quick tests.
+
+Toggle between modes with `m`.
+
+## Fields
+
+| Field | Description |
+|-------|-------------|
+| **sourceId** | Document identifier (e.g., `debug:hello-world`) |
+| **contentPath** | File path to read (in file mode) |
+| **content** | Inline text content (in inline mode) |
+| **metadata** | JSON object for document metadata |
+| **chunkSize** | Override default chunk size (leave blank for default) |
+| **chunkOverlap** | Override default chunk overlap (leave blank for default) |
+
+## Keyboard shortcuts
+
+| Key | Action |
+|-----|--------|
+| `Tab` | Cycle to next field |
+| `e` | Edit the focused field |
+| `m` | Toggle between file and inline mode |
+| `r` | Run ingestion |
+| `c` | Clear the content field |
+| `Escape` / `Ctrl+X` | Exit edit mode |
+
+## Editing fields
+
+1. Use `Tab` to move focus to the field you want to edit
+2. Press `e` to enter edit mode
+3. Type your content
+4. Press `Enter` or `Escape` to confirm
+
+The currently focused field is highlighted. In edit mode, a cursor appears at the end of the field content.
+
+## Metadata format
+
+The metadata field accepts a JSON object:
+
+```json
+{"source": "debug", "category": "test"}
+```
+
+This metadata is stored with the document and can be used for filtering in your application. If the JSON is invalid, an error message appears below the field.
+
+## Running ingestion
+
+Press `r` to start ingestion. The panel shows "Ingesting..." while the operation runs.
+
+On success, you'll see:
+- **docId** — The generated document ID
+- **chunks** — Number of chunks created
+- **model** — Embedding model used
+
+If warnings occurred (e.g., skipped assets), they're displayed below the success message.
+
+On failure, the error message explains what went wrong.
+
+## Use cases
+
+**Testing chunking behavior.** Ingest a sample document with different `chunkSize` and `chunkOverlap` values, then inspect the results in the Docs panel.
+
+**Quick test content.** When developing a new feature, quickly add test documents without writing ingestion code.
+
+**Validating the pipeline.** After configuration changes, ingest a test document to verify everything still works.
+
+**Debugging ingestion issues.** If production ingestion fails, reproduce the issue by ingesting similar content through the debug panel.
+
+## Limitations
+
+**Inline mode is single-line.** For multiline content, use file mode and point to a local file.
+
+**File paths are relative to the app.** The path is resolved in the debug server's process, not your local machine. For remote debugging, the file must exist on the remote server.
+
+**No asset support.** The Ingest panel ingests plain text only. For documents with assets (images, PDFs), use your application's normal ingestion path.
+
+## What's next
+
+<Cards>
+  <Card title="Docs Panel" href="/docs/debugging/panels/docs">
+    Inspect the documents you just ingested
+  </Card>
+  <Card title="Query Panel" href="/docs/debugging/panels/query">
+    Test queries against your new content
+  </Card>
+</Cards>

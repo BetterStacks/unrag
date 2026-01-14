@@ -1,0 +1,118 @@
+---
+title: Best Practices
+description: Effective debugging workflows and tips for getting the most out of the Debug Panel.
+---
+
+The Debug Panel is most useful when you approach it with specific questions rather than just watching events scroll by. This page covers effective debugging workflows for common scenarios and tips for maximizing the value you get from the tool.
+
+## When to enable debug mode
+
+Debug mode adds a small amount of overhead—the WebSocket server runs in your process and broadcasts events. For most development workflows this is negligible, but it's worth being intentional about when you enable it.
+
+**Enable during development.** Set `UNRAG_DEBUG=true` in your development environment by default. The live visibility into operations catches issues early and helps you understand how your code behaves.
+
+**Enable in staging for troubleshooting.** When investigating an issue that doesn't reproduce locally, temporarily enable debug mode in staging. Connect the TUI from your development machine to diagnose the problem in a production-like environment.
+
+**Disable in production.** The WebSocket port shouldn't be exposed publicly, and the event broadcasting adds overhead you don't need. Use proper observability tools (logging, metrics, tracing) for production monitoring.
+
+## Debugging slow ingestion
+
+When document ingestion takes longer than expected, the Debug Panel helps you identify exactly where time goes.
+
+1. **Watch the Events panel** while ingesting a document. Note the `ingest:embedding:batch` events—if you see many of them, your content is being split into many chunks.
+
+2. **Check the timing breakdown** in the `ingest:complete` event. Compare `embeddingMs` vs `storageMs` to identify the bottleneck.
+
+3. If **embedding is slow**: Consider a faster embedding model, or check if your embedding provider has rate limits you're hitting.
+
+4. If **storage is slow**: Run the Doctor panel to check for index issues, or investigate your database connection (latency, connection pool exhaustion).
+
+5. If **chunking creates too many chunks**: Increase your `chunkSize` to reduce the total number of embedding calls.
+
+## Debugging poor retrieval results
+
+When queries return irrelevant results, the Debug Panel helps you understand why.
+
+1. **Use the Query panel** to run the problematic query interactively. Examine the returned chunks and their similarity scores.
+
+2. **Check what's actually stored** using the Docs panel. Find the document that should have matched and inspect its chunks. Is the relevant content actually present? Is it in its own chunk or buried in unrelated text?
+
+3. **Compare scores.** Note the similarity score of the "correct" chunk versus the irrelevant ones that ranked higher. Small score differences suggest the embedding model sees them as similarly relevant—you may need to adjust chunking or add metadata filters.
+
+4. **Test different queries.** The Query panel lets you quickly iterate on query phrasing. Sometimes the issue is query-document vocabulary mismatch rather than a pipeline problem.
+
+## Validating chunk quality
+
+Before going to production, verify that your chunking produces reasonable results.
+
+1. **Ingest test documents** that represent your real content using the Ingest panel.
+
+2. **Browse the chunks** in the Docs panel. For each document, check:
+   - Do chunks contain complete thoughts or are they cut mid-sentence?
+   - Are chunks too small (losing context) or too large (diluting relevance)?
+   - Is important content spread across multiple chunks?
+
+3. **Check the token histogram** in the Docs panel's detail view. A wide distribution suggests inconsistent chunking—you may need to adjust overlap or use content-aware chunking.
+
+4. **Run test queries** in the Query panel to verify that the expected chunks surface for relevant queries.
+
+## Combining panels effectively
+
+The panels work best together. A typical debugging session might flow like this:
+
+1. **Start with Dashboard** to get an overview of what's happening—operation counts, latencies, any errors.
+
+2. **Drill into Events** if you see unexpected patterns—filter by operation type to focus on the relevant events.
+
+3. **Use Traces** to understand the timeline of a specific operation—see which phase took longest.
+
+4. **Switch to Docs** to inspect the actual content—verify chunks are structured correctly.
+
+5. **Test with Query** to validate that retrieval works as expected with the current content.
+
+6. **Run Doctor** if you suspect configuration issues—check that all components are wired up correctly.
+
+## Remote debugging tips
+
+When debugging an application on a remote server or in a container:
+
+**SSH tunneling.** If the debug port isn't exposed, use SSH to tunnel:
+```bash
+ssh -L 3847:localhost:3847 user@remote-host
+bunx unrag debug  # Connects via tunnel
+```
+
+**Custom URLs.** Use the `--url` option to specify the full WebSocket URL:
+```bash
+bunx unrag debug --url ws://staging.internal:3847
+```
+
+**Container debugging.** Expose the debug port in your container configuration, but only in development/staging environments. In Docker:
+```yaml
+ports:
+  - "3847:3847"  # Only in dev compose file
+```
+
+## Performance considerations
+
+The debug server is designed for minimal overhead, but keep these points in mind:
+
+**Event buffering.** The server buffers recent events in memory. For very high-volume applications, consider disabling debug mode or reducing the buffer size.
+
+**Client connections.** Each connected TUI client receives all events. The default maximum is 5 concurrent clients—sufficient for typical debugging but not designed for many simultaneous users.
+
+**Large content.** Events include content excerpts but not full document text. If you're ingesting very large documents, event broadcasting won't significantly impact memory.
+
+## What's next
+
+<Cards>
+  <Card title="Query Panel" href="/docs/debugging/panels/query">
+    Interactive query execution for testing retrieval
+  </Card>
+  <Card title="Docs Panel" href="/docs/debugging/panels/docs">
+    Document inspection and management
+  </Card>
+  <Card title="Doctor Panel" href="/docs/debugging/panels/doctor">
+    Configuration diagnostics and health checks
+  </Card>
+</Cards>

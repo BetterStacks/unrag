@@ -1,0 +1,104 @@
+---
+title: Events Panel
+description: Real-time event streaming with filtering capabilities.
+---
+
+The Events panel shows the complete stream of debug events from your application. Unlike the Dashboard's summary view, this panel displays every event with full details, making it essential for understanding exactly what's happening in your pipeline.
+
+## Navigating the event list
+
+Events are displayed in reverse chronological order (newest at top). Navigate the list with:
+
+| Key | Action |
+|-----|--------|
+| `j` or `↓` | Move selection down |
+| `k` or `↑` | Move selection up |
+| `Enter` or `e` | View selected event details |
+
+When viewing event details, you'll see the complete event payload including all timing information, identifiers, and metadata.
+
+## Filtering by event type
+
+The event stream can get noisy when multiple operation types are running. Use filters to focus on what matters:
+
+| Key | Filter |
+|-----|--------|
+| `a` | Show **all** events (default) |
+| `i` | Show only **ingest** events |
+| `r` | Show only **retrieve** events |
+| `k` | Show only **rerank** events |
+| `d` | Show only **delete** events |
+
+When a filter is active, the status bar indicates which filter is applied. The filter persists until you change it or press `a` to show all.
+
+## Event types
+
+Each operation emits multiple events through its lifecycle:
+
+### Ingest events
+
+| Type | Description |
+|------|-------------|
+| `ingest:start` | Operation begins, shows sourceId |
+| `ingest:chunking:complete` | Chunking finished, shows chunk count |
+| `ingest:embedding:start` | Embedding generation starts |
+| `ingest:embedding:batch` | Each batch of embeddings (useful for progress) |
+| `ingest:embedding:complete` | All embeddings generated |
+| `ingest:storage:complete` | Chunks written to database |
+| `ingest:complete` | Full operation finished with summary |
+| `ingest:error` | Something went wrong |
+
+### Retrieve events
+
+| Type | Description |
+|------|-------------|
+| `retrieve:start` | Query begins, shows query text and topK |
+| `retrieve:embedding:complete` | Query embedded |
+| `retrieve:db:complete` | Database search finished |
+| `retrieve:complete` | Full operation finished with timing |
+
+### Rerank events
+
+| Type | Description |
+|------|-------------|
+| `rerank:start` | Reranking begins, shows candidate count |
+| `rerank:complete` | Reranking finished with timing |
+
+### Delete events
+
+| Type | Description |
+|------|-------------|
+| `delete:start` | Deletion begins |
+| `delete:complete` | Deletion finished, shows count deleted |
+
+## Using the Events panel effectively
+
+**Trace a specific operation.** Watch for the `start` event of an operation you triggered, then observe the subsequent events until `complete`. This shows you exactly how the operation progressed.
+
+**Identify slow phases.** Compare the timestamps between events. A long gap between `embedding:start` and `embedding:complete` indicates slow embedding generation. A long gap before `storage:complete` indicates database latency.
+
+**Catch errors.** Error events include the error message and usually enough context to understand what failed. Filter to ingest events (`i`) when debugging ingestion failures.
+
+**Monitor batch progress.** For large ingestions, watch the `embedding:batch` events to see progress. Each shows the batch number and timing.
+
+## Event details
+
+When you select an event and press `Enter`, you see the full event object. Key fields include:
+
+- **timestamp** — Unix milliseconds when the event occurred
+- **operationId** — Links related events within a single operation
+- **type** — The event type
+- **durations** — Timing breakdowns (when applicable)
+- **counts** — Chunk counts, batch sizes, etc.
+- **error** — Error message (for error events)
+
+## What's next
+
+<Cards>
+  <Card title="Traces Panel" href="/docs/debugging/panels/traces">
+    See grouped views of complete operations
+  </Card>
+  <Card title="Understanding Events" href="/docs/debugging/debug-events">
+    Deep dive into event types and timing analysis
+  </Card>
+</Cards>

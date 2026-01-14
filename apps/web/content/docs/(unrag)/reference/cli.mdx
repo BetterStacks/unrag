@@ -178,6 +178,38 @@ Load environment variables from a specific file before running checks.
 bunx unrag doctor --env-file .env.production
 ```
 
+## Debug command
+
+Launch the debug TUI to connect to a running application with `UNRAG_DEBUG=true`:
+
+```bash
+bunx unrag debug
+```
+
+This opens an interactive terminal interface that connects to the debug server running in your app. From the TUI you can watch real-time events, run queries, inspect documents, and diagnose configuration issues.
+
+### Debug options
+
+**`--url <ws://...>`**
+
+Specify the full WebSocket URL to connect to:
+
+```bash
+bunx unrag debug --url ws://192.168.1.100:3847
+```
+
+**`--port <number>` or `-p <number>`**
+
+Shorthand for specifying just the port (uses localhost):
+
+```bash
+bunx unrag debug --port 4000
+```
+
+The default port is 3847.
+
+For full documentation on the debug TUI and its capabilities, see [Debugging](/docs/debugging).
+
 ## Init command flags
 
 These flags control the behavior of `unrag init`.
