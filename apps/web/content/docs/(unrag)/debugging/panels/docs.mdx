@@ -3,115 +3,44 @@ title: Docs Panel
 description: Document inspection and management for exploring your vector store.
 ---
 
-The Docs panel lets you browse stored documents, inspect their chunks, and manage content directly. This is essential for understanding how your content is structured in the vector store and for removing problematic documents during development.
+The Docs panel lets you browse what's actually in your vector store. You can see which documents are stored, how they were chunked, what the chunks contain, and—when needed—delete content that shouldn't be there.
 
-## Setup requirements
+## Setting it up
 
-The Docs panel requires both the engine and store inspector to be registered:
+The Docs panel needs a bit more than the other panels to work. In addition to registering your engine, you also need to provide the store inspector: `registerUnragDebug({ engine, storeInspector: engine.storeInspector })`. The store inspector gives the debug server access to methods for listing and inspecting documents.
 
-```ts
-import { registerUnragDebug } from "@unrag/debug";
+Without it, the panel shows a message explaining what's missing. Once it's configured, you're ready to explore.
 
-registerUnragDebug({
-  engine,
-  storeInspector: engine.storeInspector,
-});
-```
+## Browsing your documents
 
-The `storeInspector` provides methods for listing documents and retrieving chunk details. It's available from your engine instance if your store adapter supports it. Without it, the panel displays a warning about missing docs capability.
+The left side shows a list of all documents in your store. Each row displays the source ID, how many chunks the document has, and when it was created (if that information is available). Navigate with `j` and `k`, and use `[` and `]` to page through if you have more documents than fit on screen.
 
-## Panel layout
+At the top, there's a store stats bar showing aggregate information: which adapter you're using, how many vectors are in the store, the embedding dimension, and row counts for the relevant tables. This gives you a quick sense of the overall state of your data.
 
-The Docs panel has three main areas:
+## Working with prefixes
 
-### Store stats bar
+If you have a lot of documents, the prefix filter helps you narrow down what you're looking at. Press `f` to edit the filter, type a prefix like `docs:` or `user:123:`, and press `Enter`. Now the list shows only documents whose source ID starts with that prefix.
 
-At the top, a summary shows:
-- **adapter** — Which store adapter is in use (drizzle, prisma, etc.)
-- **vectors** — Total vector count in the store
-- **dim** — Embedding dimension
-- **table row counts** — Rows in each relevant table
-
-### Document list (left)
-
-Lists all documents matching your current filter:
-- **Source ID** — The document identifier
-- **Chunk count** — How many chunks the document has
-- **Created at** — When the document was ingested (if available)
-
-### Document details (right)
-
-Shows the selected document's chunks:
-- **Token histogram** — Visual distribution of chunk sizes
-- **Chunk list** — Each chunk with sequence number and token count
-- **Selected chunk content** — Full text of the highlighted chunk
-
-## Navigation
-
-| Key | Action |
-|-----|--------|
-| `Tab` | Switch focus between documents and chunks |
-| `j` or `↓` | Move selection down |
-| `k` or `↑` | Move selection up |
-| `[` | Previous page of documents |
-| `]` | Next page of documents |
-| `f` | Edit the prefix filter |
-| `r` | Refresh document list and stats |
-| `d` | Delete selected document (with confirmation) |
-| `x` | Delete selected chunk (with confirmation) |
-| `PageUp`/`Ctrl+U` | Scroll chunk content up |
-| `PageDown`/`Ctrl+D` | Scroll chunk content down |
-
-## Filtering by prefix
-
-Use the prefix filter to narrow down documents:
-
-1. Press `f` to enter filter edit mode
-2. Type a prefix (e.g., `docs:` or `user:123:`)
-3. Press `Enter` to apply
-
-This is useful when you have many documents with a naming convention. For example, filter to `notion:` to see only Notion-synced documents.
+This is particularly useful when you use a consistent naming convention for source IDs. Filter to a specific namespace to focus on just the content you care about.
 
 ## Inspecting chunks
 
-When you select a document, the details panel updates to show its structure:
+When you select a document, the right side updates to show its details. You'll see a token histogram—a visual distribution of how large the chunks are—which helps you understand whether your chunking is consistent or all over the place.
 
-**Token histogram** — Shows the distribution of chunk sizes (in approximate tokens). A wide distribution suggests inconsistent chunking. Very small chunks might lack context; very large ones might dilute relevance.
+Below that is the chunk list, showing each chunk with its sequence number, approximate token count, and a preview of its content. Use `Tab` to switch focus between the documents list and the chunks list, then navigate chunks with `j` and `k` as usual.
 
-**Chunk list** — Each chunk shows:
-- **Sequence number** — Order within the document
-- **Token count** — Approximate size
-- **Content preview** — First part of the chunk text
-
-**Selected chunk** — The full content of the highlighted chunk, scrollable. Check that chunks contain complete thoughts and don't cut off mid-sentence.
+The selected chunk's full content appears at the bottom, scrollable with `PageUp` and `PageDown`. This is where you verify that your chunks contain complete, coherent content—that sentences aren't cut off mid-thought and that related information stays together.
 
 ## Deleting content
 
-During development, you may need to remove documents:
+During development, you'll often need to remove documents—maybe you ingested test data, or a document was chunked incorrectly and you want to try again with different settings.
 
-**Delete a document:** Select the document and press `d`. Confirm with `y` (or cancel with `n`/`Escape`). This removes the document and all its chunks.
+Press `d` on a selected document to delete it (the panel asks for confirmation first). This removes the document and all its chunks. If you only want to remove a specific chunk while keeping the rest, switch focus to the chunks list and press `x` on the chunk you want to delete.
 
-**Delete a specific chunk:** Tab to the chunks panel, select a chunk, and press `x`. Confirm with `y`. This is useful for surgically removing problematic chunks without deleting the entire document.
+Be careful with deletion—it's permanent. The debug panel doesn't have undo. If you're connected to a shared or production-like environment, think twice before confirming.
 
-<Callout>
-Deletion is permanent. The debug panel doesn't have undo. Use with care, especially if connected to a shared or production-like environment.
-</Callout>
+## When content is missing
 
-## Missing content warning
+If your store adapter is configured with `storeChunkContent: false`, you'll see a warning that chunks have no stored content. In this mode, only the embeddings are persisted, not the original text. The chunk list will show metadata but empty content areas.
 
-If your store adapter is configured with `storeChunkContent: false`, the Docs panel shows a warning:
-
-> Chunks have no stored `content`. Your store adapter may not persist text content.
-
-In this configuration, only embeddings are stored, not the original text. The chunk list will show empty content. To use the Docs panel's inspection features, enable `storeChunkContent` in your engine configuration.
-
-## What's next
-
-<Cards>
-  <Card title="Ingest Panel" href="/docs/debugging/panels/ingest">
-    Ingest test documents interactively
-  </Card>
-  <Card title="Query Panel" href="/docs/debugging/panels/query">
-    Test queries against your document store
-  </Card>
-</Cards>
+To use the Docs panel's full inspection capabilities, you'll need to enable content storage in your engine configuration.

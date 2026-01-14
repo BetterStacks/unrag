@@ -3,109 +3,44 @@ title: Ingest Panel
 description: Interactive document ingestion for quick testing.
 ---
 
-The Ingest panel lets you ingest documents directly from the TUI without modifying your application code. This is useful for quickly adding test content, experimenting with chunking settings, and validating your ingestion pipeline.
+The Ingest panel lets you ingest documents directly from the TUI. Instead of writing code to test your ingestion pipeline, you fill in a few fields and press a key. It's the fastest way to add test content and see what your chunking produces.
 
-## Setup requirements
+## What you need
 
-The Ingest panel requires that your engine is registered:
+Like the Query panel, the Ingest panel requires your engine to be registered: `registerUnragDebug({ engine })`. Without this, the panel shows a message about missing ingest capability.
 
-```ts
-import { registerUnragDebug } from "@unrag/debug";
+## Two ways to provide content
 
-registerUnragDebug({ engine });
-```
+The panel supports two modes for getting content into your pipeline.
 
-The debug server must advertise the `ingest` capability for this panel to function.
+**File mode** is the default. You provide a path to a file, and the debug server reads it from wherever your application is running. This works well for multiline documents and larger content—just point it at a markdown file, a text file, or whatever you want to ingest.
 
-## Input modes
-
-The panel supports two modes for providing content:
-
-**File mode** (default) — Specify a file path that the debug server reads from the application's file system. This is better for large or multiline documents.
-
-**Inline mode** — Enter content directly in the TUI. This is limited to single-line content but convenient for quick tests.
+**Inline mode** lets you type content directly in the TUI. It's limited to a single line, but it's convenient for quick tests when you just want to throw some text at the pipeline and see what happens.
 
 Toggle between modes with `m`.
 
-## Fields
+## Filling in the fields
 
-| Field | Description |
-|-------|-------------|
-| **sourceId** | Document identifier (e.g., `debug:hello-world`) |
-| **contentPath** | File path to read (in file mode) |
-| **content** | Inline text content (in inline mode) |
-| **metadata** | JSON object for document metadata |
-| **chunkSize** | Override default chunk size (leave blank for default) |
-| **chunkOverlap** | Override default chunk overlap (leave blank for default) |
+The panel has several fields you can configure. Use `Tab` to move between them, `e` to edit the focused field, and `Enter` or `Escape` to confirm your changes.
 
-## Keyboard shortcuts
+The source ID is the identifier for your document—something like `debug:hello-world` or `test:my-document`. The content field holds either your file path (in file mode) or your inline text (in inline mode). You can press `c` to clear the content field if you want to start fresh.
 
-| Key | Action |
-|-----|--------|
-| `Tab` | Cycle to next field |
-| `e` | Edit the focused field |
-| `m` | Toggle between file and inline mode |
-| `r` | Run ingestion |
-| `c` | Clear the content field |
-| `Escape` / `Ctrl+X` | Exit edit mode |
+The metadata field accepts a JSON object that gets stored alongside your document. Something like `{"source": "debug", "category": "test"}` lets you attach whatever context is useful. If your JSON is malformed, you'll see an error message.
 
-## Editing fields
-
-1. Use `Tab` to move focus to the field you want to edit
-2. Press `e` to enter edit mode
-3. Type your content
-4. Press `Enter` or `Escape` to confirm
-
-The currently focused field is highlighted. In edit mode, a cursor appears at the end of the field content.
-
-## Metadata format
-
-The metadata field accepts a JSON object:
-
-```json
-{"source": "debug", "category": "test"}
-```
-
-This metadata is stored with the document and can be used for filtering in your application. If the JSON is invalid, an error message appears below the field.
+The chunk size and chunk overlap fields let you override the defaults for this specific ingestion. Leave them blank to use your engine's configured defaults, or specify explicit values if you want to experiment with different settings.
 
 ## Running ingestion
 
-Press `r` to start ingestion. The panel shows "Ingesting..." while the operation runs.
+Press `r` to ingest. The panel shows "Ingesting..." while the operation runs, then displays the results: the generated document ID, how many chunks were created, and which embedding model was used.
 
-On success, you'll see:
-- **docId** — The generated document ID
-- **chunks** — Number of chunks created
-- **model** — Embedding model used
+If there are warnings—maybe some assets were skipped—they appear below the success message. If something fails, you'll see the error message explaining what went wrong.
 
-If warnings occurred (e.g., skipped assets), they're displayed below the success message.
+## Why this is useful
 
-On failure, the error message explains what went wrong.
+The Ingest panel is perfect for quick experiments. Want to see how different chunk sizes affect your content? Ingest the same document a few times with different settings, then check the results in the Docs panel.
 
-## Use cases
+Building a new feature and need some test data? Add a few documents here without writing any ingestion code.
 
-**Testing chunking behavior.** Ingest a sample document with different `chunkSize` and `chunkOverlap` values, then inspect the results in the Docs panel.
+Debugging a production issue where certain content doesn't ingest properly? Reproduce it here with similar content and watch the Events panel to see where things go wrong.
 
-**Quick test content.** When developing a new feature, quickly add test documents without writing ingestion code.
-
-**Validating the pipeline.** After configuration changes, ingest a test document to verify everything still works.
-
-**Debugging ingestion issues.** If production ingestion fails, reproduce the issue by ingesting similar content through the debug panel.
-
-## Limitations
-
-**Inline mode is single-line.** For multiline content, use file mode and point to a local file.
-
-**File paths are relative to the app.** The path is resolved in the debug server's process, not your local machine. For remote debugging, the file must exist on the remote server.
-
-**No asset support.** The Ingest panel ingests plain text only. For documents with assets (images, PDFs), use your application's normal ingestion path.
-
-## What's next
-
-<Cards>
-  <Card title="Docs Panel" href="/docs/debugging/panels/docs">
-    Inspect the documents you just ingested
-  </Card>
-  <Card title="Query Panel" href="/docs/debugging/panels/query">
-    Test queries against your new content
-  </Card>
-</Cards>
+One limitation: the Ingest panel handles plain text only. If you need to process documents with assets (images, PDFs, audio), you'll need to use your application's normal ingestion path with the appropriate extractors configured.

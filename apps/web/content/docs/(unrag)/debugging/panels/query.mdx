@@ -3,101 +3,28 @@ title: Query Panel
 description: Interactive query execution for testing retrieval.
 ---
 
-The Query panel lets you run retrieval queries interactively against your vector store. This is invaluable for testing whether your ingested content is retrievable, understanding why certain results rank higher than others, and iterating on query phrasing without modifying your application code.
+The Query panel lets you run retrieval queries directly from the TUI without touching your application code. You type a query, it gets embedded and searched against your vector store, and you see exactly what would be returned. It's the fastest way to test whether your retrieval is working the way you expect.
 
-## Setup requirements
+## Getting started
 
-The Query panel requires that your engine is registered with the debug runtime:
+Before you can use the Query panel, your engine needs to be registered with the debug runtime. In your application, after creating the engine, call `registerUnragDebug({ engine })`. Without this, the panel will show a warning explaining that query capability isn't available.
 
-```ts
-import { registerUnragDebug } from "@unrag/debug";
+Once that's set up, you'll see an input area at the top showing your current query text, scope, and topK setting. Press `e` to edit the query—type what you want to search for, then press `Enter` or `Escape` to confirm. Press `r` to run the query.
 
-registerUnragDebug({ engine });
-```
+You can adjust how many results come back using `+` and `-` to change the topK value, anywhere from 1 to 50 results.
 
-Without registration, the panel displays a warning about missing query capability. The debug server must advertise the `query` capability for this panel to function.
+## Understanding the results
 
-## Running a query
+After running a query, the results panel populates with matching chunks. Each row shows a similarity score (higher is better), the source ID identifying which document the chunk came from, and a preview of the content.
 
-The Query panel has an input section at the top where you configure your query:
+Navigate through results with `j` and `k`. When you select a result, the details panel on the right shows you the full picture: the complete source ID without truncation, the precise similarity score to six decimal places, and most importantly, the full chunk content. You can scroll through the content with `PageUp` and `PageDown` if it's longer than fits on screen.
 
-| Field | Description |
-|-------|-------------|
-| **query** | The search text to embed and match against your vectors |
-| **scope** | Optional filter prefix (currently display-only) |
-| **topK** | Number of results to return (adjustable with `+`/`-`) |
+The header also shows timing information after a query completes: how long the embedding took, how long the database search took, and the total end-to-end time. This helps you understand whether slow queries are bottlenecked on embedding or retrieval.
 
-To execute a query:
+## Debugging retrieval issues
 
-1. Press `e` to enter edit mode for the query text
-2. Type your query
-3. Press `Enter` or `Escape` to exit edit mode
-4. Press `r` to run the query
+The Query panel is invaluable when retrieval isn't returning what you expect. Run the problematic query and examine what comes back. Are the top results semantically related to what you asked? Can you see why the system might have ranked them highly even if they're not what you wanted?
 
-## Keyboard shortcuts
+If the "correct" result appears but is ranked lower than expected, note its score compared to the higher-ranked results. If scores are close, the embedding model genuinely sees them as similarly relevant—this might be a chunking issue (is the right content in its own chunk?) or a vocabulary mismatch (is the query phrased differently than how the content is written?).
 
-| Key | Action |
-|-----|--------|
-| `e` | Edit the query text |
-| `r` | Run the query |
-| `+` | Increase topK (max 50) |
-| `-` | Decrease topK (min 1) |
-| `j` or `↓` | Navigate results down |
-| `k` or `↑` | Navigate results up |
-| `PageUp` / `Ctrl+U` | Scroll content up |
-| `PageDown` / `Ctrl+D` | Scroll content down |
-
-## Understanding results
-
-The results panel shows matching chunks with:
-
-| Column | Description |
-|--------|-------------|
-| **Score** | Similarity score (higher = more relevant) |
-| **Source ID** | The document's source identifier |
-| **Doc ID** | Internal document ID |
-| **Content** | Preview of the chunk content |
-
-Scores are typically between 0 and 1 for cosine similarity. A score of 0.85 or higher usually indicates strong relevance, but the exact threshold depends on your embedding model and content type.
-
-Navigate to a result with `j`/`k` to select it and see full details in the right panel.
-
-## Details panel
-
-When a result is selected, the details panel shows:
-
-- **source** — Full source ID (not truncated)
-- **doc** — Full document ID
-- **score** — Precise score to 6 decimal places
-- **content** — Full chunk content (scrollable with `PageUp`/`PageDown`)
-
-This lets you read the complete chunk text that would be passed to your LLM, helping you understand exactly what context your application receives.
-
-## Timing breakdown
-
-After a query completes, the header shows timing information:
-
-- **total** — End-to-end query time
-- **embed** — Time to generate the query embedding
-- **db** — Time for the database similarity search
-
-If queries feel slow, this breakdown identifies whether embedding or database search is the bottleneck.
-
-## Typical workflow
-
-1. **Run a test query** for something you know should exist in your data
-2. **Check if the expected result appears** in the top results
-3. **If not, examine what did appear** — Are these semantically similar? Is there a vocabulary mismatch?
-4. **Try different query phrasings** to understand how the embedding model interprets different formulations
-5. **Adjust topK** to see if the expected result appears lower in the ranking
-
-## What's next
-
-<Cards>
-  <Card title="Docs Panel" href="/docs/debugging/panels/docs">
-    Inspect the documents and chunks in your store
-  </Card>
-  <Card title="Best Practices" href="/docs/debugging/best-practices">
-    Effective workflows for debugging retrieval
-  </Card>
-</Cards>
+Try rephrasing your query and see how results change. Sometimes adding or removing a word makes a significant difference, which tells you something about how the embedding model interprets your content.

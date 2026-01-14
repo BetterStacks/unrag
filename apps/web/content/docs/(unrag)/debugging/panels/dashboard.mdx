@@ -3,81 +3,22 @@ title: Dashboard Panel
 description: At-a-glance operation metrics and activity overview.
 ---
 
-The Dashboard is the default view when you connect to the debug server. It provides a high-level overview of your RAG pipeline's activity, making it easy to spot patterns and anomalies at a glance.
+The Dashboard is what you see first when you connect to the debug server. Think of it as the control room view—you're not here to take action, you're here to understand what's happening at a glance.
 
-## What the dashboard shows
+## What you're looking at
 
-The Dashboard organizes information into three sections:
+The top row shows four metric cards, one for each operation type: ingest, retrieve, rerank, and delete. Each card tells you how many times that operation has run, how long the most recent one took, and what the average duration has been over the last ten runs. If any errors have occurred, you'll see a red error count at the end of the row.
 
-### Operations summary
+Below the metrics, there's a sparkline chart that visualizes latency over time. It shows the last thirty operations, giving you a quick sense of whether things are stable or if something changed recently. A sudden spike jumps out immediately. A gradual upward trend suggests something might be degrading. Consistent flat lines mean the system is behaving predictably.
 
-The top row displays aggregate metrics for each operation type:
+At the bottom, you'll find the ten most recent events in reverse chronological order. This gives you a quick pulse check without needing to switch to the full Events panel. You can see what just happened, whether it succeeded, and how long it took.
 
-| Metric | Description |
-|--------|-------------|
-| **INGEST** | Total ingestions, last operation time, average time |
-| **RETRIEVE** | Total retrievals, last operation time, average time |
-| **RERANK** | Total rerank calls, last operation time, average time |
-| **DELETE** | Total deletions, last operation time, average time |
+## Reading the room
 
-Each metric card shows:
-- **Count** — How many operations of this type have occurred in the session
-- **Last** — Duration of the most recent operation (in milliseconds)
-- **Avg** — Rolling average duration (based on the last 10 operations)
+The Dashboard is designed for pattern recognition rather than deep investigation. When you glance at it, you're asking questions like: Is my pipeline healthy? What's the typical latency? Are there any obvious problems?
 
-If any errors have occurred, an error count appears at the end of the row, highlighted in red.
+Stable latencies, no errors, and reasonable operation counts indicate a healthy system. If the average times seem high, something might need optimization. Error counts or spikes in the sparkline signal issues that need attention. Unusually high or low operation counts might indicate unexpected application behavior.
 
-### Latency sparkline
+The Dashboard has no interactive elements—it's purely observational. When you spot something interesting, that's your cue to switch to a more specialized panel. Seeing errors? Head to the Events panel to get the details. Want to understand why a particular operation was slow? The Traces panel can break it down for you.
 
-Below the metrics, a sparkline chart visualizes the latency of your last 30 operations. This makes it easy to spot:
-
-- **Latency spikes** — Sudden increases that might indicate a problem
-- **Trending changes** — Gradual increases or decreases over time
-- **Outliers** — Individual operations that took much longer than typical
-
-The sparkline includes all operation types (ingest, retrieve, rerank, delete) on a single timeline, giving you a unified view of system responsiveness.
-
-### Recent events
-
-The bottom section shows the 10 most recent events in reverse chronological order (newest first). Each event row displays:
-
-- **Timestamp** — When the event occurred
-- **Type** — The event type (e.g., `ingest:complete`, `retrieve:start`)
-- **Summary** — Key information like duration or chunk count
-
-This gives you a quick sense of what's happening without switching to the full Events panel.
-
-## Reading the dashboard
-
-The Dashboard is designed for pattern recognition rather than detailed analysis. Use it to answer questions like:
-
-**"Is my pipeline healthy?"** — Stable latencies, no errors, and reasonable operation counts indicate a healthy system.
-
-**"What's the typical performance?"** — The average times give you a baseline. If these seem high, something might need optimization.
-
-**"Are there any problems?"** — Error counts, latency spikes in the sparkline, or error events in the recent list all signal issues needing attention.
-
-**"How active is the system?"** — Operation counts show the volume of work. Unusually high or low counts might indicate unexpected behavior.
-
-## Navigation
-
-The Dashboard is Tab 1. You can reach it by:
-- Pressing `1` from any panel
-- Using `Shift+Tab` to cycle between panels
-
-The Dashboard has no interactive elements—it's a read-only overview. To take action, navigate to the relevant specialized panel:
-
-- See an error? Check the Events panel (`2`) for details
-- Want to investigate slow operations? Use the Traces panel (`3`)
-- Need to run a test query? Switch to the Query panel (`4`)
-
-## What's next
-
-<Cards>
-  <Card title="Events Panel" href="/docs/debugging/panels/events">
-    View the full event stream with filtering
-  </Card>
-  <Card title="Traces Panel" href="/docs/debugging/panels/traces">
-    Analyze operation timelines in detail
-  </Card>
-</Cards>
+You can reach the Dashboard at any time by pressing `1`, or cycle through tabs with `Shift+Tab`.

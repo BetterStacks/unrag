@@ -3,67 +3,26 @@ title: Traces Panel
 description: Grouped operation traces for timeline analysis.
 ---
 
-The Traces panel groups related events into complete operation traces, making it easier to analyze the timeline of individual operations. While the Events panel shows every event chronologically, the Traces panel shows each operation as a cohesive unit.
+The Traces panel takes a different view of the same events you see in the Events panel. Instead of showing every event in a single chronological stream, it groups related events together by operation. Each trace represents one complete operation—from start to finish—making it easier to analyze how time was spent.
 
 ## How traces work
 
-Each operation (ingest, retrieve, rerank, delete) is assigned an operation ID when it starts. The Traces panel groups all events with the same operation ID into a single trace, showing you:
+Every operation gets assigned a unique ID when it starts. All the events that happen during that operation share the same ID. The Traces panel uses this to group them together and show you the full timeline of each operation in isolation.
 
-- **Start time** — When the operation began
-- **End time** — When it completed (or errored)
-- **Total duration** — End-to-end time
-- **Phase breakdown** — Time spent in each phase of the operation
-
-## Reading a trace
-
-When you select a trace, you see its timeline of events:
-
-```
-ingest:start         ──────┐ 0ms
-ingest:chunking      ──────┼─── 12ms
-ingest:embedding:start ────┼─── 15ms
-ingest:embedding:batch ────┼─── 45ms
-ingest:embedding:batch ────┼─── 78ms
-ingest:embedding:complete ─┼─── 92ms
-ingest:storage:complete ───┼─── 120ms
-ingest:complete      ──────┘ 125ms
-```
-
-The visualization shows how much time each phase took relative to the total operation time. Long gaps between events indicate slow phases.
-
-## Navigation
-
-| Key | Action |
-|-----|--------|
-| `j` or `↓` | Move to next trace |
-| `k` or `↑` | Move to previous trace |
-| `Enter` | Expand/collapse trace details |
+When you select a trace, you see all its events laid out sequentially with timestamps. You can see exactly how long each phase took: how much time was spent chunking, how much embedding, how much writing to the database. The visualization makes long phases stand out—if embedding took 80% of the total time, that's immediately obvious.
 
 ## Identifying bottlenecks
 
-The Traces panel is particularly useful for identifying which phase of an operation is slowest:
+This is where the Traces panel really shines. When an operation is slower than you'd like, the trace shows you exactly where the time went.
 
-**Embedding-bound operations** — If most of the trace time is between `embedding:start` and `embedding:complete`, your embedding model or provider is the bottleneck. Consider batching, caching, or switching to a faster model.
+If most of the trace duration sits between `embedding:start` and `embedding:complete`, your embedding model or provider is the limiting factor. Maybe you need to batch more aggressively, or consider a faster model, or check if you're hitting rate limits.
 
-**Storage-bound operations** — If `storage:complete` takes a long time after embedding finishes, database writes are slow. Check your Postgres connection, indexes, and connection pool settings.
+If there's a long gap after embedding before `storage:complete`, the database is the bottleneck. Check your Postgres connection latency, make sure your connection pool isn't exhausted, and verify your indexes are in good shape.
 
-**Chunking-bound operations** — If `chunking:complete` takes a long time, your chunking logic might be inefficient for the content type.
+If chunking takes surprisingly long, your content might be unusually large or complex, or perhaps your custom chunking logic has an inefficiency.
 
-## Comparing traces
+## Comparing across operations
 
-With multiple traces visible, you can compare durations across operations:
+With multiple traces visible in the list, you can start comparing. Are documents from one source consistently slower than others? Does performance degrade under load? Did that configuration change you just made actually help?
 
-- Operations on different documents — Are some document types slower than others?
-- Operations at different times — Is there a pattern (e.g., slower under load)?
-- Before and after changes — Did your optimization actually help?
-
-## What's next
-
-<Cards>
-  <Card title="Events Panel" href="/docs/debugging/panels/events">
-    View the raw event stream with filtering
-  </Card>
-  <Card title="Understanding Events" href="/docs/debugging/debug-events">
-    Learn what each event type means
-  </Card>
-</Cards>
+Navigate between traces with `j` and `k`, and press `Enter` to expand or collapse the details for a selected trace.
