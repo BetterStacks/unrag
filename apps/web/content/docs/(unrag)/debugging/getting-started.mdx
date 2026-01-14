@@ -1,0 +1,142 @@
+---
+title: Getting Started
+description: Install the debug battery and connect to your first debugging session.
+---
+
+Setting up the Debug Panel takes about a minute. You'll install the debug battery, enable debug mode in your environment, register your engine, and connect with the TUI.
+
+## Install the debug battery
+
+Add the debug battery to your Unrag installation:
+
+```bash
+bunx unrag@latest add battery debug
+```
+
+This installs the debug module into your project (typically at `lib/unrag/debug/`) and adds the necessary dependencies. The debug battery includes both the in-app server code and type definitions for the WebSocket protocol.
+
+## Enable debug mode
+
+Set the `UNRAG_DEBUG` environment variable to enable the debug server:
+
+```bash
+UNRAG_DEBUG=true
+```
+
+Add this to your `.env` file for development, or set it in your shell before running your application. When this variable is set, the debug server will automatically start when your engine is created.
+
+You can optionally customize the port:
+
+```bash
+UNRAG_DEBUG_PORT=4000
+```
+
+The default port is 3847.
+
+## Register your engine
+
+For the TUI to send interactive commands (queries, ingestion, document inspection), you need to register your engine with the debug runtime. In your application initialization code, after creating the engine:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { registerUnragDebug } from "@unrag/debug";
+
+const engine = createUnragEngine();
+
+// Register for debug commands
+registerUnragDebug({ 
+  engine,
+  // Optional: enable document inspection
+  storeInspector: engine.storeInspector,
+});
+```
+
+The `storeInspector` is optional but enables the Docs panel to browse and manage stored documents. It's available from your engine instance and provides methods for listing documents and retrieving chunk details.
+
+<Callout>
+Without registration, the TUI will still show real-time events, but interactive features like the Query and Docs panels won't work. You'll see a warning in those panels about missing capabilities.
+</Callout>
+
+## Start your application
+
+Run your application as normal:
+
+```bash
+bun run dev
+# or npm run dev, etc.
+```
+
+You'll see a console message when the debug server starts:
+
+```
+[unrag:debug] Server started at ws://localhost:3847
+```
+
+The server is now listening for TUI connections and broadcasting debug events.
+
+## Connect the TUI
+
+In a separate terminal, launch the debug TUI:
+
+```bash
+bunx unrag debug
+```
+
+The TUI will connect to the default WebSocket URL (`ws://localhost:3847`). Once connected, you'll see the Dashboard panel showing operation metrics and recent events.
+
+If your app is running on a different port or host, use the `--url` or `--port` options:
+
+```bash
+# Custom port
+bunx unrag debug --port 4000
+
+# Full URL (for remote debugging)
+bunx unrag debug --url ws://192.168.1.100:3847
+```
+
+## Your first debug session
+
+With the TUI connected, trigger some operations in your application—ingest a document, run a retrieval query. Watch the Dashboard update in real time as events stream in.
+
+Try these keyboard shortcuts to explore:
+
+| Key | Action |
+|-----|--------|
+| `1`-`8` | Jump to specific tabs |
+| `Shift+Tab` | Cycle between tabs |
+| `j`/`k` or arrows | Navigate lists |
+| `?` or `h` | Show help overlay |
+| `q` | Quit the TUI |
+
+The status bar at the bottom shows your connection status, the server URL, and a hint about available shortcuts.
+
+## Troubleshooting
+
+**"Connecting..." stays indefinitely**
+
+The TUI can't reach the debug server. Check that:
+- Your application is running with `UNRAG_DEBUG=true`
+- The port matches (default 3847)
+- No firewall is blocking the connection
+
+**Panels show "capability not available"**
+
+The engine isn't registered for debug commands. Add `registerUnragDebug({ engine })` after creating your engine.
+
+**Events appear but queries fail**
+
+The TUI receives events (proving connection works) but can't execute commands. This usually means `registerUnragDebug` was called without the engine parameter, or the engine was created in a different process.
+
+## What's next
+
+<Cards>
+  <Card title="Dashboard Panel" href="/docs/debugging/panels/dashboard">
+    Understand what the Dashboard metrics tell you
+  </Card>
+  <Card title="Query Panel" href="/docs/debugging/panels/query">
+    Run interactive queries and inspect results
+  </Card>
+  <Card title="Best Practices" href="/docs/debugging/best-practices">
+    Effective debugging workflows for common scenarios
+  </Card>
+</Cards>

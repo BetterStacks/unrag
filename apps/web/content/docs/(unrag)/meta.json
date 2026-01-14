@@ -13,6 +13,7 @@
     "extractors",
     "connectors",
     "batteries",
+    "debugging",
     "eval",
     "frameworks",
     "guides",

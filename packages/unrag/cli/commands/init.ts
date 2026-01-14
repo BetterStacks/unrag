@@ -15,17 +15,17 @@ import {
   copyBatteryFiles,
   copyRegistryFiles,
   type RegistrySelection,
-} from "@cli/lib/registry";
-import { readJsonFile, writeJsonFile } from "@cli/lib/json";
+} from "../lib/registry";
+import { readJsonFile, writeJsonFile } from "../lib/json";
 import {
   ensureDir,
   exists,
   findUp,
   normalizePosixPath,
   tryFindProjectRoot,
-} from "@cli/lib/fs";
-import { readRegistryManifest } from "@cli/lib/manifest";
-import { fetchPreset, type PresetPayloadV1 } from "@cli/lib/preset";
+} from "../lib/fs";
+import { readRegistryManifest } from "../lib/manifest";
+import { fetchPreset, type PresetPayloadV1 } from "../lib/preset";
 import {
   depsForAdapter,
   depsForConnector,
@@ -42,15 +42,15 @@ import {
   depsForEmbeddingProvider,
   depsForBattery,
   writePackageJson,
-} from "@cli/lib/packageJson";
-import { patchTsconfigPaths } from "@cli/lib/tsconfig";
+} from "../lib/packageJson";
+import { patchTsconfigPaths } from "../lib/tsconfig";
 import { writeFile } from "node:fs/promises";
 import {
   EVAL_CONFIG_DEFAULT,
   EVAL_PACKAGE_JSON_SCRIPTS,
   EVAL_SAMPLE_DATASET_V1,
   renderEvalRunnerScript,
-} from "@cli/lib/evalBatteryScaffold";
+} from "../lib/evalBatteryScaffold";
 
 type InitConfig = {
   installDir: string;
@@ -475,6 +475,7 @@ export async function initCommand(args: string[]) {
         projectRoot: root,
         registryRoot,
         installDir,
+        aliasBase,
         extractor,
         yes: nonInteractive,
         overwrite: overwritePolicy,
@@ -513,6 +514,7 @@ export async function initCommand(args: string[]) {
         projectRoot: root,
         registryRoot,
         installDir,
+        aliasBase,
         connector,
         yes: nonInteractive,
         overwrite: overwritePolicy,
@@ -550,6 +552,7 @@ export async function initCommand(args: string[]) {
         projectRoot: root,
         registryRoot,
         installDir,
+        aliasBase,
         battery,
         yes: nonInteractive,
         overwrite: overwritePolicy,
@@ -622,7 +625,7 @@ export async function initCommand(args: string[]) {
       evalConfigAbs,
       JSON.stringify(EVAL_CONFIG_DEFAULT, null, 2) + "\n"
     );
-    await writeIfMissing(scriptAbs, renderEvalRunnerScript({ installDir }));
+    await writeIfMissing(scriptAbs, renderEvalRunnerScript({ aliasBase }));
 
     // Add package.json scripts, non-destructively.
     const pkg2: any = await readPackageJson(root);

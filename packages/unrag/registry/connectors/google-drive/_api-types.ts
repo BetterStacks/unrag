@@ -11,6 +11,10 @@ export interface DriveFile {
   mimeType?: string | null;
   size?: string | null;
   webViewLink?: string | null;
+  webContentLink?: string | null;
+  iconLink?: string | null;
+  md5Checksum?: string | null;
+  driveId?: string | null;
   modifiedTime?: string | null;
   parents?: string[] | null;
   shortcutDetails?: {

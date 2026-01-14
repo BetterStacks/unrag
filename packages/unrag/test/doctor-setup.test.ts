@@ -7,7 +7,7 @@ import {
   mergeDoctorArgsWithConfig,
   getEnvFilesToLoad,
   type DoctorConfig,
-} from "../cli/lib/doctor/doctorConfig";
+} from "@cli/lib/doctor/doctorConfig";
 
 const workspaceTmpRoot = path.join(process.cwd(), "tmp", "test-runs");
 

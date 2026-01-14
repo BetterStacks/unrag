@@ -1,0 +1,230 @@
+---
+title: Programmatic API
+description: Integrate debug capabilities programmatically beyond the TUI.
+---
+
+The Debug Panel TUI is built on top of a programmatic API that you can use directly. This is useful if you want to build custom debugging tools, integrate debug events into your existing observability stack, or automate debugging workflows.
+
+## Server-side API
+
+These functions run in your application alongside the debug server.
+
+### Starting the server manually
+
+The debug server starts automatically when `UNRAG_DEBUG=true` is set and your engine is created. If you need more control, you can start and stop it manually:
+
+```ts
+import { startDebugServer, stopDebugServer, getDebugServer } from "@unrag/debug";
+
+// Start with custom configuration
+const server = await startDebugServer({
+  port: 4000,           // Default: 3847
+  host: "0.0.0.0",      // Default: "localhost"
+  maxClients: 10,       // Default: 5
+});
+
+if (server) {
+  console.log(`Debug server running at ws://${server.host}:${server.port}`);
+}
+
+// Check if server is running
+const current = getDebugServer();
+if (current) {
+  console.log(`Connected clients: ${current.clientCount}`);
+}
+
+// Stop the server
+await stopDebugServer();
+```
+
+The `startDebugServer` function returns `null` if `UNRAG_DEBUG` isn't enabled, so you can call it unconditionally and it will only start when appropriate.
+
+### Registering the runtime
+
+For interactive commands (queries, ingestion, document inspection), register your engine:
+
+```ts
+import { registerUnragDebug, getUnragDebugRuntime } from "@unrag/debug";
+
+// Basic registration (enables Query, Ingest panels)
+registerUnragDebug({ engine });
+
+// Full registration (also enables Docs panel)
+registerUnragDebug({
+  engine,
+  storeInspector: engine.storeInspector,
+});
+
+// Check current registration
+const runtime = getUnragDebugRuntime();
+if (runtime?.engine) {
+  console.log("Engine registered for debug commands");
+}
+```
+
+The `storeInspector` provides methods for listing and retrieving documents from your vector store. It's available from your engine instance if your store adapter supports it.
+
+## Client-side API
+
+These functions let you build custom tools that connect to a running debug server.
+
+### Connecting to the server
+
+```ts
+import { connectDebugClient, createAutoReconnectClient } from "@unrag/debug";
+
+// Simple connection
+const connection = await connectDebugClient({
+  url: "ws://localhost:3847",
+});
+
+console.log(`Status: ${connection.status}`);
+console.log(`Session: ${connection.sessionId}`);
+console.log(`Capabilities: ${connection.capabilities?.join(", ")}`);
+
+// With auto-reconnect
+const client = createAutoReconnectClient({
+  url: "ws://localhost:3847",
+  reconnect: true,
+  reconnectDelay: 1000,
+  maxReconnectAttempts: 10,
+});
+```
+
+### Receiving events
+
+Subscribe to debug events as they stream from the server:
+
+```ts
+// Subscribe to events
+const unsubscribe = connection.onEvent((event) => {
+  console.log(`[${event.type}]`, event);
+  
+  if (event.type === "ingest:complete") {
+    console.log(`Ingested ${event.chunkCount} chunks in ${event.totalDurationMs}ms`);
+  }
+});
+
+// Monitor connection status
+connection.onStatusChange((status) => {
+  console.log(`Connection status: ${status}`);
+});
+
+// Cleanup
+unsubscribe();
+connection.disconnect();
+```
+
+### Sending commands
+
+Execute debug commands and receive results:
+
+```ts
+// Run a query
+const queryResult = await connection.sendCommand({
+  type: "query",
+  query: "how does ingestion work?",
+  topK: 5,
+});
+
+if (queryResult.success && queryResult.type === "query") {
+  for (const chunk of queryResult.chunks ?? []) {
+    console.log(`${chunk.score.toFixed(4)} | ${chunk.sourceId}`);
+  }
+}
+
+// List documents
+const docsResult = await connection.sendCommand({
+  type: "list-documents",
+  prefix: "docs:",
+  limit: 10,
+});
+
+// Get store stats
+const statsResult = await connection.sendCommand({
+  type: "store-stats",
+});
+
+// Run doctor checks
+const doctorResult = await connection.sendCommand({
+  type: "doctor",
+});
+```
+
+## Available commands
+
+| Command | Description | Capability Required |
+|---------|-------------|---------------------|
+| `query` | Execute a retrieval query | `query` |
+| `ingest` | Ingest a document | `ingest` |
+| `list-documents` | List stored documents | `docs` |
+| `get-document` | Get document details with chunks | `docs` |
+| `delete-document` | Delete a document | `docs` |
+| `delete-chunks` | Delete specific chunks | `docs` |
+| `store-stats` | Get store statistics | `storeInspector` |
+| `doctor` | Run diagnostics | `doctor` |
+| `run-eval` | Run an evaluation dataset | `eval` |
+| `ping` | Test connection | — |
+| `clear-buffer` | Clear event buffer | — |
+| `get-buffer` | Get buffered events | — |
+
+## Type exports
+
+The debug module exports TypeScript types for building type-safe integrations:
+
+```ts
+import type {
+  // Server types
+  DebugServerConfig,
+  DebugServer,
+  
+  // Client types
+  DebugClientConfig,
+  DebugConnection,
+  DebugConnectionStatus,
+  
+  // Command types
+  DebugCommand,
+  QueryCommand,
+  IngestCommand,
+  ListDocumentsCommand,
+  // ... and more
+  
+  // Result types
+  DebugCommandResult,
+  QueryResult,
+  IngestResult,
+  // ... and more
+  
+  // Event types
+  DebugEvent,
+  DebugEventType,
+  IngestStartEvent,
+  IngestCompleteEvent,
+  RetrieveCompleteEvent,
+  // ... and more
+} from "@unrag/debug";
+```
+
+## WebSocket protocol
+
+The debug server uses a simple JSON-over-WebSocket protocol. If you're building a client in a language other than TypeScript, here's what you need to know:
+
+**Handshake.** After connecting, the server sends a `hello` message with its protocol version and capabilities. Your client should respond with its supported protocol versions. The server then sends a `welcome` message with the session ID and buffered events.
+
+**Events.** The server broadcasts events as `{ type: "event", event: DebugEvent }` messages.
+
+**Commands.** Send commands as `{ type: "command", requestId: string, command: DebugCommand }`. The server responds with `{ type: "result", requestId: string, result: DebugCommandResult }`.
+
+The protocol version is incremented when breaking changes are made. The current version is `2`.
+
+## What's next
+
+<Cards>
+  <Card title="Understanding Events" href="/docs/debugging/debug-events">
+    Learn about the event types you'll receive
+  </Card>
+  <Card title="CLI Reference" href="/docs/reference/cli">
+    Full CLI documentation including the debug command
+  </Card>
+</Cards>

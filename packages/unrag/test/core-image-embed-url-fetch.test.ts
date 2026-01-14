@@ -199,7 +199,7 @@ describe("image embedding URL hardening", () => {
     try {
       globalThis.fetch = (async () => {
         throw new Error("fetch should not be called when fetch is disabled");
-      }) as typeof fetch;
+      }) as unknown as typeof fetch;
 
       const config: ResolvedContextEngineConfig = {
         embedding: {
@@ -284,7 +284,7 @@ describe("image embedding URL hardening", () => {
     try {
       globalThis.fetch = (async () => {
         throw new Error("fetch should not be called when fetch is disabled");
-      }) as typeof fetch;
+      }) as unknown as typeof fetch;
 
       const config: ResolvedContextEngineConfig = {
         embedding: {

@@ -5,7 +5,7 @@
  */
 
 import type { Reranker } from "@registry/core/types";
-import type { CustomRerankerConfig } from "./types";
+import type { CustomRerankerConfig } from "@registry/rerank/types";
 
 /**
  * Create a custom reranker with your own implementation.

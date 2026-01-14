@@ -1,0 +1,102 @@
+---
+title: Understanding Debug Events
+description: Learn what each event type reveals about your RAG pipeline's behavior.
+---
+
+Every operation in your RAG pipeline emits structured events that the debug server broadcasts to connected clients. Understanding these events helps you diagnose issues, identify bottlenecks, and verify that your pipeline behaves as expected.
+
+## Event lifecycle
+
+Events follow predictable patterns. Each operation starts with a "start" event, may emit progress events during execution, and concludes with either a "complete" or "error" event. This structure lets you trace the full lifecycle of any operation.
+
+### Ingest events
+
+When you call `engine.ingest()`, the following events are emitted:
+
+**`ingest:start`** — The operation begins. Includes the `sourceId` and operation ID that links all subsequent events.
+
+**`ingest:chunking:complete`** — Chunking finished. Shows how many chunks were created and the chunking parameters used (`chunkSize`, `chunkOverlap`). If your chunks seem too small or too large, this event reveals the exact settings in effect.
+
+**`ingest:embedding:start`** — Embedding generation begins. Includes the total number of chunks to embed and the embedding model being used.
+
+**`ingest:embedding:batch`** — Emitted for each batch of embeddings generated. Shows the batch number, batch size, and duration. If embedding is slow, these events reveal whether it's the batch size or the number of batches causing the delay.
+
+**`ingest:embedding:complete`** — All embeddings generated. Shows total duration and vectors created. Comparing this to storage time helps identify whether embedding or database writes are your bottleneck.
+
+**`ingest:storage:complete`** — Chunks written to the database. Includes duration and the number of vectors stored.
+
+**`ingest:complete`** — The full operation finished. Contains a summary with `documentId`, total `chunkCount`, and timing breakdown (`totalDurationMs`).
+
+**`ingest:error`** — Something went wrong. The `error` field contains the exception message. These events help you catch failures that might otherwise go unnoticed in background jobs.
+
+### Retrieve events
+
+Query operations emit a simpler sequence:
+
+**`retrieve:start`** — The query begins. Includes the query text, `topK` setting, and any scope filters applied.
+
+**`retrieve:embedding:complete`** — The query was embedded. Shows the embedding model and how long it took. If queries feel slow, this reveals whether embedding or database search is the culprit.
+
+**`retrieve:db:complete`** — The database similarity search finished. Includes timing and the number of results returned.
+
+**`retrieve:complete`** — The full operation finished. Contains the result count and timing breakdown (`embeddingMs`, `retrievalMs`, `totalMs`).
+
+### Rerank events
+
+If you're using the reranker battery:
+
+**`rerank:start`** — Reranking begins. Shows the query and number of candidates to rerank.
+
+**`rerank:complete`** — Reranking finished. Includes the reranker name, model used, and timing (`rerankMs`, `totalMs`).
+
+### Delete events
+
+**`delete:start`** — Deletion begins. Shows the scope (by `sourceId` or prefix).
+
+**`delete:complete`** — Deletion finished. Includes the number of items deleted and duration.
+
+## Reading timing information
+
+Events include millisecond-precision timing. Here's how to interpret the common patterns:
+
+**Embedding dominates total time** — Your embedding model is the bottleneck. Consider using a local model, enabling batch embeddings, or pre-computing embeddings for frequently ingested content.
+
+**Storage is slow** — Database writes are the bottleneck. Check your Postgres connection latency, consider connection pooling, or verify that your indexes are properly configured.
+
+**Retrieval embedding is fast but database is slow** — Your vector index may need optimization. Run `unrag doctor --db` to check index health.
+
+**Many small batches in embedding** — If you see many `ingest:embedding:batch` events with small batch sizes, you might benefit from adjusting your chunking to produce fewer, larger chunks, or from batching multiple documents together.
+
+## Event buffering
+
+The debug server buffers recent events so TUI clients can see what happened before they connected. When a client connects, it receives the buffered events as part of the welcome message.
+
+The buffer holds the last several hundred events (the exact limit depends on event size). For long-running applications, older events are dropped as new ones arrive. If you need to analyze historical events, consider logging them to a file or external service.
+
+## Using events for performance analysis
+
+A practical debugging workflow using events:
+
+1. **Establish a baseline.** Ingest a typical document and note the timing breakdown in the `ingest:complete` event.
+
+2. **Identify the slow phase.** Is `embeddingMs` dominating? Or `storageMs`? The event breakdown tells you exactly where time goes.
+
+3. **Make a change.** Adjust chunk size, switch embedding providers, or tune database settings.
+
+4. **Compare.** Ingest the same document again and compare the new timing breakdown to your baseline.
+
+The Events panel in the TUI makes this comparison easy—you can see multiple operations side by side and compare their timing profiles.
+
+## What's next
+
+<Cards>
+  <Card title="Events Panel" href="/docs/debugging/panels/events">
+    View and filter events in real time
+  </Card>
+  <Card title="Traces Panel" href="/docs/debugging/panels/traces">
+    See grouped operation traces for timing analysis
+  </Card>
+  <Card title="Best Practices" href="/docs/debugging/best-practices">
+    Effective workflows for common debugging scenarios
+  </Card>
+</Cards>

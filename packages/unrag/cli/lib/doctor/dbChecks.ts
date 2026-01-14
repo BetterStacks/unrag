@@ -5,7 +5,7 @@
  */
 
 import path from "node:path";
-import { docsUrl } from "@cli/lib/constants";
+import { docsUrl } from "../constants";
 import { inferTableNames } from "./infer";
 import type { CheckResult, InferredInstallState } from "./types";
 

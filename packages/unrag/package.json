@@ -21,9 +21,13 @@
     "ai": "^6.0.3",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
+    "ink": "6.6.0",
     "pg": "^8.16.3",
     "prisma": "^6.0.0",
-    "voyage-ai-provider": "^3.0.0"
+    "react": "19.2.3",
+    "react-devtools-core": "^6.1.5",
+    "voyage-ai-provider": "^3.0.0",
+    "@types/react": "^19.2.3"
   },
   "dependencies": {
     "@clack/prompts": "^0.11.0",
@@ -34,7 +38,7 @@
     "typescript": "^5"
   },
   "scripts": {
-    "build": "bun build --target=node --format=esm --packages=external --outfile dist/cli/index.js cli/index.ts",
+    "build": "bun build --target=node --format=esm --packages=external --outfile dist/cli/index.js cli/index.ts && bun build --target=node --format=esm --production --outfile dist/debug-tui/index.js registry/debug/tui/App.tsx",
     "test": "bun test",
     "unrag:doctor": "unrag doctor --config .unrag/doctor.json",
     "unrag:doctor:db": "unrag doctor --config .unrag/doctor.json --db",

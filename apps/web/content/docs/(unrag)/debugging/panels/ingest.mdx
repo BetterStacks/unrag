@@ -1,0 +1,46 @@
+---
+title: Ingest Panel
+description: Interactive document ingestion for quick testing.
+---
+
+The Ingest panel lets you ingest documents directly from the TUI. Instead of writing code to test your ingestion pipeline, you fill in a few fields and press a key. It's the fastest way to add test content and see what your chunking produces.
+
+## What you need
+
+Like the Query panel, the Ingest panel requires your engine to be registered: `registerUnragDebug({ engine })`. Without this, the panel shows a message about missing ingest capability.
+
+## Two ways to provide content
+
+The panel supports two modes for getting content into your pipeline.
+
+**File mode** is the default. You provide a path to a file, and the debug server reads it from wherever your application is running. This works well for multiline documents and larger content—just point it at a markdown file, a text file, or whatever you want to ingest.
+
+**Inline mode** lets you type content directly in the TUI. It's limited to a single line, but it's convenient for quick tests when you just want to throw some text at the pipeline and see what happens.
+
+Toggle between modes with `m`.
+
+## Filling in the fields
+
+The panel has several fields you can configure. Use `Tab` to move between them, `e` to edit the focused field, and `Enter` or `Escape` to confirm your changes.
+
+The source ID is the identifier for your document—something like `debug:hello-world` or `test:my-document`. The content field holds either your file path (in file mode) or your inline text (in inline mode). You can press `c` to clear the content field if you want to start fresh.
+
+The metadata field accepts a JSON object that gets stored alongside your document. Something like `{"source": "debug", "category": "test"}` lets you attach whatever context is useful. If your JSON is malformed, you'll see an error message.
+
+The chunk size and chunk overlap fields let you override the defaults for this specific ingestion. Leave them blank to use your engine's configured defaults, or specify explicit values if you want to experiment with different settings.
+
+## Running ingestion
+
+Press `r` to ingest. The panel shows "Ingesting..." while the operation runs, then displays the results: the generated document ID, how many chunks were created, and which embedding model was used.
+
+If there are warnings—maybe some assets were skipped—they appear below the success message. If something fails, you'll see the error message explaining what went wrong.
+
+## Why this is useful
+
+The Ingest panel is perfect for quick experiments. Want to see how different chunk sizes affect your content? Ingest the same document a few times with different settings, then check the results in the Docs panel.
+
+Building a new feature and need some test data? Add a few documents here without writing any ingestion code.
+
+Debugging a production issue where certain content doesn't ingest properly? Reproduce it here with similar content and watch the Events panel to see where things go wrong.
+
+One limitation: the Ingest panel handles plain text only. If you need to process documents with assets (images, PDFs, audio), you'll need to use your application's normal ingestion path with the appropriate extractors configured.

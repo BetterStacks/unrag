@@ -212,6 +212,22 @@ const result = await engine.retrieve({
 });
 ```
 
+## Tenant data deletion
+
+When a tenant is deleted or requests data removal, use prefix deletion to clean up all their content:
+
+```ts
+// Delete all content for a tenant
+await engine.delete({ sourceIdPrefix: `tenant:${tenantId}:` });
+
+// Delete a specific workspace within a tenant
+await engine.delete({
+  sourceIdPrefix: `tenant:${tenantId}:workspace:${workspaceId}:`
+});
+```
+
+The prefix-based deletion removes all matching documents and their associated chunks and embeddings in a single operation, making tenant offboarding straightforward.
+
 ## Database indexes for tenant queries
 
 If you filter by tenant frequently, add indexes to keep queries fast:

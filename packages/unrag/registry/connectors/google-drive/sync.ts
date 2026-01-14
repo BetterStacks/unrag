@@ -1,20 +1,20 @@
 import type { IngestResult, Metadata } from "@registry/core";
 import type { AssetInput } from "@registry/core/types";
-import type { DriveClient, DriveFile } from "./_api-types";
-import { createGoogleDriveClient } from "./client";
+import type { DriveClient, DriveFile } from "@registry/connectors/google-drive/_api-types";
+import { createGoogleDriveClient } from "@registry/connectors/google-drive/client";
 import {
   assetKindFromMediaType,
   classifyDriveMimeType,
   EXPORT_MIME,
   getNativeExportPlan,
   DRIVE_MIME,
-} from "./mime";
+} from "@registry/connectors/google-drive/mime";
 import type {
   BuildGoogleDriveFileIngestInputArgs,
   GoogleDriveFileDocument,
   GoogleDriveSyncProgressEvent,
   SyncGoogleDriveFilesInput,
-} from "./types";
+} from "@registry/connectors/google-drive/types";
 
 const DEFAULT_MAX_BYTES = 15 * 1024 * 1024; // 15MB
 
@@ -235,7 +235,7 @@ export async function loadGoogleDriveFileDocument(args: {
     };
   }
 
-  const baseMetadata: Record<string, unknown> = {
+  const baseMetadata: GoogleDriveMetadata = {
     connector: "google-drive",
     kind: "file",
     fileId,

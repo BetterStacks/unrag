@@ -6,8 +6,8 @@
 
 import path from "node:path";
 import { readFile } from "node:fs/promises";
-import { exists } from "@cli/lib/fs";
-import { docsUrl } from "@cli/lib/constants";
+import { exists } from "../fs";
+import { docsUrl } from "../constants";
 import type { CheckResult, InferredInstallState } from "./types";
 import { EXTRACTOR_CONFIG_FLAGS, EXTRACTOR_FACTORIES } from "./types";
 

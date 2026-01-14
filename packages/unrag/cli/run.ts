@@ -1,8 +1,9 @@
 import { intro, outro } from "@clack/prompts";
-import { initCommand } from "@cli/commands/init";
-import { addCommand } from "@cli/commands/add";
-import { doctorCommand } from "@cli/commands/doctor";
-import { UNRAG_GITHUB_REPO_URL, docsUrl } from "@cli/lib/constants";
+import { initCommand } from "./commands/init";
+import { addCommand } from "./commands/add";
+import { doctorCommand } from "./commands/doctor";
+import { debugCommand } from "./commands/debug";
+import { UNRAG_GITHUB_REPO_URL, docsUrl } from "./lib/constants";
 
 function renderHelp() {
   return [
@@ -16,9 +17,10 @@ function renderHelp() {
     "  init                Install core files (config + store adapter templates)",
     "  add <connector>     Install a connector (notion, google-drive)",
     "  add extractor <n>   Install an extractor (pdf-llm, image-ocr, etc.)",
-    "  add battery <name>  Install a battery module (reranker, etc.)",
+    "  add battery <name>  Install a battery module (reranker, eval, debug)",
     "  doctor              Validate installation and configuration",
     "  doctor setup        Generate project-specific doctor config and scripts",
+    "  debug               Open real-time debug TUI (requires UNRAG_DEBUG=true in app)",
     "  help                Show this help",
     "",
     "Global options:",
@@ -92,6 +94,11 @@ export async function run(argv: string[]) {
 
   if (command === "doctor") {
     await doctorCommand(rest);
+    return;
+  }
+
+  if (command === "debug") {
+    await debugCommand(rest);
     return;
   }
 

@@ -1,8 +1,8 @@
-import { deleteDocuments } from "./delete";
-import { ingest, planIngest } from "./ingest";
-import { rerank } from "./rerank";
-import { retrieve } from "./retrieve";
-import { defineConfig, resolveConfig } from "./config";
+import { defineConfig, resolveConfig } from "@registry/core/config";
+import { deleteDocuments } from "@registry/core/delete";
+import { ingest, planIngest } from "@registry/core/ingest";
+import { rerank } from "@registry/core/rerank";
+import { retrieve } from "@registry/core/retrieve";
 import { createAiEmbeddingProvider } from "@registry/embedding/ai";
 import { createOpenAiEmbeddingProvider } from "@registry/embedding/openai";
 import { createGoogleEmbeddingProvider } from "@registry/embedding/google";
@@ -30,13 +30,49 @@ import type {
   RetrieveInput,
   RetrieveResult,
   UnragCreateEngineRuntime,
-} from "./types";
+} from "@registry/core/types";
 
 export class ContextEngine {
   private readonly config: ResolvedContextEngineConfig;
 
   constructor(config: ContextEngineConfig) {
     this.config = resolveConfig(config);
+
+    // Auto-start debug server when UNRAG_DEBUG=true
+    if (process.env.UNRAG_DEBUG === "true") {
+      this.initDebugServer();
+    }
+  }
+
+  /**
+   * Initialize the debug WebSocket server.
+   * This is done asynchronously to avoid blocking engine creation.
+   */
+  private initDebugServer(): void {
+    Promise.all([import("@registry/debug/server"), import("@registry/debug/runtime")])
+      .then(async ([{ startDebugServer }, { registerUnragDebug }]) => {
+        // Auto-register runtime so interactive TUI features (Query/Docs/Eval) work out of the box
+        // when the debug battery is installed.
+        try {
+          const storeInspector = (this.config.store as any)?.inspector;
+          registerUnragDebug({
+            engine: this,
+            ...(storeInspector ? { storeInspector } : {}),
+          });
+        } catch {
+          // Best effort only.
+        }
+
+        startDebugServer().catch((err) => {
+          console.warn(
+            "[unrag:debug] Failed to start debug server:",
+            err instanceof Error ? err.message : String(err)
+          );
+        });
+      })
+      .catch(() => {
+        // Debug battery not installed - silently ignore
+      });
   }
 
   async ingest(input: IngestInput): Promise<IngestResult> {
@@ -79,6 +115,48 @@ export class ContextEngine {
 
   async delete(input: DeleteInput): Promise<void> {
     return deleteDocuments(this.config, input);
+  }
+
+  /**
+   * Minimal, safe-to-expose debug info for the debug panel "Doctor" tab.
+   * Avoids leaking secrets while still enabling actionable diagnostics.
+   */
+  getDebugInfo(): {
+    embedding: {
+      name: string;
+      dimensions?: number;
+      supportsBatch: boolean;
+      supportsImage: boolean;
+    };
+    storage: {
+      storeChunkContent: boolean;
+      storeDocumentContent: boolean;
+    };
+    defaults: {
+      chunkSize: number;
+      chunkOverlap: number;
+    };
+    extractorsCount: number;
+    reranker?: { name: string };
+  } {
+    return {
+      embedding: {
+        name: this.config.embedding.name,
+        dimensions: this.config.embedding.dimensions,
+        supportsBatch: typeof this.config.embedding.embedMany === "function",
+        supportsImage: typeof this.config.embedding.embedImage === "function",
+      },
+      storage: {
+        storeChunkContent: Boolean(this.config.storage.storeChunkContent),
+        storeDocumentContent: Boolean(this.config.storage.storeDocumentContent),
+      },
+      defaults: {
+        chunkSize: this.config.defaults.chunkSize,
+        chunkOverlap: this.config.defaults.chunkOverlap,
+      },
+      extractorsCount: this.config.extractors.length,
+      reranker: this.config.reranker ? { name: this.config.reranker.name } : undefined,
+    };
   }
 }
 
