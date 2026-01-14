@@ -16,13 +16,15 @@ import { TabBar } from "@registry/debug/tui/components/TabBar";
 import { Traces } from "@registry/debug/tui/components/Traces";
 import { QueryRunner } from "@registry/debug/tui/components/QueryRunner";
 import { Docs } from "@registry/debug/tui/components/Docs";
+import { Ingest } from "@registry/debug/tui/components/Ingest";
 import { Doctor } from "@registry/debug/tui/components/Doctor";
 import { Eval } from "@registry/debug/tui/components/Eval";
 import { useConnection } from "@registry/debug/tui/hooks/useConnection";
 import { useEvents } from "@registry/debug/tui/hooks/useEvents";
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
+import { HotkeysLockProvider, useHotkeysLocked } from "@registry/debug/tui/context/HotkeysLock";
 
-export type Tab = "dashboard" | "events" | "traces" | "query" | "docs" | "doctor" | "eval";
+export type Tab = "dashboard" | "events" | "traces" | "query" | "docs" | "ingest" | "doctor" | "eval";
 
 type AppProps = {
   url?: string;
@@ -33,12 +35,13 @@ export function App({ url }: AppProps) {
   const [showHelp, setShowHelp] = useState(false);
   const { exit } = useApp();
   const { columns, rows } = useTerminalSize();
+  const hotkeysLocked = useHotkeysLocked();
 
   const connection = useConnection(url);
   const events = useEvents(connection);
 
   // Tab navigation
-  const tabs: Tab[] = ["dashboard", "events", "traces", "query", "docs", "doctor", "eval"];
+  const tabs: Tab[] = ["dashboard", "events", "traces", "query", "docs", "ingest", "doctor", "eval"];
 
   const cycleTab = useCallback(
     (direction: 1 | -1) => {
@@ -51,6 +54,11 @@ export function App({ url }: AppProps) {
 
   // Keyboard handling
   useInput((input, key) => {
+    // When a panel is in edit mode, disable App-level hotkeys so typing is safe.
+    if (hotkeysLocked && !(key.ctrl && input === "c")) {
+      return;
+    }
+
     // Quit
     if (input === "q" || (key.ctrl && input === "c")) {
       connection.disconnect();
@@ -83,8 +91,9 @@ export function App({ url }: AppProps) {
     if (input === "3") setActiveTab("traces");
     if (input === "4") setActiveTab("query");
     if (input === "5") setActiveTab("docs");
-    if (input === "6") setActiveTab("doctor");
-    if (input === "7") setActiveTab("eval");
+    if (input === "6") setActiveTab("ingest");
+    if (input === "7") setActiveTab("doctor");
+    if (input === "8") setActiveTab("eval");
   });
 
   return (
@@ -106,8 +115,9 @@ export function App({ url }: AppProps) {
           { id: "traces", label: "Traces", shortcut: "3" },
           { id: "query", label: "Query", shortcut: "4" },
           { id: "docs", label: "Docs", shortcut: "5" },
-          { id: "doctor", label: "Doctor", shortcut: "6" },
-          { id: "eval", label: "Eval", shortcut: "7" },
+          { id: "ingest", label: "Ingest", shortcut: "6" },
+          { id: "doctor", label: "Doctor", shortcut: "7" },
+          { id: "eval", label: "Eval", shortcut: "8" },
         ]}
         activeTab={activeTab}
         onSelect={(tab) => setActiveTab(tab as Tab)}
@@ -122,6 +132,7 @@ export function App({ url }: AppProps) {
         {activeTab === "traces" && <Traces events={events} />}
         {activeTab === "query" && <QueryRunner connection={connection} />}
         {activeTab === "docs" && <Docs connection={connection} />}
+        {activeTab === "ingest" && <Ingest connection={connection} />}
         {activeTab === "doctor" && <Doctor connection={connection} />}
         {activeTab === "eval" && <Eval connection={connection} />}
       </Box>
@@ -149,8 +160,34 @@ type RunOptions = {
  * Run the debug TUI.
  */
 export function runDebugTui(options?: RunOptions) {
-  const { waitUntilExit } = render(<App url={options?.url} />);
-  return waitUntilExit();
+  // Best-effort: ensure raw mode is enabled so single-key shortcuts (e.g. `q`) work.
+  // Some runtimes/launchers can leave stdin in cooked mode, which causes Ink to only
+  // receive input after Enter and makes keys echo on screen.
+  const stdin = process.stdin as any;
+  try {
+    if (stdin?.isTTY && typeof stdin.setRawMode === "function") {
+      stdin.setRawMode(true);
+    }
+    if (typeof stdin?.setEncoding === "function") stdin.setEncoding("utf8");
+    if (typeof stdin?.resume === "function") stdin.resume();
+  } catch {
+    // ignore
+  }
+
+  const { waitUntilExit } = render(
+    <HotkeysLockProvider>
+      <App url={options?.url} />
+    </HotkeysLockProvider>
+  );
+  return waitUntilExit().finally(() => {
+    try {
+      if (stdin?.isTTY && typeof stdin.setRawMode === "function") {
+        stdin.setRawMode(false);
+      }
+    } catch {
+      // ignore
+    }
+  });
 }
 
 export default App;

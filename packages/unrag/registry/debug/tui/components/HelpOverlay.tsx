@@ -19,7 +19,7 @@ const SHORTCUTS: { section: string; items: Shortcut[] }[] = [
   {
     section: "Navigation",
     items: [
-      { keys: "1 / 2", desc: "Switch tab" },
+      { keys: "1–8", desc: "Jump to tab" },
       { keys: "Shift+Tab", desc: "Cycle tabs" },
       { keys: "j / k", desc: "Navigate list" },
       { keys: "Enter", desc: "Inspect event" },

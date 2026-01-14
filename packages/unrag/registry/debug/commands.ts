@@ -6,6 +6,7 @@
  */
 
 import type { DebugEmitter } from "@registry/core/debug-emitter";
+import type { Metadata } from "@registry/core/types";
 import { getUnragDebugRuntime } from "@registry/debug/runtime";
 import type {
   DebugCommand,
@@ -16,9 +17,11 @@ import type {
   ClearBufferResult,
   GetBufferResult,
   QueryResult,
+  IngestResult,
   ListDocumentsResult,
   GetDocumentResult,
   DeleteDocumentResult,
+  DeleteChunksResult,
   StoreStatsResult,
 } from "@registry/debug/types";
 import { hasVendoredModuleDir, isUnragBatteryInstalled } from "@registry/debug/unrag-json";
@@ -86,6 +89,9 @@ export async function handleCommand(
     case "query":
       return handleQuery(command);
 
+    case "ingest":
+      return handleIngest(command);
+
     case "list-documents":
       return handleListDocuments(command);
 
@@ -94,6 +100,9 @@ export async function handleCommand(
 
     case "delete-document":
       return handleDeleteDocument(command);
+
+    case "delete-chunks":
+      return handleDeleteChunks(command);
 
     case "store-stats":
       return handleStoreStats();
@@ -425,6 +434,138 @@ async function handleQuery(
     })),
     durations: res.durations,
   };
+}
+
+/**
+ * Handle ingest command.
+ * This requires the engine to be registered in the debug runtime.
+ */
+async function handleIngest(command: {
+  type: "ingest";
+  sourceId: string;
+  content?: string;
+  contentPath?: string;
+  metadata?: Metadata;
+  chunking?: { chunkSize?: number; chunkOverlap?: number };
+}): Promise<IngestResult> {
+  const runtime = getUnragDebugRuntime();
+  if (!runtime?.engine) {
+    return {
+      type: "ingest",
+      success: false,
+      error:
+        "Ingest requires engine registration. " +
+        "In your app, call `registerUnragDebug({ engine })` when UNRAG_DEBUG=true.",
+    };
+  }
+
+  const sourceId = (command.sourceId ?? "").trim();
+  if (!sourceId) return { type: "ingest", success: false, error: "Missing sourceId." };
+
+  let content = (command.content ?? "").toString();
+  const contentPath = (command.contentPath ?? "").trim();
+
+  if (!content && contentPath) {
+    try {
+      // Keep this as a dynamic import so bundlers don't pull node:fs into the TUI bundle.
+      const fsModulePath = ["node:fs", "promises"].join("/");
+      const fs = (await import(fsModulePath)) as any;
+      const readFile: ((p: string, enc: string) => Promise<string>) | undefined = fs?.readFile;
+      if (typeof readFile !== "function") {
+        return { type: "ingest", success: false, error: "Unable to read files in this runtime." };
+      }
+      content = await readFile(contentPath, "utf8");
+
+      const maxBytes = 5 * 1024 * 1024;
+      if (Buffer.byteLength(content, "utf8") > maxBytes) {
+        return {
+          type: "ingest",
+          success: false,
+          error: `File too large (> ${maxBytes} bytes). Use a smaller file or ingest via your app pipeline.`,
+        };
+      }
+    } catch (err) {
+      return {
+        type: "ingest",
+        success: false,
+        error: `Failed to read file: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
+
+  if (!content.trim()) {
+    return {
+      type: "ingest",
+      success: false,
+      error: "Missing content. Provide inline content or a contentPath.",
+    };
+  }
+
+  try {
+    const res = await runtime.engine.ingest({
+      sourceId,
+      content,
+      ...(command.metadata ? { metadata: command.metadata } : {}),
+      ...(command.chunking ? { chunking: command.chunking } : {}),
+    });
+
+    return {
+      type: "ingest",
+      success: true,
+      documentId: res.documentId,
+      chunkCount: res.chunkCount,
+      embeddingModel: res.embeddingModel,
+      durations: res.durations,
+      warnings: (res.warnings ?? []).map((w: any) => ({
+        code: String(w?.code ?? "unknown"),
+        message: String(w?.message ?? ""),
+        assetId: w?.assetId ? String(w.assetId) : undefined,
+        assetKind: w?.assetKind ? String(w.assetKind) : undefined,
+        stage: w?.stage ? String(w.stage) : undefined,
+      })),
+    };
+  } catch (err) {
+    return {
+      type: "ingest",
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+/**
+ * Handle delete-chunks command.
+ */
+async function handleDeleteChunks(command: {
+  type: "delete-chunks";
+  chunkIds: string[];
+}): Promise<DeleteChunksResult> {
+  const runtime = getUnragDebugRuntime();
+  if (!runtime?.storeInspector) {
+    return {
+      type: "delete-chunks",
+      success: false,
+      error:
+        "Chunk deletes require store inspector registration. " +
+        "In your app, call `registerUnragDebug({ engine, storeInspector })` when UNRAG_DEBUG=true.",
+    };
+  }
+
+  const chunkIds = Array.isArray(command.chunkIds) ? command.chunkIds.filter(Boolean) : [];
+  if (chunkIds.length === 0) {
+    return { type: "delete-chunks", success: false, error: "Missing chunkIds." };
+  }
+
+  try {
+    const out = await runtime.storeInspector.deleteChunks({ chunkIds });
+    return { type: "delete-chunks", success: true, deletedCount: out.deletedCount };
+  } catch (err) {
+    return {
+      type: "delete-chunks",
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 /**

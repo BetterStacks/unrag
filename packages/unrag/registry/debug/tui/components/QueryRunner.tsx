@@ -9,6 +9,7 @@ import { chars, clamp, formatDuration, theme, truncate } from "@registry/debug/t
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
 import { useScrollWindow } from "@registry/debug/tui/hooks/useScrollWindow";
 import { ScrollableText } from "@registry/debug/tui/components/ScrollableText";
+import { useHotkeysLock } from "@registry/debug/tui/context/HotkeysLock";
 
 type QueryRunnerProps = {
   connection: DebugConnection;
@@ -23,6 +24,7 @@ function canQuery(connection: DebugConnection): boolean {
 export function QueryRunner({ connection }: QueryRunnerProps) {
   const { columns, rows } = useTerminalSize();
   const [mode, setMode] = useState<Mode>("idle");
+  useHotkeysLock(mode === "editing");
   const [query, setQuery] = useState("how does unrag ingest work?");
   const [scope, setScope] = useState("");
   const [topK, setTopK] = useState(8);

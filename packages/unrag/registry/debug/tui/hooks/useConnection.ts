@@ -24,11 +24,15 @@ function notConnectedResult(type: DebugCommandType): DebugCommandResult {
   switch (type) {
     case "query":
       return { type, ...base };
+    case "ingest":
+      return { type, ...base };
     case "list-documents":
       return { type, ...base };
     case "get-document":
       return { type, ...base };
     case "delete-document":
+      return { type, ...base };
+    case "delete-chunks":
       return { type, ...base };
     case "store-stats":
       return { type, ...base };

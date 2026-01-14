@@ -201,9 +201,9 @@ describe("eval runner thresholds", () => {
       thresholds: { min: { recallAtK: 1 } },
     });
 
-    expect(observedRetrieveTopK).toBe(6);
-    expect(observedRerankCandidateCount).toBe(6);
-    expect(observedRerankTopK).toBe(2);
+    expect(observedRetrieveTopK!).toBe(6);
+    expect(observedRerankCandidateCount!).toBe(6);
+    expect(observedRerankTopK!).toBe(2);
 
     expect(result.report.config.mode).toBe("retrieve+rerank");
     expect(result.report.config.rerankTopK).toBe(6);

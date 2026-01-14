@@ -31,6 +31,7 @@ type DebugStoreInspector = {
     };
   }>;
   deleteDocument: (input: DeleteInput) => Promise<{ deletedCount?: number }>;
+  deleteChunks: (args: { chunkIds: string[] }) => Promise<{ deletedCount?: number }>;
   storeStats: () => Promise<{
     stats: {
       adapter: string;
@@ -127,6 +128,21 @@ export const createPrismaVectorStore = (
           ? sql`delete from documents where source_id = ${input.sourceId} returning 1 as one`
           : sql`delete from documents where source_id like ${input.sourceIdPrefix + "%"} returning 1 as one`
       )) as Array<{ one: unknown }>;
+      return { deletedCount: rows.length };
+    },
+
+    deleteChunks: async ({ chunkIds }) => {
+      const ids = Array.isArray(chunkIds) ? chunkIds.filter(Boolean) : [];
+      if (ids.length === 0) return { deletedCount: 0 };
+
+      // Prisma SQL templating here doesn't include a safe "IN list" helper.
+      // Keep this safe by only accepting UUID-like strings and using a tightly scoped unsafe query.
+      const safe = ids.filter((id) => /^[0-9a-fA-F-]{36}$/.test(id));
+      if (safe.length === 0) return { deletedCount: 0 };
+
+      const inList = safe.map((id) => `'${id}'::uuid`).join(", ");
+      const q = `delete from chunks where id in (${inList}) returning 1 as one`;
+      const rows = (await prisma.$queryRawUnsafe(q)) as Array<{ one: unknown }>;
       return { deletedCount: rows.length };
     },
 

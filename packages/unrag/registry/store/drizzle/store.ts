@@ -69,6 +69,7 @@ type DebugStoreInspector = {
     };
   }>;
   deleteDocument: (input: DeleteInput) => Promise<{ deletedCount?: number }>;
+  deleteChunks: (args: { chunkIds: string[] }) => Promise<{ deletedCount?: number }>;
   storeStats: () => Promise<{
     stats: {
       adapter: string;
@@ -196,6 +197,20 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore & { inspect
           : sql`delete from ${documents} where source_id like ${input.sourceIdPrefix + "%"} returning 1 as one`
       );
 
+      const rows = (Array.isArray(res) ? (res as any[]) : ((res as any)?.rows ?? [])) as Array<{ one: unknown }>;
+      return { deletedCount: rows.length };
+    },
+
+    deleteChunks: async ({ chunkIds }) => {
+      const ids = Array.isArray(chunkIds) ? chunkIds.filter(Boolean) : [];
+      if (ids.length === 0) return { deletedCount: 0 };
+
+      const inList = sql.join(
+        ids.map((id) => sql`${id}::uuid`),
+        sql`, `
+      );
+
+      const res = await db.execute(sql`delete from ${chunks} where id in (${inList}) returning 1 as one`);
       const rows = (Array.isArray(res) ? (res as any[]) : ((res as any)?.rows ?? [])) as Array<{ one: unknown }>;
       return { deletedCount: rows.length };
     },

@@ -12,6 +12,7 @@
 import type { ContextEngine } from "@registry/core/context-engine";
 import type { DeleteInput } from "@registry/core/types";
 import type {
+  DeleteChunksCommand,
   GetDocumentCommand,
   GetDocumentResult,
   ListDocumentsCommand,
@@ -27,6 +28,9 @@ export type StoreInspector = {
     args: Pick<GetDocumentCommand, "sourceId">
   ) => Promise<Omit<GetDocumentResult, "type" | "success" | "error">>;
   deleteDocument: (input: DeleteInput) => Promise<{ deletedCount?: number }>;
+  deleteChunks: (
+    args: Pick<DeleteChunksCommand, "chunkIds">
+  ) => Promise<{ deletedCount?: number }>;
   storeStats: () => Promise<Omit<StoreStatsResult, "type" | "success" | "error">>;
 };
 

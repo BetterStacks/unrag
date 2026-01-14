@@ -150,14 +150,13 @@ describe("core ingest warnings", () => {
       ],
     });
 
-    const codes = result.warnings.map((w) => w.code).sort();
-    expect(codes).toEqual(
-      [
-        "asset_skipped_image_no_multimodal_and_no_caption",
-        "asset_skipped_pdf_llm_extraction_disabled",
-        "asset_skipped_unsupported_kind",
-      ].sort()
-    );
+    const codes = result.warnings.map((w) => w.code).sort((a, b) => a.localeCompare(b));
+    const expected = [
+      "asset_skipped_image_no_multimodal_and_no_caption",
+      "asset_skipped_pdf_llm_extraction_disabled",
+      "asset_skipped_unsupported_kind",
+    ] as const;
+    expect(codes).toEqual([...expected].sort((a, b) => a.localeCompare(b)));
 
     // Ensure we still ingested the base text.
     expect(result.chunkCount).toBe(1);

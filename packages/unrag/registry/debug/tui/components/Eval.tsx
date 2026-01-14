@@ -8,6 +8,7 @@ import type { DebugConnection, DebugCommandResult } from "@registry/debug/types"
 import { chars, formatDuration, theme, truncate } from "@registry/debug/tui/theme";
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
 import { Sparkline } from "@registry/debug/tui/components/Sparkline";
+import { useHotkeysLock } from "@registry/debug/tui/context/HotkeysLock";
 
 type EvalProps = {
   connection: DebugConnection;
@@ -35,6 +36,7 @@ export function Eval({ connection }: EvalProps) {
   const queryCapable = canQuery(connection);
 
   const [mode, setMode] = useState<Mode>("idle");
+  useHotkeysLock(mode === "editingDataset");
   const [datasetPath, setDatasetPath] = useState(".unrag/eval/datasets/sample.json");
   const [runMode, setRunMode] = useState<"auto" | "retrieve" | "retrieve+rerank">("auto");
   const [topK, setTopK] = useState<number | undefined>(undefined);

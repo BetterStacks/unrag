@@ -213,6 +213,7 @@ export async function startDebugServer(
     const caps: DebugCapability[] = ["doctor"];
     const rt = getUnragDebugRuntime();
     if (rt?.engine) caps.push("query");
+    if (rt?.engine) caps.push("ingest");
     if (rt?.engine && isUnragBatteryInstalled("eval") && hasVendoredModuleDir("eval")) {
       caps.push("eval");
     }

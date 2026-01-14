@@ -8,6 +8,6 @@
       "@test/*": ["./test/*"]
     }
   },
-  "include": ["cli/**/*.ts", "registry/**/*.ts", "registry/**/*.tsx", "test/**/*.ts"],
+  "include": ["cli/**/*.ts", "registry/**/*.ts", "registry/**/*.tsx", "registry/**/*.d.ts", "test/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

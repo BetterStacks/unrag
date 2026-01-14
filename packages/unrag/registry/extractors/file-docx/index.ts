@@ -41,10 +41,8 @@ export function createFileDocxExtractor(): AssetExtractor {
 
       // Dynamic import so the core package can be used without mammoth unless this extractor is installed.
       const mammoth = (await import("mammoth")) as MammothModule;
-      const arrayBuffer = bytes.buffer.slice(
-        bytes.byteOffset,
-        bytes.byteOffset + bytes.byteLength
-      );
+      // Ensure ArrayBuffer (not SharedArrayBuffer) for mammoth's API surface.
+      const arrayBuffer = bytes.slice().buffer;
       const res = await mammoth.extractRawText({ arrayBuffer });
 
       const text = String(res?.value ?? "").trim();

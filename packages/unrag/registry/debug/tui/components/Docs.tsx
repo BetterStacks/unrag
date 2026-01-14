@@ -9,12 +9,13 @@ import { chars, clamp, theme, truncate } from "@registry/debug/tui/theme";
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
 import { useScrollWindow } from "@registry/debug/tui/hooks/useScrollWindow";
 import { ScrollableText } from "@registry/debug/tui/components/ScrollableText";
+import { useHotkeysLock } from "@registry/debug/tui/context/HotkeysLock";
 
 type DocsProps = {
   connection: DebugConnection;
 };
 
-type Mode = "idle" | "editingPrefix" | "confirmDelete";
+type Mode = "idle" | "editingPrefix" | "confirmDeleteDoc" | "confirmDeleteChunk";
 type Focus = "docs" | "chunks";
 
 function canDocs(connection: DebugConnection): boolean {
@@ -77,6 +78,7 @@ export function Docs({ connection }: DocsProps) {
   const docsCapable = canDocs(connection);
 
   const [mode, setMode] = useState<Mode>("idle");
+  useHotkeysLock(mode === "editingPrefix");
   const [focus, setFocus] = useState<Focus>("docs");
   const [prefix, setPrefix] = useState("");
   const [limit] = useState(30);
@@ -89,6 +91,7 @@ export function Docs({ connection }: DocsProps) {
   const [statsRes, setStatsRes] = useState<DebugCommandResult | null>(null);
 
   const pendingDeleteSourceIdRef = useRef<string | null>(null);
+  const pendingDeleteChunkIdRef = useRef<string | null>(null);
 
   const documents = useMemo(() => {
     if (docsRes?.type !== "list-documents" || !docsRes.success) return [];
@@ -179,7 +182,7 @@ export function Docs({ connection }: DocsProps) {
   useInput((input, key) => {
     if (!docsCapable) return;
 
-    if (mode === "confirmDelete") {
+    if (mode === "confirmDeleteDoc") {
       if (input === "y") {
         const sourceId = pendingDeleteSourceIdRef.current;
         pendingDeleteSourceIdRef.current = null;
@@ -195,6 +198,29 @@ export function Docs({ connection }: DocsProps) {
       }
       if (input === "n" || key.escape) {
         pendingDeleteSourceIdRef.current = null;
+        setMode("idle");
+        return;
+      }
+      return;
+    }
+
+    if (mode === "confirmDeleteChunk") {
+      if (input === "y") {
+        const chunkId = pendingDeleteChunkIdRef.current;
+        pendingDeleteChunkIdRef.current = null;
+        setMode("idle");
+        if (chunkId) {
+          void (async () => {
+            await connection.sendCommand({ type: "delete-chunks", chunkIds: [chunkId] });
+            await refreshStats();
+            await refreshList();
+            if (selectedSourceId) await refreshDocument(selectedSourceId);
+          })();
+        }
+        return;
+      }
+      if (input === "n" || key.escape) {
+        pendingDeleteChunkIdRef.current = null;
         setMode("idle");
         return;
       }
@@ -262,7 +288,13 @@ export function Docs({ connection }: DocsProps) {
 
     if (input === "d" && selectedSourceId) {
       pendingDeleteSourceIdRef.current = selectedSourceId;
-      setMode("confirmDelete");
+      setMode("confirmDeleteDoc");
+      return;
+    }
+
+    if (input === "x" && focus === "chunks" && selectedChunk?.id) {
+      pendingDeleteChunkIdRef.current = selectedChunk.id;
+      setMode("confirmDeleteChunk");
       return;
     }
 
@@ -305,11 +337,13 @@ export function Docs({ connection }: DocsProps) {
   };
 
   const headerHint =
-    mode === "confirmDelete"
-      ? "Confirm delete: y / n"
+    mode === "confirmDeleteDoc"
+      ? "Confirm delete document: y / n"
+      : mode === "confirmDeleteChunk"
+        ? "Confirm delete chunk: y / n"
       : mode === "editingPrefix"
         ? "Editing prefix: type · esc/^x exit · ⏎ apply"
-        : "tab focus · f filter · r refresh · d delete · [/] page · j/k navigate";
+        : "tab focus · f filter · r refresh · d delete doc · x delete chunk · [/] page · j/k navigate";
 
   return (
     <Box flexDirection="column" flexGrow={1} paddingY={1}>

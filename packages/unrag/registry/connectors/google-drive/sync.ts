@@ -235,7 +235,7 @@ export async function loadGoogleDriveFileDocument(args: {
     };
   }
 
-  const baseMetadata: Record<string, unknown> = {
+  const baseMetadata: GoogleDriveMetadata = {
     connector: "google-drive",
     kind: "file",
     fileId,

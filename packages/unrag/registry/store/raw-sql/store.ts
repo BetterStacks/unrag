@@ -52,6 +52,7 @@ type DebugStoreInspector = {
     };
   }>;
   deleteDocument: (input: DeleteInput) => Promise<{ deletedCount?: number }>;
+  deleteChunks: (args: { chunkIds: string[] }) => Promise<{ deletedCount?: number }>;
   storeStats: () => Promise<{
     stats: {
       adapter: string;
@@ -173,6 +174,16 @@ export const createRawSqlVectorStore = (pool: Pool): VectorStore & { inspector: 
           ? `delete from documents where source_id = $1 returning 1 as one`
           : `delete from documents where source_id like $1 returning 1 as one`,
         ["sourceId" in input ? input.sourceId : input.sourceIdPrefix + "%"]
+      );
+      return { deletedCount: res.rowCount ?? res.rows.length };
+    },
+
+    deleteChunks: async ({ chunkIds }) => {
+      const ids = Array.isArray(chunkIds) ? chunkIds.filter(Boolean) : [];
+      if (ids.length === 0) return { deletedCount: 0 };
+      const res = await pool.query(
+        `delete from chunks where id = any($1::uuid[]) returning 1 as one`,
+        [ids]
       );
       return { deletedCount: res.rowCount ?? res.rows.length };
     },

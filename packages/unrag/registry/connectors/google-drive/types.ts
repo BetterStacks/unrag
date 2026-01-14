@@ -1,4 +1,4 @@
-import type { ContextEngine, AssetInput, IngestInput } from "@registry/core";
+import type { ContextEngine, AssetInput, IngestInput, Metadata } from "@registry/core";
 
 /**
  * Service account credentials structure.
@@ -110,7 +110,7 @@ export type GoogleDriveSyncProgressEvent =
 export type GoogleDriveFileDocument = {
   sourceId: string;
   content: string;
-  metadata: Record<string, unknown>;
+  metadata: Metadata;
   assets: AssetInput[];
 };
 
@@ -118,7 +118,7 @@ export type BuildGoogleDriveFileIngestInputArgs = {
   fileId: string;
   content: string;
   assets?: AssetInput[];
-  metadata?: Record<string, unknown>;
+  metadata?: Metadata;
   sourceIdPrefix?: string;
 };
 

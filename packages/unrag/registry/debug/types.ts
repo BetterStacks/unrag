@@ -6,6 +6,7 @@
  */
 
 import type { DebugEvent } from "@registry/core/debug-events";
+import type { Metadata } from "@registry/core/types";
 
 // Re-export event types for convenience
 export type { DebugEvent, DebugEventType } from "@registry/core/debug-events";
@@ -29,6 +30,7 @@ export const DEBUG_PROTOCOL_VERSION = 2 as const;
 export type DebugCapability =
   | "traces"
   | "query"
+  | "ingest"
   | "docs"
   | "doctor"
   | "eval"
@@ -163,6 +165,36 @@ export type DeleteDocumentCommand = {
 };
 
 /**
+ * Delete chunks command (by chunk IDs).
+ *
+ * This is a debug-panel affordance to surgically delete problematic chunks without
+ * wiping an entire document/prefix.
+ */
+export type DeleteChunksCommand = {
+  type: "delete-chunks";
+  chunkIds: string[];
+};
+
+/**
+ * Ingest command - ingest a new document through the engine.
+ *
+ * Supports either inline content or reading content from a file path inside the app process.
+ */
+export type IngestCommand = {
+  type: "ingest";
+  sourceId: string;
+  /** Inline content (small docs / quick tests). */
+  content?: string;
+  /** File path to read in the app process (better for large docs / multiline). */
+  contentPath?: string;
+  metadata?: Metadata;
+  chunking?: {
+    chunkSize?: number;
+    chunkOverlap?: number;
+  };
+};
+
+/**
  * Store stats command.
  */
 export type StoreStatsCommand = {
@@ -230,9 +262,11 @@ export type GetBufferCommand = {
  */
 export type DebugCommand =
   | QueryCommand
+  | IngestCommand
   | ListDocumentsCommand
   | GetDocumentCommand
   | DeleteDocumentCommand
+  | DeleteChunksCommand
   | StoreStatsCommand
   | DoctorCommand
   | RunEvalCommand
@@ -313,6 +347,37 @@ export type GetDocumentResult = DebugCommandResultBase & {
 export type DeleteDocumentResult = DebugCommandResultBase & {
   type: "delete-document";
   deletedCount?: number;
+};
+
+/**
+ * Delete chunks result.
+ */
+export type DeleteChunksResult = DebugCommandResultBase & {
+  type: "delete-chunks";
+  deletedCount?: number;
+};
+
+/**
+ * Ingest result.
+ */
+export type IngestResult = DebugCommandResultBase & {
+  type: "ingest";
+  documentId?: string;
+  chunkCount?: number;
+  embeddingModel?: string;
+  warnings?: Array<{
+    code: string;
+    message: string;
+    assetId?: string;
+    assetKind?: string;
+    stage?: string;
+  }>;
+  durations?: {
+    totalMs: number;
+    chunkingMs: number;
+    embeddingMs: number;
+    storageMs: number;
+  };
 };
 
 /**
@@ -468,9 +533,11 @@ export type GetBufferResult = DebugCommandResultBase & {
  */
 export type DebugCommandResult =
   | QueryResult
+  | IngestResult
   | ListDocumentsResult
   | GetDocumentResult
   | DeleteDocumentResult
+  | DeleteChunksResult
   | StoreStatsResult
   | DoctorResult
   | RunEvalResult
