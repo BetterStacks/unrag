@@ -22,35 +22,154 @@ const DEFAULT_PORT = 3847;
 const DEFAULT_HOST = "localhost";
 const DEFAULT_MAX_CLIENTS = 5;
 
-// Global server instance
-let serverInstance: DebugServerInstance | null = null;
+// ---------------------------------------------------------------------------
+// Structural types for runtime-agnostic WebSocket handling
+// ---------------------------------------------------------------------------
 
-type ClientLike = {
+/**
+ * Minimal WebSocket client interface used by both Bun and Node.js runtimes.
+ */
+type WebSocketClient = {
   send: (data: string) => void;
-  close: (code?: number, reason?: string) => void;
+  close: (code?: number, reason?: string | Uint8Array) => void;
 };
 
+/**
+ * Minimal interface for Bun.serve() return type.
+ * Defined structurally to avoid requiring Bun types at compile time.
+ */
+type BunServer = {
+  stop: (closeActiveConnections?: boolean) => void;
+};
+
+/**
+ * Minimal interface for Node.js WebSocket server (ws package).
+ */
+type NodeWebSocketServer = {
+  close: (cb?: () => void) => void;
+  on: (event: "connection", handler: (ws: NodeWebSocketClient) => void) => void;
+};
+
+/**
+ * Minimal interface for Node.js WebSocket client (ws package).
+ */
+type NodeWebSocketClient = WebSocketClient & {
+  on: {
+    (event: "message", handler: (data: WsMessageData) => void): void;
+    (event: "close", handler: () => void): void;
+  };
+};
+
+/**
+ * Extended debug server instance with runtime-specific server references.
+ */
 type DebugServerInstance = DebugServer & {
-  // bun runtime
-  bunServer: ReturnType<typeof Bun.serve> | null;
-  // node runtime
+  bunServer: BunServer | null;
   nodeHttpServer: import("node:http").Server | null;
-  nodeWss: { close: (cb?: () => void) => void } | null;
-  clients: Set<ClientLike>;
+  nodeWss: NodeWebSocketServer | null;
+  clients: Set<WebSocketClient>;
   unsubscribe: (() => void) | null;
   startTime: number;
 };
 
+/**
+ * WebSocket message payload types we may receive from Bun and Node (ws).
+ *
+ * - Bun: string | ArrayBuffer
+ * - ws: Buffer | ArrayBuffer | Buffer[] | string (depending on configuration)
+ */
+type WsMessageData = string | ArrayBuffer | Uint8Array | readonly Uint8Array[];
+
+// ---------------------------------------------------------------------------
+// Runtime detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Type guard for accessing Bun global when available.
+ */
+type GlobalWithBun = typeof globalThis & {
+  Bun?: {
+    serve: (config: BunServeConfig) => BunServer;
+  };
+};
+
+/**
+ * Bun serve configuration (minimal subset we use).
+ */
+type BunServeConfig = {
+  port: number;
+  hostname: string;
+  fetch: (req: Request, server: BunServerContext) => Response | undefined;
+  websocket: BunWebSocketHandlers;
+};
+
+type BunServerContext = {
+  upgrade: (req: Request, options?: { data?: unknown }) => boolean;
+};
+
+type BunWebSocketHandlers = {
+  open: (ws: WebSocketClient) => void;
+  message: (ws: WebSocketClient, message: WsMessageData) => void;
+  close: (ws: WebSocketClient) => void;
+};
+
+/**
+ * Check if Bun.serve is available at runtime.
+ */
 function hasBunServe(): boolean {
-  return typeof (globalThis as any).Bun?.serve === "function";
+  const g = globalThis as GlobalWithBun;
+  return typeof g.Bun?.serve === "function";
 }
 
-async function createClientId(): Promise<string> {
-  const c = (globalThis as any).crypto;
-  if (c?.randomUUID) return c.randomUUID();
-  const { randomUUID } = await import("node:crypto");
-  return randomUUID();
+/**
+ * Get Bun.serve function with proper typing.
+ */
+function getBunServe(): ((config: BunServeConfig) => BunServer) | null {
+  const g = globalThis as GlobalWithBun;
+  return g.Bun?.serve ?? null;
 }
+
+function decodeWsMessage(raw: WsMessageData): string | null {
+  if (typeof raw === "string") return raw;
+
+  // Buffer is a Uint8Array subclass, so this covers Buffer too.
+  if (raw instanceof Uint8Array) {
+    return new TextDecoder().decode(raw);
+  }
+
+  if (raw instanceof ArrayBuffer) {
+    return new TextDecoder().decode(raw);
+  }
+
+  if (isUint8ArrayArray(raw)) return decodeUint8ArrayChunks(raw);
+
+  return null;
+}
+
+function isUint8ArrayArray(value: unknown): value is readonly Uint8Array[] {
+  return Array.isArray(value) && value.every((v) => v instanceof Uint8Array);
+}
+
+function decodeUint8ArrayChunks(chunks: readonly Uint8Array[]): string {
+  const totalBytes = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const merged = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
+}
+
+// ---------------------------------------------------------------------------
+// Server state
+// ---------------------------------------------------------------------------
+
+let serverInstance: DebugServerInstance | null = null;
+
+// ---------------------------------------------------------------------------
+// Server implementation
+// ---------------------------------------------------------------------------
 
 /**
  * Start the debug WebSocket server.
@@ -74,7 +193,7 @@ export async function startDebugServer(
   const port = config?.port ?? DEFAULT_PORT;
   const host = config?.host ?? DEFAULT_HOST;
   const maxClients = config?.maxClients ?? DEFAULT_MAX_CLIENTS;
-  const clients = new Set<ClientLike>();
+  const clients = new Set<WebSocketClient>();
   const startTime = Date.now();
 
   const instance: DebugServerInstance = {
@@ -130,17 +249,77 @@ export async function startDebugServer(
     instance.broadcast(event);
   });
 
+  // Shared handler logic
+  const handleOpen = (ws: WebSocketClient) => {
+    if (clients.size >= maxClients) {
+      ws.close(1013, "Maximum clients reached");
+      return;
+    }
+
+    clients.add(ws);
+    instance.clientCount = clients.size;
+
+    const welcome: ServerMessage = {
+      type: "welcome",
+      sessionId: emitter.getSessionId(),
+      bufferedEvents: emitter.getBuffer(),
+    };
+    ws.send(JSON.stringify(welcome));
+
+    console.log(`[unrag:debug] Client connected (${clients.size}/${maxClients})`);
+  };
+
+  const handleMessage = (ws: WebSocketClient, rawMessage: WsMessageData) => {
+    try {
+      const text = decodeWsMessage(rawMessage);
+      if (!text) return;
+      const message = JSON.parse(text) as ClientMessage;
+
+      if (message.type === "command") {
+        handleCommand(message.command, emitter, instance.startTime)
+          .then((result) => {
+            const response: ServerMessage = {
+              type: "result",
+              requestId: message.requestId,
+              result,
+            };
+            ws.send(JSON.stringify(response));
+          })
+          .catch((error: unknown) => {
+            const errorResult: DebugCommandResult = {
+              type: message.command.type,
+              success: false,
+              error: error instanceof Error ? error.message : String(error),
+            } as DebugCommandResult;
+            const response: ServerMessage = {
+              type: "result",
+              requestId: message.requestId,
+              result: errorResult,
+            };
+            ws.send(JSON.stringify(response));
+          });
+      }
+    } catch {
+      // Ignore malformed messages
+    }
+  };
+
+  const handleClose = (ws: WebSocketClient) => {
+    clients.delete(ws);
+    instance.clientCount = clients.size;
+    console.log(`[unrag:debug] Client disconnected (${clients.size}/${maxClients})`);
+  };
+
   // Start the WebSocket server (Bun or Node)
   try {
-    if (hasBunServe()) {
-      const BunRef = (globalThis as any).Bun as typeof Bun;
-      instance.bunServer = BunRef.serve({
+    const bunServe = getBunServe();
+
+    if (bunServe) {
+      instance.bunServer = bunServe({
         port,
         hostname: host,
-        fetch(req, server) {
-          const upgraded = server.upgrade(req, {
-            data: { id: "bun" },
-          });
+        fetch(req: Request, server: BunServerContext) {
+          const upgraded = server.upgrade(req, { data: {} });
           if (upgraded) return undefined;
           return new Response("Upgrade Required", {
             status: 426,
@@ -148,136 +327,42 @@ export async function startDebugServer(
           });
         },
         websocket: {
-          open(ws) {
-            if (clients.size >= maxClients) {
-              ws.close(1013, "Maximum clients reached");
-              return;
-            }
-
-            clients.add(ws as unknown as ClientLike);
-            instance.clientCount = clients.size;
-
-            const welcome: ServerMessage = {
-              type: "welcome",
-              sessionId: emitter.getSessionId(),
-              bufferedEvents: emitter.getBuffer(),
-            };
-            ws.send(JSON.stringify(welcome));
-
-            console.log(`[unrag:debug] Client connected (${clients.size}/${maxClients})`);
-          },
-          message(ws, rawMessage) {
-            try {
-              const text =
-                typeof rawMessage === "string" ? rawMessage : rawMessage.toString();
-              const message = JSON.parse(text) as ClientMessage;
-
-              if (message.type === "command") {
-                handleCommand(message.command, emitter, instance.startTime)
-                  .then((result) => {
-                    const response: ServerMessage = {
-                      type: "result",
-                      requestId: message.requestId,
-                      result,
-                    };
-                    ws.send(JSON.stringify(response));
-                  })
-                  .catch((error) => {
-                    const errorResult: DebugCommandResult = {
-                      type: message.command.type,
-                      success: false,
-                      error: error instanceof Error ? error.message : String(error),
-                    } as DebugCommandResult;
-                    const response: ServerMessage = {
-                      type: "result",
-                      requestId: message.requestId,
-                      result: errorResult,
-                    };
-                    ws.send(JSON.stringify(response));
-                  });
-              }
-            } catch {
-              // Ignore malformed messages
-            }
-          },
-          close(ws) {
-            clients.delete(ws as unknown as ClientLike);
-            instance.clientCount = clients.size;
-            console.log(`[unrag:debug] Client disconnected (${clients.size}/${maxClients})`);
-          },
+          open: handleOpen,
+          message: handleMessage,
+          close: handleClose,
         },
       });
     } else {
       // Node runtime fallback (Next.js, etc.). Requires `ws`.
-      let Ws: any;
-      try {
-        Ws = await import("ws");
-      } catch {
+      const wsModule = await loadWsModule();
+      if (!wsModule) {
         throw new Error(
-          "[unrag:debug] Node runtime detected but 'ws' is not installed. Install it in your app: `bun add ws` (or `npm i ws`)."
+          "[unrag:debug] Node runtime detected but 'ws' is not installed. " +
+            "Install it in your app: `npm install ws` or `bun add ws`."
         );
       }
 
       const { createServer } = await import("node:http");
       const httpServer = createServer();
-      const WebSocketServer = Ws.WebSocketServer ?? Ws.Server;
-      const wss = new WebSocketServer({ server: httpServer, maxPayload: 1024 * 1024 });
+      const WebSocketServer = wsModule.WebSocketServer ?? wsModule.Server;
+      if (!WebSocketServer) {
+        throw new Error(
+          "[unrag:debug] Failed to load WebSocketServer from 'ws' module. " +
+            "This may indicate an incompatible 'ws' version."
+        );
+      }
+      const wss = new WebSocketServer({
+        server: httpServer,
+        maxPayload: 1024 * 1024,
+      }) as NodeWebSocketServer;
 
-      wss.on("connection", async (ws: any) => {
-        if (clients.size >= maxClients) {
-          ws.close(1013, "Maximum clients reached");
-          return;
-        }
+      wss.on("connection", (ws: NodeWebSocketClient) => {
+        handleOpen(ws);
 
-        clients.add(ws as ClientLike);
-        instance.clientCount = clients.size;
-
-        const welcome: ServerMessage = {
-          type: "welcome",
-          sessionId: emitter.getSessionId(),
-          bufferedEvents: emitter.getBuffer(),
-        };
-        ws.send(JSON.stringify(welcome));
-
-        console.log(`[unrag:debug] Client connected (${clients.size}/${maxClients})`);
-
-        ws.on("message", (raw: any) => {
-          try {
-            const text = typeof raw === "string" ? raw : raw.toString();
-            const message = JSON.parse(text) as ClientMessage;
-            if (message.type !== "command") return;
-
-            handleCommand(message.command, emitter, instance.startTime)
-              .then((result) => {
-                const response: ServerMessage = {
-                  type: "result",
-                  requestId: message.requestId,
-                  result,
-                };
-                ws.send(JSON.stringify(response));
-              })
-              .catch((error) => {
-                const errorResult: DebugCommandResult = {
-                  type: message.command.type,
-                  success: false,
-                  error: error instanceof Error ? error.message : String(error),
-                } as DebugCommandResult;
-                const response: ServerMessage = {
-                  type: "result",
-                  requestId: message.requestId,
-                  result: errorResult,
-                };
-                ws.send(JSON.stringify(response));
-              });
-          } catch {
-            // ignore malformed
-          }
-        });
+        ws.on("message", (raw: WsMessageData) => handleMessage(ws, raw));
 
         ws.on("close", () => {
-          clients.delete(ws as ClientLike);
-          instance.clientCount = clients.size;
-          console.log(`[unrag:debug] Client disconnected (${clients.size}/${maxClients})`);
+          handleClose(ws);
         });
       });
 
@@ -302,6 +387,53 @@ export async function startDebugServer(
     throw error;
   }
 }
+
+/**
+ * Dynamically load the `ws` module for Node.js environments.
+ * Returns null if not available.
+ */
+async function loadWsModule(): Promise<WsModule | null> {
+  try {
+    // Dynamic import with string to prevent bundlers from including ws
+    const moduleName = "ws";
+    const mod = (await import(/* webpackIgnore: true */ moduleName)) as unknown;
+    return normalizeWsModule(mod);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeWsModule(mod: unknown): WsModule | null {
+  if (!mod || typeof mod !== "object") return null;
+
+  const m = mod as Record<string, unknown>;
+  const candidate = (m.default && typeof m.default === "object" ? (m.default as Record<string, unknown>) : m);
+
+  const WebSocketServer = candidate.WebSocketServer;
+  const Server = candidate.Server;
+
+  const isCtor = (v: unknown): v is new (options: WsServerOptions) => NodeWebSocketServer =>
+    typeof v === "function";
+
+  const out: WsModule = {};
+  if (isCtor(WebSocketServer)) out.WebSocketServer = WebSocketServer;
+  if (isCtor(Server)) out.Server = Server;
+
+  return out.WebSocketServer || out.Server ? out : null;
+}
+
+/**
+ * Type for the `ws` module exports we use.
+ */
+type WsModule = {
+  WebSocketServer?: new (options: WsServerOptions) => NodeWebSocketServer;
+  Server?: new (options: WsServerOptions) => NodeWebSocketServer;
+};
+
+type WsServerOptions = {
+  server: import("node:http").Server;
+  maxPayload?: number;
+};
 
 /**
  * Stop the debug server if running.
