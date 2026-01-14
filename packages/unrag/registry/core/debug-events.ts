@@ -5,6 +5,8 @@
  * debugging of RAG operations via the debug TUI.
  */
 
+import type { RetrieveScope } from "@registry/core/types";
+
 /**
  * Base type for all debug events.
  */
@@ -92,7 +94,7 @@ export type RetrieveStartEvent = DebugEventBase & {
   type: "retrieve:start";
   query: string;
   topK: number;
-  scope?: string;
+  scope?: RetrieveScope;
 };
 
 export type RetrieveEmbeddingCompleteEvent = DebugEventBase & {

@@ -560,6 +560,15 @@ export type DeleteInput =
       sourceIdPrefix: string;
     };
 
+/**
+ * Scope for filtering retrieval results.
+ * Used in both `RetrieveInput` and `VectorStore.query()`.
+ */
+export type RetrieveScope = {
+  /** Filter to chunks whose sourceId starts with this prefix. */
+  sourceId?: string;
+};
+
 export type VectorStore = {
   /**
    * Persist (replace) a single document's chunks.
@@ -579,9 +588,7 @@ export type VectorStore = {
   query: (params: {
     embedding: number[];
     topK: number;
-    scope?: {
-      sourceId?: string;
-    };
+    scope?: RetrieveScope;
   }) => Promise<Array<Chunk & { score: number }>>;
   delete: (input: DeleteInput) => Promise<void>;
 };
@@ -679,9 +686,7 @@ export type IngestResult = {
 export type RetrieveInput = {
   query: string;
   topK?: number;
-  scope?: {
-    sourceId?: string;
-  };
+  scope?: RetrieveScope;
 };
 
 export type RetrieveResult = {
