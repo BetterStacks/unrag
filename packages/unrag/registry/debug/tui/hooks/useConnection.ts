@@ -32,6 +32,10 @@ function notConnectedResult(type: DebugCommandType): DebugCommandResult {
       return { type, ...base };
     case "store-stats":
       return { type, ...base };
+    case "doctor":
+      return { type, ...base, checks: [] };
+    case "run-eval":
+      return { type, ...base };
     case "ping":
       return { type, ...base };
     case "clear-buffer":

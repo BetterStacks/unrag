@@ -31,6 +31,8 @@ export const theme = {
   headerBg: "white",
   // Status colors
   success: "green",
+  // Alias used by some components (more semantic in UIs)
+  ok: "green",
   warning: "yellow",
   error: "red",
   // Event type colors

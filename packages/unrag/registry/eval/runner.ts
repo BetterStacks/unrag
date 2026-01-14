@@ -298,7 +298,7 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
 }
 
 async function resolveDocumentContent(
-  doc: EvalDatasetV1["documents"][number],
+  doc: NonNullable<EvalDatasetV1["documents"]>[number],
   loadByRef: EvalRunArgs["loadDocumentByRef"]
 ): Promise<string> {
   if (typeof doc.content === "string" && doc.content.trim().length > 0) return doc.content;

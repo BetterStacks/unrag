@@ -23,6 +23,42 @@ import type {
 } from "@registry/debug/types";
 import { hasVendoredModuleDir, isUnragBatteryInstalled } from "@registry/debug/unrag-json";
 
+type EvalQueryLike = {
+  id: string;
+  retrieved: { metrics: { recallAtK: number; mrrAtK: number } };
+  reranked?: { metrics: { recallAtK: number; mrrAtK: number } };
+};
+
+type EvalReportLike = {
+  dataset: { id: string };
+  createdAt: string;
+  config: {
+    mode: "retrieve" | "retrieve+rerank";
+    topK: number;
+    rerankTopK?: number;
+    scopePrefix: string;
+    ingest: boolean;
+    cleanup: "none" | "on-success" | "always";
+    includeNdcg: boolean;
+  };
+  engine: { embeddingModel?: string; rerankerName?: string; rerankerModel?: string };
+  results: {
+    queries?: EvalQueryLike[];
+    passed?: boolean;
+    thresholdFailures?: string[];
+    aggregates: RunEvalResult extends { summary?: infer S }
+      ? S extends { aggregates: infer A }
+        ? A
+        : any
+      : any;
+    timings: RunEvalResult extends { summary?: infer S }
+      ? S extends { timings: infer T }
+        ? T
+        : any
+      : any;
+  };
+};
+
 /**
  * Handle a debug command and return the result.
  */
@@ -146,8 +182,8 @@ async function handleRunEval(command: {
       confirmedDangerousDelete: command.confirmedDangerousDelete,
     });
 
-    const r = out.report;
-    const queries = r.results.queries ?? [];
+    const r = out.report as EvalReportLike;
+    const queries: EvalQueryLike[] = r.results.queries ?? [];
     const retrievedRecall = queries.map((q) => q.retrieved.metrics.recallAtK);
     const retrievedMrr = queries.map((q) => q.retrieved.metrics.mrrAtK);
     const rerankedRecall = queries.map((q) => q.reranked?.metrics.recallAtK ?? 0);
@@ -239,7 +275,9 @@ async function handleDoctor(emitter: DebugEmitter, startTime: number): Promise<D
       : "If using built-in stores, pass `store.inspector` to `registerUnragDebug({ engine, storeInspector: store.inspector })`.",
   });
 
-  let engineInfo: DoctorResult["info"]["runtime"]["engineInfo"] | undefined;
+  type DoctorEngineInfo =
+    NonNullable<NonNullable<NonNullable<DoctorResult["info"]>["runtime"]>["engineInfo"]>;
+  let engineInfo: DoctorEngineInfo | undefined;
   if (rt?.engine && typeof (rt.engine as any).getDebugInfo === "function") {
     const info = (rt.engine as any).getDebugInfo() as {
       embedding: { name: string; dimensions?: number; supportsBatch: boolean; supportsImage: boolean };

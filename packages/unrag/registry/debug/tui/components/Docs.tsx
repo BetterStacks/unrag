@@ -29,6 +29,7 @@ function approxTokens(text: string): number {
 
 function histogram(values: number[], buckets: number[]): Array<{ label: string; count: number }> {
   const sorted = [...buckets].sort((a, b) => a - b);
+  if (sorted.length === 0) return [];
   const counts = new Array(sorted.length + 1).fill(0);
   for (const v of values) {
     const i = sorted.findIndex((b) => v < b);
@@ -36,9 +37,9 @@ function histogram(values: number[], buckets: number[]): Array<{ label: string; 
   }
   const labels: string[] = [];
   for (let i = 0; i < sorted.length + 1; i++) {
-    if (i === 0) labels.push(`<${sorted[0]}`);
-    else if (i === sorted.length) labels.push(`${sorted[i - 1]}+`);
-    else labels.push(`${sorted[i - 1]}–${sorted[i] - 1}`);
+    if (i === 0) labels.push(`<${sorted[0]!}`);
+    else if (i === sorted.length) labels.push(`${sorted[i - 1]!}+`);
+    else labels.push(`${sorted[i - 1]!}–${sorted[i]! - 1}`);
   }
   return labels.map((label, i) => ({ label, count: counts[i] ?? 0 }));
 }

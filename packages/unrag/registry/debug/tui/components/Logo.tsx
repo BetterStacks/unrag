@@ -29,7 +29,7 @@ function downsample(lines: string[], xFactor: number, yFactor: number): string[]
   const out: string[] = [];
   const yf = Math.max(1, yFactor);
   for (let y = 0; y < lines.length; y += yf) {
-    out.push(downsampleLine(lines[y], xFactor));
+    out.push(downsampleLine(lines[y]!, xFactor));
   }
   return out;
 }
