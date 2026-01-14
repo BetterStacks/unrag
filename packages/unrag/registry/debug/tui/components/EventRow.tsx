@@ -65,14 +65,17 @@ export function EventRow({ event, selected = false, compact = false }: EventRowP
   // Extract just the action part (e.g., "complete" from "ingest:complete")
   const [category, action] = event.type.split(":");
   const shortType = `${category}:${action || ""}`;
+  const typeColWidth = compact ? 20 : 22;
+  const typeCell = pad(truncate(shortType, typeColWidth), typeColWidth);
+  const summaryCell = summary ? ` · ${truncate(summary, compact ? 50 : 60)}` : "";
 
   if (compact) {
     return (
       <Box>
         <Text color={theme.muted}>{time}</Text>
         <Text color={color} bold> {icon} </Text>
-        <Text color={color}>{pad(shortType, 20)}</Text>
-        <Text color={theme.muted}>{truncate(summary, 50)}</Text>
+        <Text color={color}>{typeCell}</Text>
+        <Text color={theme.muted}>{summaryCell}</Text>
       </Box>
     );
   }
@@ -82,7 +85,7 @@ export function EventRow({ event, selected = false, compact = false }: EventRowP
     return (
       <Box backgroundColor={theme.accent}>
         <Text color="black" bold>
-          {chars.arrow} {time} {icon} {pad(shortType, 22)}{truncate(summary, 60)}
+          {chars.arrow} {time} {icon} {typeCell}{summaryCell}
         </Text>
       </Box>
     );
@@ -92,8 +95,8 @@ export function EventRow({ event, selected = false, compact = false }: EventRowP
     <Box>
       <Text color={theme.muted}>  {time}</Text>
       <Text color={color} bold> {icon} </Text>
-      <Text color={theme.fg}>{pad(shortType, 22)}</Text>
-      <Text color={theme.muted}>{truncate(summary, 60)}</Text>
+      <Text color={theme.fg}>{typeCell}</Text>
+      <Text color={theme.muted}>{summaryCell}</Text>
     </Box>
   );
 }
