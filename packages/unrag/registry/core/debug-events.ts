@@ -15,6 +15,23 @@ export type DebugEventBase = {
   timestamp: number;
   /** Unique session identifier for this debug session */
   sessionId: string;
+  /**
+   * Correlation ID for a single high-level operation (ingest/retrieve/rerank/delete).
+   * Used to group events into traces/waterfalls.
+   */
+  opId?: string;
+  /**
+   * Span ID for a sub-step within an operation (embedding, storage, db query, etc.).
+   */
+  spanId?: string;
+  /**
+   * Optional parent span ID (for hierarchical waterfalls).
+   */
+  parentSpanId?: string;
+  /**
+   * Optional high-level op name to simplify grouping/labeling.
+   */
+  opName?: "ingest" | "retrieve" | "rerank" | "delete" | "eval";
 };
 
 // ============================================================================

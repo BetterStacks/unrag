@@ -9,6 +9,13 @@ import { getDebugEmitter } from "@registry/core/debug-emitter";
 
 const now = () => performance.now();
 
+const createId = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+};
+
 /**
  * Rerank candidates using the configured reranker.
  *
@@ -22,6 +29,8 @@ export const rerank = async (
   const debug = getDebugEmitter();
   const totalStart = now();
   const warnings: string[] = [];
+  const opId = createId();
+  const rootSpanId = createId();
 
   const {
     query,
@@ -69,6 +78,9 @@ export const rerank = async (
     candidateCount: candidates.length,
     topK,
     rerankerName: config.reranker.name,
+    opName: "rerank",
+    opId,
+    spanId: rootSpanId,
   });
 
   // Resolve text for each candidate
@@ -161,6 +173,9 @@ export const rerank = async (
     totalMs,
     rerankerName: config.reranker.name,
     model: result.model,
+    opName: "rerank",
+    opId,
+    spanId: rootSpanId,
   });
 
   return {

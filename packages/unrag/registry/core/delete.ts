@@ -3,11 +3,20 @@ import { getDebugEmitter } from "@registry/core/debug-emitter";
 
 const now = () => performance.now();
 
+const createId = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+};
+
 export const deleteDocuments = async (
   config: ResolvedContextEngineConfig,
   input: DeleteInput
 ): Promise<void> => {
   const debug = getDebugEmitter();
+  const opId = createId();
+  const rootSpanId = createId();
 
   const hasSourceId = "sourceId" in input && typeof input.sourceId === "string";
   const hasPrefix =
@@ -27,6 +36,9 @@ export const deleteDocuments = async (
     type: "delete:start",
     mode,
     value,
+    opName: "delete",
+    opId,
+    spanId: rootSpanId,
   });
 
   const start = now();
@@ -38,6 +50,9 @@ export const deleteDocuments = async (
     mode,
     value,
     durationMs,
+    opName: "delete",
+    opId,
+    spanId: rootSpanId,
   });
 };
 

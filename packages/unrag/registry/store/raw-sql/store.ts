@@ -1,4 +1,4 @@
-import type { Chunk, VectorStore } from "@registry/core/types";
+import type { Chunk, DeleteInput, VectorStore } from "@registry/core/types";
 import type { Pool, PoolClient } from "pg";
 
 const sanitizeMetadata = (metadata: unknown) => {
@@ -34,7 +34,184 @@ const withTx = async <T>(
   }
 };
 
-export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
+type DebugStoreInspector = {
+  listDocuments: (args: { prefix?: string; limit?: number; offset?: number }) => Promise<{
+    documents: Array<{ sourceId: string; chunkCount: number; createdAt?: string }>;
+    total?: number;
+  }>;
+  getDocument: (args: { sourceId: string }) => Promise<{
+    document?: {
+      sourceId: string;
+      chunks: Array<{
+        id: string;
+        content: string;
+        sequence: number;
+        metadata: Record<string, unknown>;
+      }>;
+      metadata: Record<string, unknown>;
+    };
+  }>;
+  deleteDocument: (input: DeleteInput) => Promise<{ deletedCount?: number }>;
+  storeStats: () => Promise<{
+    stats: {
+      adapter: string;
+      tables?: Array<{ name: string; rowCount: number; size?: number }>;
+      embeddingDimension?: number;
+      totalVectors?: number;
+    };
+  }>;
+};
+
+export const createRawSqlVectorStore = (pool: Pool): VectorStore & { inspector: DebugStoreInspector } => {
+  const inspector: DebugStoreInspector = {
+    listDocuments: async ({ prefix, limit = 50, offset = 0 }) => {
+      const values: unknown[] = [];
+      let whereSql = "";
+      if (prefix) {
+        values.push(prefix + "%");
+        whereSql = `where d.source_id like $${values.length}`;
+      }
+
+      values.push(limit);
+      values.push(offset);
+
+      const rows = await pool.query(
+        `
+        select
+          d.source_id as source_id,
+          d.created_at as created_at,
+          coalesce(count(c.id), 0) as chunk_count
+        from documents as d
+        left join chunks as c on c.document_id = d.id
+        ${whereSql}
+        group by d.source_id, d.created_at
+        order by d.created_at desc
+        limit $${values.length - 1}
+        offset $${values.length}
+        `,
+        values
+      );
+
+      const totalValues: unknown[] = [];
+      let totalWhereSql = "";
+      if (prefix) {
+        totalValues.push(prefix + "%");
+        totalWhereSql = `where d.source_id like $1`;
+      }
+      const totalRes = await pool.query<{ total: number }>(
+        `
+        select count(*)::int as total
+        from documents as d
+        ${totalWhereSql}
+        `,
+        totalValues
+      );
+
+      return {
+        documents: rows.rows.map((r) => ({
+          sourceId: String((r as any).source_id),
+          chunkCount: Number((r as any).chunk_count),
+          createdAt:
+            (r as any).created_at instanceof Date
+              ? (r as any).created_at.toISOString()
+              : ((r as any).created_at ? String((r as any).created_at) : undefined),
+        })),
+        total: Number(totalRes.rows[0]?.total ?? 0),
+      };
+    },
+
+    getDocument: async ({ sourceId }) => {
+      const docRes = await pool.query<{
+        id: string;
+        source_id: string;
+        metadata: unknown;
+      }>(
+        `
+        select id, source_id, metadata
+        from documents
+        where source_id = $1
+        limit 1
+        `,
+        [sourceId]
+      );
+
+      const doc = docRes.rows[0];
+      if (!doc?.id) return { document: undefined };
+
+      const chunkRes = await pool.query<{
+        id: string;
+        idx: number;
+        content: string;
+        metadata: unknown;
+      }>(
+        `
+        select id, idx, content, metadata
+        from chunks
+        where document_id = $1
+        order by idx asc
+        `,
+        [doc.id]
+      );
+
+      return {
+        document: {
+          sourceId: String(doc.source_id),
+          chunks: chunkRes.rows.map((r) => ({
+            id: String(r.id),
+            content: String((r as any).content ?? ""),
+            sequence: Number((r as any).idx),
+            metadata: ((r as any).metadata ?? {}) as Record<string, unknown>,
+          })),
+          metadata: (doc.metadata ?? {}) as Record<string, unknown>,
+        },
+      };
+    },
+
+    deleteDocument: async (input: DeleteInput) => {
+      const res = await pool.query(
+        "sourceId" in input
+          ? `delete from documents where source_id = $1 returning 1 as one`
+          : `delete from documents where source_id like $1 returning 1 as one`,
+        ["sourceId" in input ? input.sourceId : input.sourceIdPrefix + "%"]
+      );
+      return { deletedCount: res.rowCount ?? res.rows.length };
+    },
+
+    storeStats: async () => {
+      const res = await pool.query<{
+        documents_count: number;
+        chunks_count: number;
+        embeddings_count: number;
+        embedding_dimension: number | null;
+      }>(
+        `
+        select
+          (select count(*)::int from documents) as documents_count,
+          (select count(*)::int from chunks) as chunks_count,
+          (select count(*)::int from embeddings) as embeddings_count,
+          (select max(embedding_dimension)::int from embeddings) as embedding_dimension
+        `
+      );
+      const row = res.rows[0];
+      return {
+        stats: {
+          adapter: "raw-sql",
+          tables: [
+            { name: "documents", rowCount: Number(row?.documents_count ?? 0) },
+            { name: "chunks", rowCount: Number(row?.chunks_count ?? 0) },
+            { name: "embeddings", rowCount: Number(row?.embeddings_count ?? 0) },
+          ],
+          embeddingDimension:
+            row?.embedding_dimension === null || row?.embedding_dimension === undefined
+              ? undefined
+              : Number(row.embedding_dimension),
+          totalVectors: Number(row?.embeddings_count ?? 0),
+        },
+      };
+    },
+  };
+
+  const store: VectorStore & { inspector: DebugStoreInspector } = {
   upsert: async (chunkItems) => {
     if (chunkItems.length === 0) {
       throw new Error("upsert() requires at least one chunk");
@@ -172,6 +349,10 @@ export const createRawSqlVectorStore = (pool: Pool): VectorStore => ({
       ]);
     });
   },
-});
+    inspector,
+  };
+
+  return store;
+};
 
 

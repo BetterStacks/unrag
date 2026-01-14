@@ -18,6 +18,13 @@ import { getDebugEmitter } from "@registry/core/debug-emitter";
 
 const now = () => performance.now();
 
+const createId = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+};
+
 const asMessage = (err: unknown) => {
   if (err instanceof Error) return err.message;
   try {
@@ -55,6 +62,11 @@ export const ingest = async (
   const debug = getDebugEmitter();
   const totalStart = now();
   const chunkingStart = now();
+  const opId = createId();
+  const rootSpanId = createId();
+  const chunkingSpanId = createId();
+  const embeddingSpanId = createId();
+  const storageSpanId = createId();
 
   const storeChunkContent = config.storage.storeChunkContent;
   const storeDocumentContent = config.storage.storeDocumentContent;
@@ -75,6 +87,9 @@ export const ingest = async (
     documentId,
     contentLength: input.content.length,
     assetCount: assets.length,
+    opName: "ingest",
+    opId,
+    spanId: rootSpanId,
   });
 
   const assetProcessing: AssetProcessingConfig = mergeDeep(
@@ -546,6 +561,10 @@ export const ingest = async (
     documentId,
     chunkCount: prepared.length,
     durationMs: chunkingMs,
+    opName: "ingest",
+    opId,
+    spanId: chunkingSpanId,
+    parentSpanId: rootSpanId,
   });
 
   const embeddingStart = now();
@@ -556,6 +575,10 @@ export const ingest = async (
     documentId,
     chunkCount: prepared.length,
     embeddingProvider: config.embedding.name,
+    opName: "ingest",
+    opId,
+    spanId: embeddingSpanId,
+    parentSpanId: rootSpanId,
   });
 
   const embeddedChunks: Chunk[] = new Array(prepared.length);
@@ -648,6 +671,10 @@ export const ingest = async (
             batchIndex,
             batchSize: batch.length,
             durationMs: now() - batchStart,
+            opName: "ingest",
+            opId,
+            spanId: embeddingSpanId,
+            parentSpanId: rootSpanId,
           });
           return embeddings;
         }
@@ -703,6 +730,10 @@ export const ingest = async (
     documentId,
     totalEmbeddings: embeddedChunks.length,
     durationMs: embeddingMs,
+    opName: "ingest",
+    opId,
+    spanId: embeddingSpanId,
+    parentSpanId: rootSpanId,
   });
 
   const storageStart = now();
@@ -717,6 +748,10 @@ export const ingest = async (
     documentId: canonicalDocumentId,
     chunksStored: embeddedChunks.length,
     durationMs: storageMs,
+    opName: "ingest",
+    opId,
+    spanId: storageSpanId,
+    parentSpanId: rootSpanId,
   });
 
   const totalMs = now() - totalStart;
@@ -728,6 +763,9 @@ export const ingest = async (
     totalChunks: embeddedChunks.length,
     totalDurationMs: totalMs,
     warnings: warnings.map((w) => w.message),
+    opName: "ingest",
+    opId,
+    spanId: rootSpanId,
   });
 
   return {

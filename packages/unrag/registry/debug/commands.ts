@@ -6,9 +6,12 @@
  */
 
 import type { DebugEmitter } from "@registry/core/debug-emitter";
+import { getUnragDebugRuntime } from "@registry/debug/runtime";
 import type {
   DebugCommand,
   DebugCommandResult,
+  DoctorResult,
+  RunEvalResult,
   PingResult,
   ClearBufferResult,
   GetBufferResult,
@@ -18,6 +21,7 @@ import type {
   DeleteDocumentResult,
   StoreStatsResult,
 } from "@registry/debug/types";
+import { hasVendoredModuleDir, isUnragBatteryInstalled } from "@registry/debug/unrag-json";
 
 /**
  * Handle a debug command and return the result.
@@ -28,6 +32,12 @@ export async function handleCommand(
   startTime: number
 ): Promise<DebugCommandResult> {
   switch (command.type) {
+    case "doctor":
+      return handleDoctor(emitter, startTime);
+
+    case "run-eval":
+      return handleRunEval(command);
+
     case "ping":
       return handlePing(emitter, startTime);
 
@@ -61,6 +71,239 @@ export async function handleCommand(
       } as DebugCommandResult;
     }
   }
+}
+
+async function handleRunEval(command: {
+  type: "run-eval";
+  datasetPath: string;
+  mode?: "retrieve" | "retrieve+rerank";
+  topK?: number;
+  rerankTopK?: number;
+  scopePrefix?: string;
+  ingest?: boolean;
+  cleanup?: "none" | "on-success" | "always";
+  includeNdcg?: boolean;
+  allowNonEvalPrefix?: boolean;
+  confirmedDangerousDelete?: boolean;
+  allowAssets?: boolean;
+}): Promise<RunEvalResult> {
+  const runtime = getUnragDebugRuntime();
+  if (!runtime?.engine) {
+    return {
+      type: "run-eval",
+      success: false,
+      error:
+        "Eval requires engine registration. " +
+        "In your app, call `registerUnragDebug({ engine })` when UNRAG_DEBUG=true.",
+    };
+  }
+
+  const datasetPath = (command.datasetPath ?? "").trim();
+  if (!datasetPath) {
+    return { type: "run-eval", success: false, error: "Missing datasetPath." };
+  }
+
+  // IMPORTANT: `eval` is an optional vendored module. Don't hard-import it, or builds fail when it's not installed.
+  const evalInstalled = isUnragBatteryInstalled("eval") && hasVendoredModuleDir("eval");
+  if (!evalInstalled) {
+    return {
+      type: "run-eval",
+      success: false,
+      error:
+        "Eval module is not installed in your vendored Unrag code. " +
+        "Install it with `unrag add battery eval` and re-run.",
+    };
+  }
+
+  try {
+    // Load eval runner lazily so bundlers don't require the module to exist.
+    // Relative to `debug/commands.ts`, eval lives at `../eval`.
+    const evalModulePath = ["..", "eval"].join("/");
+    const evalMod = (await import(evalModulePath)) as any;
+    const runEvalFn: ((args: any) => Promise<any>) | undefined = evalMod?.runEval;
+    if (typeof runEvalFn !== "function") {
+      return {
+        type: "run-eval",
+        success: false,
+        error:
+          "Eval module is installed but did not export `runEval`. " +
+          "Try reinstalling the eval battery (`unrag add battery eval`).",
+      };
+    }
+
+    const out = await runEvalFn({
+      engine: runtime.engine,
+      datasetPath,
+      mode: command.mode,
+      topK: command.topK,
+      rerankTopK: command.rerankTopK,
+      scopePrefix: command.scopePrefix,
+      ingest: command.ingest,
+      cleanup: command.cleanup,
+      includeNdcg: command.includeNdcg,
+      allowAssets: command.allowAssets,
+      allowNonEvalPrefix: command.allowNonEvalPrefix,
+      confirmedDangerousDelete: command.confirmedDangerousDelete,
+    });
+
+    const r = out.report;
+    const queries = r.results.queries ?? [];
+    const retrievedRecall = queries.map((q) => q.retrieved.metrics.recallAtK);
+    const retrievedMrr = queries.map((q) => q.retrieved.metrics.mrrAtK);
+    const rerankedRecall = queries.map((q) => q.reranked?.metrics.recallAtK ?? 0);
+    const rerankedMrr = queries.map((q) => q.reranked?.metrics.mrrAtK ?? 0);
+
+    const sortKey = (q: (typeof queries)[number]) =>
+      (q.reranked?.metrics.recallAtK ?? q.retrieved.metrics.recallAtK);
+    const worst = [...queries]
+      .sort((a, b) => sortKey(a) - sortKey(b))
+      .slice(0, 8)
+      .map((q) => {
+        const m = q.reranked?.metrics ?? q.retrieved.metrics;
+        return { id: q.id, recallAtK: m.recallAtK, mrrAtK: m.mrrAtK };
+      });
+
+    return {
+      type: "run-eval",
+      success: true,
+      summary: {
+        datasetId: r.dataset.id,
+        createdAt: r.createdAt,
+        config: r.config,
+        engine: r.engine,
+        passed: r.results.passed,
+        thresholdFailures: r.results.thresholdFailures,
+        aggregates: r.results.aggregates,
+        timings: r.results.timings,
+        charts: {
+          retrievedRecall,
+          retrievedMrr,
+          ...(r.config.mode === "retrieve+rerank"
+            ? { rerankedRecall, rerankedMrr }
+            : {}),
+        },
+        worst,
+      },
+    };
+  } catch (err) {
+    return {
+      type: "run-eval",
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
+async function handleDoctor(emitter: DebugEmitter, startTime: number): Promise<DoctorResult> {
+  const rt = getUnragDebugRuntime();
+  const checks: DoctorResult["checks"] = [];
+
+  const envVal = process.env.UNRAG_DEBUG;
+  const envOk = envVal === "true";
+  checks.push({
+    id: "env.unrag_debug",
+    label: "UNRAG_DEBUG enabled",
+    status: envOk ? "ok" : "warn",
+    detail: envOk ? "UNRAG_DEBUG=true" : `UNRAG_DEBUG=${envVal ?? "(unset)"}`,
+    fix: envOk ? undefined : "Set UNRAG_DEBUG=true in your app runtime env.",
+  });
+
+  const registered = Boolean(rt);
+  checks.push({
+    id: "runtime.registered",
+    label: "registerUnragDebug() called",
+    status: registered ? "ok" : "error",
+    detail: registered ? "Runtime registered" : "No runtime registered",
+    fix: registered
+      ? undefined
+      : "In your app, call `registerUnragDebug({ engine, storeInspector })` when UNRAG_DEBUG=true.",
+  });
+
+  const hasEngine = Boolean(rt?.engine);
+  checks.push({
+    id: "runtime.engine",
+    label: "Engine available (Query Runner)",
+    status: hasEngine ? "ok" : "error",
+    detail: hasEngine ? "engine registered" : "engine missing",
+    fix: hasEngine ? undefined : "Pass `engine` to `registerUnragDebug({ engine })`.",
+  });
+
+  const hasStoreInspector = Boolean(rt?.storeInspector);
+  checks.push({
+    id: "runtime.storeInspector",
+    label: "Store inspector available (Docs)",
+    status: hasStoreInspector ? "ok" : "warn",
+    detail: hasStoreInspector ? "storeInspector registered" : "storeInspector missing",
+    fix: hasStoreInspector
+      ? undefined
+      : "If using built-in stores, pass `store.inspector` to `registerUnragDebug({ engine, storeInspector: store.inspector })`.",
+  });
+
+  let engineInfo: DoctorResult["info"]["runtime"]["engineInfo"] | undefined;
+  if (rt?.engine && typeof (rt.engine as any).getDebugInfo === "function") {
+    const info = (rt.engine as any).getDebugInfo() as {
+      embedding: { name: string; dimensions?: number; supportsBatch: boolean; supportsImage: boolean };
+      storage: { storeChunkContent: boolean; storeDocumentContent: boolean };
+      defaults: { chunkSize: number; chunkOverlap: number };
+      extractorsCount: number;
+      reranker?: { name: string };
+    };
+    engineInfo = {
+      embedding: info.embedding,
+      storage: info.storage,
+      defaults: info.defaults,
+      extractorsCount: info.extractorsCount,
+      rerankerName: info.reranker?.name,
+    };
+
+    checks.push({
+      id: "engine.storage.chunkContent",
+      label: "Chunk content stored",
+      status: info.storage.storeChunkContent ? "ok" : "warn",
+      detail: info.storage.storeChunkContent ? "storeChunkContent=true" : "storeChunkContent=false",
+      fix: info.storage.storeChunkContent
+        ? undefined
+        : "Enable `storage.storeChunkContent=true` to see `chunk.content` in retrieval + rerank diagnostics.",
+    });
+
+    checks.push({
+      id: "engine.storage.documentContent",
+      label: "Document content stored",
+      status: info.storage.storeDocumentContent ? "ok" : "warn",
+      detail: info.storage.storeDocumentContent ? "storeDocumentContent=true" : "storeDocumentContent=false",
+      fix: info.storage.storeDocumentContent
+        ? undefined
+        : "Enable `storage.storeDocumentContent=true` to keep the original document body in the store.",
+    });
+
+    checks.push({
+      id: "engine.reranker",
+      label: "Reranker configured",
+      status: info.reranker ? "ok" : "warn",
+      detail: info.reranker ? `reranker=${info.reranker.name}` : "no reranker",
+      fix: info.reranker
+        ? undefined
+        : "Install and wire the reranker battery: `unrag add battery reranker`, then set `engine.reranker` in config.",
+    });
+  }
+
+  return {
+    type: "doctor",
+    success: true,
+    checks,
+    info: {
+      sessionId: emitter.getSessionId(),
+      uptimeMs: Date.now() - startTime,
+      env: { UNRAG_DEBUG: envVal },
+      runtime: {
+        registered,
+        registeredAt: rt?.registeredAt,
+        hasEngine,
+        hasStoreInspector,
+        engineInfo,
+      },
+    },
+  };
 }
 
 /**
@@ -108,17 +351,41 @@ function handleGetBuffer(emitter: DebugEmitter): GetBufferResult {
  * the context engine instance to be passed in.
  */
 async function handleQuery(
-  _command: { type: "query"; query: string; topK?: number; scope?: string }
+  command: { type: "query"; query: string; topK?: number; scope?: string }
 ): Promise<QueryResult> {
-  // TODO: This needs access to the context engine instance.
-  // For now, we return an error indicating this feature requires
-  // the context engine to be registered with the debug server.
+  const runtime = getUnragDebugRuntime();
+  if (!runtime?.engine) {
+    return {
+      type: "query",
+      success: false,
+      error:
+        "Query command requires engine registration. " +
+        "In your app, call `registerUnragDebug({ engine })` when UNRAG_DEBUG=true.",
+    };
+  }
+
+  const topK = command.topK ?? 8;
+  const scopePrefix = (command.scope ?? "").trim();
+  const scope = scopePrefix ? { sourceId: scopePrefix } : undefined;
+
+  const res = await runtime.engine.retrieve({
+    query: command.query,
+    topK,
+    scope,
+  });
+
   return {
     type: "query",
-    success: false,
-    error:
-      "Query command requires context engine integration. " +
-      "Use the retrieve function directly in your application.",
+    success: true,
+    chunks: res.chunks.map((c) => ({
+      id: c.id,
+      content: c.content,
+      score: c.score,
+      sourceId: c.sourceId,
+      documentId: c.documentId,
+      metadata: (c.metadata ?? {}) as Record<string, unknown>,
+    })),
+    durations: res.durations,
   };
 }
 
@@ -129,13 +396,27 @@ async function handleQuery(
 async function handleListDocuments(
   _command: { type: "list-documents"; prefix?: string; limit?: number; offset?: number }
 ): Promise<ListDocumentsResult> {
-  // TODO: This needs access to the store instance.
+  const runtime = getUnragDebugRuntime();
+  if (!runtime?.storeInspector) {
+    return {
+      type: "list-documents",
+      success: false,
+      error:
+        "List documents requires a store inspector. " +
+        "In your app, call `registerUnragDebug({ engine, storeInspector })`.",
+    };
+  }
+
+  const data = await runtime.storeInspector.listDocuments({
+    prefix: _command.prefix,
+    limit: _command.limit,
+    offset: _command.offset,
+  });
+
   return {
     type: "list-documents",
-    success: false,
-    error:
-      "List documents command requires store integration. " +
-      "This feature will be available in a future update.",
+    success: true,
+    ...data,
   };
 }
 
@@ -145,13 +426,23 @@ async function handleListDocuments(
 async function handleGetDocument(
   _command: { type: "get-document"; sourceId: string }
 ): Promise<GetDocumentResult> {
-  // TODO: This needs access to the store instance.
+  const runtime = getUnragDebugRuntime();
+  if (!runtime?.storeInspector) {
+    return {
+      type: "get-document",
+      success: false,
+      error:
+        "Get document requires a store inspector. " +
+        "In your app, call `registerUnragDebug({ engine, storeInspector })`.",
+    };
+  }
+
+  const data = await runtime.storeInspector.getDocument({ sourceId: _command.sourceId });
+
   return {
     type: "get-document",
-    success: false,
-    error:
-      "Get document command requires store integration. " +
-      "This feature will be available in a future update.",
+    success: true,
+    ...data,
   };
 }
 
@@ -161,13 +452,47 @@ async function handleGetDocument(
 async function handleDeleteDocument(
   _command: { type: "delete-document"; sourceId?: string; sourceIdPrefix?: string }
 ): Promise<DeleteDocumentResult> {
-  // TODO: This needs access to the store instance.
+  const runtime = getUnragDebugRuntime();
+
+  const hasSourceId = typeof _command.sourceId === "string" && _command.sourceId.length > 0;
+  const hasPrefix =
+    typeof _command.sourceIdPrefix === "string" && _command.sourceIdPrefix.length > 0;
+  if (hasSourceId === hasPrefix) {
+    return {
+      type: "delete-document",
+      success: false,
+      error: 'Provide exactly one of "sourceId" or "sourceIdPrefix".',
+    };
+  }
+
+  const input = hasSourceId
+    ? ({ sourceId: _command.sourceId! } as const)
+    : ({ sourceIdPrefix: _command.sourceIdPrefix! } as const);
+
+  // Prefer inspector (can optionally return counts).
+  if (runtime?.storeInspector) {
+    const res = await runtime.storeInspector.deleteDocument(input);
+    return {
+      type: "delete-document",
+      success: true,
+      deletedCount: res.deletedCount,
+    };
+  }
+
+  if (!runtime?.engine) {
+    return {
+      type: "delete-document",
+      success: false,
+      error:
+        "Delete document requires engine registration (and optionally store inspector). " +
+        "In your app, call `registerUnragDebug({ engine })` when UNRAG_DEBUG=true.",
+    };
+  }
+
+  await runtime.engine.delete(input);
   return {
     type: "delete-document",
-    success: false,
-    error:
-      "Delete document command requires store integration. " +
-      "This feature will be available in a future update.",
+    success: true,
   };
 }
 
@@ -175,12 +500,21 @@ async function handleDeleteDocument(
  * Handle store-stats command.
  */
 async function handleStoreStats(): Promise<StoreStatsResult> {
-  // TODO: This needs access to the store instance.
+  const runtime = getUnragDebugRuntime();
+  if (!runtime?.storeInspector) {
+    return {
+      type: "store-stats",
+      success: false,
+      error:
+        "Store stats requires a store inspector. " +
+        "In your app, call `registerUnragDebug({ engine, storeInspector })`.",
+    };
+  }
+
+  const data = await runtime.storeInspector.storeStats();
   return {
     type: "store-stats",
-    success: false,
-    error:
-      "Store stats command requires store integration. " +
-      "This feature will be available in a future update.",
+    success: true,
+    ...data,
   };
 }

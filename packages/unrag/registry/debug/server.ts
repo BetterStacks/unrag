@@ -8,7 +8,11 @@
 
 import type { DebugEvent } from "@registry/core/debug-events";
 import { getDebugEmitter } from "@registry/core/debug-emitter";
+import { DEBUG_PROTOCOL_VERSION } from "@registry/debug/types";
+import { getUnragDebugRuntime } from "@registry/debug/runtime";
+import { hasVendoredModuleDir, isUnragBatteryInstalled } from "@registry/debug/unrag-json";
 import type {
+  DebugCapability,
   DebugServerConfig,
   DebugServer,
   ClientMessage,
@@ -21,6 +25,7 @@ import { handleCommand } from "@registry/debug/commands";
 const DEFAULT_PORT = 3847;
 const DEFAULT_HOST = "localhost";
 const DEFAULT_MAX_CLIENTS = 5;
+const HANDSHAKE_TIMEOUT_MS = 800;
 
 // ---------------------------------------------------------------------------
 // Structural types for runtime-agnostic WebSocket handling
@@ -166,6 +171,12 @@ function decodeUint8ArrayChunks(chunks: readonly Uint8Array[]): string {
 // ---------------------------------------------------------------------------
 
 let serverInstance: DebugServerInstance | null = null;
+type ClientState = {
+  helloReceived: boolean;
+  welcomeSent: boolean;
+  timer: ReturnType<typeof setTimeout> | null;
+};
+const clientState = new WeakMap<WebSocketClient, ClientState>();
 
 // ---------------------------------------------------------------------------
 // Server implementation
@@ -195,6 +206,19 @@ export async function startDebugServer(
   const maxClients = config?.maxClients ?? DEFAULT_MAX_CLIENTS;
   const clients = new Set<WebSocketClient>();
   const startTime = Date.now();
+  const runtime = hasBunServe() ? "bun" : "node";
+
+  const computeCapabilities = (): DebugCapability[] => {
+    // This will be expanded as we implement interactive features.
+    const caps: DebugCapability[] = ["doctor"];
+    const rt = getUnragDebugRuntime();
+    if (rt?.engine) caps.push("query");
+    if (rt?.engine && isUnragBatteryInstalled("eval") && hasVendoredModuleDir("eval")) {
+      caps.push("eval");
+    }
+    if (rt?.storeInspector) caps.push("docs", "storeInspector");
+    return caps;
+  };
 
   const instance: DebugServerInstance = {
     port,
@@ -250,6 +274,15 @@ export async function startDebugServer(
   });
 
   // Shared handler logic
+  const sendWelcome = (ws: WebSocketClient) => {
+    const welcome: ServerMessage = {
+      type: "welcome",
+      sessionId: emitter.getSessionId(),
+      bufferedEvents: emitter.getBuffer(),
+    };
+    ws.send(JSON.stringify(welcome));
+  };
+
   const handleOpen = (ws: WebSocketClient) => {
     if (clients.size >= maxClients) {
       ws.close(1013, "Maximum clients reached");
@@ -259,12 +292,29 @@ export async function startDebugServer(
     clients.add(ws);
     instance.clientCount = clients.size;
 
-    const welcome: ServerMessage = {
-      type: "welcome",
-      sessionId: emitter.getSessionId(),
-      bufferedEvents: emitter.getBuffer(),
+    // Handshake: server hello, then wait for client hello before sending welcome.
+    const hello: ServerMessage = {
+      type: "hello",
+      protocolVersion: DEBUG_PROTOCOL_VERSION,
+      capabilities: computeCapabilities(),
+      serverInfo: {
+        endpoint: `ws://${host}:${port}`,
+        pid: typeof process !== "undefined" ? process.pid : undefined,
+        runtime,
+      },
     };
-    ws.send(JSON.stringify(welcome));
+    ws.send(JSON.stringify(hello));
+
+    const timer = setTimeout(() => {
+      const state = clientState.get(ws);
+      // Legacy fallback: if client didn't hello, still send welcome so older TUIs work.
+      if (state && !state.welcomeSent) {
+        state.welcomeSent = true;
+        sendWelcome(ws);
+      }
+    }, HANDSHAKE_TIMEOUT_MS);
+
+    clientState.set(ws, { helloReceived: false, welcomeSent: false, timer });
 
     console.log(`[unrag:debug] Client connected (${clients.size}/${maxClients})`);
   };
@@ -275,7 +325,55 @@ export async function startDebugServer(
       if (!text) return;
       const message = JSON.parse(text) as ClientMessage;
 
+      if (message.type === "hello") {
+        const supported = Array.isArray(message.supportedProtocolVersions)
+          ? message.supportedProtocolVersions
+          : [];
+        const state = clientState.get(ws);
+
+        if (!supported.includes(DEBUG_PROTOCOL_VERSION)) {
+          const err: ServerMessage = {
+            type: "error",
+            code: "protocol_mismatch",
+            message:
+              `Debug protocol mismatch. Server=${DEBUG_PROTOCOL_VERSION}, ` +
+              `client supports [${supported.join(", ")}]. ` +
+              `Please upgrade unrag in your app and your CLI.`,
+            details: {
+              serverProtocolVersion: DEBUG_PROTOCOL_VERSION,
+              clientSupported: supported,
+            },
+          };
+          ws.send(JSON.stringify(err));
+          ws.close(1002, "Protocol mismatch");
+          return;
+        }
+
+        if (state) {
+          state.helloReceived = true;
+          if (state.timer) clearTimeout(state.timer);
+          state.timer = null;
+          if (!state.welcomeSent) {
+            state.welcomeSent = true;
+            sendWelcome(ws);
+          }
+        } else {
+          // Shouldn't happen, but be resilient.
+          sendWelcome(ws);
+        }
+        return;
+      }
+
       if (message.type === "command") {
+        // Legacy clients might send commands without ever sending hello.
+        const state = clientState.get(ws);
+        if (state && !state.welcomeSent) {
+          state.welcomeSent = true;
+          if (state.timer) clearTimeout(state.timer);
+          state.timer = null;
+          sendWelcome(ws);
+        }
+
         handleCommand(message.command, emitter, instance.startTime)
           .then((result) => {
             const response: ServerMessage = {
@@ -305,6 +403,9 @@ export async function startDebugServer(
   };
 
   const handleClose = (ws: WebSocketClient) => {
+    const state = clientState.get(ws);
+    if (state?.timer) clearTimeout(state.timer);
+    clientState.delete(ws);
     clients.delete(ws);
     instance.clientCount = clients.size;
     console.log(`[unrag:debug] Client disconnected (${clients.size}/${maxClients})`);

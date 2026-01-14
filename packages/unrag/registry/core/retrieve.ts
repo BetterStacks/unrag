@@ -9,6 +9,13 @@ const now = () => performance.now();
 
 const DEFAULT_TOP_K = 8;
 
+const createId = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+};
+
 export const retrieve = async (
   config: ResolvedContextEngineConfig,
   input: RetrieveInput
@@ -16,12 +23,19 @@ export const retrieve = async (
   const debug = getDebugEmitter();
   const totalStart = now();
   const topK = input.topK ?? DEFAULT_TOP_K;
+  const opId = createId();
+  const rootSpanId = createId();
+  const embeddingSpanId = createId();
+  const retrievalSpanId = createId();
 
   debug.emit({
     type: "retrieve:start",
     query: input.query,
     topK,
     scope: input.scope,
+    opName: "retrieve",
+    opId,
+    spanId: rootSpanId,
   });
 
   const embeddingStart = now();
@@ -40,6 +54,10 @@ export const retrieve = async (
     embeddingProvider: config.embedding.name,
     embeddingDimension: queryEmbedding.length,
     durationMs: embeddingMs,
+    opName: "retrieve",
+    opId,
+    spanId: embeddingSpanId,
+    parentSpanId: rootSpanId,
   });
 
   const retrievalStart = now();
@@ -55,6 +73,10 @@ export const retrieve = async (
     query: input.query,
     resultsCount: chunks.length,
     durationMs: retrievalMs,
+    opName: "retrieve",
+    opId,
+    spanId: retrievalSpanId,
+    parentSpanId: rootSpanId,
   });
 
   const totalMs = now() - totalStart;
@@ -67,6 +89,9 @@ export const retrieve = async (
     totalDurationMs: totalMs,
     embeddingMs,
     retrievalMs,
+    opName: "retrieve",
+    opId,
+    spanId: rootSpanId,
   });
 
   return {

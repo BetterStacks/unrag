@@ -13,11 +13,16 @@ import { Header } from "@registry/debug/tui/components/Header";
 import { HelpOverlay } from "@registry/debug/tui/components/HelpOverlay";
 import { StatusBar } from "@registry/debug/tui/components/StatusBar";
 import { TabBar } from "@registry/debug/tui/components/TabBar";
+import { Traces } from "@registry/debug/tui/components/Traces";
+import { QueryRunner } from "@registry/debug/tui/components/QueryRunner";
+import { Docs } from "@registry/debug/tui/components/Docs";
+import { Doctor } from "@registry/debug/tui/components/Doctor";
+import { Eval } from "@registry/debug/tui/components/Eval";
 import { useConnection } from "@registry/debug/tui/hooks/useConnection";
 import { useEvents } from "@registry/debug/tui/hooks/useEvents";
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
 
-export type Tab = "dashboard" | "events";
+export type Tab = "dashboard" | "events" | "traces" | "query" | "docs" | "doctor" | "eval";
 
 type AppProps = {
   url?: string;
@@ -33,7 +38,7 @@ export function App({ url }: AppProps) {
   const events = useEvents(connection);
 
   // Tab navigation
-  const tabs: Tab[] = ["dashboard", "events"];
+  const tabs: Tab[] = ["dashboard", "events", "traces", "query", "docs", "doctor", "eval"];
 
   const cycleTab = useCallback(
     (direction: 1 | -1) => {
@@ -74,6 +79,11 @@ export function App({ url }: AppProps) {
     // Number keys for direct tab selection
     if (input === "1") setActiveTab("dashboard");
     if (input === "2") setActiveTab("events");
+    if (input === "3") setActiveTab("traces");
+    if (input === "4") setActiveTab("query");
+    if (input === "5") setActiveTab("docs");
+    if (input === "6") setActiveTab("doctor");
+    if (input === "7") setActiveTab("eval");
   });
 
   return (
@@ -92,6 +102,11 @@ export function App({ url }: AppProps) {
         tabs={[
           { id: "dashboard", label: "Dashboard", shortcut: "1" },
           { id: "events", label: "Events", shortcut: "2" },
+          { id: "traces", label: "Traces", shortcut: "3" },
+          { id: "query", label: "Query", shortcut: "4" },
+          { id: "docs", label: "Docs", shortcut: "5" },
+          { id: "doctor", label: "Doctor", shortcut: "6" },
+          { id: "eval", label: "Eval", shortcut: "7" },
         ]}
         activeTab={activeTab}
         onSelect={(tab) => setActiveTab(tab as Tab)}
@@ -103,6 +118,11 @@ export function App({ url }: AppProps) {
           <Dashboard events={events} connection={connection} />
         )}
         {activeTab === "events" && <EventList events={events} />}
+        {activeTab === "traces" && <Traces events={events} />}
+        {activeTab === "query" && <QueryRunner connection={connection} />}
+        {activeTab === "docs" && <Docs connection={connection} />}
+        {activeTab === "doctor" && <Doctor connection={connection} />}
+        {activeTab === "eval" && <Eval connection={connection} />}
       </Box>
 
       {/* Status bar */}
@@ -110,6 +130,8 @@ export function App({ url }: AppProps) {
         hint="? help · q quit"
         eventCount={events.length}
         status={connection.status}
+        url={url ?? "ws://localhost:3847"}
+        errorMessage={connection.errorMessage}
       />
 
       {/* Help overlay */}

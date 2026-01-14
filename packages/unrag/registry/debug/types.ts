@@ -10,6 +10,39 @@ import type { DebugEvent } from "@registry/core/debug-events";
 // Re-export event types for convenience
 export type { DebugEvent, DebugEventType } from "@registry/core/debug-events";
 
+// ============================================================================
+// Protocol + capabilities
+// ============================================================================
+
+/**
+ * Debug WebSocket protocol version.
+ *
+ * Increment when message formats change in a way that requires explicit
+ * negotiation between client (TUI) and server (in-app debug server).
+ */
+export const DEBUG_PROTOCOL_VERSION = 2 as const;
+
+/**
+ * Feature flags advertised by the server during handshake.
+ * Keep these coarse-grained and additive.
+ */
+export type DebugCapability =
+  | "traces"
+  | "query"
+  | "docs"
+  | "doctor"
+  | "eval"
+  | "storeInspector";
+
+export type DebugServerInfo = {
+  /** Server websocket endpoint as seen by the server. */
+  endpoint?: string;
+  /** Process ID (when available). */
+  pid?: number;
+  /** Optional app/runtime identifier (e.g. "node", "bun"). */
+  runtime?: string;
+};
+
 /**
  * Configuration for the debug WebSocket server.
  */
@@ -70,6 +103,14 @@ export type DebugConnection = {
   status: DebugConnectionStatus;
   /** Session ID from the connected server (available when connected) */
   sessionId?: string;
+  /** Negotiated protocol version (available after handshake). */
+  protocolVersion?: number;
+  /** Server advertised capabilities (available after handshake). */
+  capabilities?: DebugCapability[];
+  /** Optional server info from handshake. */
+  serverInfo?: DebugServerInfo;
+  /** Last connection/protocol error message (if any). */
+  errorMessage?: string;
   /** Register an event handler. Returns unsubscribe function. */
   onEvent: (handler: (event: DebugEvent) => void) => () => void;
   /** Register a status change handler. Returns unsubscribe function. */
@@ -129,6 +170,41 @@ export type StoreStatsCommand = {
 };
 
 /**
+ * Doctor command - returns capability + configuration checks.
+ */
+export type DoctorCommand = {
+  type: "doctor";
+};
+
+/**
+ * Run evaluation dataset (read from disk in the app process).
+ */
+export type RunEvalCommand = {
+  type: "run-eval";
+  datasetPath: string;
+  mode?: "retrieve" | "retrieve+rerank";
+  topK?: number;
+  rerankTopK?: number;
+  scopePrefix?: string;
+  ingest?: boolean;
+  cleanup?: "none" | "on-success" | "always";
+  includeNdcg?: boolean;
+  /**
+   * Safety guardrail: allow scope prefixes not starting with "eval:".
+   * Avoid enabling this unless you understand delete-by-prefix risk.
+   */
+  allowNonEvalPrefix?: boolean;
+  /**
+   * Safety guardrail: explicit confirmation for non-eval delete-by-prefix.
+   */
+  confirmedDangerousDelete?: boolean;
+  /**
+   * Safety guardrail: allow documents[].assets ingestion (URL fetch risk).
+   */
+  allowAssets?: boolean;
+};
+
+/**
  * Ping command for connection testing.
  */
 export type PingCommand = {
@@ -158,6 +234,8 @@ export type DebugCommand =
   | GetDocumentCommand
   | DeleteDocumentCommand
   | StoreStatsCommand
+  | DoctorCommand
+  | RunEvalCommand
   | PingCommand
   | ClearBufferCommand
   | GetBufferCommand;
@@ -256,6 +334,110 @@ export type StoreStatsResult = DebugCommandResultBase & {
   };
 };
 
+export type DoctorCheckStatus = "ok" | "warn" | "error";
+
+export type DoctorCheck = {
+  id: string;
+  label: string;
+  status: DoctorCheckStatus;
+  detail?: string;
+  fix?: string;
+};
+
+/**
+ * Doctor result.
+ */
+export type DoctorResult = DebugCommandResultBase & {
+  type: "doctor";
+  checks: DoctorCheck[];
+  info?: {
+    sessionId?: string;
+    uptimeMs?: number;
+    env?: {
+      UNRAG_DEBUG?: string;
+    };
+    runtime?: {
+      registered: boolean;
+      registeredAt?: number;
+      hasEngine: boolean;
+      hasStoreInspector: boolean;
+      engineInfo?: {
+        embedding: {
+          name: string;
+          dimensions?: number;
+          supportsBatch: boolean;
+          supportsImage: boolean;
+        };
+        storage: {
+          storeChunkContent: boolean;
+          storeDocumentContent: boolean;
+        };
+        defaults: {
+          chunkSize: number;
+          chunkOverlap: number;
+        };
+        extractorsCount: number;
+        rerankerName?: string;
+      };
+    };
+  };
+};
+
+export type EvalStageMetrics = {
+  hitAtK: number;
+  recallAtK: number;
+  precisionAtK: number;
+  mrrAtK: number;
+  ndcgAtK?: number;
+};
+
+export type RunEvalResult = DebugCommandResultBase & {
+  type: "run-eval";
+  summary?: {
+    datasetId: string;
+    createdAt: string;
+    config: {
+      mode: "retrieve" | "retrieve+rerank";
+      topK: number;
+      rerankTopK?: number;
+      scopePrefix: string;
+      ingest: boolean;
+      cleanup: "none" | "on-success" | "always";
+      includeNdcg: boolean;
+    };
+    engine: {
+      embeddingModel?: string;
+      rerankerName?: string;
+      rerankerModel?: string;
+    };
+    passed?: boolean;
+    thresholdFailures?: string[];
+    aggregates: {
+      retrieved: { mean: EvalStageMetrics; median: EvalStageMetrics };
+      reranked?: { mean: EvalStageMetrics; median: EvalStageMetrics };
+    };
+    timings: {
+      embeddingMs: { p50: number; p95: number };
+      retrievalMs: { p50: number; p95: number };
+      retrieveTotalMs: { p50: number; p95: number };
+      rerankMs?: { p50: number; p95: number };
+      rerankTotalMs?: { p50: number; p95: number };
+      totalMs: { p50: number; p95: number };
+    };
+    charts?: {
+      retrievedRecall: number[];
+      retrievedMrr: number[];
+      rerankedRecall?: number[];
+      rerankedMrr?: number[];
+    };
+    worst?: Array<{
+      id: string;
+      recallAtK: number;
+      mrrAtK: number;
+    }>;
+  };
+};
+
 /**
  * Ping result.
  */
@@ -290,6 +472,8 @@ export type DebugCommandResult =
   | GetDocumentResult
   | DeleteDocumentResult
   | StoreStatsResult
+  | DoctorResult
+  | RunEvalResult
   | PingResult
   | ClearBufferResult
   | GetBufferResult;
@@ -298,16 +482,45 @@ export type DebugCommandResult =
 // WebSocket Message Types
 // ============================================================================
 
+export type DebugErrorCode =
+  | "protocol_mismatch"
+  | "bad_message"
+  | "not_ready"
+  | "unauthorized";
+
+export type ServerErrorMessage = {
+  type: "error";
+  code: DebugErrorCode;
+  message: string;
+  details?: Record<string, unknown>;
+};
+
+export type ServerHelloMessage = {
+  type: "hello";
+  protocolVersion: number;
+  capabilities: DebugCapability[];
+  serverInfo?: DebugServerInfo;
+};
+
+export type ClientHelloMessage = {
+  type: "hello";
+  supportedProtocolVersions: number[];
+  clientInfo?: Record<string, unknown>;
+};
+
 /**
  * Message from server to client.
  */
 export type ServerMessage =
+  | ServerHelloMessage
   | { type: "event"; event: DebugEvent }
   | { type: "welcome"; sessionId: string; bufferedEvents: DebugEvent[] }
-  | { type: "result"; requestId: string; result: DebugCommandResult };
+  | { type: "result"; requestId: string; result: DebugCommandResult }
+  | ServerErrorMessage;
 
 /**
  * Message from client to server.
  */
 export type ClientMessage =
+  | ClientHelloMessage
   | { type: "command"; requestId: string; command: DebugCommand };

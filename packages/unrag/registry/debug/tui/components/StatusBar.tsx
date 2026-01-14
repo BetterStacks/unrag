@@ -5,16 +5,19 @@
 import React from "react";
 import { Box, Text } from "ink";
 import type { DebugConnectionStatus } from "@registry/debug/types";
-import { chars, statusColor, theme } from "@registry/debug/tui/theme";
+import { chars, statusColor, theme, truncate } from "@registry/debug/tui/theme";
 
 type StatusBarProps = {
   hint: string;
   eventCount: number;
   status: DebugConnectionStatus;
+  url?: string;
+  errorMessage?: string;
 };
 
-export function StatusBar({ hint, eventCount, status }: StatusBarProps) {
+export function StatusBar({ hint, eventCount, status, url, errorMessage }: StatusBarProps) {
   const color = statusColor(status);
+  const endpoint = url ?? "ws://localhost:3847";
 
   return (
     <Box
@@ -30,7 +33,13 @@ export function StatusBar({ hint, eventCount, status }: StatusBarProps) {
     >
       {/* Left: keyboard hints */}
       <Box gap={2}>
-        <Text color={theme.muted}>{hint}</Text>
+        {status === "error" && errorMessage ? (
+          <Text color={theme.error} bold>
+            {chars.cross} {truncate(errorMessage, 120)}
+          </Text>
+        ) : (
+          <Text color={theme.muted}>{hint}</Text>
+        )}
       </Box>
 
       {/* Right: stats */}
@@ -44,7 +53,7 @@ export function StatusBar({ hint, eventCount, status }: StatusBarProps) {
           <Text color={color} bold>
             {chars.dot}
           </Text>
-          <Text color={theme.fg}>ws://localhost:3847</Text>
+          <Text color={theme.fg}>{endpoint}</Text>
         </Box>
       </Box>
     </Box>

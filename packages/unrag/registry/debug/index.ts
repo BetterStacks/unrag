@@ -27,6 +27,10 @@ export { startDebugServer, stopDebugServer, getDebugServer } from "@registry/deb
 // Client exports (for debug TUI)
 export { connectDebugClient, createAutoReconnectClient } from "@registry/debug/client";
 
+// Runtime registration (for interactive commands)
+export { registerUnragDebug, getUnragDebugRuntime } from "@registry/debug/runtime";
+export type { StoreInspector, UnragDebugRuntime } from "@registry/debug/runtime";
+
 // Type exports
 export type {
   // Server types
@@ -60,6 +64,9 @@ export type {
   // Message types
   ServerMessage,
   ClientMessage,
+  // Protocol
+  DebugCapability,
+  DebugServerInfo,
 } from "@registry/debug/types";
 
 // Re-export event types for user reference

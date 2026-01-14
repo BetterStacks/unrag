@@ -8,12 +8,24 @@ import { Text } from "ink";
 type SparklineProps = {
   data: number[];
   width?: number;
+  /** Optional formatter for min/max labels. Defaults to ms formatter. */
+  format?: (value: number) => string;
+  /** Sparkline color (defaults to cyan). */
+  color?: string;
+  /** Show min/max labels (defaults true). */
+  showMinMax?: boolean;
 };
 
 // Unicode block characters for different heights
 const BLOCKS = [" ", "\u2581", "\u2582", "\u2583", "\u2584", "\u2585", "\u2586", "\u2587", "\u2588"];
 
-export function Sparkline({ data, width = 30 }: SparklineProps) {
+export function Sparkline({
+  data,
+  width = 30,
+  format,
+  color = "cyan",
+  showMinMax = true,
+}: SparklineProps) {
   if (data.length === 0) {
     return <Text dimColor>No data</Text>;
   }
@@ -43,12 +55,15 @@ export function Sparkline({ data, width = 30 }: SparklineProps) {
     if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`;
     return `${ms.toFixed(0)}ms`;
   };
+  const fmt = format ?? formatMs;
+  const minLabel = fmt(min);
+  const maxLabel = fmt(max);
 
   return (
     <Text>
-      <Text dimColor>{formatMs(min).padStart(6)} </Text>
-      <Text color="cyan">{sparkline}</Text>
-      <Text dimColor> {formatMs(max)}</Text>
+      {showMinMax && <Text dimColor>{minLabel.padStart(6)} </Text>}
+      <Text color={color}>{sparkline}</Text>
+      {showMinMax && <Text dimColor> {maxLabel}</Text>}
     </Text>
   );
 }

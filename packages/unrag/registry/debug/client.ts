@@ -6,12 +6,15 @@
  */
 
 import type { DebugEvent } from "@registry/core/debug-events";
+import { DEBUG_PROTOCOL_VERSION } from "@registry/debug/types";
 import type {
+  DebugCapability,
   DebugClientConfig,
   DebugConnection,
   DebugConnectionStatus,
   DebugCommand,
   DebugCommandResult,
+  DebugServerInfo,
   ServerMessage,
   ClientMessage,
 } from "@registry/debug/types";
@@ -39,6 +42,10 @@ export function connectDebugClient(config?: DebugClientConfig): DebugConnection 
 
   let status: DebugConnectionStatus = "connecting";
   let sessionId: string | undefined;
+  let protocolVersion: number | undefined;
+  let capabilities: DebugCapability[] | undefined;
+  let serverInfo: DebugServerInfo | undefined;
+  let errorMessage: string | undefined;
   let ws: WebSocket | null = null;
   let reconnectAttempts = 0;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -73,12 +80,49 @@ export function connectDebugClient(config?: DebugClientConfig): DebugConnection 
       const message = JSON.parse(data) as ServerMessage;
 
       switch (message.type) {
+        case "hello": {
+          // Server handshake. Validate we support this protocol; otherwise surface error.
+          protocolVersion = message.protocolVersion;
+          capabilities = message.capabilities;
+          serverInfo = message.serverInfo;
+          errorMessage = undefined;
+
+          if (!Array.isArray(message.capabilities)) {
+            capabilities = [];
+          }
+
+          if (protocolVersion !== DEBUG_PROTOCOL_VERSION) {
+            errorMessage =
+              `Protocol mismatch. Server=${protocolVersion}, client=${DEBUG_PROTOCOL_VERSION}. ` +
+              `Please upgrade unrag CLI or the app package so both match.`;
+            updateStatus("error");
+            try {
+              ws?.close(1002, "Protocol mismatch");
+            } catch {
+              // ignore
+            }
+          }
+          break;
+        }
+
+        case "error": {
+          errorMessage = message.message;
+          updateStatus("error");
+          try {
+            ws?.close(1011, message.code);
+          } catch {
+            // ignore
+          }
+          break;
+        }
+
         case "welcome":
           sessionId = message.sessionId;
           // Replay buffered events
           for (const event of message.bufferedEvents) {
             handleEvent(event);
           }
+          updateStatus("connected");
           break;
 
         case "event":
@@ -111,7 +155,15 @@ export function connectDebugClient(config?: DebugClientConfig): DebugConnection 
 
       ws.onopen = () => {
         reconnectAttempts = 0;
-        updateStatus("connected");
+        // Send client hello (protocol negotiation). We'll mark connected on welcome.
+        const hello: ClientMessage = {
+          type: "hello",
+          supportedProtocolVersions: [DEBUG_PROTOCOL_VERSION],
+          clientInfo: {
+            name: "unrag-debug-tui",
+          },
+        };
+        ws!.send(JSON.stringify(hello));
       };
 
       ws.onmessage = (event) => {
@@ -121,6 +173,10 @@ export function connectDebugClient(config?: DebugClientConfig): DebugConnection 
       ws.onclose = () => {
         ws = null;
         sessionId = undefined;
+        protocolVersion = undefined;
+        capabilities = undefined;
+        serverInfo = undefined;
+        errorMessage = undefined;
 
         // Reject all pending requests
         for (const [id, pending] of pendingRequests) {
@@ -164,6 +220,18 @@ export function connectDebugClient(config?: DebugClientConfig): DebugConnection 
 
     get sessionId() {
       return sessionId;
+    },
+    get protocolVersion() {
+      return protocolVersion;
+    },
+    get capabilities() {
+      return capabilities;
+    },
+    get serverInfo() {
+      return serverInfo;
+    },
+    get errorMessage() {
+      return errorMessage;
     },
 
     onEvent(handler) {

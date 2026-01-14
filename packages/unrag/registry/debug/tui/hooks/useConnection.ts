@@ -6,8 +6,10 @@ import { useState, useEffect, useRef } from "react";
 import type {
   DebugCommandResult,
   DebugCommandType,
+  DebugCapability,
   DebugConnection,
   DebugConnectionStatus,
+  DebugServerInfo,
 } from "@registry/debug/types";
 import { connectDebugClient } from "@registry/debug/client";
 
@@ -45,6 +47,10 @@ export function useConnection(url?: string): DebugConnection {
   const connectionRef = useRef<DebugConnection | null>(null);
   const [status, setStatus] = useState<DebugConnectionStatus>("connecting");
   const [sessionId, setSessionId] = useState<string | undefined>();
+  const [protocolVersion, setProtocolVersion] = useState<number | undefined>();
+  const [capabilities, setCapabilities] = useState<DebugCapability[] | undefined>();
+  const [serverInfo, setServerInfo] = useState<DebugServerInfo | undefined>();
+  const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
   useEffect(() => {
     // Create connection on mount
@@ -62,8 +68,16 @@ export function useConnection(url?: string): DebugConnection {
       setStatus(newStatus);
       if (newStatus === "connected") {
         setSessionId(connection.sessionId);
+        setProtocolVersion(connection.protocolVersion);
+        setCapabilities(connection.capabilities);
+        setServerInfo(connection.serverInfo);
+        setErrorMessage(connection.errorMessage);
       } else if (newStatus === "disconnected" || newStatus === "error") {
         setSessionId(undefined);
+        setProtocolVersion(undefined);
+        setCapabilities(undefined);
+        setServerInfo(undefined);
+        setErrorMessage(connection.errorMessage);
       }
     });
 
@@ -72,6 +86,10 @@ export function useConnection(url?: string): DebugConnection {
     if (connection.sessionId) {
       setSessionId(connection.sessionId);
     }
+    setProtocolVersion(connection.protocolVersion);
+    setCapabilities(connection.capabilities);
+    setServerInfo(connection.serverInfo);
+    setErrorMessage(connection.errorMessage);
 
     // Cleanup on unmount
     return () => {
@@ -87,6 +105,18 @@ export function useConnection(url?: string): DebugConnection {
     },
     get sessionId() {
       return sessionId;
+    },
+    get protocolVersion() {
+      return protocolVersion;
+    },
+    get capabilities() {
+      return capabilities;
+    },
+    get serverInfo() {
+      return serverInfo;
+    },
+    get errorMessage() {
+      return errorMessage;
     },
     onEvent: (handler) => {
       if (connectionRef.current) {

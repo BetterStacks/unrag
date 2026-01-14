@@ -49,8 +49,20 @@ export class ContextEngine {
    * This is done asynchronously to avoid blocking engine creation.
    */
   private initDebugServer(): void {
-    import("@registry/debug/server")
-      .then(({ startDebugServer }) => {
+    Promise.all([import("@registry/debug/server"), import("@registry/debug/runtime")])
+      .then(async ([{ startDebugServer }, { registerUnragDebug }]) => {
+        // Auto-register runtime so interactive TUI features (Query/Docs/Eval) work out of the box
+        // when the debug battery is installed.
+        try {
+          const storeInspector = (this.config.store as any)?.inspector;
+          registerUnragDebug({
+            engine: this,
+            ...(storeInspector ? { storeInspector } : {}),
+          });
+        } catch {
+          // Best effort only.
+        }
+
         startDebugServer().catch((err) => {
           console.warn(
             "[unrag:debug] Failed to start debug server:",
@@ -103,6 +115,48 @@ export class ContextEngine {
 
   async delete(input: DeleteInput): Promise<void> {
     return deleteDocuments(this.config, input);
+  }
+
+  /**
+   * Minimal, safe-to-expose debug info for the debug panel "Doctor" tab.
+   * Avoids leaking secrets while still enabling actionable diagnostics.
+   */
+  getDebugInfo(): {
+    embedding: {
+      name: string;
+      dimensions?: number;
+      supportsBatch: boolean;
+      supportsImage: boolean;
+    };
+    storage: {
+      storeChunkContent: boolean;
+      storeDocumentContent: boolean;
+    };
+    defaults: {
+      chunkSize: number;
+      chunkOverlap: number;
+    };
+    extractorsCount: number;
+    reranker?: { name: string };
+  } {
+    return {
+      embedding: {
+        name: this.config.embedding.name,
+        dimensions: this.config.embedding.dimensions,
+        supportsBatch: typeof this.config.embedding.embedMany === "function",
+        supportsImage: typeof this.config.embedding.embedImage === "function",
+      },
+      storage: {
+        storeChunkContent: Boolean(this.config.storage.storeChunkContent),
+        storeDocumentContent: Boolean(this.config.storage.storeDocumentContent),
+      },
+      defaults: {
+        chunkSize: this.config.defaults.chunkSize,
+        chunkOverlap: this.config.defaults.chunkOverlap,
+      },
+      extractorsCount: this.config.extractors.length,
+      reranker: this.config.reranker ? { name: this.config.reranker.name } : undefined,
+    };
   }
 }
 

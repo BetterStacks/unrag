@@ -64,10 +64,13 @@ export const chars = {
   dot: "●",
   circle: "○",
   arrow: "›",
+  pointer: "›",
   check: "✓",
   cross: "✗",
   // Section markers
   section: "▸",
+  // Solid block (for small charts/bars)
+  fullBlock: "█",
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
