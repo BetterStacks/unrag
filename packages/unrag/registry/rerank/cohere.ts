@@ -4,8 +4,8 @@
  * Uses Cohere's rerank-v3.5 model by default for high-quality relevance scoring.
  */
 
-import type { Reranker } from "../core/types";
-import type { CohereRerankerConfig } from "./types";
+import type { Reranker } from "@registry/core/types";
+import type { CohereRerankerConfig } from "@registry/rerank/types";
 
 const DEFAULT_MODEL = "rerank-v3.5";
 const DEFAULT_MAX_DOCUMENTS = 1000;

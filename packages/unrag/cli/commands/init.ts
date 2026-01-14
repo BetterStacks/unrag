@@ -475,6 +475,7 @@ export async function initCommand(args: string[]) {
         projectRoot: root,
         registryRoot,
         installDir,
+        aliasBase,
         extractor,
         yes: nonInteractive,
         overwrite: overwritePolicy,
@@ -513,6 +514,7 @@ export async function initCommand(args: string[]) {
         projectRoot: root,
         registryRoot,
         installDir,
+        aliasBase,
         connector,
         yes: nonInteractive,
         overwrite: overwritePolicy,
@@ -550,6 +552,7 @@ export async function initCommand(args: string[]) {
         projectRoot: root,
         registryRoot,
         installDir,
+        aliasBase,
         battery,
         yes: nonInteractive,
         overwrite: overwritePolicy,
@@ -622,7 +625,7 @@ export async function initCommand(args: string[]) {
       evalConfigAbs,
       JSON.stringify(EVAL_CONFIG_DEFAULT, null, 2) + "\n"
     );
-    await writeIfMissing(scriptAbs, renderEvalRunnerScript({ installDir }));
+    await writeIfMissing(scriptAbs, renderEvalRunnerScript({ aliasBase }));
 
     // Add package.json scripts, non-destructively.
     const pkg2: any = await readPackageJson(root);
@@ -647,13 +650,11 @@ export async function initCommand(args: string[]) {
         ? `Next: run \`${installCmd(pm)}\``
         : "Dependencies installed.";
 
-  const isNext =
-    Boolean((merged.pkg.dependencies ?? {})["next"]) ||
-    Boolean((merged.pkg.devDependencies ?? {})["next"]);
-
-  const tsconfigResult = isNext
-    ? await patchTsconfigPaths({ projectRoot: root, installDir, aliasBase })
-    : { changed: false as const };
+  const tsconfigResult = await patchTsconfigPaths({
+    projectRoot: root,
+    installDir,
+    aliasBase,
+  });
 
   const envHint = (() => {
     if (embeddingProvider === "ai") {
@@ -770,11 +771,9 @@ export async function initCommand(args: string[]) {
       richMediaEnabled
         ? `  Tip: you can tweak extractors + assetProcessing flags in unrag.config.ts later.`
         : `  Tip: re-run \`unrag init --rich-media\` (or edit unrag.config.ts) to enable rich media later.`,
-      isNext
-        ? tsconfigResult.changed
-          ? `- Next.js: updated ${tsconfigResult.file} (added aliases)`
-          : `- Next.js: no tsconfig changes needed`
-        : `- Next.js: not detected`,
+      tsconfigResult.changed
+        ? `- TypeScript: updated ${tsconfigResult.file} (added aliases)`
+        : `- TypeScript: no tsconfig changes needed`,
       "",
       merged.changes.length > 0
         ? `Added deps: ${merged.changes.map((c) => c.name).join(", ")}`

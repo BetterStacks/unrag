@@ -1,0 +1,30 @@
+---
+title: Query Panel
+description: Interactive query execution for testing retrieval.
+---
+
+The Query panel lets you run retrieval queries directly from the TUI without touching your application code. You type a query, it gets embedded and searched against your vector store, and you see exactly what would be returned. It's the fastest way to test whether your retrieval is working the way you expect.
+
+## Getting started
+
+Before you can use the Query panel, your engine needs to be registered with the debug runtime. In your application, after creating the engine, call `registerUnragDebug({ engine })`. Without this, the panel will show a warning explaining that query capability isn't available.
+
+Once that's set up, you'll see an input area at the top showing your current query text, scope, and topK setting. Press `e` to edit the query—type what you want to search for, then press `Enter` or `Escape` to confirm. Press `r` to run the query.
+
+You can adjust how many results come back using `+` and `-` to change the topK value, anywhere from 1 to 50 results.
+
+## Understanding the results
+
+After running a query, the results panel populates with matching chunks. Each row shows a similarity score (higher is better), the source ID identifying which document the chunk came from, and a preview of the content.
+
+Navigate through results with `j` and `k`. When you select a result, the details panel on the right shows you the full picture: the complete source ID without truncation, the precise similarity score to six decimal places, and most importantly, the full chunk content. You can scroll through the content with `PageUp` and `PageDown` if it's longer than fits on screen.
+
+The header also shows timing information after a query completes: how long the embedding took, how long the database search took, and the total end-to-end time. This helps you understand whether slow queries are bottlenecked on embedding or retrieval.
+
+## Debugging retrieval issues
+
+The Query panel is invaluable when retrieval isn't returning what you expect. Run the problematic query and examine what comes back. Are the top results semantically related to what you asked? Can you see why the system might have ranked them highly even if they're not what you wanted?
+
+If the "correct" result appears but is ranked lower than expected, note its score compared to the higher-ranked results. If scores are close, the embedding model genuinely sees them as similarly relevant—this might be a chunking issue (is the right content in its own chunk?) or a vocabulary mismatch (is the query phrased differently than how the content is written?).
+
+Try rephrasing your query and see how results change. Sometimes adding or removing a word makes a significant difference, which tells you something about how the embedding model interprets your content.

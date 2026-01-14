@@ -1,11 +1,11 @@
-import type { DriveClient, AuthClient } from "./_api-types";
+import type { DriveClient, AuthClient } from "@registry/connectors/google-drive/_api-types";
 import type {
   GoogleDriveAuth,
   GoogleDriveOAuthAuth,
   GoogleDriveServiceAccountAuth,
   GoogleDriveGoogleAuthAuth,
   ServiceAccountCredentials,
-} from "./types";
+} from "@registry/connectors/google-drive/types";
 
 export const DEFAULT_DRIVE_SCOPES = [
   "https://www.googleapis.com/auth/drive.readonly",

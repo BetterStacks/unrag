@@ -4,9 +4,17 @@ import type {
   RerankCandidate,
   RerankRankingItem,
   ResolvedContextEngineConfig,
-} from "./types";
+} from "@registry/core/types";
+import { getDebugEmitter } from "@registry/core/debug-emitter";
 
 const now = () => performance.now();
+
+const createId = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+};
 
 /**
  * Rerank candidates using the configured reranker.
@@ -18,8 +26,11 @@ export const rerank = async (
   config: ResolvedContextEngineConfig,
   input: RerankInput
 ): Promise<RerankResult> => {
+  const debug = getDebugEmitter();
   const totalStart = now();
   const warnings: string[] = [];
+  const opId = createId();
+  const rootSpanId = createId();
 
   const {
     query,
@@ -60,6 +71,17 @@ export const rerank = async (
       "Reranker not configured. Install the reranker battery (`unrag add battery reranker`) and wire it in your config, or use `onMissingReranker: 'skip'`."
     );
   }
+
+  debug.emit({
+    type: "rerank:start",
+    query,
+    candidateCount: candidates.length,
+    topK,
+    rerankerName: config.reranker.name,
+    opName: "rerank",
+    opId,
+    spanId: rootSpanId,
+  });
 
   // Resolve text for each candidate
   const documents: string[] = [];
@@ -141,6 +163,20 @@ export const rerank = async (
   const chunks: RerankCandidate[] = topKRanking.map((r) => candidates[r.index]!);
 
   const totalMs = now() - totalStart;
+
+  debug.emit({
+    type: "rerank:complete",
+    query,
+    inputCount: candidates.length,
+    outputCount: chunks.length,
+    rerankMs,
+    totalMs,
+    rerankerName: config.reranker.name,
+    model: result.model,
+    opName: "rerank",
+    opId,
+    spanId: rootSpanId,
+  });
 
   return {
     chunks,

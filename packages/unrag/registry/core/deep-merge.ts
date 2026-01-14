@@ -1,4 +1,4 @@
-import type { DeepPartial } from "./types";
+import type { DeepPartial } from "@registry/core/types";
 
 /**
  * Type guard to check if a value is a plain object (not array, not null).

@@ -1,3 +1,0 @@
-export { createPrismaVectorStore } from "./store";
-
-

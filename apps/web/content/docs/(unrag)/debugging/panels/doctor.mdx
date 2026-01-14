@@ -1,0 +1,48 @@
+---
+title: Doctor Panel
+description: Configuration diagnostics and health checks.
+---
+
+The Doctor panel runs a series of checks against your Unrag setup and tells you what's working and what needs attention. Think of it as a pre-flight checklist—it verifies that everything is configured correctly before you start debugging in earnest.
+
+## Automatic checks
+
+The checks run automatically when you first open the Doctor panel or when the TUI connects to your application. They're all non-invasive—nothing gets modified, no expensive operations run. It's safe to leave this running and check back whenever you want.
+
+Each check reports one of three statuses. A green checkmark means everything is configured correctly. A yellow dot indicates a non-critical issue or a recommendation you might want to address. A red X signals a critical problem that will likely cause features to not work.
+
+The header shows a summary count: "3 ok · 1 warn · 0 err" tells you at a glance how things are looking.
+
+## What gets checked
+
+The Doctor panel examines several aspects of your setup.
+
+It verifies environment configuration—is `UNRAG_DEBUG` actually set? Are required API keys present for your embedding provider?
+
+It checks the runtime registration status—did you call `registerUnragDebug`? Did you provide the engine? Did you include the store inspector?
+
+It looks at your engine configuration to understand what's available—which embedding model, what dimensions, how many extractors are registered, whether a reranker is configured.
+
+And it reports on capabilities—based on your registration, which debug features are actually available.
+
+## Reading the details
+
+Navigate through the checks with `j` and `k`. When you select one, the Info panel on the right shows you the full details.
+
+For checks that passed, you'll see what was verified and perhaps some additional context. For warnings or errors, you'll see what went wrong and—more importantly—a suggested fix. The fix is usually actionable: "Call `registerUnragDebug({ engine })` after creating your engine" or "Add `storeInspector` to enable the Docs panel."
+
+## The Info panel
+
+Beyond the selected check, the Info panel shows useful runtime information gathered during the handshake with the debug server.
+
+You can see the protocol version your TUI negotiated with the server, the session ID for this connection, and the list of capabilities the server advertises. There's an uptime counter showing how long the debug server has been running.
+
+The runtime section shows registration status: whether the runtime is registered, whether it has access to the engine, and whether the store inspector is available.
+
+When an engine is registered, you'll also see its configuration: the embedding model name and dimensions, whether batch and image embeddings are supported, the default chunk size and overlap, how many extractors are configured, and what reranker is in use (if any).
+
+This information is useful even when everything is working—it confirms that your configuration is what you expect it to be.
+
+## Re-running checks
+
+If you've made changes to your configuration and want to see if they took effect, press `r` to re-run all the checks. The panel updates with fresh results.

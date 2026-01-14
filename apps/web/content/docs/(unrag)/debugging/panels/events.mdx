@@ -1,0 +1,26 @@
+---
+title: Events Panel
+description: Real-time event streaming with filtering capabilities.
+---
+
+The Events panel shows you everything that's happening in your pipeline, as it happens. While the Dashboard gives you a summary, this panel gives you the full stream—every event, every detail, in chronological order.
+
+## Following the flow
+
+Events appear in reverse chronological order, newest at the top. As your application runs operations, you'll see them appear here in real time. An ingest operation might generate half a dozen events as it moves through chunking, embedding, and storage. A retrieval is usually simpler—just a couple of events as the query gets embedded and searched.
+
+Navigate the list with `j` and `k` (or arrow keys) to move your selection up and down. When you find an event you want to inspect more closely, press `Enter` or `e` to see its full details, including all the timing information and metadata that didn't fit in the summary view.
+
+## Filtering out the noise
+
+When multiple operation types are running simultaneously, the event stream can get busy. That's when filtering becomes useful. Press `i` to see only ingest events, `r` for retrieve events, `k` for rerank events, or `d` for delete events. Press `a` to go back to showing everything.
+
+The filter persists until you change it, and the status bar reminds you which filter is active. This is particularly helpful when you're debugging a specific part of your pipeline—if you're trying to understand why ingestion is slow, you probably don't need to see all the retrieval events mixed in.
+
+## Making sense of the event lifecycle
+
+Each operation type follows a predictable pattern. Ingest operations start with an `ingest:start` event, then you'll see events for chunking, embedding batches, and storage before the final `ingest:complete`. Retrieval is simpler: start, embed the query, search the database, complete.
+
+The gaps between events tell you where time is being spent. If there's a long pause between `embedding:start` and `embedding:complete`, your embedding model is the bottleneck. A long gap before `storage:complete` points to database latency. Once you learn to read these patterns, you can quickly diagnose where slowdowns are coming from.
+
+Error events are particularly valuable here. When something fails, the error event includes the exception message and enough context to understand what went wrong. This is often faster than digging through application logs.

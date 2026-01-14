@@ -2,7 +2,7 @@ import { describe, expect, test, beforeEach, afterEach } from "bun:test";
 import path from "node:path";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 
-import { runEval } from "../registry/eval/runner";
+import { runEval } from "@registry/eval/runner";
 
 const workspaceTmpRoot = path.join(process.cwd(), "tmp", "test-runs");
 
@@ -201,9 +201,9 @@ describe("eval runner thresholds", () => {
       thresholds: { min: { recallAtK: 1 } },
     });
 
-    expect(observedRetrieveTopK).toBe(6);
-    expect(observedRerankCandidateCount).toBe(6);
-    expect(observedRerankTopK).toBe(2);
+    expect(observedRetrieveTopK!).toBe(6);
+    expect(observedRerankCandidateCount!).toBe(6);
+    expect(observedRerankTopK!).toBe(2);
 
     expect(result.report.config.mode).toBe("retrieve+rerank");
     expect(result.report.config.rerankTopK).toBe(6);

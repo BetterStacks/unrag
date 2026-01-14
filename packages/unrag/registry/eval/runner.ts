@@ -1,19 +1,23 @@
-import type { AssetInput, Metadata } from "../core/types";
-import type { ContextEngine } from "../core/context-engine";
+import type { AssetInput, Metadata } from "@registry/core/types";
+import type { ContextEngine } from "@registry/core/context-engine";
 
 import {
   readEvalDatasetFromFile,
   type EvalDatasetV1,
   type EvalMode,
   type EvalThresholds,
-} from "./dataset";
-import { computeMetricsAtK, uniqueSourceIdsInOrder, type EvalMetricsAtK } from "./metrics";
+} from "@registry/eval/dataset";
+import {
+  computeMetricsAtK,
+  uniqueSourceIdsInOrder,
+  type EvalMetricsAtK,
+} from "@registry/eval/metrics";
 import {
   percentiles,
   type EvalCleanupPolicy,
   type EvalQueryResult,
   type EvalReportV1,
-} from "./report";
+} from "@registry/eval/report";
 
 export type EvalRunArgs = {
   engine: ContextEngine;
@@ -294,7 +298,7 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
 }
 
 async function resolveDocumentContent(
-  doc: EvalDatasetV1["documents"][number],
+  doc: NonNullable<EvalDatasetV1["documents"]>[number],
   loadByRef: EvalRunArgs["loadDocumentByRef"]
 ): Promise<string> {
   if (typeof doc.content === "string" && doc.content.trim().length > 0) return doc.content;

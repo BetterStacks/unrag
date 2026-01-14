@@ -5,9 +5,9 @@ import {
   DRIVE_MIME,
   getNativeExportPlan,
   EXPORT_MIME,
-} from "../registry/connectors/google-drive/mime";
-import { normalizeGoogleDriveAuth } from "../registry/connectors/google-drive/client";
-import { buildGoogleDriveFileIngestInput } from "../registry/connectors/google-drive/sync";
+} from "@registry/connectors/google-drive/mime";
+import { normalizeGoogleDriveAuth } from "@registry/connectors/google-drive/client";
+import { buildGoogleDriveFileIngestInput } from "@registry/connectors/google-drive/sync";
 
 describe("google-drive connector: mime routing", () => {
   test("classifyDriveMimeType recognizes folders and google-native types", () => {

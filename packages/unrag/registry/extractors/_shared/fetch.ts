@@ -1,4 +1,4 @@
-import type { AssetData, AssetFetchConfig } from "../../core/types";
+import type { AssetData, AssetFetchConfig } from "@registry/core/types";
 
 const DEFAULT_UA = "unrag/asset-fetch";
 

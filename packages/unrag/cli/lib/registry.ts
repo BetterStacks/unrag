@@ -2,7 +2,7 @@ import path from "node:path";
 import { readFile, writeFile } from "node:fs/promises";
 import { confirm, isCancel, cancel } from "@clack/prompts";
 import { ensureDir, exists, listFilesRecursive } from "./fs";
-import type { ExtractorName } from "./packageJson";
+import type { EmbeddingProviderName, ExtractorName } from "./packageJson";
 
 export type RegistrySelection = {
   projectRoot: string;
@@ -10,7 +10,7 @@ export type RegistrySelection = {
   installDir: string; // project-relative posix
   storeAdapter: "drizzle" | "prisma" | "raw-sql";
   aliasBase: string; // e.g. "@unrag"
-  embeddingProvider?: import("./packageJson").EmbeddingProviderName;
+  embeddingProvider?: EmbeddingProviderName;
   yes?: boolean; // non-interactive
   overwrite?: "skip" | "force"; // behavior when dest exists
   presetConfig?: {
@@ -44,6 +44,15 @@ const readText = (filePath: string) => readFile(filePath, "utf8");
 const writeText = async (filePath: string, content: string) => {
   await ensureDir(path.dirname(filePath));
   await writeFile(filePath, content, "utf8");
+};
+
+const rewriteRegistryAliasImports = (content: string, aliasBase: string) => {
+  // The registry sources are authored against an internal monorepo alias `@registry/*`.
+  // When we vendor these sources into a user repo we must rewrite them to the user's configured
+  // alias base (e.g. `@unrag/*` or `@rag/*`) so TS path mapping works.
+  if (!content.includes("@registry")) return content;
+  // Most imports are `@registry/...`. Rewrite that form (and also handles `@registry/*`).
+  return content.replaceAll("@registry/", `${aliasBase}/`);
 };
 
 const EXTRACTOR_FACTORY: Record<ExtractorName, string> = {
@@ -116,7 +125,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
   const embeddingProvider =
     selection.embeddingProvider ??
     (typeof preset?.embedding?.provider === "string"
-      ? (preset.embedding.provider as import("./packageJson").EmbeddingProviderName)
+      ? (preset.embedding.provider as EmbeddingProviderName)
       : undefined) ??
     "ai";
 
@@ -560,6 +569,28 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       src: path.join(selection.registryRoot, "core/rerank.ts"),
       dest: path.join(installBaseAbs, "core/rerank.ts"),
     },
+    {
+      src: path.join(selection.registryRoot, "core/debug-emitter.ts"),
+      dest: path.join(installBaseAbs, "core/debug-emitter.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "core/debug-events.ts"),
+      dest: path.join(installBaseAbs, "core/debug-events.ts"),
+    },
+
+    // extractor shared utilities (used by core ingestion and extractor modules)
+    {
+      src: path.join(selection.registryRoot, "extractors/_shared/fetch.ts"),
+      dest: path.join(installBaseAbs, "extractors/_shared/fetch.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "extractors/_shared/media.ts"),
+      dest: path.join(installBaseAbs, "extractors/_shared/media.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "extractors/_shared/text.ts"),
+      dest: path.join(installBaseAbs, "extractors/_shared/text.ts"),
+    },
 
     // embedding
     {
@@ -622,21 +653,21 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       {
         src: path.join(
           selection.registryRoot,
-          "store/drizzle-postgres-pgvector/index.ts"
+          "store/drizzle/index.ts"
         ),
         dest: path.join(installBaseAbs, "store/drizzle/index.ts"),
       },
       {
         src: path.join(
           selection.registryRoot,
-          "store/drizzle-postgres-pgvector/schema.ts"
+          "store/drizzle/schema.ts"
         ),
         dest: path.join(installBaseAbs, "store/drizzle/schema.ts"),
       },
       {
         src: path.join(
           selection.registryRoot,
-          "store/drizzle-postgres-pgvector/store.ts"
+          "store/drizzle/store.ts"
         ),
         dest: path.join(installBaseAbs, "store/drizzle/store.ts"),
       }
@@ -646,14 +677,14 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       {
         src: path.join(
           selection.registryRoot,
-          "store/raw-sql-postgres-pgvector/index.ts"
+          "store/raw-sql/index.ts"
         ),
         dest: path.join(installBaseAbs, "store/raw-sql/index.ts"),
       },
       {
         src: path.join(
           selection.registryRoot,
-          "store/raw-sql-postgres-pgvector/store.ts"
+          "store/raw-sql/store.ts"
         ),
         dest: path.join(installBaseAbs, "store/raw-sql/store.ts"),
       }
@@ -663,14 +694,14 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       {
         src: path.join(
           selection.registryRoot,
-          "store/prisma-postgres-pgvector/index.ts"
+          "store/prisma/index.ts"
         ),
         dest: path.join(installBaseAbs, "store/prisma/index.ts"),
       },
       {
         src: path.join(
           selection.registryRoot,
-          "store/prisma-postgres-pgvector/store.ts"
+          "store/prisma/store.ts"
         ),
         dest: path.join(installBaseAbs, "store/prisma/store.ts"),
       }
@@ -708,7 +739,8 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
     }
 
     const raw = await readText(mapping.src);
-    const content = mapping.transform ? mapping.transform(raw) : raw;
+    const transformed = mapping.transform ? mapping.transform(raw) : raw;
+    const content = rewriteRegistryAliasImports(transformed, selection.aliasBase);
     await writeText(mapping.dest, content);
   }
 }
@@ -717,6 +749,7 @@ export type ConnectorSelection = {
   projectRoot: string;
   registryRoot: string;
   installDir: string; // project-relative posix
+  aliasBase: string; // e.g. "@unrag"
   connector: string; // e.g. "notion"
   yes?: boolean; // non-interactive skip-overwrite
   overwrite?: "skip" | "force";
@@ -779,7 +812,8 @@ export async function copyConnectorFiles(selection: ConnectorSelection) {
     }
 
     const raw = await readText(src);
-    await writeText(dest, raw);
+    const content = rewriteRegistryAliasImports(raw, selection.aliasBase);
+    await writeText(dest, content);
   }
 }
 
@@ -787,6 +821,7 @@ export type ExtractorSelection = {
   projectRoot: string;
   registryRoot: string;
   installDir: string; // project-relative posix
+  aliasBase: string; // e.g. "@unrag"
   extractor: string; // e.g. "pdf-llm"
   yes?: boolean; // non-interactive skip-overwrite
   overwrite?: "skip" | "force";
@@ -836,7 +871,8 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
     // If the contents are identical, don't prompt.
     try {
       const [srcRaw, destRaw] = await Promise.all([readText(src), readText(dest)]);
-      if (srcRaw === destRaw) return false;
+      const nextSrc = rewriteRegistryAliasImports(srcRaw, selection.aliasBase);
+      if (nextSrc === destRaw) return false;
     } catch {
       // If reads fail for any reason, fall back to prompting.
     }
@@ -863,7 +899,8 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
     if (!(await shouldWrite(src, dest))) continue;
 
     const raw = await readText(src);
-    await writeText(dest, raw);
+    const content = rewriteRegistryAliasImports(raw, selection.aliasBase);
+    await writeText(dest, content);
   }
 
   // Copy shared extractor utilities (if present).
@@ -877,7 +914,8 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
     if (!(await shouldWrite(src, dest))) continue;
 
     const raw = await readText(src);
-    await writeText(dest, raw);
+    const content = rewriteRegistryAliasImports(raw, selection.aliasBase);
+    await writeText(dest, content);
   }
 }
 
@@ -885,6 +923,7 @@ export type BatterySelection = {
   projectRoot: string;
   registryRoot: string;
   installDir: string; // project-relative posix
+  aliasBase: string; // e.g. "@unrag"
   battery: string; // e.g. "reranker"
   yes?: boolean; // non-interactive skip-overwrite
   overwrite?: "skip" | "force";
@@ -911,6 +950,17 @@ export async function copyBatteryFiles(selection: BatterySelection) {
   }
 
   const batteryFiles = await listFilesRecursive(batteryRegistryAbs);
+  const filteredBatteryFiles = batteryFiles.filter((abs) => {
+    // For the debug battery, only install the runtime (server/client/types/commands).
+    // The Ink/React TUI is shipped with the CLI as a prebuilt bundle.
+    if (batteryRegistryDir === "debug") {
+      const rel = path
+        .relative(batteryRegistryAbs, abs)
+        .replace(/\\/g, "/");
+      if (rel === "tui" || rel.startsWith("tui/")) return false;
+    }
+    return true;
+  });
 
   const destRootAbs = path.join(installBaseAbs, batteryRegistryDir);
 
@@ -928,7 +978,8 @@ export async function copyBatteryFiles(selection: BatterySelection) {
     // If the contents are identical, don't prompt.
     try {
       const [srcRaw, destRaw] = await Promise.all([readText(src), readText(dest)]);
-      if (srcRaw === destRaw) return false;
+      const nextSrc = rewriteRegistryAliasImports(srcRaw, selection.aliasBase);
+      if (nextSrc === destRaw) return false;
     } catch {
       // If reads fail for any reason, fall back to prompting.
     }
@@ -945,7 +996,7 @@ export async function copyBatteryFiles(selection: BatterySelection) {
   };
 
   // Copy battery files.
-  for (const src of batteryFiles) {
+  for (const src of filteredBatteryFiles) {
     if (!(await exists(src))) {
       throw new Error(`Registry file missing: ${src}`);
     }
@@ -955,7 +1006,8 @@ export async function copyBatteryFiles(selection: BatterySelection) {
     if (!(await shouldWrite(src, dest))) continue;
 
     const raw = await readText(src);
-    await writeText(dest, raw);
+    const content = rewriteRegistryAliasImports(raw, selection.aliasBase);
+    await writeText(dest, content);
   }
 }
 

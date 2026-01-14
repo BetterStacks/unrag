@@ -1,0 +1,91 @@
+---
+title: Debug Panel
+description: Real-time debugging TUI for RAG operations.
+---
+
+<Callout>
+The Debug Panel provides a terminal-based interface for real-time visibility into your RAG pipeline—watching operations as they happen, running interactive queries, inspecting stored documents, and diagnosing configuration issues.
+</Callout>
+
+The debug battery adds two components to your Unrag installation:
+
+**A WebSocket debug server** that runs alongside your application when `UNRAG_DEBUG=true` is set. The server broadcasts debug events and accepts interactive commands without affecting your application's normal operation.
+
+**A terminal UI (TUI)** that you launch with `bunx unrag debug`. The TUI connects to the debug server and provides eight specialized panels for different debugging tasks.
+
+## Installing the debug battery
+
+```bash
+bunx unrag@latest add battery debug
+```
+
+This installs the debug module into your project and adds the necessary dependencies.
+
+## Quick setup
+
+1. Set `UNRAG_DEBUG=true` in your environment
+2. Register your engine in your app:
+
+```ts
+import { registerUnragDebug } from "@unrag/debug";
+
+const engine = createUnragEngine();
+registerUnragDebug({ engine, storeInspector: engine.storeInspector });
+```
+
+3. Start your app, then connect the TUI:
+
+```bash
+bunx unrag debug
+```
+
+## Full documentation
+
+The Debug Panel has comprehensive documentation covering all aspects of the tool:
+
+<Cards>
+  <Card title="Debugging Overview" href="/docs/debugging">
+    Introduction and architecture
+  </Card>
+  <Card title="Getting Started" href="/docs/debugging/getting-started">
+    Complete setup guide
+  </Card>
+  <Card title="Understanding Events" href="/docs/debugging/debug-events">
+    Event types and timing analysis
+  </Card>
+  <Card title="Best Practices" href="/docs/debugging/best-practices">
+    Effective debugging workflows
+  </Card>
+  <Card title="Programmatic API" href="/docs/debugging/programmatic-api">
+    Building custom debug tools
+  </Card>
+</Cards>
+
+### Panel Documentation
+
+<Cards>
+  <Card title="Dashboard" href="/docs/debugging/panels/dashboard">
+    At-a-glance metrics and activity overview
+  </Card>
+  <Card title="Events" href="/docs/debugging/panels/events">
+    Real-time event streaming with filtering
+  </Card>
+  <Card title="Traces" href="/docs/debugging/panels/traces">
+    Grouped operation timelines
+  </Card>
+  <Card title="Query" href="/docs/debugging/panels/query">
+    Interactive query execution
+  </Card>
+  <Card title="Docs" href="/docs/debugging/panels/docs">
+    Document inspection and management
+  </Card>
+  <Card title="Ingest" href="/docs/debugging/panels/ingest">
+    Interactive document ingestion
+  </Card>
+  <Card title="Doctor" href="/docs/debugging/panels/doctor">
+    Configuration diagnostics
+  </Card>
+  <Card title="Eval" href="/docs/debugging/panels/eval">
+    Evaluation dataset runs
+  </Card>
+</Cards>

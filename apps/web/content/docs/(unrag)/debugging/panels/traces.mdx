@@ -1,0 +1,28 @@
+---
+title: Traces Panel
+description: Grouped operation traces for timeline analysis.
+---
+
+The Traces panel takes a different view of the same events you see in the Events panel. Instead of showing every event in a single chronological stream, it groups related events together by operation. Each trace represents one complete operation—from start to finish—making it easier to analyze how time was spent.
+
+## How traces work
+
+Every operation gets assigned a unique ID when it starts. All the events that happen during that operation share the same ID. The Traces panel uses this to group them together and show you the full timeline of each operation in isolation.
+
+When you select a trace, you see all its events laid out sequentially with timestamps. You can see exactly how long each phase took: how much time was spent chunking, how much embedding, how much writing to the database. The visualization makes long phases stand out—if embedding took 80% of the total time, that's immediately obvious.
+
+## Identifying bottlenecks
+
+This is where the Traces panel really shines. When an operation is slower than you'd like, the trace shows you exactly where the time went.
+
+If most of the trace duration sits between `embedding:start` and `embedding:complete`, your embedding model or provider is the limiting factor. Maybe you need to batch more aggressively, or consider a faster model, or check if you're hitting rate limits.
+
+If there's a long gap after embedding before `storage:complete`, the database is the bottleneck. Check your Postgres connection latency, make sure your connection pool isn't exhausted, and verify your indexes are in good shape.
+
+If chunking takes surprisingly long, your content might be unusually large or complex, or perhaps your custom chunking logic has an inefficiency.
+
+## Comparing across operations
+
+With multiple traces visible in the list, you can start comparing. Are documents from one source consistently slower than others? Does performance degrade under load? Did that configuration change you just made actually help?
+
+Navigate between traces with `j` and `k`, and press `Enter` to expand or collapse the details for a selected trace.

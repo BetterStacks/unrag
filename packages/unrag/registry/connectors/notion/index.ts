@@ -1,7 +1,15 @@
-export { createNotionClient } from "./client";
-export { normalizeNotionId32, normalizeNotionPageId32, toUuidHyphenated } from "./ids";
-export { renderNotionBlocksToText } from "./render";
-export { buildNotionPageIngestInput, loadNotionPageDocument, syncNotionPages } from "./sync";
-export * from "./types";
+export { createNotionClient } from "@registry/connectors/notion/client";
+export {
+  normalizeNotionId32,
+  normalizeNotionPageId32,
+  toUuidHyphenated,
+} from "@registry/connectors/notion/ids";
+export { renderNotionBlocksToText } from "@registry/connectors/notion/render";
+export {
+  buildNotionPageIngestInput,
+  loadNotionPageDocument,
+  syncNotionPages,
+} from "@registry/connectors/notion/sync";
+export * from "@registry/connectors/notion/types";
 
 

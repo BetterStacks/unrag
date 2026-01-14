@@ -172,6 +172,7 @@ Unrag's Drizzle adapter comes with a schema definition you can import into your 
 
 ```ts
 // In your drizzle schema file (e.g., lib/db/schema.ts)
+import {pgTable, text, uuid} from "drizzle-orm/pg-core";
 import * as unrag from "@unrag/store/drizzle/schema";
 
 // Your application tables

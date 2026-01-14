@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { ingest } from "../registry/core/ingest";
-import type { ResolvedContextEngineConfig } from "../registry/core/types";
+import { ingest } from "@registry/core/ingest";
+import type { ResolvedContextEngineConfig } from "@registry/core/types";
 
 describe("image embedding URL hardening", () => {
   test("fetches image URL using assetProcessing.fetch and passes bytes (not URL) to embedImage", async () => {
@@ -199,7 +199,7 @@ describe("image embedding URL hardening", () => {
     try {
       globalThis.fetch = (async () => {
         throw new Error("fetch should not be called when fetch is disabled");
-      }) as typeof fetch;
+      }) as unknown as typeof fetch;
 
       const config: ResolvedContextEngineConfig = {
         embedding: {
@@ -284,7 +284,7 @@ describe("image embedding URL hardening", () => {
     try {
       globalThis.fetch = (async () => {
         throw new Error("fetch should not be called when fetch is disabled");
-      }) as typeof fetch;
+      }) as unknown as typeof fetch;
 
       const config: ResolvedContextEngineConfig = {
         embedding: {

@@ -1,5 +1,4 @@
-import type { ContextEngine } from "../../core";
-import type { AssetInput, IngestInput } from "../../core";
+import type { AssetInput, ContextEngine, IngestInput, Metadata } from "@registry/core";
 
 export type NotionSyncProgressEvent =
   | { type: "page:start"; pageId: string; sourceId: string }
@@ -41,7 +40,7 @@ export type SyncNotionPagesResult = {
 export type NotionPageDocument = {
   sourceId: string;
   content: string;
-  metadata: Record<string, unknown>;
+  metadata: Metadata;
   assets: AssetInput[];
 };
 
@@ -49,7 +48,7 @@ export type BuildNotionPageIngestInputArgs = {
   pageId: string; // normalized 32-hex (no dashes)
   content: string;
   assets?: AssetInput[];
-  metadata?: Record<string, unknown>;
+  metadata?: Metadata;
   sourceIdPrefix?: string;
 };
 

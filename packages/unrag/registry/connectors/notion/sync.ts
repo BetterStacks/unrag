@@ -1,25 +1,25 @@
-import type { IngestResult, Metadata } from "../../core";
+import type { IngestResult, Metadata } from "@registry/core";
 import { isFullPage } from "@notionhq/client";
 import type {
   GetPageResponse,
   ListBlockChildrenResponse,
   RichTextItemResponse,
 } from "@notionhq/client/build/src/api-endpoints";
-import { createNotionClient, type NotionClient } from "./client";
-import { normalizeNotionPageId32, toUuidHyphenated } from "./ids";
+import { createNotionClient, type NotionClient } from "@registry/connectors/notion/client";
+import { normalizeNotionPageId32, toUuidHyphenated } from "@registry/connectors/notion/ids";
 import {
   extractNotionAssets,
   renderNotionBlocksToText,
   type NotionBlock,
   type NotionBlockNode,
-} from "./render";
+} from "@registry/connectors/notion/render";
 import type {
   BuildNotionPageIngestInputArgs,
   NotionPageDocument,
   NotionSyncProgressEvent,
   SyncNotionPagesInput,
   SyncNotionPagesResult,
-} from "./types";
+} from "@registry/connectors/notion/types";
 
 const joinPrefix = (prefix: string | undefined, rest: string) => {
   const p = (prefix ?? "").trim();

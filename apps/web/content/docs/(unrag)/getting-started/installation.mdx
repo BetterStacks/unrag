@@ -43,30 +43,46 @@ After initialization completes, your project will have several new files:
 <Files>
   <File name="unrag.config.ts" />
   <Folder name="lib/unrag" defaultOpen>
-    <Folder name="core">
+    <Folder name="core" defaultOpen>
       <File name="index.ts" />
-      <File name="context-engine.ts" />
-      <File name="ingest.ts" />
-      <File name="retrieve.ts" />
+      <File name="assets.ts" />
       <File name="chunking.ts" />
+      <File name="config.ts" />
+      <File name="context-engine.ts" />
+      <File name="deep-merge.ts" />
+      <File name="delete.ts" />
+      <File name="ingest.ts" />
+      <File name="rerank.ts" />
+      <File name="retrieve.ts" />
       <File name="types.ts" />
+    </Folder>
+    <Folder name="embedding">
+      <File name="_shared.ts" />
+      <File name="ai.ts" />
+      <File name="openai.ts" />
+      <File name="google.ts" />
+      <File name="..." />
+    </Folder>
+    <Folder name="extractors">
+      <Folder name="_shared">
+        <File name="fetch.ts" />
+        <File name="media.ts" />
+        <File name="text.ts" />
+      </Folder>
     </Folder>
     <Folder name="store">
       <File name="drizzle/" />
-    </Folder>
-    <Folder name="embedding">
-      <File name="ai.ts" />
     </Folder>
     <File name="unrag.md" />
   </Folder>
   <File name="unrag.json" />
 </Files>
 
-If you enabled rich media during setup, you'll also see an `extractors/` folder containing the extractor modules you selected.
+If you enabled rich media during setup, you'll also see additional extractor modules under the `extractors/` folder for the specific extractors you selected (e.g., `pdf-text-layer/`, `image-ocr/`).
 
 **`unrag.config.ts`** is where you configure the embedding provider, database connection, and default settings. The CLI generates this file with working code for your chosen adapter—you can use it immediately or customize it. If you enabled rich media, this file already has the extractors registered and the relevant `assetProcessing` flags enabled.
 
-**`lib/unrag/`** contains the vendored module code including the core engine, your chosen store adapter, and the default embedding provider. These files are yours to read and modify.
+**`lib/unrag/`** contains the vendored module code including the core engine (with ingest, retrieve, delete, and rerank operations), your chosen store adapter, all embedding provider implementations, and shared utilities. These files are yours to read and modify.
 
 **`lib/unrag/unrag.md`** contains setup documentation specific to your choices—the exact SQL schema, environment variables, and adapter notes.
 

@@ -364,6 +364,15 @@
       "docsPath": "/docs/batteries/eval",
       "deps": {},
       "devDeps": {}
+    },
+    {
+      "id": "debug",
+      "displayName": "Debug Panel",
+      "description": "Real-time TUI debugger for RAG operations (ingest, retrieve, rerank, delete).",
+      "status": "available",
+      "docsPath": "/docs/batteries/debug",
+      "deps": { "ws": "^8.18.0" },
+      "devDeps": {}
     }
   ]
 }

@@ -1,0 +1,54 @@
+---
+title: Eval Panel
+description: Run evaluation datasets and view retrieval quality metrics.
+---
+
+The Eval panel lets you run evaluation datasets directly from the TUI and see how well your retrieval is performing. You specify a dataset file, run the evaluation, and get back quality metrics that tell you whether your system is finding the right results.
+
+## What you need first
+
+The Eval panel has a few prerequisites. You need the eval battery installed—run `bunx unrag add battery eval` if you haven't already. You need your engine registered with `registerUnragDebug({ engine })`. And you need a dataset file that describes queries and their expected results.
+
+When you install the eval battery, a sample dataset gets created to get you started. You can find it at `.unrag/eval/datasets/sample.json` and use it to verify everything is wired up correctly.
+
+If any of these pieces are missing, the panel tells you what's needed and how to set it up.
+
+## Running an evaluation
+
+The panel shows an input field for the dataset path. Press `e` to edit it, type the path to your dataset file (relative to your application's working directory), and press `Enter` to confirm. Then press `r` to run the evaluation.
+
+The evaluation reads your dataset, runs each query through your retrieval pipeline, compares results to expected answers, and calculates quality metrics. Depending on how many queries you have and how fast your pipeline is, this might take a few seconds.
+
+## Configuring the run
+
+You have a few options to control how the evaluation runs.
+
+The mode determines whether reranking is included. Press `m` to cycle through the options: "auto" uses reranking if you have a reranker configured, "retrieve" does vector search only, and "retrieve+rerank" always includes reranking.
+
+The topK setting controls how many results to retrieve per query. Use `+` and `-` to adjust it.
+
+If you want nDCG (normalized discounted cumulative gain) calculated, press `n` to toggle it on. It's a bit more computationally expensive but useful if your dataset includes graded relevance judgments rather than just binary relevant/not-relevant labels.
+
+## Understanding the results
+
+Once the evaluation completes, the Summary panel shows you what happened.
+
+At the top is the pass/fail status—based on thresholds defined in your dataset—along with the configuration that was used for this run.
+
+Below that are the aggregate metrics. For retrieved results, you'll see mean recall (what fraction of expected results were found), mean MRR (how high the first correct result ranks on average), and hit rate (how often at least one correct result appeared). If you ran with reranking, you'll see the same metrics for reranked results.
+
+Timing percentiles show you performance characteristics: the p50 and p95 latencies for the total query time, retrieval specifically, and reranking if applicable. If your p95 is much higher than p50, you have some outlier queries that take much longer than typical.
+
+If any quality thresholds weren't met, the panel lists which ones failed so you know where to focus attention.
+
+## The Charts panel
+
+The right side provides per-query visualizations that help you spot patterns.
+
+Sparklines for recall and MRR show you the distribution across queries. Consistent high values suggest stable performance. Dips indicate specific queries that performed poorly—those are worth investigating.
+
+At the bottom, the worst queries list calls out the specific queries with the lowest scores. These are your starting points for debugging. What do these queries have in common? Is there something about the content they should be matching that makes it harder to retrieve?
+
+## A note on safety
+
+The TUI enforces some safety guardrails when running evaluations. Features that could be destructive—like allowing non-eval prefixes to be deleted—are disabled. For more advanced evaluation configurations, use the eval CLI directly with the appropriate flags.

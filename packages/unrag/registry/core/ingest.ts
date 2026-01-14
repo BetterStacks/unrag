@@ -11,11 +11,19 @@ import type {
   IngestWarning,
   Metadata,
   ResolvedContextEngineConfig,
-} from "./types";
-import { mergeDeep } from "./deep-merge";
-import { getAssetBytes } from "../extractors/_shared/fetch";
+} from "@registry/core/types";
+import { mergeDeep } from "@registry/core/deep-merge";
+import { getAssetBytes } from "@registry/extractors/_shared/fetch";
+import { getDebugEmitter } from "@registry/core/debug-emitter";
 
 const now = () => performance.now();
+
+const createId = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+};
 
 const asMessage = (err: unknown) => {
   if (err instanceof Error) return err.message;
@@ -51,8 +59,14 @@ export const ingest = async (
   config: ResolvedContextEngineConfig,
   input: IngestInput
 ): Promise<IngestResult> => {
+  const debug = getDebugEmitter();
   const totalStart = now();
   const chunkingStart = now();
+  const opId = createId();
+  const rootSpanId = createId();
+  const chunkingSpanId = createId();
+  const embeddingSpanId = createId();
+  const storageSpanId = createId();
 
   const storeChunkContent = config.storage.storeChunkContent;
   const storeDocumentContent = config.storage.storeDocumentContent;
@@ -65,6 +79,18 @@ export const ingest = async (
 
   const metadata = input.metadata ?? {};
   const documentId = config.idGenerator();
+  const assets: AssetInput[] = Array.isArray(input.assets) ? input.assets : [];
+
+  debug.emit({
+    type: "ingest:start",
+    sourceId: input.sourceId,
+    documentId,
+    contentLength: input.content.length,
+    assetCount: assets.length,
+    opName: "ingest",
+    opId,
+    spanId: rootSpanId,
+  });
 
   const assetProcessing: AssetProcessingConfig = mergeDeep(
     config.assetProcessing,
@@ -98,7 +124,6 @@ export const ingest = async (
     });
   }
 
-  const assets: AssetInput[] = Array.isArray(input.assets) ? input.assets : [];
   type PreparedChunkSpec = Omit<Chunk, "id" | "index"> & {
     metadata: Metadata;
     embed:
@@ -529,7 +554,32 @@ export const ingest = async (
   }
 
   const chunkingMs = now() - chunkingStart;
+
+  debug.emit({
+    type: "ingest:chunking-complete",
+    sourceId: input.sourceId,
+    documentId,
+    chunkCount: prepared.length,
+    durationMs: chunkingMs,
+    opName: "ingest",
+    opId,
+    spanId: chunkingSpanId,
+    parentSpanId: rootSpanId,
+  });
+
   const embeddingStart = now();
+
+  debug.emit({
+    type: "ingest:embedding-start",
+    sourceId: input.sourceId,
+    documentId,
+    chunkCount: prepared.length,
+    embeddingProvider: config.embedding.name,
+    opName: "ingest",
+    opId,
+    spanId: embeddingSpanId,
+    parentSpanId: rootSpanId,
+  });
 
   const embeddedChunks: Chunk[] = new Array(prepared.length);
 
@@ -606,13 +656,26 @@ export const ingest = async (
       const batchEmbeddings = await mapWithConcurrency(
         batches,
         concurrency,
-        async (batch) => {
+        async (batch, batchIndex) => {
+          const batchStart = now();
           const embeddings = await embedMany(batch.map((b) => b.input));
           if (!Array.isArray(embeddings) || embeddings.length !== batch.length) {
             throw new Error(
               `embedMany() returned ${Array.isArray(embeddings) ? embeddings.length : "non-array"} embeddings for a batch of ${batch.length}`
             );
           }
+          debug.emit({
+            type: "ingest:embedding-batch",
+            sourceId: input.sourceId,
+            documentId,
+            batchIndex,
+            batchSize: batch.length,
+            durationMs: now() - batchStart,
+            opName: "ingest",
+            opId,
+            spanId: embeddingSpanId,
+            parentSpanId: rootSpanId,
+          });
           return embeddings;
         }
       );
@@ -660,12 +723,50 @@ export const ingest = async (
   }
 
   const embeddingMs = now() - embeddingStart;
+
+  debug.emit({
+    type: "ingest:embedding-complete",
+    sourceId: input.sourceId,
+    documentId,
+    totalEmbeddings: embeddedChunks.length,
+    durationMs: embeddingMs,
+    opName: "ingest",
+    opId,
+    spanId: embeddingSpanId,
+    parentSpanId: rootSpanId,
+  });
+
   const storageStart = now();
 
   const { documentId: canonicalDocumentId } = await config.store.upsert(embeddedChunks);
 
   const storageMs = now() - storageStart;
+
+  debug.emit({
+    type: "ingest:storage-complete",
+    sourceId: input.sourceId,
+    documentId: canonicalDocumentId,
+    chunksStored: embeddedChunks.length,
+    durationMs: storageMs,
+    opName: "ingest",
+    opId,
+    spanId: storageSpanId,
+    parentSpanId: rootSpanId,
+  });
+
   const totalMs = now() - totalStart;
+
+  debug.emit({
+    type: "ingest:complete",
+    sourceId: input.sourceId,
+    documentId: canonicalDocumentId,
+    totalChunks: embeddedChunks.length,
+    totalDurationMs: totalMs,
+    warnings: warnings.map((w) => w.message),
+    opName: "ingest",
+    opId,
+    spanId: rootSpanId,
+  });
 
   return {
     documentId: canonicalDocumentId,

@@ -1,5 +1,22 @@
 # unrag
 
+## 0.2.11
+
+### Patch Changes
+
+- Debug Panel with TUI for Real-time RAG Pipeline Monitoring: A powerful new terminal-based debugging interface for monitoring and troubleshooting your RAG pipelines in real-time.
+  - Interactive TUI Dashboard: Live metrics, connection status, and pipeline health at a glance
+  - Event Tracing: Real-time event streaming with detailed inspection for ingest, retrieve, rerank, and delete operations
+  - Query Runner: Execute and test retrieval queries directly from the debug panel
+  - Doctor Panel: Built-in diagnostics to validate your Unrag configuration
+  - Eval Panel: Run and monitor evaluation suites interactively
+  - Ingest Panel: Trigger and observe document ingestion workflows
+  - Docs Panel: Quick-access documentation viewer
+- Universal TypeScript Import Alias Support: Internal refactoring to support path aliases across the codebase for cleaner, more maintainable imports.
+  - Introduced tsconfig.json path aliases (@/...) for internal modules
+  - Refactored all registry modules to use the new alias convention
+  - Consolidated vector store adapters: drizzle-postgres-pgvector → drizzle, prisma-postgres-pgvector → prisma, raw-sql-postgres-pgvector → raw-sql
+
 ## 0.2.10
 
 ### Patch Changes

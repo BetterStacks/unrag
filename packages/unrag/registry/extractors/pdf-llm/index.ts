@@ -1,8 +1,8 @@
 import { generateText, type LanguageModel } from "ai";
-import type { AssetData, AssetExtractor, AssetFetchConfig } from "../../core/types";
-import { getAssetBytes } from "../_shared/fetch";
-import { normalizeMediaType } from "../_shared/media";
-import { capText } from "../_shared/text";
+import type { AssetData, AssetExtractor, AssetFetchConfig } from "@registry/core/types";
+import { getAssetBytes } from "@registry/extractors/_shared/fetch";
+import { normalizeMediaType } from "@registry/extractors/_shared/media";
+import { capText } from "@registry/extractors/_shared/text";
 
 /**
  * Model reference type that accepts both string gateway IDs and LanguageModel instances.

@@ -1,4 +1,4 @@
-import type { AssetKind } from "../../core/types";
+import type { AssetKind } from "@registry/core/types";
 
 export const DRIVE_MIME = {
   folder: "application/vnd.google-apps.folder",

@@ -207,7 +207,7 @@ export function depsForEmbeddingProvider(provider: EmbeddingProviderName) {
   return { deps, devDeps };
 }
 
-export type BatteryName = "reranker" | "eval";
+export type BatteryName = "reranker" | "eval" | "debug";
 
 export function depsForBattery(battery: BatteryName) {
   const deps: Record<string, string> = {};
@@ -220,6 +220,13 @@ export function depsForBattery(battery: BatteryName) {
 
   if (battery === "eval") {
     // Intentionally no deps: runner is dependency-free and uses project wiring.
+  }
+
+  if (battery === "debug") {
+    // The debug server runs in the user's app:
+    // - Bun runtimes use Bun.serve (no extra deps)
+    // - Node runtimes (Next.js, etc.) fall back to `ws`
+    deps["ws"] = "^8.18.0";
   }
 
   return { deps, devDeps };
