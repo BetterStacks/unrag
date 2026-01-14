@@ -7,6 +7,7 @@ import { Box, Text, useInput } from "ink";
 import type { DebugEvent } from "@registry/debug/types";
 import { chars, formatDuration, formatTime, theme, truncate } from "@registry/debug/tui/theme";
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
+import { useScrollWindow } from "@registry/debug/tui/hooks/useScrollWindow";
 
 type TracesProps = {
   events: DebugEvent[];
@@ -166,12 +167,19 @@ function StageBars({ stages, totalMs, width }: { stages: Stage[]; totalMs?: numb
 export function Traces({ events }: TracesProps) {
   const traces = useMemo(() => computeTraces(events), [events]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { columns } = useTerminalSize();
+  const { columns, rows } = useTerminalSize();
   const canSplit = columns >= 120;
 
   const maxIndex = Math.max(0, traces.length - 1);
   const boundedIndex = Math.min(selectedIndex, maxIndex);
   const selected = traces[boundedIndex];
+  const listViewportRows = Math.max(6, Math.min(28, rows - (canSplit ? 16 : 18)));
+  const scroll = useScrollWindow({
+    itemCount: traces.length,
+    selectedIndex: boundedIndex,
+    viewportRows: listViewportRows,
+  });
+  const rightEventsRows = Math.max(4, Math.min(18, rows - (canSplit ? 26 : 28)));
 
   useInput((input, key) => {
     if (key.upArrow || input === "k") setSelectedIndex((p) => Math.max(0, p - 1));
@@ -206,7 +214,8 @@ export function Traces({ events }: TracesProps) {
           {traces.length === 0 ? (
             <Text color={theme.muted}>No traced operations yet.</Text>
           ) : (
-            traces.slice(0, 30).map((t, i) => {
+            traces.slice(scroll.windowStart, scroll.windowEnd).map((t, idx) => {
+              const i = scroll.windowStart + idx;
               const isSel = i === boundedIndex;
               return (
                 <Box key={`${t.opId}-${t.startAt}`} gap={1}>
@@ -257,16 +266,21 @@ export function Traces({ events }: TracesProps) {
                 <Text backgroundColor={theme.border} color={theme.fg}>
                   {" "}EVENTS{" "}
                 </Text>
-                <Text color={theme.muted}> {Math.min(selected.events.length, 20)} shown</Text>
+                <Text color={theme.muted}> {Math.min(selected.events.length, rightEventsRows)} shown</Text>
               </Box>
 
               <Box flexDirection="column">
-                {selected.events.slice(-20).map((e, idx) => (
+                {selected.events.slice(-rightEventsRows).map((e, idx) => (
                   <Box key={`${e.timestamp}-${idx}`} gap={1}>
                     <Text color={theme.muted}>{formatTime(e.timestamp)}</Text>
                     <Text color={theme.fg}>{truncate(e.type, 36)}</Text>
                   </Box>
                 ))}
+                {selected.events.length > rightEventsRows && (
+                  <Text color={theme.muted}>
+                    {chars.arrow} {selected.events.length - rightEventsRows} more
+                  </Text>
+                )}
               </Box>
             </>
           )}

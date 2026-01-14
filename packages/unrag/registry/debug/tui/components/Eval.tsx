@@ -19,6 +19,10 @@ function canEval(connection: DebugConnection): boolean {
   return Array.isArray(connection.capabilities) && connection.capabilities.includes("eval");
 }
 
+function canQuery(connection: DebugConnection): boolean {
+  return Array.isArray(connection.capabilities) && connection.capabilities.includes("query");
+}
+
 function fmt(n: number | undefined): string {
   if (n === undefined || !Number.isFinite(n)) return "—";
   return n.toFixed(3);
@@ -28,6 +32,7 @@ export function Eval({ connection }: EvalProps) {
   const { columns } = useTerminalSize();
   const canSplit = columns >= 120;
   const evalCapable = canEval(connection);
+  const queryCapable = canQuery(connection);
 
   const [mode, setMode] = useState<Mode>("idle");
   const [datasetPath, setDatasetPath] = useState(".unrag/eval/datasets/sample.json");
@@ -63,10 +68,31 @@ export function Eval({ connection }: EvalProps) {
   }, [connection.status]);
 
   useInput((input, key) => {
+    // While editing, swallow all shortcuts so typing is safe.
+    if (mode === "editingDataset") {
+      if (key.escape || (key.ctrl && input === "x")) {
+        setMode("idle");
+        return;
+      }
+      if (key.return) {
+        setMode("idle");
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setDatasetPath((p) => p.slice(0, -1));
+        return;
+      }
+      if (input && input.length === 1 && !key.ctrl && !key.meta) {
+        setDatasetPath((p) => p + input);
+        return;
+      }
+      return;
+    }
+
     if (!evalCapable) return;
 
     if (input === "e") {
-      setMode((m) => (m === "editingDataset" ? "idle" : "editingDataset"));
+      setMode("editingDataset");
       return;
     }
     if (input === "r") {
@@ -89,21 +115,6 @@ export function Eval({ connection }: EvalProps) {
       setTopK((k) => (typeof k === "number" ? Math.max(1, k - 1) : 10));
       return;
     }
-
-    if (mode === "editingDataset") {
-      if (key.return) {
-        setMode("idle");
-        return;
-      }
-      if (key.backspace || key.delete) {
-        setDatasetPath((p) => p.slice(0, -1));
-        return;
-      }
-      if (input && input.length === 1 && !key.ctrl && !key.meta) {
-        setDatasetPath((p) => p + input);
-        return;
-      }
-    }
   });
 
   const out = useMemo(() => (res?.type === "run-eval" ? res : undefined), [res]);
@@ -117,7 +128,9 @@ export function Eval({ connection }: EvalProps) {
             {" "}EVAL{" "}
           </Text>
           <Text color={theme.muted}>
-            r run · e edit dataset · m mode · +/- topK · n nDCG
+            {mode === "editingDataset"
+              ? "editing: type · esc/^x exit · ⏎ apply"
+              : "r run · e edit dataset · m mode · +/- topK · n nDCG"}
           </Text>
         </Box>
         <Text color={theme.muted}>
@@ -130,12 +143,31 @@ export function Eval({ connection }: EvalProps) {
       {!evalCapable ? (
         <Box borderStyle="round" borderColor={theme.borderActive} paddingX={1} paddingY={1}>
           <Text color={theme.warning}>
-            {chars.cross} Server does not advertise eval capability. Register engine with{" "}
-            <Text bold color={theme.fg}>
-              {"`registerUnragDebug({ engine })`"}
-            </Text>
-            .
+            {chars.cross}{" "}
+            {connection.status !== "connected"
+              ? "Not connected to server yet."
+              : queryCapable
+                ? "Eval module isn't installed in your vendored Unrag code."
+                : "Engine isn't registered for debug commands yet."}
           </Text>
+          {connection.status === "connected" && queryCapable && (
+            <Text color={theme.muted}>
+              {chars.arrow} Install:{" "}
+              <Text bold color={theme.fg}>
+                {"`unrag add battery eval`"}
+              </Text>{" "}
+              then restart the app.
+            </Text>
+          )}
+          {connection.status === "connected" && !queryCapable && (
+            <Text color={theme.muted}>
+              {chars.arrow} Ensure you’re on the latest debug battery (engine auto-registers when UNRAG_DEBUG=true), or call{" "}
+              <Text bold color={theme.fg}>
+                {"`registerUnragDebug({ engine })`"}
+              </Text>
+              .
+            </Text>
+          )}
         </Box>
       ) : (
         <>

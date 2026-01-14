@@ -71,8 +71,9 @@ export function App({ url }: AppProps) {
     }
 
     // Tab navigation
-    if (key.tab || (key.shift && key.tab)) {
-      cycleTab(key.shift ? -1 : 1);
+    // Reserve plain Tab for in-panel focus (e.g. Docs tab). Use Shift+Tab to cycle panels.
+    if (key.shift && key.tab) {
+      cycleTab(-1);
       return;
     }
 

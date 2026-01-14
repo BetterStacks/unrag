@@ -7,6 +7,7 @@ import { Box, Text, useInput } from "ink";
 import type { DebugConnection, DebugCommandResult } from "@registry/debug/types";
 import { chars, clamp, theme, truncate } from "@registry/debug/tui/theme";
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
+import { useScrollWindow } from "@registry/debug/tui/hooks/useScrollWindow";
 
 type DocsProps = {
   connection: DebugConnection;
@@ -109,6 +110,32 @@ export function Docs({ connection }: DocsProps) {
   const boundedChunkIndex = Math.min(selectedChunkIndex, Math.max(0, chunks.length - 1));
   const selectedChunk = chunks[boundedChunkIndex];
 
+  const docsViewportRows = Math.max(6, Math.min(32, rows - (canSplit ? 18 : 20)));
+  const docsScroll = useScrollWindow({
+    itemCount: documents.length,
+    selectedIndex: Math.min(selectedDocIndex, Math.max(0, documents.length - 1)),
+    viewportRows: docsViewportRows,
+    resetKey: `${offset}:${prefix}`,
+  });
+
+  const chunkViewportRows = Math.max(4, Math.min(12, rows - (canSplit ? 30 : 32)));
+  const chunkScroll = useScrollWindow({
+    itemCount: chunks.length,
+    selectedIndex: boundedChunkIndex,
+    viewportRows: chunkViewportRows,
+    resetKey: selectedSourceId ?? "",
+  });
+
+  const truncateMultiline = (text: string, maxLines: number, maxChars: number) => {
+    const s = String(text ?? "");
+    const lines = s.split(/\r?\n/);
+    const head = lines.slice(0, Math.max(1, maxLines));
+    let out = head.join("\n");
+    if (out.length > maxChars) out = out.slice(0, maxChars - 1) + "…";
+    if (lines.length > maxLines) out += "\n…";
+    return out;
+  };
+
   const refreshList = async () => {
     setDocsRes(null);
     const res = await connection.sendCommand({
@@ -178,23 +205,11 @@ export function Docs({ connection }: DocsProps) {
       return;
     }
 
-    if (input === "\t") {
-      setFocus((f) => (f === "docs" ? "chunks" : "docs"));
-      return;
-    }
-
-    if (input === "f") {
-      setMode((m) => (m === "editingPrefix" ? "idle" : "editingPrefix"));
-      return;
-    }
-    if (input === "r") {
-      void refreshStats();
-      void refreshList();
-      if (selectedSourceId) void refreshDocument(selectedSourceId);
-      return;
-    }
-
     if (mode === "editingPrefix") {
+      if (key.escape || (key.ctrl && input === "x")) {
+        setMode("idle");
+        return;
+      }
       if (key.return) {
         setMode("idle");
         return;
@@ -207,6 +222,22 @@ export function Docs({ connection }: DocsProps) {
         setPrefix((p) => p + input);
         return;
       }
+      return;
+    }
+
+    if (key.tab) {
+      setFocus((f) => (f === "docs" ? "chunks" : "docs"));
+      return;
+    }
+
+    if (input === "f") {
+      setMode((m) => (m === "editingPrefix" ? "idle" : "editingPrefix"));
+      return;
+    }
+    if (input === "r") {
+      void refreshStats();
+      void refreshList();
+      if (selectedSourceId) void refreshDocument(selectedSourceId);
       return;
     }
 
@@ -253,7 +284,7 @@ export function Docs({ connection }: DocsProps) {
     mode === "confirmDelete"
       ? "Confirm delete: y / n"
       : mode === "editingPrefix"
-        ? "Editing prefix: type, ⏎ to apply"
+        ? "Editing prefix: type · esc/^x exit · ⏎ apply"
         : "tab focus · f filter · r refresh · d delete · [/] page · j/k navigate";
 
   return (
@@ -348,7 +379,8 @@ export function Docs({ connection }: DocsProps) {
                 </Text>
               )}
 
-              {documents.slice(0, Math.max(6, rows - 14)).map((d, i) => {
+              {documents.slice(docsScroll.windowStart, docsScroll.windowEnd).map((d, idx) => {
+                const i = docsScroll.windowStart + idx;
                 const isSel = i === Math.min(selectedDocIndex, Math.max(0, documents.length - 1));
                 return (
                   <Box key={`${d.sourceId}-${i}`} gap={1}>
@@ -417,7 +449,8 @@ export function Docs({ connection }: DocsProps) {
                     <Text color={theme.muted}>
                       chunks ({focus === "chunks" ? "focused" : "tab to focus"})
                     </Text>
-                    {chunks.slice(0, 10).map((c, i) => {
+                    {chunks.slice(chunkScroll.windowStart, chunkScroll.windowEnd).map((c, idx) => {
+                      const i = chunkScroll.windowStart + idx;
                       const isSel = i === boundedChunkIndex;
                       const tok = chunkTokenCounts[i] ?? 0;
                       return (
@@ -434,12 +467,21 @@ export function Docs({ connection }: DocsProps) {
                         </Box>
                       );
                     })}
+                    {chunks.length > 0 && (
+                      <Text color={theme.muted}>
+                        {chunkScroll.windowStart + 1}-{chunkScroll.windowEnd} of {chunks.length}
+                      </Text>
+                    )}
                   </Box>
 
                   <Box flexDirection="column">
                     <Text color={theme.muted}>selected chunk</Text>
                     <Box borderStyle="round" borderColor={theme.border} paddingX={1}>
-                      <Text color={theme.fg}>{selectedChunk?.content?.trim() ? selectedChunk.content : "—"}</Text>
+                      <Text color={theme.fg}>
+                        {selectedChunk?.content?.trim()
+                          ? truncateMultiline(selectedChunk.content, canSplit ? 8 : 6, 900)
+                          : "—"}
+                      </Text>
                     </Box>
                   </Box>
                 </Box>

@@ -20,7 +20,7 @@ const SHORTCUTS: { section: string; items: Shortcut[] }[] = [
     section: "Navigation",
     items: [
       { keys: "1 / 2", desc: "Switch tab" },
-      { keys: "Tab", desc: "Cycle tabs" },
+      { keys: "Shift+Tab", desc: "Cycle tabs" },
       { keys: "j / k", desc: "Navigate list" },
       { keys: "Enter", desc: "Inspect event" },
       { keys: "Esc", desc: "Close panel" },

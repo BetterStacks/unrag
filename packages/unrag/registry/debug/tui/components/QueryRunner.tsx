@@ -7,6 +7,7 @@ import { Box, Text, useInput } from "ink";
 import type { DebugConnection, DebugCommandResult } from "@registry/debug/types";
 import { chars, formatDuration, theme, truncate } from "@registry/debug/tui/theme";
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
+import { useScrollWindow } from "@registry/debug/tui/hooks/useScrollWindow";
 
 type QueryRunnerProps = {
   connection: DebugConnection;
@@ -19,7 +20,7 @@ function canQuery(connection: DebugConnection): boolean {
 }
 
 export function QueryRunner({ connection }: QueryRunnerProps) {
-  const { columns } = useTerminalSize();
+  const { columns, rows } = useTerminalSize();
   const [mode, setMode] = useState<Mode>("idle");
   const [query, setQuery] = useState("how does unrag ingest work?");
   const [scope, setScope] = useState("");
@@ -43,6 +44,13 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
   const maxIndex = Math.max(0, chunks.length - 1);
   const boundedIndex = Math.min(selectedIndex, maxIndex);
   const selected = chunks[boundedIndex];
+  const listViewportRows = Math.max(6, Math.min(28, rows - (canSplit ? 16 : 18)));
+  const scroll = useScrollWindow({
+    itemCount: chunks.length,
+    selectedIndex: boundedIndex,
+    viewportRows: listViewportRows,
+    resetKey: `${chunks.length}:${topK}`,
+  });
 
   useEffect(() => {
     // keep selection in bounds when result changes
@@ -74,16 +82,12 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
   useInput((input, key) => {
     if (!queryCapable) return;
 
-    if (input === "e") {
-      setMode((m) => (m === "editing" ? "idle" : "editing"));
-      return;
-    }
-    if (input === "r") {
-      void run();
-      return;
-    }
     if (mode === "editing") {
-      // Minimal inline editor: type to append, backspace deletes, enter exits.
+      // Inline editor: type freely; Esc / Ctrl+X exits.
+      if (key.escape || (key.ctrl && input === "x")) {
+        setMode("idle");
+        return;
+      }
       if (key.return) {
         setMode("idle");
         return;
@@ -96,6 +100,15 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
         setQuery((q) => q + input);
         return;
       }
+      return;
+    }
+
+    if (input === "e") {
+      setMode("editing");
+      return;
+    }
+    if (input === "r") {
+      void run();
       return;
     }
 
@@ -114,7 +127,11 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
             {" "}QUERY{" "}
           </Text>
           {queryCapable ? (
-            <Text color={theme.muted}>r run · e edit · +/- topK · j/k navigate</Text>
+            <Text color={theme.muted}>
+              {mode === "editing"
+                ? "editing: type · esc/^x exit · ⏎ apply"
+                : "r run · e edit · +/- topK · j/k navigate"}
+            </Text>
           ) : (
             <Text color={theme.warning}>
               {chars.cross} Server does not advertise query capability. Register engine with{" "}
@@ -160,6 +177,11 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
             <Text backgroundColor={theme.border} color={theme.fg}>
               {" "}RESULTS{" "}
             </Text>
+            {chunks.length > 0 && (
+              <Text color={theme.muted}>
+                {scroll.windowStart + 1}-{scroll.windowEnd} of {chunks.length}
+              </Text>
+            )}
             {durations && (
               <Text color={theme.muted}>
                 total {formatDuration(durations.totalMs)} · embed {formatDuration(durations.embeddingMs)} · db{" "}
@@ -180,7 +202,8 @@ export function QueryRunner({ connection }: QueryRunnerProps) {
             <Text color={theme.muted}>No results yet. Press r to run.</Text>
           )}
 
-          {chunks.slice(0, 30).map((c, i) => {
+          {chunks.slice(scroll.windowStart, scroll.windowEnd).map((c, idx) => {
+            const i = scroll.windowStart + idx;
             const isSel = i === boundedIndex;
             return (
               <Box key={`${c.id}-${i}`} gap={1}>

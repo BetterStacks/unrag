@@ -8,6 +8,7 @@ import type { DebugEvent } from "@registry/debug/types";
 import { EventDetail } from "@registry/debug/tui/components/EventDetail";
 import { EventRow } from "@registry/debug/tui/components/EventRow";
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
+import { useScrollWindow } from "@registry/debug/tui/hooks/useScrollWindow";
 import { chars, theme } from "@registry/debug/tui/theme";
 
 type EventListProps = {
@@ -28,7 +29,7 @@ export function EventList({ events }: EventListProps) {
   const [filter, setFilter] = useState<FilterType>("all");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
-  const { columns } = useTerminalSize();
+  const { columns, rows } = useTerminalSize();
 
   const filteredEvents = useMemo(() => {
     if (filter === "all") return events;
@@ -47,6 +48,13 @@ export function EventList({ events }: EventListProps) {
 
   const selectedEvent = displayEvents[boundedIndex];
   const canSplit = columns >= 120;
+  const listViewportRows = Math.max(6, Math.min(30, rows - (canSplit ? 16 : 18)));
+  const scroll = useScrollWindow({
+    itemCount: displayEvents.length,
+    selectedIndex: boundedIndex,
+    viewportRows: listViewportRows,
+    resetKey: filter,
+  });
 
   useInput((input, key) => {
     // Filter shortcuts
@@ -116,11 +124,19 @@ export function EventList({ events }: EventListProps) {
           width={canSplit ? Math.floor(columns * 0.55) : undefined}
         >
           {/* List header */}
-          <Box marginBottom={1}>
+          <Box marginBottom={1} justifyContent="space-between">
+            <Box gap={1}>
             <Text backgroundColor={theme.border} color={theme.fg}>
               {" "}EVENTS{" "}
             </Text>
-            <Text color={theme.muted}> j/k navigate · enter inspect</Text>
+              <Text color={theme.muted}> j/k navigate · enter inspect</Text>
+            </Box>
+            {displayEvents.length > 0 && (
+              <Text color={theme.muted}>
+                {scroll.windowStart + 1}-{scroll.windowEnd} of {displayEvents.length}
+                {(scroll.hasAbove || scroll.hasBelow) ? ` (${scroll.aboveCount}↑ ${scroll.belowCount}↓)` : ""}
+              </Text>
+            )}
           </Box>
 
           {/* Event rows */}
@@ -130,19 +146,17 @@ export function EventList({ events }: EventListProps) {
                 No events.
               </Text>
             ) : (
-              displayEvents.slice(0, 25).map((event, i) => (
+              displayEvents.slice(scroll.windowStart, scroll.windowEnd).map((event, idx) => {
+                const i = scroll.windowStart + idx;
+                return (
                 <EventRow
-                  key={`${event.timestamp}-${i}`}
+                    key={`${event.timestamp}-${i}`}
                   event={event}
                   selected={i === boundedIndex}
                   compact={false}
                 />
-              ))
-            )}
-            {displayEvents.length > 25 && (
-              <Text color={theme.muted}>
-                {chars.arrow} {displayEvents.length - 25} more
-              </Text>
+                );
+              })
             )}
           </Box>
         </Box>

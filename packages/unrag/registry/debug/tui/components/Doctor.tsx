@@ -7,6 +7,7 @@ import { Box, Text, useInput } from "ink";
 import type { DebugConnection, DebugCommandResult, DoctorCheck } from "@registry/debug/types";
 import { chars, formatDuration, theme, truncate } from "@registry/debug/tui/theme";
 import { useTerminalSize } from "@registry/debug/tui/hooks/useTerminalSize";
+import { useScrollWindow } from "@registry/debug/tui/hooks/useScrollWindow";
 
 type DoctorProps = {
   connection: DebugConnection;
@@ -25,11 +26,12 @@ function statusIcon(status: DoctorCheck["status"]): string {
 }
 
 export function Doctor({ connection }: DoctorProps) {
-  const { columns } = useTerminalSize();
+  const { columns, rows } = useTerminalSize();
   const canSplit = columns >= 120;
 
   const [res, setRes] = useState<DebugCommandResult | null>(null);
   const [loading, setLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
 
   const run = async () => {
     setLoading(true);
@@ -47,16 +49,31 @@ export function Doctor({ connection }: DoctorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection.status]);
 
-  useInput((input) => {
-    if (input === "r") void run();
-  });
-
   const doctor = useMemo(() => {
     if (res?.type !== "doctor") return undefined;
     return res;
   }, [res]);
 
   const checks = doctor?.success ? doctor.checks : [];
+  const maxIndex = Math.max(0, checks.length - 1);
+  const boundedIndex = Math.min(selectedIndex, maxIndex);
+  const selectedCheck = checks[boundedIndex];
+  const listViewportRows = Math.max(8, Math.min(26, rows - (canSplit ? 16 : 18)));
+  const scroll = useScrollWindow({
+    itemCount: checks.length,
+    selectedIndex: boundedIndex,
+    viewportRows: listViewportRows,
+    resetKey: String(res?.type === "doctor" && res.success ? res.checks.length : 0),
+  });
+  useInput((input, key) => {
+    if (input === "r") {
+      void run();
+      return;
+    }
+    if (key.upArrow || input === "k") setSelectedIndex((p) => Math.max(0, p - 1));
+    if (key.downArrow || input === "j") setSelectedIndex((p) => Math.min(maxIndex, p + 1));
+  });
+
   const summary = useMemo(() => {
     let ok = 0;
     let warn = 0;
@@ -80,7 +97,7 @@ export function Doctor({ connection }: DoctorProps) {
             {" "}DOCTOR{" "}
           </Text>
           <Text color={theme.muted}>
-            r refresh · checks are non-invasive (no network calls)
+            r refresh · j/k navigate · checks are non-invasive
           </Text>
         </Box>
         <Box gap={2}>
@@ -123,28 +140,37 @@ export function Doctor({ connection }: DoctorProps) {
             <Text color={theme.muted}>Press r to run checks.</Text>
           )}
 
-          {checks.map((c) => (
-            <Box key={c.id} flexDirection="column" marginBottom={1}>
-              <Box gap={1}>
-                <Text color={statusColor(c.status)} bold>
-                  {statusIcon(c.status)}
-                </Text>
-                <Text color={theme.fg} bold>
-                  {c.label}
-                </Text>
-              </Box>
-              {c.detail && (
-                <Text color={theme.muted}>
-                  {chars.arrow} {truncate(c.detail, canSplit ? 88 : 72)}
-                </Text>
-              )}
-              {c.fix && (
-                <Text color={theme.warning}>
-                  {chars.arrow} Fix: {truncate(c.fix, canSplit ? 88 : 72)}
-                </Text>
-              )}
-            </Box>
-          ))}
+          {checks.length === 0 ? (
+            <Text color={theme.muted}>No checks yet.</Text>
+          ) : (
+            <>
+              {checks.slice(scroll.windowStart, scroll.windowEnd).map((c, idx) => {
+                const i = scroll.windowStart + idx;
+                const isSel = i === boundedIndex;
+                return (
+                  <Box key={c.id} gap={1}>
+                    <Text color={isSel ? theme.accent : theme.muted} bold={isSel}>
+                      {isSel ? chars.pointer : " "}
+                    </Text>
+                    <Text color={statusColor(c.status)} bold>
+                      {statusIcon(c.status)}
+                    </Text>
+                    <Text color={theme.fg} bold={isSel}>
+                      {truncate(c.label, canSplit ? 52 : 36)}
+                    </Text>
+                    {c.detail && (
+                      <Text color={theme.muted}>
+                        {chars.arrow} {truncate(c.detail, canSplit ? 52 : 28)}
+                      </Text>
+                    )}
+                  </Box>
+                );
+              })}
+              <Text color={theme.muted}>
+                {scroll.windowStart + 1}-{scroll.windowEnd} of {checks.length}
+              </Text>
+            </>
+          )}
         </Box>
 
         {/* Info */}
@@ -164,6 +190,31 @@ export function Doctor({ connection }: DoctorProps) {
           </Box>
 
           <Box flexDirection="column" gap={1}>
+            <Box flexDirection="column">
+              <Text color={theme.muted}>selected check</Text>
+              <Box borderStyle="round" borderColor={selectedCheck ? statusColor(selectedCheck.status) : theme.border} paddingX={1}>
+                {!selectedCheck ? (
+                  <Text color={theme.muted}>—</Text>
+                ) : (
+                  <Box flexDirection="column">
+                    <Text color={theme.fg} bold>
+                      {statusIcon(selectedCheck.status)} {selectedCheck.label}
+                    </Text>
+                    {selectedCheck.detail && (
+                      <Text color={theme.muted}>
+                        {chars.arrow} {truncate(selectedCheck.detail, 120)}
+                      </Text>
+                    )}
+                    {selectedCheck.fix && (
+                      <Text color={theme.warning}>
+                        {chars.arrow} Fix: {truncate(selectedCheck.fix, 120)}
+                      </Text>
+                    )}
+                  </Box>
+                )}
+              </Box>
+            </Box>
+
             <Box gap={1} flexWrap="wrap">
               <Text color={theme.muted}>protocol</Text>
               <Text color={theme.fg} bold>
