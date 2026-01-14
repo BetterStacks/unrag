@@ -569,6 +569,14 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
       src: path.join(selection.registryRoot, "core/rerank.ts"),
       dest: path.join(installBaseAbs, "core/rerank.ts"),
     },
+    {
+      src: path.join(selection.registryRoot, "core/debug-emitter.ts"),
+      dest: path.join(installBaseAbs, "core/debug-emitter.ts"),
+    },
+    {
+      src: path.join(selection.registryRoot, "core/debug-events.ts"),
+      dest: path.join(installBaseAbs, "core/debug-events.ts"),
+    },
 
     // extractor shared utilities (used by core ingestion and extractor modules)
     {
