@@ -1,6 +1,7 @@
 import type {
   Chunker,
   ContextEngineConfig,
+  DeepPartial,
   ResolvedContextEngineConfig,
   AssetProcessingConfig,
   ContentStorageConfig,
