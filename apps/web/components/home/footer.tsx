@@ -1,6 +1,6 @@
 import type { ComponentProps, ReactNode } from 'react';
 import { Container } from '../elements';
-import { ArrowNarrowRightIcon, GitHubIcon, XIcon, YouTubeIcon } from '../icons';
+import { ArrowNarrowRightIcon, GitHubIcon } from '../icons';
 
 function FooterCategory({ title, children, ...props }: { title: ReactNode } & ComponentProps<'div'>) {
   return (
@@ -142,17 +142,11 @@ export function FooterSection() {
           </FooterCategory>
         </>
       }
-      fineprint="© 2025 Unrag, Inc."
+      fineprint="© 2025 Betterstacks, Ltd."
       socialLinks={
         <>
-          <SocialLink href="https://x.com" name="X">
-            <XIcon />
-          </SocialLink>
           <SocialLink href="https://github.com/BetterStacks/unrag" name="GitHub">
             <GitHubIcon />
-          </SocialLink>
-          <SocialLink href="https://www.youtube.com" name="YouTube">
-            <YouTubeIcon />
           </SocialLink>
         </>
       }

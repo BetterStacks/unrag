@@ -38,7 +38,8 @@ export function CallToActionSection() {
       headline="Ready to own your RAG?"
       subheadline={
         <p>
-          Install Unrag, keep your vector pipeline in your repo, and build the rest of your AI stack your way.
+          Install Unrag, join hundreds of teams keeping their vector pipeline in their repo, and build the rest of
+          your AI stack your way. No black-box, no third-party tooling.
         </p>
       }
       cta={

@@ -47,8 +47,11 @@ export function TestimonialsSection() {
   return (
     <TestimonialThreeColumnGrid
       id="testimonial"
-      headline="What teams build with Unrag"
-      subheadline={<p>Notes from builders who wanted RAG they could actually own and evolve.</p>}
+      headline="What teams building with Unrag says"
+      subheadline={<p>
+        Notes from builders who wanted RAG they could actually own and evolve.
+        Ranging from individuals with their passion project and teams building at scale.
+      </p>}
     >
       <Testimonial
         quote={

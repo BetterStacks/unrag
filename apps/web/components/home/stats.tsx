@@ -74,17 +74,18 @@ export function StatsSection() {
   return (
     <StatsWithGraph
       id="stats"
-      eyebrow="Small by design"
-      headline="Everything you need, nothing you don't."
+      eyebrow="Small by design - built for scale"
+      headline="Everything you need, nothing you don't. Small and thoughtful by design"
       subheadline={
         <p>
           Unrag keeps the core of RAG intentionally narrow. You get composable building blocks that are easy to read,
-          easy to test, and easy to replace as your stack evolves.
+          easy to test, and easy to replace as your stack evolves. When your app grows in complexity, Unrag gets you
+          covered with installable modules that you can plug into the system.
         </p>
       }
     >
-      <Stat stat="2 core methods" text="Ingest and retrieve handle the fundamentals." />
-      <Stat stat="3 pluggable parts" text="Chunker, embeddings provider, and store adapter." />
+      <Stat stat="3 core methods" text="Ingest, retrieve and delete handle the fundamentals." />
+      <Stat stat="Large module library" text="Consists extractors, connectors, batteries." />
     </StatsWithGraph>
   );
 }
