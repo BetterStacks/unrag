@@ -204,6 +204,35 @@ describe("unrag@latest init", () => {
     expect(ingest).toContain('from "@rag/');
   });
 
+  test("minimal install omits assetProcessing config", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "proj",
+      private: true,
+      type: "module",
+      dependencies: {},
+    });
+
+    process.chdir(runDir);
+    await initCommand([
+      "--yes",
+      "--store",
+      "drizzle",
+      "--dir",
+      "lib/unrag",
+      "--no-install",
+    ]);
+
+    const cfg = await readFile(path.join(runDir, "unrag.config.ts"), "utf8");
+    // Minimal install should NOT contain assetProcessing
+    expect(cfg).not.toContain("assetProcessing:");
+    // Should still have core config
+    expect(cfg).toContain("defineUnragConfig");
+    expect(cfg).toContain("defaults:");
+    expect(cfg).toContain("embedding:");
+    expect(cfg).toContain("storage:");
+    expect(cfg).toContain("extractors: [");
+  });
+
   test("can enable rich media + selected extractors non-interactively", async () => {
     await writeJson(path.join(runDir, "package.json"), {
       name: "proj",
@@ -234,11 +263,17 @@ describe("unrag@latest init", () => {
     expect(cfg).toContain("createPdfTextLayerExtractor()");
     expect(cfg).toContain("createFileTextExtractor()");
 
-    // Enabled flags should be toggled on.
-    expect(cfg).toContain("textLayer: {");
-    expect(cfg).toContain("enabled: true,");
-    expect(cfg).toContain("file: {");
-    expect(cfg).toContain("text: {");
+    // Should contain minimal assetProcessing overrides (only enabled flags)
+    expect(cfg).toContain("assetProcessing:");
+    expect(cfg).toContain("pdf:");
+    expect(cfg).toContain("textLayer:");
+    expect(cfg).toContain("enabled: true");
+    expect(cfg).toContain("file:");
+    expect(cfg).toContain("text:");
+    // Should NOT contain the full verbose tree (e.g., image/audio/video sections when not needed)
+    expect(cfg).not.toContain("image:");
+    expect(cfg).not.toContain("audio:");
+    expect(cfg).not.toContain("video:");
 
     // Extractor modules should be vendored.
     expect(

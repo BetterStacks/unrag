@@ -2,6 +2,7 @@ import { test, expect, describe, beforeEach, afterEach } from "bun:test";
 import path from "node:path";
 import { mkdir, rm, writeFile, readFile } from "node:fs/promises";
 import { addCommand } from "@cli/commands/add";
+import { initCommand } from "@cli/commands/init";
 
 const workspaceTmpRoot = path.join(process.cwd(), "tmp", "test-runs");
 
@@ -107,6 +108,80 @@ describe("unrag add extractor pdf-llm", () => {
       }
     });
   }
+
+  test("add extractor patches unrag.config.ts with import, registration, and enabled flags", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "proj",
+      private: true,
+      type: "module",
+      dependencies: {},
+    });
+
+    // First, create a minimal config via init
+    process.chdir(runDir);
+    await initCommand([
+      "--yes",
+      "--store",
+      "drizzle",
+      "--dir",
+      "lib/unrag",
+      "--no-install",
+    ]);
+
+    // Verify minimal config doesn't have assetProcessing
+    let cfg = await readFile(path.join(runDir, "unrag.config.ts"), "utf8");
+    expect(cfg).not.toContain("assetProcessing:");
+    expect(cfg).not.toContain("createPdfTextLayerExtractor");
+
+    // Now add an extractor
+    await addCommand(["extractor", "pdf-text-layer", "--yes", "--no-install"]);
+
+    // Verify config was patched
+    cfg = await readFile(path.join(runDir, "unrag.config.ts"), "utf8");
+    expect(cfg).toContain('import { createPdfTextLayerExtractor } from "./lib/unrag/extractors/pdf-text-layer";');
+    expect(cfg).toContain("createPdfTextLayerExtractor()");
+    expect(cfg).toContain("assetProcessing:");
+    expect(cfg).toContain("pdf:");
+    expect(cfg).toContain("textLayer:");
+    expect(cfg).toContain("enabled: true");
+    // Should only have minimal overrides, not full tree
+    expect(cfg).not.toContain("image:");
+    expect(cfg).not.toContain("audio:");
+  });
+
+  test("add extractor is idempotent (doesn't duplicate imports/entries)", async () => {
+    await writeJson(path.join(runDir, "package.json"), {
+      name: "proj",
+      private: true,
+      type: "module",
+      dependencies: {},
+    });
+
+    process.chdir(runDir);
+    await initCommand([
+      "--yes",
+      "--store",
+      "drizzle",
+      "--dir",
+      "lib/unrag",
+      "--no-install",
+    ]);
+
+    // Add extractor twice
+    await addCommand(["extractor", "file-text", "--yes", "--no-install"]);
+    const cfg1 = await readFile(path.join(runDir, "unrag.config.ts"), "utf8");
+    const importCount1 = (cfg1.match(/createFileTextExtractor/g) || []).length;
+    const extractorCallCount1 = (cfg1.match(/createFileTextExtractor\(\)/g) || []).length;
+
+    await addCommand(["extractor", "file-text", "--yes", "--no-install"]);
+    const cfg2 = await readFile(path.join(runDir, "unrag.config.ts"), "utf8");
+    const importCount2 = (cfg2.match(/createFileTextExtractor/g) || []).length;
+    const extractorCallCount2 = (cfg2.match(/createFileTextExtractor\(\)/g) || []).length;
+
+    // Should not have duplicated
+    expect(importCount2).toBe(importCount1);
+    expect(extractorCallCount2).toBe(extractorCallCount1);
+  });
 });
 
 
