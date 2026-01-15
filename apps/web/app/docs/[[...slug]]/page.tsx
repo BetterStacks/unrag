@@ -20,7 +20,7 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   const MDX = page.data.body;
   const slug = params.slug ?? [];
   const isExperimentalFeature =
-    slug[0] === 'debug'
+    slug[0] === 'debugging'
     || (slug[0] === 'batteries' && slug[1] === 'debug');
 
   return (
