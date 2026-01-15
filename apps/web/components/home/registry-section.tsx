@@ -399,14 +399,20 @@ function ConfigBadge({ complexity }: { complexity: Extractor['configComplexity']
   const config: Record<typeof complexity, { label: string; color: string }> = {
     'zero-config': {
       label: 'Zero config',
-      color: 'bg-emerald-500/15 text-emerald-700 border-emerald-500/20 dark:text-emerald-400',
+      color: 'bg-olive-500/15 text-olive-700 border-olive-500/25 dark:bg-olive-400/15 dark:text-olive-300 dark:border-olive-400/25',
     },
-    'needs-dep': { label: 'Needs dep', color: 'bg-sky-500/15 text-sky-700 border-sky-500/20 dark:text-sky-400' },
+    'needs-dep': {
+      label: 'Needs dep',
+      color: 'bg-olive-600/10 text-olive-600 border-olive-600/20 dark:bg-olive-500/10 dark:text-olive-400 dark:border-olive-500/20',
+    },
     'needs-api-key': {
       label: 'API key',
-      color: 'bg-amber-500/15 text-amber-700 border-amber-500/20 dark:text-amber-400',
+      color: 'bg-olive-700/10 text-olive-700 border-olive-700/15 dark:bg-olive-500/10 dark:text-olive-400 dark:border-olive-500/15',
     },
-    advanced: { label: 'Advanced', color: 'bg-purple-500/15 text-purple-700 border-purple-500/20 dark:text-purple-400' },
+    advanced: {
+      label: 'Advanced',
+      color: 'bg-olive-800/10 text-olive-800 border-olive-800/15 dark:bg-olive-600/10 dark:text-olive-500 dark:border-olive-600/15',
+    },
   };
 
   const { label, color } = config[complexity];
@@ -677,7 +683,7 @@ const connectorColumns = [
       const status = info.getValue();
       if (status === 'available') {
         return (
-          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-emerald-500/15 text-emerald-700 border-emerald-500/20 dark:text-emerald-400">
+          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-olive-500/15 text-olive-700 border-olive-500/25 dark:bg-olive-400/15 dark:text-olive-300 dark:border-olive-400/25">
             Available
           </span>
         );
@@ -842,7 +848,7 @@ const providerColumns = [
       const status = info.getValue();
       if (status === 'available') {
         return (
-          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-emerald-500/15 text-emerald-700 border-emerald-500/20 dark:text-emerald-400">
+          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-olive-500/15 text-olive-700 border-olive-500/25 dark:bg-olive-400/15 dark:text-olive-300 dark:border-olive-400/25">
             Available
           </span>
         );

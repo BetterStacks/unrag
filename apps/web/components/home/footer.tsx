@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ComponentProps, ReactNode } from 'react';
 import { Container } from '../elements';
 import { ArrowNarrowRightIcon, GitHubIcon } from '../icons';
@@ -14,9 +15,14 @@ function FooterCategory({ title, children, ...props }: { title: ReactNode } & Co
 }
 
 function FooterLink({ href, className, ...props }: { href: string } & Omit<ComponentProps<'a'>, 'href'>) {
+  const isExternal = href.startsWith('http');
   return (
     <li className={`text-olive-700 dark:text-olive-400 ${className ?? ''}`}>
-      <a href={href} {...props} />
+      {isExternal ? (
+        <a href={href} target="_blank" rel="noopener noreferrer" {...props} />
+      ) : (
+        <Link href={href} {...props} />
+      )}
     </li>
   );
 }

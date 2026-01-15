@@ -1,4 +1,5 @@
 import { clsx } from 'clsx/lite';
+import Link from 'next/link';
 import type { ComponentProps, ReactNode } from 'react';
 import { ChevronIcon } from './icons';
 
@@ -19,9 +20,9 @@ export function AnnouncementBadge({
   href: string;
   cta?: ReactNode;
   variant?: 'normal' | 'overlay';
-} & Omit<ComponentProps<'a'>, 'href' | 'children'>) {
+} & Omit<ComponentProps<typeof Link>, 'href' | 'children'>) {
   return (
-    <a
+    <Link
       href={href}
       {...props}
       data-variant={variant}
@@ -50,7 +51,7 @@ export function AnnouncementBadge({
       >
         {cta} <ChevronIcon className="shrink-0" />
       </span>
-    </a>
+    </Link>
   );
 }
 
@@ -90,9 +91,9 @@ export function ButtonLink({
   href: string;
   size?: keyof typeof sizes;
   color?: 'dark/light' | 'light';
-} & Omit<ComponentProps<'a'>, 'href'>) {
+} & Omit<ComponentProps<typeof Link>, 'href'>) {
   return (
-    <a
+    <Link
       href={href}
       className={clsx(
         'inline-flex shrink-0 items-center justify-center gap-1 rounded-full text-sm/7 font-medium',
@@ -136,9 +137,9 @@ export function SoftButtonLink({
 }: {
   href: string;
   size?: keyof typeof sizes;
-} & Omit<ComponentProps<'a'>, 'href'>) {
+} & Omit<ComponentProps<typeof Link>, 'href'>) {
   return (
-    <a
+    <Link
       href={href}
       className={clsx(
         'inline-flex shrink-0 items-center justify-center gap-1 rounded-full bg-olive-950/10 text-sm/7 font-medium text-olive-950 hover:bg-olive-950/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20',
@@ -185,9 +186,9 @@ export function PlainButtonLink({
   href: string;
   size?: keyof typeof sizes;
   color?: 'dark/light' | 'light';
-} & Omit<ComponentProps<'a'>, 'href'>) {
+} & Omit<ComponentProps<typeof Link>, 'href'>) {
   return (
-    <a
+    <Link
       href={href}
       className={clsx(
         'inline-flex shrink-0 items-center justify-center gap-2 rounded-full text-sm/7 font-medium',
@@ -201,15 +202,15 @@ export function PlainButtonLink({
   );
 }
 
-export function Link({
+export function TextLink({
   href,
   className,
   ...props
 }: {
   href: string;
-} & Omit<ComponentProps<'a'>, 'href'>) {
+} & Omit<ComponentProps<typeof Link>, 'href'>) {
   return (
-    <a
+    <Link
       href={href}
       className={clsx('inline-flex items-center gap-2 text-sm/7 font-medium text-olive-950 dark:text-white', className)}
       {...props}

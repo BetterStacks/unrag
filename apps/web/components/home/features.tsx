@@ -1,5 +1,6 @@
+import { clsx } from 'clsx/lite';
 import type { ComponentProps, ReactNode } from 'react';
-import { Link, Screenshot, Section } from '../elements';
+import { TextLink, Section } from '../elements';
 import { ArrowNarrowRightIcon } from '../icons';
 
 function Feature({
@@ -41,6 +42,45 @@ function FeaturesTwoColumnWithDemos({
   );
 }
 
+function FeatureImageFrame({
+  backgroundImage,
+  imageSrc,
+  imageAlt,
+  placement = 'top-right',
+  className,
+}: {
+  backgroundImage: string;
+  imageSrc: string;
+  imageAlt: string;
+  placement?: 'top-right' | 'top-left';
+  className?: string;
+}) {
+  return (
+    <div
+      className={clsx('relative h-[320px] sm:h-[380px] overflow-hidden bg-cover bg-center', className)}
+      style={{ backgroundImage: `url('${backgroundImage}')` }}
+    >
+      <div
+        className={clsx(
+          'absolute w-[90%] sm:w-[85%] top-12 sm:top-16',
+          placement === 'top-right' && '-right-6 sm:-right-8',
+          placement === 'top-left' && '-left-6 sm:-left-8',
+        )}
+      >
+        <img
+          src={imageSrc}
+          alt={imageAlt}
+          className={clsx(
+            'block w-full ring-1 ring-black/10',
+            placement === 'top-right' && 'rounded-tl-md rounded-bl-md',
+            placement === 'top-left' && 'rounded-tr-md rounded-br-md',
+          )}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function FeaturesSection() {
   return (
     <FeaturesTwoColumnWithDemos
@@ -49,71 +89,44 @@ export function FeaturesSection() {
       headline="RAG primitives you can read, ship, and extend."
       subheadline={
         <p>
-          Install a small, auditable module into your codebase and keep the core of retrieval fully under your control.
+          Install a small, auditable module into your codebase and keep the core of the RAG pipeline, consisting
+          extraction, ingestion, retrieval and reranking fully under your control.
         </p>
       }
       features={
         <>
           <Feature
             demo={
-              <Screenshot wallpaper="purple" placement="bottom-right">
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?left=1000&top=800"
-                  alt=""
-                  className="bg-white/75 sm:hidden dark:hidden"
-                  width={1000}
-                  height={800}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?left=1000&top=800&color=olive"
-                  alt=""
-                  className="bg-black/75 not-dark:hidden sm:hidden"
-                  width={1000}
-                  height={800}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?left=1800&top=660"
-                  alt=""
-                  className="bg-white/75 max-sm:hidden lg:hidden dark:hidden"
-                  width={1800}
-                  height={660}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?left=1800&top=660&color=olive"
-                  alt=""
-                  className="bg-black/75 not-dark:hidden max-sm:hidden lg:hidden"
-                  width={1800}
-                  height={660}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?left=1300&top=1300"
-                  alt=""
-                  className="bg-white/75 max-lg:hidden xl:hidden dark:hidden"
-                  width={1300}
-                  height={1300}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?left=1300&top=1300&color=olive"
-                  alt=""
-                  className="bg-black/75 not-dark:hidden max-lg:hidden xl:hidden"
-                  width={1300}
-                  height={1300}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?left=1800&top=1250"
-                  alt=""
-                  className="bg-white/75 max-xl:hidden dark:hidden"
-                  width={1800}
-                  height={1250}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?left=1800&top=1250&color=olive"
-                  alt=""
-                  className="bg-black/75 not-dark:hidden max-xl:hidden"
-                  width={1800}
-                  height={1250}
-                />
-              </Screenshot>
+              <FeatureImageFrame
+                backgroundImage="/feature-1-bg.jpg"
+                imageSrc="/hero-image.png"
+                imageAlt="Unrag module preview"
+                placement="top-right"
+                className="rounded-md"
+              />
+            }
+            headline="Observe and monitor the entire pipeline"
+            subheadline={
+              <p>
+                With the powerful and comprehensive debug tool Unrag ships with, you can test and monitor your
+                ingestion and retrieval pipeline without building any application logic around it.
+              </p>
+            }
+            cta={
+              <TextLink href="/docs/debugging">
+                See in action <ArrowNarrowRightIcon />
+              </TextLink>
+            }
+          />
+          <Feature
+            demo={
+              <FeatureImageFrame
+                backgroundImage="/feature-2-bg.jpg"
+                imageSrc="/feature-2.png"
+                imageAlt="Unrag pipeline view"
+                placement="top-left"
+                className="rounded-md"
+              />
             }
             headline="Vendored source, not a black box"
             subheadline={
@@ -123,83 +136,9 @@ export function FeaturesSection() {
               </p>
             }
             cta={
-              <Link href="/docs/getting-started/installation">
+              <TextLink href="/docs/getting-started/installation">
                 See the install flow <ArrowNarrowRightIcon />
-              </Link>
-            }
-          />
-          <Feature
-            demo={
-              <Screenshot wallpaper="blue" placement="bottom-left">
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?right=1000&top=800"
-                  alt=""
-                  className="bg-white/75 sm:hidden dark:hidden"
-                  width={1000}
-                  height={800}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?right=1000&top=800&color=olive"
-                  alt=""
-                  className="bg-black/75 not-dark:hidden sm:hidden"
-                  width={1000}
-                  height={800}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?right=1800&top=660"
-                  alt=""
-                  className="bg-white/75 max-sm:hidden lg:hidden dark:hidden"
-                  width={1800}
-                  height={660}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?right=1800&top=660&color=olive"
-                  alt=""
-                  className="bg-black/75 not-dark:hidden max-sm:hidden lg:hidden"
-                  width={1800}
-                  height={660}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?right=1300&top=1300"
-                  alt=""
-                  className="bg-white/75 max-lg:hidden xl:hidden dark:hidden"
-                  width={1300}
-                  height={1300}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?right=1300&top=1300&color=olive"
-                  alt=""
-                  className="bg-black/75 not-dark:hidden max-lg:hidden xl:hidden"
-                  width={1300}
-                  height={1300}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?right=1800&top=1250"
-                  alt=""
-                  className="bg-white/75 max-xl:hidden dark:hidden"
-                  width={1800}
-                  height={1250}
-                />
-                <img
-                  src="https://assets.tailwindplus.com/screenshots/1.webp?right=1800&top=1250&color=olive"
-                  alt=""
-                  className="bg-black/75 not-dark:hidden max-xl:hidden"
-                  width={1800}
-                  height={1250}
-                />
-              </Screenshot>
-            }
-            headline="Postgres + pgvector by default"
-            subheadline={
-              <p>
-                Store vectors in the database you already run. Unrag ships adapters for Drizzle, Prisma, and raw SQL so
-                you can keep your stack and your migrations.
-              </p>
-            }
-            cta={
-              <Link href="/docs/concepts/architecture">
-                Explore the pipeline <ArrowNarrowRightIcon />
-              </Link>
+              </TextLink>
             }
           />
         </>

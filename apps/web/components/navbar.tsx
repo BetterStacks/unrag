@@ -1,6 +1,7 @@
 'use client';
 
 import { clsx } from 'clsx/lite';
+import Link from 'next/link';
 import { useState, type ComponentProps, type ReactNode } from 'react';
 import { ButtonLink, PlainButtonLink } from './elements';
 
@@ -9,9 +10,9 @@ function NavbarLink({
   href,
   className,
   ...props
-}: { href: string } & Omit<ComponentProps<'a'>, 'href'>) {
+}: { href: string } & Omit<ComponentProps<typeof Link>, 'href'>) {
   return (
-    <a
+    <Link
       href={href}
       className={clsx(
         'group inline-flex items-center justify-between gap-2 text-3xl/10 font-medium text-olive-950 lg:text-sm/7 dark:text-white',
@@ -25,12 +26,12 @@ function NavbarLink({
           <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
         </svg>
       </span>
-    </a>
+    </Link>
   );
 }
 
-function NavbarLogo({ className, href, ...props }: { href: string } & Omit<ComponentProps<'a'>, 'href'>) {
-  return <a href={href} {...props} className={clsx('inline-flex items-stretch', className)} />;
+function NavbarLogo({ className, href, ...props }: { href: string } & Omit<ComponentProps<typeof Link>, 'href'>) {
+  return <Link href={href} {...props} className={clsx('inline-flex items-stretch', className)} />;
 }
 
 function NavbarWithLinksActionsAndCenteredLogo({
