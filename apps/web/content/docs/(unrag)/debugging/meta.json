@@ -1,5 +1,6 @@
 {
     "title": "Debugging",
+    "badge": "Experimental",
     "description": "Real-time debugging tools for RAG operations",
     "pages": [
         "index",
