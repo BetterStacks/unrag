@@ -20,33 +20,64 @@
   /* Fonts (Next.js optimized via `next/font`) */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-geist-sans);
 
-  /* Darker "neutral" (still considered light mode) */
-  --color-fd-background: hsl(0, 0%, 92%);
-  --color-fd-foreground: hsl(0, 0%, 7%);
-  --color-fd-muted: hsl(0, 0%, 88%);
-  --color-fd-muted-foreground: hsl(0, 0%, 34%);
-  --color-fd-popover: hsl(0, 0%, 90%);
-  --color-fd-popover-foreground: hsl(0, 0%, 10%);
-  --color-fd-card: hsl(0, 0%, 89%);
-  --color-fd-card-foreground: hsl(0, 0%, 7%);
-  --color-fd-border: hsla(0, 0%, 20%, 0.18);
-  --color-fd-primary: hsl(0, 0%, 10%);
-  --color-fd-primary-foreground: hsl(0, 0%, 98%);
-  --color-fd-secondary: hsl(0, 0%, 86%);
-  --color-fd-secondary-foreground: hsl(0, 0%, 10%);
-  --color-fd-accent: hsla(0, 0%, 20%, 0.10);
-  --color-fd-accent-foreground: hsl(0, 0%, 10%);
-  --color-fd-ring: hsl(0, 0%, 45%);
+  --color-olive-50: oklch(98.8% 0.003 106.5);
+  --color-olive-100: oklch(96.6% 0.005 106.5);
+  --color-olive-200: oklch(93% 0.007 106.5);
+  --color-olive-300: oklch(88% 0.011 106.6);
+  --color-olive-400: oklch(73.7% 0.021 106.9);
+  --color-olive-500: oklch(58% 0.031 107.3);
+  --color-olive-600: oklch(46.6% 0.025 107.3);
+  --color-olive-700: oklch(39.4% 0.023 107.4);
+  --color-olive-800: oklch(28.6% 0.016 107.4);
+  --color-olive-900: oklch(22.8% 0.013 107.4);
+  --color-olive-950: oklch(15.3% 0.006 107.1);
+
+  --color-lemon-50: oklch(0.99 0.03 90);
+  --color-lemon-100: oklch(0.988 0.05 87);
+  --color-lemon-200: oklch(0.983 0.09 80);
+  --color-lemon-300: oklch(0.978 0.13 73);
+  --color-lemon-400: oklch(0.973 0.17 67);
+  --color-lemon-500: oklch(0.968 0.211 60);
+  --color-lemon-600: oklch(0.795 0.166 70);
+  --color-lemon-700: oklch(0.622 0.12 81);
+  --color-lemon-800: oklch(0.449 0.076 91);
+  --color-lemon-900: oklch(0.276 0.03 102);
+  --color-lemon-950: oklch(0.19 0.008 107);
+
+  /* Lemon-tinted light theme */
+  --color-fd-background: oklch(0.99 0.03 90); /* lemon-50 */
+  --color-fd-foreground: oklch(0.19 0.008 107); /* lemon-950 */
+  --color-fd-muted: oklch(0.983 0.09 80); /* lemon-200 */
+  --color-fd-muted-foreground: oklch(0.449 0.076 91); /* lemon-800 */
+  --color-fd-popover: oklch(0.988 0.05 87); /* lemon-100 */
+  --color-fd-popover-foreground: oklch(0.19 0.008 107); /* lemon-950 */
+  --color-fd-card: oklch(0.988 0.05 87); /* lemon-100 */
+  --color-fd-card-foreground: oklch(0.19 0.008 107); /* lemon-950 */
+  --color-fd-border: oklch(0.622 0.12 81 / 20%); /* lemon-700 */
+  --color-fd-primary: oklch(0.19 0.008 107); /* lemon-950 */
+  --color-fd-primary-foreground: oklch(0.99 0.03 90); /* lemon-50 */
+  --color-fd-secondary: oklch(0.978 0.13 73); /* lemon-300 */
+  --color-fd-secondary-foreground: oklch(0.19 0.008 107); /* lemon-950 */
+  --color-fd-accent: oklch(0.973 0.17 67 / 50%); /* lemon-400 */
+  --color-fd-accent-foreground: oklch(0.19 0.008 107); /* lemon-950 */
+  --color-fd-ring: oklch(0.622 0.12 81); /* lemon-700 */
+}
+
+.unrag-theme {
+  --font-sans: var(--font-unrag-sans);
+  --font-display: var(--font-unrag-display);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .dark {
   /*
-    Deep black high-contrast palette (Unkey-inspired)
-    - true black backgrounds
-    - barely-lifted surfaces
-    - crisp white typography
-    - very subtle borders
+    Lemon-tinted dark theme
+    - deep lemon backgrounds
+    - subtle warm elevation
+    - crisp foreground contrast
   */
   --unrag-ink: hsl(0, 0%, 2%);
   --unrag-base: var(--unrag-ink);
@@ -57,28 +88,28 @@
   --unrag-fg-muted: hsla(0, 0%, 100%, 0.55);
 
   /* Map palette to Fumadocs tokens */
-  --color-fd-background: var(--unrag-base);
+  --color-fd-background: oklch(0.19 0.008 107);
   --color-fd-foreground: var(--unrag-fg);
 
   /* Elevated surfaces */
-  --color-fd-card: var(--unrag-surface-1);
+  --color-fd-card: oklch(0.19 0.008 107);
   --color-fd-card-foreground: var(--unrag-fg);
-  --color-fd-popover: var(--unrag-surface-2);
+  --color-fd-popover: oklch(0.19 0.008 107);
   --color-fd-popover-foreground: var(--unrag-fg);
 
   --color-fd-muted: var(--unrag-surface-3);
   --color-fd-muted-foreground: var(--unrag-fg-muted);
 
-  --color-fd-border: hsla(0, 0%, 100%, 0.07);
+  --color-fd-border: oklch(0.622 0.12 81 / 15%); /* lemon-700 */
 
   /* Accents */
   --color-fd-primary: var(--unrag-fg);
-  --color-fd-primary-foreground: hsl(0, 0%, 2%);
-  --color-fd-secondary: hsla(0, 0%, 100%, 0.04);
+  --color-fd-primary-foreground: oklch(0.19 0.008 107); /* lemon-950 */
+  --color-fd-secondary: oklch(0.276 0.03 102 / 50%); /* lemon-900 */
   --color-fd-secondary-foreground: var(--unrag-fg);
-  --color-fd-accent: hsla(0, 0%, 100%, 0.05);
+  --color-fd-accent: oklch(0.449 0.076 91 / 30%); /* lemon-800 */
   --color-fd-accent-foreground: var(--unrag-fg);
-  --color-fd-ring: hsla(0, 0%, 100%, 0.20);
+  --color-fd-ring: oklch(0.795 0.166 70 / 40%); /* lemon-600 */
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

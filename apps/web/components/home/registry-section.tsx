@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState, type ComponentType, type SVGProps } from 'react';
+import { useEffect, useMemo, useState, type ComponentProps, type ComponentType, type SVGProps } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -41,10 +41,83 @@ import {
   Slack,
   TogetherAIDark,
   VercelDark,
-  XAIDark
+  XAIDark,
 } from '@ridemountainpig/svgl-react';
-import { CopyButton } from './copy-button';
-import { Button } from '@/components/ui/button';
+import { CopyButton } from '../copy-button';
+import { clsx } from 'clsx/lite';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared Element Components (matching landing page styles)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function Container({ children, className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div className={clsx('mx-auto w-full max-w-2xl px-6 md:max-w-3xl lg:max-w-7xl lg:px-10', className)} {...props}>
+      {children}
+    </div>
+  );
+}
+
+function Eyebrow({ children, className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div className={clsx('text-sm/7 font-semibold text-olive-700 dark:text-olive-400', className)} {...props}>
+      {children}
+    </div>
+  );
+}
+
+function Subheading({ children, className, ...props }: ComponentProps<'h2'>) {
+  return (
+    <h2
+      className={clsx(
+        'font-display text-[2rem]/10 tracking-tight text-pretty text-olive-950 sm:text-5xl/14 dark:text-white',
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </h2>
+  );
+}
+
+function Text({ children, className, ...props }: ComponentProps<'div'>) {
+  return (
+    <div className={clsx('text-base/7 text-olive-700 dark:text-olive-400', className)} {...props}>
+      {children}
+    </div>
+  );
+}
+
+const buttonSizes = {
+  md: 'px-3 py-1',
+  lg: 'px-4 py-2',
+};
+
+function ButtonLink({
+  size = 'md',
+  className,
+  href,
+  children,
+  ...props
+}: {
+  href: string;
+  size?: keyof typeof buttonSizes;
+} & Omit<ComponentProps<'a'>, 'href'>) {
+  return (
+    <a
+      href={href}
+      className={clsx(
+        'inline-flex shrink-0 items-center justify-center gap-2 rounded-full text-sm/7 font-medium',
+        'bg-olive-950 text-white hover:bg-olive-800 dark:bg-olive-300 dark:text-olive-950 dark:hover:bg-olive-200',
+        buttonSizes[size],
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </a>
+  );
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -61,7 +134,7 @@ type Extractor = {
 };
 
 type Connector = {
-  id: string; // slug used for install commands
+  id: string;
   displayName: string;
   types: string[];
   description: string;
@@ -82,10 +155,7 @@ type Provider = {
 
 const VoyageLogo = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
-    <path
-      d="M4.5 6h3.2L12 15.2 16.3 6h3.2L13.3 19h-2.6L4.5 6z"
-      fill="currentColor"
-    />
+    <path d="M4.5 6h3.2L12 15.2 16.3 6h3.2L13.3 19h-2.6L4.5 6z" fill="currentColor" />
   </svg>
 );
 
@@ -320,20 +390,29 @@ const providerGlobalFilter: FilterFn<Provider> = (row, _columnId, filterValue) =
   if (terms.length === 0) return true;
 
   const p = row.original;
-  const haystack = [p.name, p.status, p.description ?? '']
-    .join(' ')
-    .toLowerCase()
-    .trim();
+  const haystack = [p.name, p.status, p.description ?? ''].join(' ').toLowerCase().trim();
 
   return terms.every((t) => haystack.includes(t));
 };
 
 function ConfigBadge({ complexity }: { complexity: Extractor['configComplexity'] }) {
   const config: Record<typeof complexity, { label: string; color: string }> = {
-    'zero-config': { label: 'Zero config', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' },
-    'needs-dep': { label: 'Needs dep', color: 'bg-sky-500/15 text-sky-400 border-sky-500/20' },
-    'needs-api-key': { label: 'API key', color: 'bg-amber-500/15 text-amber-400 border-amber-500/20' },
-    'advanced': { label: 'Advanced', color: 'bg-purple-500/15 text-purple-400 border-purple-500/20' },
+    'zero-config': {
+      label: 'Zero config',
+      color: 'bg-olive-500/15 text-olive-700 border-olive-500/25 dark:bg-olive-400/15 dark:text-olive-300 dark:border-olive-400/25',
+    },
+    'needs-dep': {
+      label: 'Needs dep',
+      color: 'bg-olive-600/10 text-olive-600 border-olive-600/20 dark:bg-olive-500/10 dark:text-olive-400 dark:border-olive-500/20',
+    },
+    'needs-api-key': {
+      label: 'API key',
+      color: 'bg-olive-700/10 text-olive-700 border-olive-700/15 dark:bg-olive-500/10 dark:text-olive-400 dark:border-olive-500/15',
+    },
+    advanced: {
+      label: 'Advanced',
+      color: 'bg-olive-800/10 text-olive-800 border-olive-800/15 dark:bg-olive-600/10 dark:text-olive-500 dark:border-olive-600/15',
+    },
   };
 
   const { label, color } = config[complexity];
@@ -347,7 +426,7 @@ function ConfigBadge({ complexity }: { complexity: Extractor['configComplexity']
 
 function FileTypeBadge({ type }: { type: string }) {
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded bg-white/5 text-white/70 border border-white/10">
+    <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded bg-olive-950/5 text-olive-700 border border-olive-950/10 dark:bg-white/5 dark:text-olive-400 dark:border-white/10">
       .{type}
     </span>
   );
@@ -355,7 +434,7 @@ function FileTypeBadge({ type }: { type: string }) {
 
 function InputModeBadge({ mode }: { mode: string }) {
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded bg-white/5 text-white/50">
+    <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded bg-olive-950/5 text-olive-600 dark:bg-white/5 dark:text-olive-500">
       {mode}
     </span>
   );
@@ -378,7 +457,7 @@ function DocsLinkButton({ href, label }: { href: string; label?: string }) {
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="p-1.5 rounded hover:bg-[var(--color-fd-accent)] transition-colors text-[var(--color-fd-muted-foreground)] hover:text-[var(--color-fd-foreground)]"
+      className="p-1.5 rounded hover:bg-olive-950/10 dark:hover:bg-white/10 transition-colors text-olive-600 hover:text-olive-950 dark:text-olive-400 dark:hover:text-white"
       aria-label={label ?? 'View documentation'}
     >
       <ArrowSquareOut size={16} weight="regular" />
@@ -397,7 +476,7 @@ const extractorColumns = [
     header: 'Extractor',
     cell: (info) => (
       <div className="flex items-center gap-3">
-        <span className="font-mono text-sm text-white">{info.getValue()}</span>
+        <span className="font-mono text-sm text-olive-950 dark:text-white">{info.getValue()}</span>
         <RowActions
           copyText={info.row.original.installCmd}
           docHref={info.row.original.docUrl}
@@ -433,9 +512,7 @@ const extractorColumns = [
   }),
   extractorColumnHelper.accessor('output', {
     header: 'Output',
-    cell: (info) => (
-      <span className="text-sm text-white/70">{info.getValue()}</span>
-    ),
+    cell: (info) => <span className="text-sm text-olive-700 dark:text-olive-400">{info.getValue()}</span>,
   }),
   extractorColumnHelper.accessor('configComplexity', {
     header: 'Config',
@@ -473,7 +550,7 @@ function ExtractorsTable({ data }: { data: Extractor[] }) {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-olive-500 dark:text-olive-500"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -490,7 +567,7 @@ function ExtractorsTable({ data }: { data: Extractor[] }) {
             placeholder="Search extractors..."
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/20 focus:bg-white/[0.05] transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 bg-olive-950/[0.03] border border-olive-950/10 rounded-lg text-sm text-olive-950 placeholder:text-olive-500 focus:outline-none focus:border-olive-950/20 focus:bg-olive-950/[0.05] transition-colors dark:bg-white/[0.03] dark:border-white/10 dark:text-white dark:placeholder:text-olive-500 dark:focus:border-white/20 dark:focus:bg-white/[0.05]"
           />
         </div>
         <select
@@ -499,7 +576,7 @@ function ExtractorsTable({ data }: { data: Extractor[] }) {
             const value = e.target.value;
             setColumnFilters(value ? [{ id: 'fileTypes', value }] : []);
           }}
-          className="px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-white/20 cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.5)%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_8px_center] bg-no-repeat pr-10"
+          className="px-4 py-2.5 bg-olive-950/[0.03] border border-olive-950/10 rounded-lg text-sm text-olive-950 focus:outline-none focus:border-olive-950/20 cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(0%2C0%2C0%2C0.4)%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_8px_center] bg-no-repeat pr-10 dark:bg-white/[0.03] dark:border-white/10 dark:text-white dark:focus:border-white/20 dark:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.5)%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')]"
         >
           <option value="">All file types</option>
           {allFileTypes.map((type) => (
@@ -511,30 +588,31 @@ function ExtractorsTable({ data }: { data: Extractor[] }) {
       </div>
 
       {/* Table */}
-      <div className="border border-white/10 rounded-xl overflow-hidden">
+      <div className="border border-olive-950/10 rounded-xl overflow-hidden dark:border-white/10">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id} className="border-b border-white/10 bg-white/[0.02]">
+                <tr
+                  key={headerGroup.id}
+                  className="border-b border-olive-950/10 bg-olive-950/[0.02] dark:border-white/10 dark:bg-white/[0.02]"
+                >
                   {headerGroup.headers.map((header) => (
                     <th
                       key={header.id}
-                      className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-olive-600 uppercase tracking-wider dark:text-olive-500"
                     >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
                   ))}
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-white/[0.05]">
+            <tbody className="divide-y divide-olive-950/[0.05] dark:divide-white/[0.05]">
               {table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className="group hover:bg-white/[0.02] transition-colors"
+                  className="group hover:bg-olive-950/[0.02] transition-colors dark:hover:bg-white/[0.02]"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-4 py-3.5">
@@ -549,7 +627,7 @@ function ExtractorsTable({ data }: { data: Extractor[] }) {
       </div>
 
       {/* Row count */}
-      <div className="text-xs text-white/40 text-right">
+      <div className="text-xs text-olive-600 text-right dark:text-olive-500">
         {table.getFilteredRowModel().rows.length} of {data.length} extractors
       </div>
     </div>
@@ -567,15 +645,15 @@ const connectorColumns = [
     header: 'Connector',
     cell: (info) => (
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg bg-olive-950/5 border border-olive-950/10 flex items-center justify-center dark:bg-white/5 dark:border-white/10">
           <info.row.original.logo
             width={16}
             height={16}
-            className="text-white/90"
+            className="text-olive-800 dark:text-white/90"
             aria-label={info.row.original.displayName}
           />
         </div>
-        <span className="font-mono text-sm text-white">{info.getValue()}</span>
+        <span className="font-mono text-sm text-olive-950 dark:text-white">{info.getValue()}</span>
         <RowActions
           copyText={info.row.original.installCmd}
           docHref={info.row.original.status === 'available' ? info.row.original.docUrl : undefined}
@@ -605,13 +683,13 @@ const connectorColumns = [
       const status = info.getValue();
       if (status === 'available') {
         return (
-          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-emerald-500/15 text-emerald-400 border-emerald-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-olive-500/15 text-olive-700 border-olive-500/25 dark:bg-olive-400/15 dark:text-olive-300 dark:border-olive-400/25">
             Available
           </span>
         );
       }
       return (
-        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-white/5 text-white/50 border-white/10">
+        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-olive-950/5 text-olive-600 border-olive-950/10 dark:bg-white/5 dark:text-olive-500 dark:border-white/10">
           Coming soon
         </span>
       );
@@ -619,9 +697,7 @@ const connectorColumns = [
   }),
   connectorColumnHelper.accessor('description', {
     header: 'Description',
-    cell: (info) => (
-      <span className="text-sm text-white/50">{info.getValue()}</span>
-    ),
+    cell: (info) => <span className="text-sm text-olive-600 dark:text-olive-500">{info.getValue()}</span>,
   }),
 ];
 
@@ -654,7 +730,7 @@ function ConnectorsTable({ data }: { data: Connector[] }) {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-olive-500 dark:text-olive-500"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -671,7 +747,7 @@ function ConnectorsTable({ data }: { data: Connector[] }) {
             placeholder="Search connectors..."
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/20 focus:bg-white/[0.05] transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 bg-olive-950/[0.03] border border-olive-950/10 rounded-lg text-sm text-olive-950 placeholder:text-olive-500 focus:outline-none focus:border-olive-950/20 focus:bg-olive-950/[0.05] transition-colors dark:bg-white/[0.03] dark:border-white/10 dark:text-white dark:placeholder:text-olive-500 dark:focus:border-white/20 dark:focus:bg-white/[0.05]"
           />
         </div>
         <select
@@ -680,7 +756,7 @@ function ConnectorsTable({ data }: { data: Connector[] }) {
             const value = e.target.value;
             setColumnFilters(value ? [{ id: 'types', value }] : []);
           }}
-          className="px-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-white/20 cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.5)%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_8px_center] bg-no-repeat pr-10"
+          className="px-4 py-2.5 bg-olive-950/[0.03] border border-olive-950/10 rounded-lg text-sm text-olive-950 focus:outline-none focus:border-olive-950/20 cursor-pointer appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(0%2C0%2C0%2C0.4)%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_8px_center] bg-no-repeat pr-10 dark:bg-white/[0.03] dark:border-white/10 dark:text-white dark:focus:border-white/20 dark:bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22rgba(255%2C255%2C255%2C0.5)%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')]"
         >
           <option value="">All types</option>
           {allConnectorTypes.map((type) => (
@@ -692,30 +768,31 @@ function ConnectorsTable({ data }: { data: Connector[] }) {
       </div>
 
       {/* Table */}
-      <div className="border border-white/10 rounded-xl overflow-hidden">
+      <div className="border border-olive-950/10 rounded-xl overflow-hidden dark:border-white/10">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id} className="border-b border-white/10 bg-white/[0.02]">
+                <tr
+                  key={headerGroup.id}
+                  className="border-b border-olive-950/10 bg-olive-950/[0.02] dark:border-white/10 dark:bg-white/[0.02]"
+                >
                   {headerGroup.headers.map((header) => (
                     <th
                       key={header.id}
-                      className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-olive-600 uppercase tracking-wider dark:text-olive-500"
                     >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
                   ))}
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-white/[0.05]">
+            <tbody className="divide-y divide-olive-950/[0.05] dark:divide-white/[0.05]">
               {table.getRowModel().rows.map((row) => (
                 <tr
                   key={row.id}
-                  className="group hover:bg-white/[0.02] transition-colors"
+                  className="group hover:bg-olive-950/[0.02] transition-colors dark:hover:bg-white/[0.02]"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-4 py-3.5">
@@ -730,7 +807,7 @@ function ConnectorsTable({ data }: { data: Connector[] }) {
       </div>
 
       {/* Row count */}
-      <div className="text-xs text-white/40 text-right">
+      <div className="text-xs text-olive-600 text-right dark:text-olive-500">
         {table.getFilteredRowModel().rows.length} of {data.length} connectors
       </div>
     </div>
@@ -748,15 +825,15 @@ const providerColumns = [
     header: 'Provider',
     cell: (info) => (
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+        <div className="w-8 h-8 rounded-lg bg-olive-950/5 border border-olive-950/10 flex items-center justify-center dark:bg-white/5 dark:border-white/10">
           <info.row.original.logo
             width={16}
             height={16}
-            className="text-white/90"
+            className="text-olive-800 dark:text-white/90"
             aria-label={info.getValue()}
           />
         </div>
-        <span className="font-mono text-sm text-white">{info.getValue()}</span>
+        <span className="font-mono text-sm text-olive-950 dark:text-white">{info.getValue()}</span>
         <RowActions
           copyText={info.row.original.installCmd}
           docHref={info.row.original.docUrl}
@@ -771,13 +848,13 @@ const providerColumns = [
       const status = info.getValue();
       if (status === 'available') {
         return (
-          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-emerald-500/15 text-emerald-400 border-emerald-500/20">
+          <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-olive-500/15 text-olive-700 border-olive-500/25 dark:bg-olive-400/15 dark:text-olive-300 dark:border-olive-400/25">
             Available
           </span>
         );
       }
       return (
-        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-white/5 text-white/50 border-white/10">
+        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md border bg-olive-950/5 text-olive-600 border-olive-950/10 dark:bg-white/5 dark:text-olive-500 dark:border-white/10">
           Coming soon
         </span>
       );
@@ -785,9 +862,7 @@ const providerColumns = [
   }),
   providerColumnHelper.accessor('description', {
     header: 'Description',
-    cell: (info) => (
-      <span className="text-sm text-white/50">{info.getValue() ?? ''}</span>
-    ),
+    cell: (info) => <span className="text-sm text-olive-600 dark:text-olive-500">{info.getValue() ?? ''}</span>,
   }),
 ];
 
@@ -810,7 +885,7 @@ function ProvidersTab() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40"
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-olive-500 dark:text-olive-500"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -827,34 +902,35 @@ function ProvidersTab() {
             placeholder="Search providers..."
             value={globalFilter}
             onChange={(e) => setGlobalFilter(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-sm text-white placeholder:text-white/40 focus:outline-none focus:border-white/20 focus:bg-white/[0.05] transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 bg-olive-950/[0.03] border border-olive-950/10 rounded-lg text-sm text-olive-950 placeholder:text-olive-500 focus:outline-none focus:border-olive-950/20 focus:bg-olive-950/[0.05] transition-colors dark:bg-white/[0.03] dark:border-white/10 dark:text-white dark:placeholder:text-olive-500 dark:focus:border-white/20 dark:focus:bg-white/[0.05]"
           />
         </div>
       </div>
 
-      {/* Available provider */}
-      <div className="border border-white/10 rounded-xl overflow-hidden">
+      {/* Table */}
+      <div className="border border-olive-950/10 rounded-xl overflow-hidden dark:border-white/10">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               {table.getHeaderGroups().map((headerGroup) => (
-                <tr key={headerGroup.id} className="border-b border-white/10 bg-white/[0.02]">
+                <tr
+                  key={headerGroup.id}
+                  className="border-b border-olive-950/10 bg-olive-950/[0.02] dark:border-white/10 dark:bg-white/[0.02]"
+                >
                   {headerGroup.headers.map((header) => (
                     <th
                       key={header.id}
-                      className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase tracking-wider"
+                      className="px-4 py-3 text-left text-xs font-medium text-olive-600 uppercase tracking-wider dark:text-olive-500"
                     >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(header.column.columnDef.header, header.getContext())}
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </th>
                   ))}
                 </tr>
               ))}
             </thead>
-            <tbody className="divide-y divide-white/[0.05]">
+            <tbody className="divide-y divide-olive-950/[0.05] dark:divide-white/[0.05]">
               {table.getRowModel().rows.map((row) => (
-                <tr key={row.id} className="group hover:bg-white/[0.02] transition-colors">
+                <tr key={row.id} className="group hover:bg-olive-950/[0.02] transition-colors dark:hover:bg-white/[0.02]">
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} className="px-4 py-3.5">
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -868,7 +944,7 @@ function ProvidersTab() {
       </div>
 
       {/* Row count */}
-      <div className="text-xs text-white/40 text-right">
+      <div className="text-xs text-olive-600 text-right dark:text-olive-500">
         {table.getFilteredRowModel().rows.length} of {providers.length} providers
       </div>
     </div>
@@ -901,9 +977,7 @@ export function RegistrySection() {
           const fileTypes = Array.isArray(ex.fileTypes) ? ex.fileTypes.map(String) : [];
           const inputMode = Array.isArray(ex.inputModes) ? ex.inputModes.map(String) : [];
           const output = String(ex.output ?? '');
-          const configComplexity =
-            (ex.configComplexity as Extractor['configComplexity'] | undefined) ??
-            'advanced';
+          const configComplexity = (ex.configComplexity as Extractor['configComplexity'] | undefined) ?? 'advanced';
           const docUrl = typeof ex.docsPath === 'string' ? ex.docsPath : undefined;
 
           return {
@@ -919,10 +993,8 @@ export function RegistrySection() {
 
         const nextConnectors: Connector[] = (json.connectors ?? []).map((c) => {
           const id = String(c.id);
-          const status: Connector['status'] =
-            c.status === 'available' ? 'available' : 'coming-soon';
-          const docUrl =
-            status === 'available' && typeof c.docsPath === 'string' ? c.docsPath : undefined;
+          const status: Connector['status'] = c.status === 'available' ? 'available' : 'coming-soon';
+          const docUrl = status === 'available' && typeof c.docsPath === 'string' ? c.docsPath : undefined;
 
           return {
             id,
@@ -959,15 +1031,17 @@ export function RegistrySection() {
   const header = (() => {
     if (activeTab === 'extractors') {
       return {
+        eyebrow: 'File processing',
         title: 'Extract text from anything',
         description:
-          'PDFs, images, audio, video, Office docs, turn any file into searchable, embeddable text with a single line of code.',
+          'PDFs, images, audio, video, Office docs — turn any file into searchable, embeddable text with a single line of code.',
         docLink: '/docs/extractors',
         ctaLabel: 'Explore extractors',
       };
     }
     if (activeTab === 'connectors') {
       return {
+        eyebrow: 'Data sources',
         title: 'Ingest from where your data lives',
         description:
           'Pull documents straight from Notion, GitHub, Slack, and more. Keep your knowledge base fresh without manual uploads.',
@@ -976,73 +1050,76 @@ export function RegistrySection() {
       };
     }
     return {
+      eyebrow: 'Model providers',
       title: 'Bring your own model',
       description:
-        'Swap embedding and LLM providers without changing your code. OpenAI today, local models tomorrow, your choice.',
+        'Swap embedding and LLM providers without changing your code. OpenAI today, local models tomorrow — your choice.',
       docLink: '/docs/providers',
       ctaLabel: 'Explore providers',
     };
   })();
 
   return (
-    <section className="relative px-6 py-24">
-      <div className="max-w-5xl mx-auto">
+    <section className="py-16">
+      <Container className="flex flex-col gap-10 sm:gap-16">
         {/* Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-[var(--color-fd-foreground)] mb-4">
-            {header.title}
-          </h2>
-          <p className="text-[var(--color-fd-muted-foreground)] text-lg max-w-2xl mx-auto mb-6">
-            {header.description}
-          </p>
+        <div className="flex max-w-2xl flex-col gap-6">
+          <div className="flex flex-col gap-2">
+            <Eyebrow>{header.eyebrow}</Eyebrow>
+            <Subheading>{header.title}</Subheading>
+          </div>
+          <Text className="text-pretty">{header.description}</Text>
           {header.docLink && header.ctaLabel ? (
-            <Button asChild variant="cta">
-              <Link href={header.docLink}>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-              {header.ctaLabel}
-            </Link>
-            </Button>
+            <div>
+              <ButtonLink href={header.docLink} size="lg">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+                {header.ctaLabel}
+              </ButtonLink>
+            </div>
           ) : null}
         </div>
 
-        {/* Tabs */}
-        <div className="flex items-center justify-center gap-1 mb-8 p-1 bg-white/[0.03] border border-white/10 rounded-xl w-fit mx-auto">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`
-                relative px-5 py-2 text-sm font-medium rounded-lg transition-all duration-200
-                ${
+        <div>
+          {/* Tabs */}
+          <div className="mb-6 flex items-center gap-1 p-1 bg-olive-950/[0.03] border border-olive-950/10 rounded-xl w-fit dark:bg-white/[0.03] dark:border-white/10">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={clsx(
+                  'relative px-5 py-2 text-sm font-medium rounded-lg transition-all duration-200',
                   activeTab === tab.id
-                    ? 'text-white bg-white/10'
-                    : 'text-white/50 hover:text-white/70 hover:bg-white/[0.03]'
-                }
-              `}
-            >
-              {tab.label}
-              {tab.count !== undefined && (
-                <span
-                  className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-                    activeTab === tab.id ? 'bg-white/10 text-white/70' : 'bg-white/5 text-white/40'
-                  }`}
-                >
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+                    ? 'text-olive-950 bg-olive-950/10 dark:text-white dark:bg-white/10'
+                    : 'text-olive-600 hover:text-olive-800 hover:bg-olive-950/[0.03] dark:text-olive-500 dark:hover:text-olive-300 dark:hover:bg-white/[0.03]',
+                )}
+              >
+                {tab.label}
+                {tab.count !== undefined && (
+                  <span
+                    className={clsx(
+                      'ml-2 text-xs px-1.5 py-0.5 rounded-full',
+                      activeTab === tab.id
+                        ? 'bg-olive-950/10 text-olive-700 dark:bg-white/10 dark:text-olive-300'
+                        : 'bg-olive-950/5 text-olive-500 dark:bg-white/5 dark:text-olive-500',
+                    )}
+                  >
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
 
-        {/* Tab Content */}
-        <div className="min-h-[400px]">
-          {activeTab === 'extractors' && <ExtractorsTable data={extractors} />}
-          {activeTab === 'connectors' && <ConnectorsTable data={connectors} />}
-          {activeTab === 'providers' && <ProvidersTab />}
+          {/* Tab Content */}
+          <div className="min-h-[400px]">
+            {activeTab === 'extractors' && <ExtractorsTable data={extractors} />}
+            {activeTab === 'connectors' && <ConnectorsTable data={connectors} />}
+            {activeTab === 'providers' && <ProvidersTab />}
+          </div>
         </div>
-      </div>
+      </Container>
     </section>
   );
 }
