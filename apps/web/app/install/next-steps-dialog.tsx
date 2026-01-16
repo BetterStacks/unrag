@@ -1,325 +1,142 @@
-import Link from "next/link";
-import * as React from "react";
-import {
-  Battery,
-  KeyRound,
-  Puzzle,
-  Sparkles,
-  Copy,
-} from "lucide-react";
+'use client';
 
-import { cn } from "@/lib/utils";
-import { Button, ButtonLink, PlainButton } from "@/components/elements";
-import { CodeBlock } from "@/components/code-block";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import Link from 'next/link';
+import * as React from 'react';
+import { Copy, X, ArrowRight, Database, Code, ExternalLink } from 'lucide-react';
 
-import type { EmbeddingProviderName, RegistryManifest, WizardStateV1 } from "./wizard-types";
+import { ButtonLink, PlainButton } from '@/components/elements';
+import { CodeBlock } from '@/components/code-block';
 
-function DocLink({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center text-xs text-white/55 hover:text-white/85 transition-colors"
-    >
-      {children}
-    </Link>
-  );
-}
+import type { EmbeddingProviderName, RegistryManifest, WizardStateV1 } from './wizard-types';
 
-function adapterDocHref(storeAdapter: WizardStateV1["install"]["storeAdapter"]) {
-  if (storeAdapter === "drizzle") return "/docs/adapters/drizzle-postgres-pgvector";
-  if (storeAdapter === "prisma") return "/docs/adapters/prisma-postgres-pgvector";
-  return "/docs/adapters/raw-sql-postgres-pgvector";
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper functions
+// ─────────────────────────────────────────────────────────────────────────────
 
-function adapterLabel(storeAdapter: WizardStateV1["install"]["storeAdapter"]) {
-  if (storeAdapter === "drizzle") return "Drizzle ORM";
-  if (storeAdapter === "prisma") return "Prisma";
-  return "Raw SQL";
+function adapterDocHref(storeAdapter: WizardStateV1['install']['storeAdapter']) {
+  if (storeAdapter === 'drizzle') return '/docs/adapters/drizzle-postgres-pgvector';
+  if (storeAdapter === 'prisma') return '/docs/adapters/prisma-postgres-pgvector';
+  return '/docs/adapters/raw-sql-postgres-pgvector';
 }
 
 function providerDocsHref(provider: EmbeddingProviderName) {
-  if (provider === "ai") return "/docs/providers/ai-gateway";
-  if (provider === "openai") return "/docs/providers/openai";
-  if (provider === "google") return "/docs/providers/google";
-  if (provider === "openrouter") return "/docs/providers/openrouter";
-  if (provider === "azure") return "/docs/providers/azure";
-  if (provider === "vertex") return "/docs/providers/vertex";
-  if (provider === "bedrock") return "/docs/providers/bedrock";
-  if (provider === "cohere") return "/docs/providers/cohere";
-  if (provider === "mistral") return "/docs/providers/mistral";
-  if (provider === "together") return "/docs/providers/together";
-  if (provider === "ollama") return "/docs/providers/ollama";
-  if (provider === "voyage") return "/docs/providers/voyage";
-  return "/docs/providers";
+  const map: Record<string, string> = {
+    ai: '/docs/providers/ai-gateway',
+    openai: '/docs/providers/openai',
+    google: '/docs/providers/google',
+    openrouter: '/docs/providers/openrouter',
+    azure: '/docs/providers/azure',
+    vertex: '/docs/providers/vertex',
+    bedrock: '/docs/providers/bedrock',
+    cohere: '/docs/providers/cohere',
+    mistral: '/docs/providers/mistral',
+    together: '/docs/providers/together',
+    ollama: '/docs/providers/ollama',
+    voyage: '/docs/providers/voyage',
+  };
+  return map[provider] ?? '/docs/providers';
 }
 
 function providerLabel(provider: EmbeddingProviderName) {
-  if (provider === "ai") return "Vercel AI Gateway";
-  if (provider === "openai") return "OpenAI";
-  if (provider === "google") return "Google AI (Gemini)";
-  if (provider === "openrouter") return "OpenRouter";
-  if (provider === "azure") return "Azure OpenAI";
-  if (provider === "vertex") return "Vertex AI";
-  if (provider === "bedrock") return "AWS Bedrock";
-  if (provider === "cohere") return "Cohere";
-  if (provider === "mistral") return "Mistral";
-  if (provider === "together") return "Together.ai";
-  if (provider === "ollama") return "Ollama";
-  if (provider === "voyage") return "Voyage AI";
-  return "Custom";
+  const map: Record<string, string> = {
+    ai: 'Vercel AI Gateway',
+    openai: 'OpenAI',
+    google: 'Google AI (Gemini)',
+    openrouter: 'OpenRouter',
+    azure: 'Azure OpenAI',
+    vertex: 'Vertex AI',
+    bedrock: 'AWS Bedrock',
+    cohere: 'Cohere',
+    mistral: 'Mistral',
+    together: 'Together.ai',
+    ollama: 'Ollama',
+    voyage: 'Voyage AI',
+  };
+  return map[provider] ?? 'Custom';
 }
 
-type EnvVarMeta = {
-  name: string;
-  required: boolean;
-  description: string;
-  docsHref?: string;
-};
+type EnvVar = { name: string; required: boolean; description: string };
 
-function embeddingEnvVars(provider: EmbeddingProviderName): EnvVarMeta[] {
-  const docsHref = providerDocsHref(provider);
-  if (provider === "ai") {
-    return [
-      {
-        name: "AI_GATEWAY_API_KEY",
-        required: true,
-        description: "Required by the AI SDK when using Vercel AI Gateway.",
-        docsHref,
-      },
-      {
-        name: "AI_GATEWAY_MODEL",
-        required: false,
-        description: "Optional override for the embedding model (default: openai/text-embedding-3-small).",
-        docsHref,
-      },
-    ];
-  }
-  if (provider === "openai") {
-    return [
-      { name: "OPENAI_API_KEY", required: true, description: "OpenAI API key.", docsHref },
-      {
-        name: "OPENAI_EMBEDDING_MODEL",
-        required: false,
-        description: "Optional override for the embedding model (default: text-embedding-3-small).",
-        docsHref,
-      },
-    ];
-  }
-  if (provider === "google") {
-    return [
-      { name: "GOOGLE_GENERATIVE_AI_API_KEY", required: true, description: "Google AI Studio API key.", docsHref },
-      {
-        name: "GOOGLE_GENERATIVE_AI_EMBEDDING_MODEL",
-        required: false,
-        description: "Optional override for the embedding model (default: gemini-embedding-001).",
-        docsHref,
-      },
-    ];
-  }
-  if (provider === "openrouter") {
-    return [
-      { name: "OPENROUTER_API_KEY", required: true, description: "OpenRouter API key.", docsHref },
-      {
-        name: "OPENROUTER_EMBEDDING_MODEL",
-        required: false,
-        description: "Optional override for the embedding model (default: text-embedding-3-small).",
-        docsHref,
-      },
-    ];
-  }
-  if (provider === "cohere") {
-    return [
-      { name: "COHERE_API_KEY", required: true, description: "Cohere API key.", docsHref },
-      {
-        name: "COHERE_EMBEDDING_MODEL",
-        required: false,
-        description: "Optional override for the embedding model (default: embed-english-v3.0).",
-        docsHref,
-      },
-    ];
-  }
-  if (provider === "mistral") {
-    return [
-      { name: "MISTRAL_API_KEY", required: true, description: "Mistral API key.", docsHref },
-      {
-        name: "MISTRAL_EMBEDDING_MODEL",
-        required: false,
-        description: "Optional override for the embedding model (default: mistral-embed).",
-        docsHref,
-      },
-    ];
-  }
-  if (provider === "together") {
-    return [
-      { name: "TOGETHER_AI_API_KEY", required: true, description: "Together.ai API key.", docsHref },
-      {
-        name: "TOGETHER_AI_EMBEDDING_MODEL",
-        required: false,
-        description:
-          "Optional override for the embedding model (default: togethercomputer/m2-bert-80M-2k-retrieval).",
-        docsHref,
-      },
-    ];
-  }
-  if (provider === "voyage") {
-    return [
-      { name: "VOYAGE_API_KEY", required: true, description: "Voyage API key.", docsHref },
-      {
-        name: "VOYAGE_MODEL",
-        required: false,
-        description: "Optional override for the embedding model (default: voyage-3.5-lite).",
-        docsHref,
-      },
-    ];
-  }
-  if (provider === "ollama") {
-    return [
-      {
-        name: "OLLAMA_EMBEDDING_MODEL",
-        required: false,
-        description: "Optional override for the embedding model (default: nomic-embed-text).",
-        docsHref,
-      },
-    ];
-  }
-  if (provider === "azure") {
-    return [
-      { name: "AZURE_OPENAI_API_KEY", required: true, description: "Azure OpenAI API key.", docsHref },
-      { name: "AZURE_RESOURCE_NAME", required: true, description: "Azure resource name (e.g. my-resource).", docsHref },
-      {
-        name: "AZURE_EMBEDDING_MODEL",
-        required: false,
-        description: "Optional override for the embedding model/deployment (default: text-embedding-3-small).",
-        docsHref,
-      },
-    ];
-  }
-  if (provider === "vertex") {
-    return [
-      {
-        name: "GOOGLE_APPLICATION_CREDENTIALS",
-        required: false,
-        description: "Service account JSON path (required outside GCP).",
-        docsHref,
-      },
-      {
-        name: "GOOGLE_VERTEX_EMBEDDING_MODEL",
-        required: false,
-        description: "Optional override for the embedding model (default: text-embedding-004).",
-        docsHref,
-      },
-    ];
-  }
-  if (provider === "bedrock") {
-    return [
-      { name: "AWS_REGION", required: true, description: "AWS region for Bedrock.", docsHref },
-      {
-        name: "AWS_ACCESS_KEY_ID",
-        required: false,
-        description: "AWS credentials (required outside AWS).",
-        docsHref,
-      },
-      {
-        name: "AWS_SECRET_ACCESS_KEY",
-        required: false,
-        description: "AWS credentials (required outside AWS).",
-        docsHref,
-      },
-      {
-        name: "BEDROCK_EMBEDDING_MODEL",
-        required: false,
-        description: "Optional override for the embedding model (default: amazon.titan-embed-text-v2:0).",
-        docsHref,
-      },
-    ];
-  }
-  return [];
+function getEmbeddingEnvVars(provider: EmbeddingProviderName): EnvVar[] {
+  const vars: Record<string, EnvVar[]> = {
+    ai: [
+      { name: 'AI_GATEWAY_API_KEY', required: true, description: 'API key for Vercel AI Gateway' },
+    ],
+    openai: [
+      { name: 'OPENAI_API_KEY', required: true, description: 'OpenAI API key' },
+    ],
+    google: [
+      { name: 'GOOGLE_GENERATIVE_AI_API_KEY', required: true, description: 'Google AI Studio API key' },
+    ],
+    voyage: [
+      { name: 'VOYAGE_API_KEY', required: true, description: 'Voyage AI API key' },
+    ],
+    cohere: [
+      { name: 'COHERE_API_KEY', required: true, description: 'Cohere API key' },
+    ],
+    azure: [
+      { name: 'AZURE_OPENAI_API_KEY', required: true, description: 'Azure OpenAI API key' },
+      { name: 'AZURE_RESOURCE_NAME', required: true, description: 'Azure resource name' },
+    ],
+    bedrock: [
+      { name: 'AWS_REGION', required: true, description: 'AWS region for Bedrock' },
+    ],
+  };
+  return vars[provider] ?? [];
 }
 
-function getSelectedExtractorInfo(manifest: RegistryManifest | null, ids: string[]) {
-  const byId = new Map<string, RegistryManifest["extractors"][number]>();
-  for (const ex of manifest?.extractors ?? []) byId.set(String(ex.id), ex);
-  return ids.map((id) => ({ id, meta: byId.get(id) })).sort((a, b) => a.id.localeCompare(b.id));
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Components
+// ─────────────────────────────────────────────────────────────────────────────
 
-function getSelectedConnectorInfo(manifest: RegistryManifest | null, ids: string[]) {
-  const byId = new Map<string, RegistryManifest["connectors"][number]>();
-  for (const c of manifest?.connectors ?? []) byId.set(String(c.id), c);
-  return ids.map((id) => ({ id, meta: byId.get(id) })).sort((a, b) => a.id.localeCompare(b.id));
-}
-
-function getSelectedBatteryInfo(manifest: RegistryManifest | null, ids: string[]) {
-  const byId = new Map<string, NonNullable<RegistryManifest["batteries"]>[number]>();
-  for (const b of manifest?.batteries ?? []) byId.set(String(b.id), b);
-  return ids.map((id) => ({ id, meta: byId.get(id) })).sort((a, b) => a.id.localeCompare(b.id));
-}
-
-function batteryEnvVars(batteryIds: string[]): EnvVarMeta[] {
-  const vars: EnvVarMeta[] = [];
-  if (batteryIds.includes("reranker")) {
-    vars.push({
-      name: "COHERE_API_KEY",
-      required: true,
-      description: "Required for the reranker battery (Cohere rerank-v3.5).",
-      docsHref: "/docs/batteries/reranker",
-    });
-  }
-  return vars;
-}
-
-function StepCard({
-  icon,
-  title,
-  description,
-  action,
-  children,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description?: string;
-  action?: React.ReactNode;
-  children?: React.ReactNode;
-}) {
+function StepNumber({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-[#757572]/15 bg-white/[0.02] p-4">
-      <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-lg bg-white/5 border border-[#757572]/20 flex items-center justify-center shrink-0 text-white/70">
-          {icon}
+    <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-olive-950 text-white text-sm font-medium dark:bg-olive-300 dark:text-olive-950">
+      {children}
+    </span>
+  );
+}
+
+function EnvVarRow({ name, required, description }: EnvVar) {
+  return (
+    <div className="flex items-start justify-between gap-4 py-3 border-b border-olive-950/10 last:border-0 dark:border-white/10">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <code className="font-mono text-sm text-olive-950 dark:text-white">{name}</code>
+          {required && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-olive-950/10 text-olive-700 dark:bg-white/10 dark:text-olive-300">
+              required
+            </span>
+          )}
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-medium text-white/85">{title}</div>
-            {action ? <div className="shrink-0">{action}</div> : null}
-          </div>
-          {description ? <div className="mt-1 text-sm text-white/50 leading-relaxed">{description}</div> : null}
-          {children ? <div className="mt-3">{children}</div> : null}
-        </div>
+        <p className="mt-0.5 text-sm text-olive-600 dark:text-olive-400">{description}</p>
       </div>
     </div>
   );
 }
 
+function DocLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-1 text-sm text-olive-700 hover:text-olive-950 dark:text-olive-400 dark:hover:text-white transition-colors"
+    >
+      {children}
+      <ExternalLink className="w-3 h-3" />
+    </Link>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function NextStepsDialog({
   open,
   onOpenChange,
   state,
-  manifest,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -327,332 +144,221 @@ export function NextStepsDialog({
   manifest: RegistryManifest | null;
 }) {
   const [copiedEnv, setCopiedEnv] = React.useState(false);
-  const [copiedSnippet, setCopiedSnippet] = React.useState(false);
+  const [copiedCode, setCopiedCode] = React.useState(false);
 
-  const adapterDocs = adapterDocHref(state.install.storeAdapter);
-  const extractorInfo = getSelectedExtractorInfo(manifest, state.modules.extractors);
-  const connectorInfo = getSelectedConnectorInfo(manifest, state.modules.connectors);
-  const batteryInfo = getSelectedBatteryInfo(manifest, state.modules.batteries ?? []);
-  const connectorsWithEnv = connectorInfo.filter((c) => (c.meta?.envVars?.length ?? 0) > 0);
-  const selectedEmbeddingProvider = state.embedding.provider ?? "ai";
-  const embeddingVars = React.useMemo(
-    () => embeddingEnvVars(selectedEmbeddingProvider),
-    [selectedEmbeddingProvider]
-  );
-  const batteryVars = React.useMemo(
-    () => batteryEnvVars(state.modules.batteries ?? []),
-    [state.modules.batteries]
-  );
+  const embeddingProvider = state.embedding.provider ?? 'ai';
+  const embeddingVars = React.useMemo(() => getEmbeddingEnvVars(embeddingProvider), [embeddingProvider]);
 
-  const selectedExtractorGroups = new Set<string>(
-    extractorInfo.map((x) => String(x.meta?.group ?? "")).filter(Boolean)
-  );
-  const hasImageExtractor = selectedExtractorGroups.has("Image") || selectedExtractorGroups.has("image");
-
-  const workerOnlyExtractors = extractorInfo.filter(
-    (x) => x.meta?.workerOnly || x.meta?.configComplexity === "advanced"
-  );
-
-  const envVarsToCopy = React.useMemo(() => {
-    const unique = new Map<string, { required?: boolean }>();
-    unique.set("DATABASE_URL", { required: true });
-    for (const v of embeddingVars) {
-      unique.set(v.name, { required: v.required });
+  const allEnvVars: EnvVar[] = React.useMemo(() => {
+    const vars: EnvVar[] = [
+      { name: 'DATABASE_URL', required: true, description: 'PostgreSQL + pgvector connection string' },
+      ...embeddingVars,
+    ];
+    if (state.modules.batteries?.includes('reranker')) {
+      vars.push({ name: 'COHERE_API_KEY', required: true, description: 'Required for reranker' });
     }
-    for (const v of batteryVars) {
-      unique.set(v.name, { required: v.required });
-    }
-    for (const c of connectorsWithEnv) {
-      for (const v of c.meta?.envVars ?? []) {
-        unique.set(v.name, { required: v.required });
-      }
-    }
-    // required first, then alpha
-    const entries = Array.from(unique.entries()).sort(([aName, aMeta], [bName, bMeta]) => {
-      const aReq = aMeta.required ? 0 : 1;
-      const bReq = bMeta.required ? 0 : 1;
-      if (aReq !== bReq) return aReq - bReq;
-      return aName.localeCompare(bName);
-    });
-    return entries.map(([name]) => name);
-  }, [connectorsWithEnv, embeddingVars, batteryVars]);
+    return vars;
+  }, [embeddingVars, state.modules.batteries]);
 
-  const retrievalSnippet = React.useMemo(() => {
-    const topK = state.defaults.topK;
-    return `// app/api/search/route.ts
-import { createUnragEngine } from "@unrag/config";
+  const codeSnippet = `import { createUnragEngine } from "@unrag/config";
 
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const query = (searchParams.get("q") ?? "").trim();
+const engine = createUnragEngine();
 
-  if (!query) {
-    return Response.json({ error: "Missing query parameter 'q'" }, { status: 400 });
-  }
+// Retrieve relevant chunks
+const results = await engine.retrieve({
+  query: "How do I get started?",
+  topK: ${state.defaults.topK},
+});`;
 
-  const engine = createUnragEngine();
-  const result = await engine.retrieve({ query, topK: ${topK} });
-
-  return Response.json(result);
-}
-`;
-  }, [state.defaults.topK]);
-
-  const copyToClipboard = async (text: string, kind: "env" | "snippet") => {
+  const copyEnvVars = async () => {
     try {
-      await navigator.clipboard.writeText(text);
-      if (kind === "env") {
-        setCopiedEnv(true);
-        setTimeout(() => setCopiedEnv(false), 1500);
-      } else {
-        setCopiedSnippet(true);
-        setTimeout(() => setCopiedSnippet(false), 1500);
-      }
-    } catch {
-      // ignore
-    }
+      await navigator.clipboard.writeText(allEnvVars.map((v) => `${v.name}=`).join('\n'));
+      setCopiedEnv(true);
+      setTimeout(() => setCopiedEnv(false), 2000);
+    } catch {}
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="font-display text-3xl font-normal">Next steps</DialogTitle>
-          <DialogDescription className="max-w-xl">
-            You are almost done. We now have the necessary source code in our codebase. Do these quick steps to set secrets and ship your first retrieval endpoint.
-          </DialogDescription>
-        </DialogHeader>
+  const copyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(codeSnippet);
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2000);
+    } catch {}
+  };
 
-        <div className="mt-4 space-y-3">
-          <StepCard
-            icon={<KeyRound className="w-4 h-4" />}
-            title="1) Set environment variables"
-            description="Presets never store secrets. Set these in your deployment environment (and locally for dev)."
-            action={
-              <PlainButton
-                size="md"
-                onClick={() => copyToClipboard(envVarsToCopy.map((n) => `${n}=`).join("\n"), "env")}
-              >
-                <Copy className="w-3.5 h-3.5" />
-                {copiedEnv ? "Copied" : "Copy all"}
-              </PlainButton>
-            }
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-olive-950/60 dark:bg-black/70 backdrop-blur-sm"
+        onClick={() => onOpenChange(false)}
+      />
+
+      {/* Panel */}
+      <div className="absolute inset-y-0 right-0 w-full max-w-2xl bg-lemon-100 dark:bg-lemon-950 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
+        {/* Header */}
+        <header className="flex items-center justify-between px-6 py-4 shrink-0">
+          <h2 className="font-display text-2xl text-olive-950 dark:text-white">Next steps</h2>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="p-2 rounded-full hover:bg-olive-950/10 dark:hover:bg-white/10 text-olive-700 dark:text-olive-300 transition-colors"
           >
-            <div className="space-y-2">
-              <div className="rounded-lg border border-[#757572]/15 bg-lemon-950/60 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-medium text-white/80">Embedding provider</div>
-                  <DocLink href={providerDocsHref(selectedEmbeddingProvider)}>
-                    {providerLabel(selectedEmbeddingProvider)} docs
-                  </DocLink>
+            <X className="w-5 h-5" />
+          </button>
+        </header>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-6 py-8 space-y-12">
+            {/* Intro */}
+            <p className="text-base text-olive-700 dark:text-olive-400 max-w-lg">
+              Your configuration is ready. Complete these steps to start using Unrag in your project.
+            </p>
+
+            {/* Step 1: Environment Variables */}
+            <section>
+              <div className="flex items-center gap-3 mb-4">
+                <StepNumber>1</StepNumber>
+                <h3 className="font-display text-xl text-olive-950 dark:text-white">Set environment variables</h3>
+              </div>
+
+              <p className="text-sm text-olive-600 dark:text-olive-400 mb-4">
+                Add these to your <code className="font-mono text-olive-950 dark:text-white">.env.local</code> file or your deployment environment.
+              </p>
+
+              <div className="rounded-lg border border-olive-950/10 dark:border-white/10 bg-white/50 dark:bg-white/5 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-olive-950/10 dark:border-white/10 bg-olive-950/5 dark:bg-white/5">
+                  <span className="text-xs font-medium text-olive-600 dark:text-olive-400 uppercase tracking-wider">
+                    Required variables
+                  </span>
+                  <PlainButton size="md" onClick={copyEnvVars}>
+                    <Copy className="w-3.5 h-3.5" />
+                    {copiedEnv ? 'Copied!' : 'Copy all'}
+                  </PlainButton>
                 </div>
-                <div className="mt-1 text-xs text-white/45">
-                  Your wizard selection uses <span className="text-white/70">{providerLabel(selectedEmbeddingProvider)}</span>.
-                  Set these variables to enable embeddings.
-                </div>
-                <div className="mt-3 space-y-2">
-                  {embeddingVars.map((v) => (
-                    <div
-                      key={v.name}
-                      className="flex items-start justify-between gap-3 rounded-md border border-[#757572]/20 bg-white/[0.02] px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <code className="font-mono text-xs text-white/85">{v.name}</code>
-                          {v.required ? (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                              required
-                            </span>
-                          ) : (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20">
-                              optional
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1 text-xs text-white/45">{v.description}</div>
-                      </div>
-                    </div>
+                <div className="px-4">
+                  {allEnvVars.map((v) => (
+                    <EnvVarRow key={v.name} {...v} />
                   ))}
                 </div>
               </div>
 
-              <div className="rounded-lg border border-[#757572]/15 bg-lemon-950/60 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <code className="font-mono text-xs text-white/85">DATABASE_URL</code>
-                  <span className="text-xs text-white/35">required for Postgres</span>
+              <div className="mt-3 flex flex-wrap items-center gap-4">
+                <DocLink href={providerDocsHref(embeddingProvider)}>
+                  {providerLabel(embeddingProvider)} setup
+                </DocLink>
+                <DocLink href={adapterDocHref(state.install.storeAdapter)}>
+                  Database adapter docs
+                </DocLink>
+              </div>
+            </section>
+
+            {/* Step 2: Run migrations */}
+            <section>
+              <div className="flex items-center gap-3 mb-4">
+                <StepNumber>2</StepNumber>
+                <h3 className="font-display text-xl text-olive-950 dark:text-white">Run database migrations</h3>
+              </div>
+
+              <p className="text-sm text-olive-600 dark:text-olive-400 mb-4">
+                Unrag needs tables to store documents, chunks, and embeddings. Run the migration for your adapter.
+              </p>
+
+              <div className="rounded-lg border border-olive-950/10 dark:border-white/10 bg-white/50 dark:bg-white/5 p-4">
+                <code className="font-mono text-sm text-olive-950 dark:text-white">
+                  {state.install.storeAdapter === 'drizzle' && 'npx drizzle-kit push'}
+                  {state.install.storeAdapter === 'prisma' && 'npx prisma db push'}
+                  {state.install.storeAdapter === 'raw-sql' && 'psql $DATABASE_URL -f lib/unrag/schema.sql'}
+                </code>
+              </div>
+
+              <div className="mt-3">
+                <DocLink href="/docs/getting-started/database">Database setup guide</DocLink>
+              </div>
+            </section>
+
+            {/* Step 3: Use the API */}
+            <section>
+              <div className="flex items-center gap-3 mb-4">
+                <StepNumber>3</StepNumber>
+                <h3 className="font-display text-xl text-olive-950 dark:text-white">Start retrieving</h3>
+              </div>
+
+              <p className="text-sm text-olive-600 dark:text-olive-400 mb-4">
+                Import the engine and call <code className="font-mono text-olive-950 dark:text-white">retrieve()</code> with your query.
+              </p>
+
+              <div className="rounded-lg border border-olive-950/10 dark:border-white/10 bg-white/50 dark:bg-white/5 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2 border-b border-olive-950/10 dark:border-white/10 bg-olive-950/5 dark:bg-white/5">
+                  <span className="text-xs font-medium text-olive-600 dark:text-olive-400 uppercase tracking-wider">
+                    TypeScript
+                  </span>
+                  <PlainButton size="md" onClick={copyCode}>
+                    <Copy className="w-3.5 h-3.5" />
+                    {copiedCode ? 'Copied!' : 'Copy'}
+                  </PlainButton>
                 </div>
-                <div className="mt-1 text-xs text-white/45">
-                  Connection string to your PostgreSQL + pgvector database.
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <DocLink href="/docs/getting-started/database">Database setup</DocLink>
-                  <DocLink href={adapterDocs}>{adapterLabel(state.install.storeAdapter)} adapter</DocLink>
+                <div className="p-4">
+                  <CodeBlock code={codeSnippet} highlight={[0, 1, 4, 5, 6, 7]} />
                 </div>
               </div>
-            </div>
 
-            {connectorsWithEnv.length > 0 ? (
-              <div className="mt-4">
-                <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">
-                  Connector env vars
-                </div>
-                <div className="space-y-2">
-                  {connectorsWithEnv.map(({ id, meta }) => {
-                    const name = meta?.displayName ?? id;
-                    const href = meta?.docsPath ?? "/docs/connectors";
-                    return (
-                      <div
-                        key={id}
-                        className="rounded-lg border border-[#757572]/15 bg-lemon-950/60 p-3"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="text-sm font-medium text-white/80">{name}</div>
-                          <DocLink href={href}>Docs</DocLink>
-                        </div>
-                        <div className="mt-2 space-y-2">
-                          {(meta?.envVars ?? []).map((v) => (
-                            <div
-                              key={v.name}
-                              className="flex items-start justify-between gap-3 rounded-md border border-[#757572]/20 bg-white/[0.02] px-3 py-2"
-                            >
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  <code className="font-mono text-xs text-white/85">{v.name}</code>
-                                  {v.required ? (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                                      required
-                                    </span>
-                                  ) : (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20">
-                                      optional
-                                    </span>
-                                  )}
-                                </div>
-                                {v.notes ? (
-                                  <div className="mt-1 text-xs text-white/45">{v.notes}</div>
-                                ) : null}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="mt-3">
+                <DocLink href="/docs/getting-started/first-retrieval">Full retrieval guide</DocLink>
               </div>
-            ) : null}
+            </section>
 
-            {batteryVars.length > 0 ? (
-              <div className="mt-4">
-                <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">
-                  Battery env vars
-                </div>
-                <div className="rounded-lg border border-[#757572]/15 bg-lemon-950/60 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-sm font-medium text-white/80">Batteries</div>
-                    <span className="text-xs text-white/40">{batteryInfo.map(b => b.meta?.displayName ?? b.id).join(", ")}</span>
+            {/* Resources */}
+            <section className="pt-6 border-t border-olive-950/10 dark:border-white/10">
+              <h3 className="font-display text-lg text-olive-950 dark:text-white mb-4">Resources</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Link
+                  href="/docs"
+                  target="_blank"
+                  className="flex items-center gap-3 p-4 rounded-lg border border-olive-950/10 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:bg-olive-950/5 dark:hover:bg-white/10 transition-colors group"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-olive-950/10 dark:bg-white/10 flex items-center justify-center text-olive-700 dark:text-olive-300">
+                    <Code className="w-5 h-5" />
                   </div>
-                  <div className="mt-2 space-y-2">
-                    {batteryVars.map((v) => (
-                      <div
-                        key={v.name}
-                        className="flex items-start justify-between gap-3 rounded-md border border-[#757572]/20 bg-white/[0.02] px-3 py-2"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <code className="font-mono text-xs text-white/85">{v.name}</code>
-                            {v.required ? (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                                required
-                              </span>
-                            ) : (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20">
-                                optional
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-1 text-xs text-white/45">{v.description}</div>
-                        </div>
-                      </div>
-                    ))}
+                  <div>
+                    <div className="text-sm font-medium text-olive-950 dark:text-white group-hover:underline">Documentation</div>
+                    <div className="text-xs text-olive-600 dark:text-olive-400">Guides, API reference, examples</div>
                   </div>
-                </div>
+                </Link>
+                <Link
+                  href="/docs/concepts/architecture"
+                  target="_blank"
+                  className="flex items-center gap-3 p-4 rounded-lg border border-olive-950/10 dark:border-white/10 bg-white/50 dark:bg-white/5 hover:bg-olive-950/5 dark:hover:bg-white/10 transition-colors group"
+                >
+                  <div className="w-10 h-10 rounded-lg bg-olive-950/10 dark:bg-white/10 flex items-center justify-center text-olive-700 dark:text-olive-300">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-olive-950 dark:text-white group-hover:underline">Architecture</div>
+                    <div className="text-xs text-olive-600 dark:text-olive-400">How Unrag works under the hood</div>
+                  </div>
+                </Link>
               </div>
-            ) : null}
-          </StepCard>
-
-          {workerOnlyExtractors.length > 0 ? (
-            <StepCard
-              icon={<Puzzle className="w-4 h-4" />}
-              title={`2) Worker-only extractors (${workerOnlyExtractors.length})`}
-              description="These extractors require additional runtime setup (binaries/worker environment). If you’re not using them, you can ignore this step."
-            >
-              <div className="space-y-2">
-                {workerOnlyExtractors.map(({ id, meta }) => {
-                  const href = meta?.docsPath ?? "/docs/extractors";
-                  return (
-                    <div
-                      key={id}
-                      className={cn(
-                        "flex items-center justify-between gap-3 rounded-lg border border-[#757572]/15 bg-lemon-950/60 px-3 py-2"
-                      )}
-                    >
-                      <div className="min-w-0">
-                        <div className="text-sm text-white/80 truncate">{meta?.label ?? id}</div>
-                        <div className="text-xs text-white/40 truncate">{meta?.description ?? id}</div>
-                      </div>
-                      <DocLink href={href}>Docs</DocLink>
-                    </div>
-                  );
-                })}
-              </div>
-            </StepCard>
-          ) : null}
-
-          <StepCard
-            icon={<Sparkles className="w-4 h-4" />}
-            title={workerOnlyExtractors.length > 0 ? "3) Add your first retrieval endpoint" : "2) Add your first retrieval endpoint"}
-            description="Create a simple search API route and verify retrieval works end-to-end."
-            action={
-              <PlainButton
-                size="md"
-                onClick={() => copyToClipboard(retrievalSnippet, "snippet")}
-              >
-                <Copy className="w-3.5 h-3.5" />
-                {copiedSnippet ? "Copied" : "Copy"}
-              </PlainButton>
-            }
-          >
-            <div className="rounded-lg border border-[#757572]/15 bg-lemon-950/80 overflow-hidden">
-              <div className="px-3 py-2 border-b border-[#757572]/20 bg-white/[0.02]">
-                <span className="text-xs font-medium text-white/40">Next.js Route Handler</span>
-              </div>
-              <div className="p-3">
-                <CodeBlock code={retrievalSnippet} highlight={[0, 1, 3, 4, 10, 11, 13]} />
-              </div>
-            </div>
-            <div className="mt-2 text-xs text-white/45">
-              Try it: <code className="font-mono text-white/70">/api/search?q=how+do+I+install</code>
-            </div>
-            <div className="mt-4">
-              <ButtonLink href="/docs/getting-started/first-retrieval" size="lg" target="_blank" rel="noreferrer">
-                More patterns
-              </ButtonLink>
-            </div>
-          </StepCard>
+            </section>
+          </div>
         </div>
 
-        <DialogFooter className="mt-2">
-          <PlainButton
-            size="lg"
-            onClick={() => onOpenChange(false)}
-          >
-            Close
-          </PlainButton>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        {/* Footer */}
+        <footer className="px-6 py-4 border-t border-olive-950/10 dark:border-white/10 bg-olive-950/5 dark:bg-white/5 shrink-0">
+          <div className="flex items-center justify-between">
+            <PlainButton size="lg" onClick={() => onOpenChange(false)}>
+              Close
+            </PlainButton>
+            <ButtonLink href="/docs/getting-started/quickstart" size="lg" target="_blank">
+              Read the quickstart
+              <ArrowRight className="w-4 h-4" />
+            </ButtonLink>
+          </div>
+        </footer>
+      </div>
+    </div>
   );
 }
-
-

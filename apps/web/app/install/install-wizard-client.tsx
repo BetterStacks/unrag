@@ -50,7 +50,7 @@ import {
 } from '@ridemountainpig/svgl-react';
 
 import { cn } from '@/lib/utils';
-import { Button, PlainButton } from '@/components/elements';
+import {Button, PlainButton, SoftButton} from '@/components/elements';
 import { NextStepsDialog } from './next-steps-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -1319,8 +1319,8 @@ export default function InstallWizardClient() {
         />
       ) : null}
       <header className="sticky top-0 z-50 border-b border-[#757572]/20 bg-lemon-950/80 backdrop-blur-xl">
-        <div className="max-w-[1600px] mx-auto px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-[1600px] mx-auto px-6 min-h-14 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:py-0">
+          <div className="flex flex-wrap items-center gap-4">
             <Link href="/" className="flex items-center gap-2 text-white/60 hover:text-white/90 transition-colors">
               <ArrowLeft className="w-4 h-4" />
               <span className="text-sm font-medium">Back</span>
@@ -1328,7 +1328,7 @@ export default function InstallWizardClient() {
             <div className="w-px h-5 bg-white/10" />
             <h1 className="font-display text-base font-normal text-white/80">Configure Installation</h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex-wrap items-center gap-3 hidden sm:flex">
             <PlainButton
               size="md"
               onClick={() => handleCopy('url')}
@@ -1348,8 +1348,8 @@ export default function InstallWizardClient() {
         </div>
       </header>
 
-      <div className="max-w-[1600px] mx-auto flex min-h-[calc(100vh-3.5rem)]">
-        <aside className="w-64 shrink-0 border-r border-[#757572]/20 p-6">
+      <div className="max-w-[1600px] mx-auto flex flex-col min-h-[calc(100vh-3.5rem)] lg:flex-row">
+        <aside className="hidden w-64 shrink-0 border-r border-[#757572]/20 p-6 lg:block">
           <div className="sticky top-20">
             <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-4">Steps</div>
             <nav className="space-y-1">
@@ -1403,8 +1403,52 @@ export default function InstallWizardClient() {
           </div>
         </aside>
 
-        <main className="flex-1 p-8 overflow-y-auto">
-          <div className="max-w-2xl">
+        <main className="flex-1 px-6 py-8 sm:p-8 overflow-y-auto">
+          <div className="max-w-full sm:max-w-2xl">
+            <div className="mb-6 lg:hidden">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-medium uppercase tracking-wider text-olive-500">Steps</div>
+                <PlainButton size="md" onClick={reset}>
+                  <RefreshCw className="w-4 h-4" />
+                  Reset
+                </PlainButton>
+              </div>
+              <div className="mt-3 flex gap-2 overflow-x-auto pb-2">
+                {STEPS.map((step, index) => {
+                  const isActive = index === currentStep;
+                  const isCompleted = index < currentStep;
+
+                  return (
+                    <button
+                      key={step.id}
+                      onClick={() => goToStep(index)}
+                      className={cn(
+                        'shrink-0 inline-flex items-center gap-2 rounded-full border border-[#757572]/20 px-3 py-2 text-xs font-medium transition-colors',
+                        isActive
+                          ? 'bg-olive-700/20 text-white'
+                          : isCompleted
+                            ? 'text-olive-300 hover:text-white hover:bg-olive-800/20'
+                            : 'text-olive-500 hover:text-olive-300 hover:bg-olive-800/15'
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          'flex h-5 w-5 items-center justify-center rounded-full text-[10px]',
+                          isActive
+                            ? 'bg-olive-600/30 text-white'
+                            : isCompleted
+                              ? 'bg-olive-500/20 text-olive-300'
+                              : 'bg-olive-800/30 text-olive-500'
+                        )}
+                      >
+                        {isCompleted ? <Check className="w-3 h-3" /> : step.icon}
+                      </span>
+                      <span>{step.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             {currentStepId === 'install' && (
               <div
                 className={cn(
@@ -2220,13 +2264,13 @@ export default function InstallWizardClient() {
                           </div>
                           {installCommand ? (
                             <div className="mt-4">
-                              <Button
+                              <SoftButton
                                 size="lg"
                                 onClick={() => setNextStepsOpen(true)}
                               >
                                 Open next steps
                                 <ChevronRight className="w-4 h-4" />
-                              </Button>
+                              </SoftButton>
                             </div>
                           ) : null}
                         </div>
@@ -2340,14 +2384,14 @@ export default function InstallWizardClient() {
                 {installCommand ? (
                   <div className="space-y-3">
                     <code className="block font-mono text-xs text-lime-400 break-all leading-relaxed">{installCommand}</code>
-                    <PlainButton
+                    <SoftButton
                       size="md"
                       onClick={() => setNextStepsOpen(true)}
                       className="w-full"
                     >
                       Next steps
                       <ChevronRight className="w-4 h-4" />
-                    </PlainButton>
+                    </SoftButton>
                   </div>
                 ) : (
                   <div className="space-y-2">
