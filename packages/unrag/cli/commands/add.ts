@@ -2,6 +2,7 @@ import {readFile, writeFile} from 'node:fs/promises'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {cancel, confirm, isCancel, outro, select, text} from '@clack/prompts'
+import {readCliPackageVersion} from '../lib/cliVersion'
 import {docsUrl} from '../lib/constants'
 import {ensureDir, exists, findUp, tryFindProjectRoot} from '../lib/fs'
 import {readJsonFile, writeJsonFile} from '../lib/json'
@@ -9,6 +10,7 @@ import {readRegistryManifest} from '../lib/manifest'
 import {
 	type BatteryName,
 	type ConnectorName,
+	type DepChange,
 	type ExtractorName,
 	depsForBattery,
 	depsForConnector,
@@ -29,12 +31,15 @@ type InitConfig = {
 	storeAdapter: 'drizzle' | 'prisma' | 'raw-sql'
 	aliasBase?: string
 	version: number
+	installedFrom?: {unragVersion: string}
 	connectors?: string[]
 	extractors?: string[]
 	batteries?: string[]
+	managedFiles?: string[]
 }
 
 const CONFIG_FILE = 'unrag.json'
+const CONFIG_VERSION = 2
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -47,6 +52,11 @@ const writeTextFile = async (absPath: string, content: string) => {
 	await ensureDir(path.dirname(absPath))
 	await writeFile(absPath, content, 'utf8')
 }
+
+const formatDepChanges = (changes: DepChange[]) =>
+	changes
+		.map((c) => `${c.name}${c.action === 'update' ? ' (update)' : ''}`)
+		.join(', ')
 
 const _ensureObject = (obj: Record<string, unknown>, key: string) => {
 	const existing = obj[key]
@@ -517,6 +527,7 @@ export async function addCommand(args: string[]) {
 		)
 	}
 	const registryRoot = path.join(cliPackageRoot, 'registry')
+	const cliPackageVersion = await readCliPackageVersion(cliPackageRoot)
 	const manifest = await readRegistryManifest(registryRoot)
 	const availableExtractors = new Set(
 		manifest.extractors.map((e) => e.id as ExtractorName)
@@ -551,6 +562,7 @@ export async function addCommand(args: string[]) {
 	const nonInteractive = parsed.yes || !process.stdin.isTTY
 
 	const pkg = (await readPackageJson(root)) as PackageJsonWithScripts
+	const managedFiles = new Set<string>(config.managedFiles ?? [])
 
 	// Batteries
 	if (kind === 'battery') {
@@ -562,7 +574,7 @@ export async function addCommand(args: string[]) {
 			return
 		}
 
-		await copyBatteryFiles({
+		const batteryFiles = await copyBatteryFiles({
 			projectRoot: root,
 			registryRoot,
 			installDir: config.installDir,
@@ -570,6 +582,9 @@ export async function addCommand(args: string[]) {
 			battery,
 			yes: nonInteractive
 		})
+		for (const file of batteryFiles) {
+			managedFiles.add(file)
+		}
 
 		const {deps, devDeps} = depsForBattery(battery)
 		const merged = mergeDeps(pkg, deps, devDeps)
@@ -584,7 +599,13 @@ export async function addCommand(args: string[]) {
 			new Set([...(config.batteries ?? []), battery])
 		).sort()
 
-		await writeJsonFile(configPath, {...config, batteries})
+		await writeJsonFile(configPath, {
+			...config,
+			batteries,
+			version: CONFIG_VERSION,
+			installedFrom: {unragVersion: cliPackageVersion},
+			managedFiles: Array.from(managedFiles).sort()
+		})
 
 		// Battery-specific scaffolding
 		if (battery === 'eval') {
@@ -984,8 +1005,8 @@ main().catch((err) => {
 					'- Config: .unrag/debug/config.json',
 					'',
 					merged.changes.length > 0
-						? `Added deps: ${merged.changes.map((c) => c.name).join(', ')}`
-						: 'Added deps: none',
+						? `Deps: ${formatDepChanges(merged.changes)}`
+						: 'Deps: none',
 					merged.changes.length > 0 && !noInstall
 						? 'Dependencies installed.'
 						: merged.changes.length > 0 && noInstall
@@ -1044,8 +1065,8 @@ main().catch((err) => {
 				`- Code: ${path.join(config.installDir, battery === 'reranker' ? 'rerank' : battery)}`,
 				'',
 				merged.changes.length > 0
-					? `Added deps: ${merged.changes.map((c) => c.name).join(', ')}`
-					: 'Added deps: none',
+					? `Deps: ${formatDepChanges(merged.changes)}`
+					: 'Deps: none',
 				merged.changes.length > 0 && !noInstall
 					? 'Dependencies installed.'
 					: merged.changes.length > 0 && noInstall
@@ -1069,7 +1090,7 @@ main().catch((err) => {
 			return
 		}
 
-		await copyConnectorFiles({
+		const connectorFiles = await copyConnectorFiles({
 			projectRoot: root,
 			registryRoot,
 			installDir: config.installDir,
@@ -1077,6 +1098,9 @@ main().catch((err) => {
 			connector,
 			yes: nonInteractive
 		})
+		for (const file of connectorFiles) {
+			managedFiles.add(file)
+		}
 
 		const {deps, devDeps} = depsForConnector(connector)
 		const merged = mergeDeps(pkg, deps, devDeps)
@@ -1091,7 +1115,13 @@ main().catch((err) => {
 			new Set([...(config.connectors ?? []), connector])
 		).sort()
 
-		await writeJsonFile(configPath, {...config, connectors})
+		await writeJsonFile(configPath, {
+			...config,
+			connectors,
+			version: CONFIG_VERSION,
+			installedFrom: {unragVersion: cliPackageVersion},
+			managedFiles: Array.from(managedFiles).sort()
+		})
 
 		outro(
 			[
@@ -1101,8 +1131,8 @@ main().catch((err) => {
 				`- Docs: ${docsUrl(`/docs/connectors/${connector}`)}`,
 				'',
 				merged.changes.length > 0
-					? `Added deps: ${merged.changes.map((c) => c.name).join(', ')}`
-					: 'Added deps: none',
+					? `Deps: ${formatDepChanges(merged.changes)}`
+					: 'Deps: none',
 				merged.changes.length > 0 && !noInstall
 					? 'Dependencies installed.'
 					: merged.changes.length > 0 && noInstall
@@ -1132,7 +1162,7 @@ main().catch((err) => {
 		return
 	}
 
-	await copyExtractorFiles({
+	const extractorFiles = await copyExtractorFiles({
 		projectRoot: root,
 		registryRoot,
 		installDir: config.installDir,
@@ -1140,6 +1170,9 @@ main().catch((err) => {
 		extractor,
 		yes: nonInteractive
 	})
+	for (const file of extractorFiles) {
+		managedFiles.add(file)
+	}
 
 	const {deps, devDeps} = depsForExtractor(extractor)
 	const merged = mergeDeps(pkg, deps, devDeps)
@@ -1157,7 +1190,13 @@ main().catch((err) => {
 		new Set([...existingExtractors, extractor])
 	).sort()
 
-	await writeJsonFile(configPath, {...config, extractors})
+	await writeJsonFile(configPath, {
+		...config,
+		extractors,
+		version: CONFIG_VERSION,
+		installedFrom: {unragVersion: cliPackageVersion},
+		managedFiles: Array.from(managedFiles).sort()
+	})
 
 	// Patch unrag.config.ts to wire the extractor
 	const configPatched = await patchUnragConfig({
@@ -1177,8 +1216,8 @@ main().catch((err) => {
 				: '- Config: unrag.config.ts not found or could not be patched automatically',
 			'',
 			merged.changes.length > 0
-				? `Added deps: ${merged.changes.map((c) => c.name).join(', ')}`
-				: 'Added deps: none',
+				? `Deps: ${formatDepChanges(merged.changes)}`
+				: 'Deps: none',
 			merged.changes.length > 0 && !noInstall
 				? 'Dependencies installed.'
 				: merged.changes.length > 0 && noInstall

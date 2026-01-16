@@ -1,6 +1,7 @@
 import {spawn} from 'node:child_process'
 import {readFile, writeFile} from 'node:fs/promises'
 import path from 'node:path'
+import * as semver from 'semver'
 import {exists} from './fs'
 
 type PackageJson = {
@@ -46,7 +47,21 @@ export async function writePackageJson(projectRoot: string, pkg: PackageJson) {
 	)
 }
 
-export type DepChange = {name: string; version: string; kind: 'dep' | 'devDep'}
+export type DepChange = {
+	name: string
+	version: string
+	kind: 'dep' | 'devDep'
+	action: 'add' | 'update'
+}
+
+const satisfiesMinVersion = (existingRange: string, requiredRange: string) => {
+	const existingMin = semver.minVersion(existingRange)
+	const requiredMin = semver.minVersion(requiredRange)
+	if (!existingMin || !requiredMin) {
+		return false
+	}
+	return semver.gte(existingMin, requiredMin)
+}
 
 export function mergeDeps(
 	pkg: PackageJson,
@@ -60,16 +75,40 @@ export function mergeDeps(
 	const changes: DepChange[] = []
 
 	for (const [name, version] of Object.entries(deps)) {
-		if (!next.dependencies[name] && !next.devDependencies[name]) {
+		const existing =
+			next.dependencies[name] ?? next.devDependencies[name] ?? null
+		if (!existing) {
 			next.dependencies[name] = version
-			changes.push({name, version, kind: 'dep'})
+			changes.push({name, version, kind: 'dep', action: 'add'})
+			continue
+		}
+		if (!satisfiesMinVersion(existing, version)) {
+			if (next.dependencies[name]) {
+				next.dependencies[name] = version
+				changes.push({name, version, kind: 'dep', action: 'update'})
+			} else {
+				next.devDependencies[name] = version
+				changes.push({name, version, kind: 'devDep', action: 'update'})
+			}
 		}
 	}
 
 	for (const [name, version] of Object.entries(devDeps)) {
-		if (!next.dependencies[name] && !next.devDependencies[name]) {
+		const existing =
+			next.dependencies[name] ?? next.devDependencies[name] ?? null
+		if (!existing) {
 			next.devDependencies[name] = version
-			changes.push({name, version, kind: 'devDep'})
+			changes.push({name, version, kind: 'devDep', action: 'add'})
+			continue
+		}
+		if (!satisfiesMinVersion(existing, version)) {
+			if (next.dependencies[name]) {
+				next.dependencies[name] = version
+				changes.push({name, version, kind: 'dep', action: 'update'})
+			} else {
+				next.devDependencies[name] = version
+				changes.push({name, version, kind: 'devDep', action: 'update'})
+			}
 		}
 	}
 

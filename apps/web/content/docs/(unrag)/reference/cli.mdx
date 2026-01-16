@@ -210,6 +210,78 @@ The default port is 3847.
 
 For full documentation on the debug TUI and its capabilities, see [Debugging](/docs/debugging).
 
+## Upgrade command
+
+Update your vendored Unrag installation to a new version while preserving customizations:
+
+```bash
+bunx unrag@latest upgrade
+```
+
+The upgrade command uses a three-way merge algorithm (the same approach Git uses) to intelligently combine your local changes with upstream updates. It compares your files against both the version you originally installed and the new version, merging changes automatically when possible.
+
+### Upgrade options
+
+**`--from-version <version>`**
+
+Specify the base version to diff from. This is required if your `unrag.json` doesn't have `installedFrom.unragVersion` (common for older installations).
+
+```bash
+bunx unrag@latest upgrade --from-version 0.3.5
+```
+
+**`--dry-run`**
+
+Show the upgrade plan without making any changes. Useful for previewing what would happen:
+
+```bash
+bunx unrag@latest upgrade --dry-run
+```
+
+**`--allow-dirty`**
+
+Allow running with uncommitted git changes. By default, the upgrade command warns about uncommitted changes and (in non-interactive mode) refuses to proceed.
+
+```bash
+bunx unrag@latest upgrade --allow-dirty
+```
+
+**`--overwrite <mode>`**
+
+Control how files without a known base version are handled. Options are:
+
+- `skip` (default) — Leave the file unchanged
+- `force` — Replace with the new version
+
+```bash
+bunx unrag@latest upgrade --overwrite force
+```
+
+**`-y, --yes`**
+
+Non-interactive mode. Skip all prompts and proceed automatically. If conflicts are detected, they're written to the files (with conflict markers) for manual resolution.
+
+```bash
+bunx unrag@latest upgrade --yes
+```
+
+### Upgrade plan actions
+
+When you run upgrade, you'll see a plan with these possible actions:
+
+| Action | Meaning |
+|--------|---------|
+| add | New files from the updated version |
+| update | Files you haven't modified, safely updated |
+| merge | Files merged automatically (both sides changed) |
+| conflicts | Files requiring manual conflict resolution |
+| keep | Files you modified that upstream didn't change |
+| removed-upstream | Files that no longer exist in the new version |
+| skipped | Files that couldn't be merged (no base version) |
+| unchanged | Files that haven't changed anywhere |
+
+For comprehensive documentation on upgrading, including conflict resolution strategies, see [Upgrading](/docs/upgrade).
+
 ## Init command flags
 
 These flags control the behavior of `unrag init`.

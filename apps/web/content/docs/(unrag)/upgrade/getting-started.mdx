@@ -1,0 +1,245 @@
+---
+title: Getting Started with Upgrades
+description: Walk through your first Unrag upgrade, from checking your current version to applying changes safely.
+---
+
+This guide walks you through upgrading your Unrag installation for the first time. By the end, you'll have updated your vendored code to the latest version while keeping any customizations you've made.
+
+## Prerequisites
+
+Before upgrading, make sure you have:
+
+1. **An existing Unrag installation** — If you're still setting up, work through the [Quickstart](/docs/getting-started/quickstart) first.
+
+2. **A clean git working tree** — Commit or stash any uncommitted changes. The upgrade command checks for this and will warn you, but it's good practice to start clean.
+
+3. **Your current version recorded** — Check that your `unrag.json` has an `installedFrom.unragVersion` field. If you installed Unrag recently (version 0.4.0 or later), this is automatic. If it's missing, you'll need to provide the version manually—see the troubleshooting section below.
+
+## Checking your current state
+
+Before upgrading, take a moment to understand what you have:
+
+```bash
+cat unrag.json
+```
+
+You should see something like:
+
+```json
+{
+  "version": 2,
+  "installDir": "lib/unrag",
+  "storeAdapter": "drizzle",
+  "aliasBase": "@unrag",
+  "embeddingProvider": "ai",
+  "installedFrom": {
+    "unragVersion": "0.4.2"
+  },
+  "managedFiles": [
+    "lib/unrag/core/index.ts",
+    "lib/unrag/core/ingest.ts"
+  ]
+}
+```
+
+The `installedFrom.unragVersion` tells you what version your current files are based on. The `managedFiles` array lists everything Unrag installed. These fields are what the upgrade system uses to determine what needs updating.
+
+## Running the upgrade
+
+With everything in order, run the upgrade command:
+
+```bash
+bunx unrag@latest upgrade
+```
+
+The command starts by checking your environment. If you have uncommitted changes, you'll see a warning:
+
+```
+◇  Uncommitted changes detected. Commit or stash before upgrading. Continue anyway?
+│  ○ Yes / ● No
+```
+
+It's almost always better to commit first, so you can cleanly see what the upgrade changed. But if you're confident, you can continue anyway.
+
+Next, the command generates the upgrade plan. This takes a few seconds as it creates snapshots of both your installed version and the new version, then compares them with your current files:
+
+```
+Upgrade plan:
+- add: 2
+- update: 8
+- merge: 1
+- conflicts: 0
+- keep: 3
+- removed-upstream: 0
+- skipped: 0
+- unchanged: 12
+
+◇  Proceed and apply changes?
+│  ○ Yes / ● No
+```
+
+The plan tells you exactly what will happen:
+
+| Action | Meaning |
+|--------|---------|
+| **add** | New files that didn't exist in your installation |
+| **update** | Files you haven't modified that have new versions |
+| **merge** | Files where both you and Unrag made changes, merged automatically |
+| **conflicts** | Files where automatic merging failed—manual resolution needed |
+| **keep** | Files you modified but Unrag didn't change—your version stays |
+| **removed-upstream** | Files that Unrag no longer includes in new versions |
+| **skipped** | Files that couldn't be merged (no base version available) |
+| **unchanged** | Files that haven't changed in either version |
+
+Review this summary. If you see conflicts, you'll need to resolve them manually after the upgrade (covered in [Handling Conflicts](/docs/upgrade/handling-conflicts)). If everything looks reasonable, confirm to proceed.
+
+## After the upgrade
+
+Once the upgrade completes, you'll see a summary:
+
+```
+└  Upgrade complete.
+   - Files updated: 11
+   - Conflicts: 0
+   - Docs: https://unrag.dev/docs/upgrade
+   - Deps: ai, drizzle-orm (updated)
+   Next: run `bun install`
+```
+
+The CLI automatically updates dependencies in your `package.json` if the new version requires different versions. Run your package manager to install them:
+
+```bash
+bun install
+# or npm install, pnpm install, yarn
+```
+
+Now check what changed:
+
+```bash
+git diff
+```
+
+You'll see the actual file changes. This is a good time to scan through and make sure nothing looks wrong. The upgrade should have:
+
+- Updated files you hadn't modified to the latest versions
+- Preserved your modifications in files you customized
+- Merged changes where both sides had updates
+- Added any new files from the updated Unrag version
+
+If something looks off, you can always revert:
+
+```bash
+git checkout -- .
+```
+
+## Verifying the upgrade
+
+Run your tests to make sure everything still works:
+
+```bash
+bun test
+# or your test command
+```
+
+If you have the eval battery installed, run an evaluation to check retrieval quality:
+
+```bash
+bun run unrag:eval
+```
+
+Try a quick manual test—ingest some content and retrieve it:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+
+await engine.ingest({
+  sourceId: "test:upgrade-check",
+  content: "Testing after upgrade to make sure everything works."
+});
+
+const result = await engine.retrieve({ query: "upgrade check", topK: 5 });
+console.log(result.chunks);
+```
+
+If everything works, commit the upgrade:
+
+```bash
+git add -A
+git commit -m "chore: upgrade unrag to $(bunx unrag --version)"
+```
+
+## Dry run mode
+
+If you want to see what would happen without actually making changes, use `--dry-run`:
+
+```bash
+bunx unrag@latest upgrade --dry-run
+```
+
+This generates the full upgrade plan and shows you exactly what would be modified, added, or merged—but doesn't write any files. It's a safe way to preview an upgrade before committing to it.
+
+## Non-interactive mode
+
+For CI pipelines or scripted upgrades, use the `--yes` flag to skip all prompts:
+
+```bash
+bunx unrag@latest upgrade --yes
+```
+
+In non-interactive mode, the command proceeds automatically if there are no conflicts. If conflicts are detected, it still writes the files (with conflict markers), but you'll need to resolve them manually.
+
+<Callout type="warn">
+In non-interactive mode with a dirty git working tree, the command will fail rather than potentially destroying uncommitted work. Use `--allow-dirty` to override this, but be careful—you might lose changes.
+</Callout>
+
+## Troubleshooting
+
+### Missing `installedFrom.unragVersion`
+
+If your `unrag.json` doesn't have a version recorded (common for installations from before this feature existed), you'll see:
+
+```
+Error: Missing base version. Provide --from-version <x> or ensure unrag.json has installedFrom.unragVersion.
+```
+
+Check your git history or npm lockfile to find when you installed Unrag and what version it was. Then provide it explicitly:
+
+```bash
+bunx unrag@latest upgrade --from-version 0.3.5
+```
+
+After this upgrade completes, the new version will be recorded in `unrag.json` for future upgrades.
+
+### "Could not find a project root"
+
+The command looks for `package.json` to locate your project root. Make sure you're running from within your project directory.
+
+### Upgrade seems to do nothing
+
+If you see all files as "unchanged", you might already be on the latest version. Check what version you're running:
+
+```bash
+bunx unrag@latest --version
+```
+
+And compare to what's in your `unrag.json`. If they match, there's nothing to upgrade.
+
+### Merge conflicts everywhere
+
+If you heavily customized files and the new version changed the same areas, you might see many conflicts. This is expected—the three-way merge can only do so much. See [Handling Conflicts](/docs/upgrade/handling-conflicts) for strategies to resolve them.
+
+## Next steps
+
+<Cards>
+  <Card title="How It Works" href="/docs/upgrade/how-it-works">
+    Understand the three-way merge algorithm in detail
+  </Card>
+  <Card title="Handling Conflicts" href="/docs/upgrade/handling-conflicts">
+    Strategies for resolving merge conflicts
+  </Card>
+  <Card title="CLI Reference" href="/docs/reference/cli">
+    All upgrade command flags and options
+  </Card>
+</Cards>

@@ -1,0 +1,101 @@
+---
+title: Upgrading Unrag
+description: How Unrag's upgrade system lets you safely update vendored code while preserving your customizations.
+---
+
+Unrag vendors source code into your project. This gives you full ownership and the ability to customize anything, but it creates a question: what happens when a new version of Unrag is released? You don't want to lose your modifications, and you don't want to be stuck on an old version forever.
+
+The `unrag upgrade` command solves this problem. It uses a git-style three-way merge to intelligently combine your local changes with upstream updates, preserving your customizations while bringing in new features and fixes.
+
+## Why vendored code needs special handling
+
+Traditional npm packages update with a simple version bump. You change the version in `package.json`, run install, and you're done. The old code is replaced entirely by the new code.
+
+Vendored code is different. When you ran `unrag init`, the CLI copied source files into your project—files that you might have modified. Maybe you tweaked the chunking algorithm, added custom metadata handling, or changed how embeddings are batched. These changes live in your codebase now, and a naive "overwrite everything" update would destroy them.
+
+At the same time, new Unrag versions bring improvements you want: bug fixes, performance optimizations, new features, better type definitions. The challenge is getting those improvements without losing what you've built on top.
+
+## How the upgrade system works
+
+The upgrade command uses the same three-way merge algorithm that Git uses for combining branches. It compares three versions of each file:
+
+**BASE** — The file as it existed when you first installed Unrag (or last upgraded). This is the common ancestor.
+
+**OURS** — The file as it currently exists in your project, including any modifications you've made.
+
+**THEIRS** — The file from the new Unrag version you're upgrading to.
+
+By comparing all three, the system can determine:
+
+- If you haven't touched a file, it can be safely replaced with the new version
+- If you've modified a file but Unrag hasn't changed it, your version is kept as-is
+- If both you and Unrag modified the same file, the changes are merged automatically when possible
+- If both modified the same lines, the file is marked as a conflict for you to resolve manually
+
+This approach respects your customizations while still bringing in upstream improvements. You're not forced to choose between "stay outdated" and "lose everything."
+
+## What gets tracked
+
+When you install Unrag, the CLI records metadata in `unrag.json` at your project root:
+
+```json
+{
+  "version": 2,
+  "installDir": "lib/unrag",
+  "storeAdapter": "drizzle",
+  "aliasBase": "@unrag",
+  "embeddingProvider": "ai",
+  "extractors": ["pdf-text-layer", "file-text"],
+  "connectors": ["notion"],
+  "batteries": ["eval"],
+  "installedFrom": {
+    "unragVersion": "0.4.2"
+  },
+  "managedFiles": [
+    "lib/unrag/core/index.ts",
+    "lib/unrag/core/ingest.ts",
+    "lib/unrag/store/drizzle/index.ts"
+  ]
+}
+```
+
+The `installedFrom.unragVersion` field tells the upgrade system which version to use as the BASE for comparison. The `managedFiles` array lists every file that Unrag installed, so the system knows what to check during upgrades.
+
+This information is captured automatically during `init` and `add` commands. You don't need to maintain it manually—just run the CLI commands normally and the tracking happens in the background.
+
+## When to upgrade
+
+Upgrade when you want the latest improvements from Unrag. This might be:
+
+- After a new release with features you want
+- When a bug fix addresses an issue you've encountered
+- Periodically, to stay reasonably current with the codebase
+- Before making major changes to your RAG system, so you're building on the latest foundation
+
+There's no pressure to upgrade immediately after every release. Because the code is vendored, your project continues working indefinitely on whatever version you have. Upgrade when it makes sense for your workflow.
+
+## Before you upgrade
+
+The upgrade command includes safety checks, but some preparation makes the process smoother:
+
+**Commit your changes.** The upgrade command warns you if you have uncommitted changes and offers to abort. Having a clean git state means you can easily see what the upgrade changed and revert if needed.
+
+**Review the changelog.** Check what's new in the version you're upgrading to. This helps you understand what files might change and whether there are breaking changes to be aware of.
+
+**Run your tests.** Make sure your current setup is working before introducing changes. This gives you a reliable baseline.
+
+## Getting started
+
+Ready to upgrade? Start with your first upgrade:
+
+<Cards>
+  <Card title="Getting Started" href="/docs/upgrade/getting-started">
+    Walk through your first upgrade step by step
+  </Card>
+  <Card title="How It Works" href="/docs/upgrade/how-it-works">
+    Understand the three-way merge in detail
+  </Card>
+  <Card title="Handling Conflicts" href="/docs/upgrade/handling-conflicts">
+    What to do when automatic merging isn't enough
+  </Card>
+</Cards>
