@@ -106,8 +106,13 @@ describe('core routing + fallbacks', () => {
 		expect(result.warnings.length).toBe(0)
 
 		expect(upserted.length).toBe(1)
-		expect(upserted[0].metadata.extractor).toBe('pdf:llm')
-		expect(upserted[0].content).toBe('Hello from LLM')
+		const first = upserted[0]
+		expect(first).toBeTruthy()
+		if (!first) {
+			throw new Error('Expected one upserted chunk')
+		}
+		expect(first.metadata.extractor).toBe('pdf:llm')
+		expect(first.content).toBe('Hello from LLM')
 	})
 
 	test('PDF fallback chain: first extractor returns text -> does not call later extractors', async () => {

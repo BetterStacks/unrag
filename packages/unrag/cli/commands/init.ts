@@ -217,8 +217,7 @@ function getPresetEmbeddingProvider(
 		v === 'mistral' ||
 		v === 'together' ||
 		v === 'ollama' ||
-		v === 'voyage' ||
-		v === 'custom'
+		v === 'voyage'
 		? v
 		: undefined
 }

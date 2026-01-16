@@ -1,12 +1,8 @@
 import {docs} from 'fumadocs-mdx:collections/server'
+import type {Folder, Item} from 'fumadocs-core/page-tree'
 import {type InferPageType, loader} from 'fumadocs-core/source'
 import {lucideIconsPlugin} from 'fumadocs-core/source/lucide-icons'
 import React from 'react'
-
-type PageTreeNode = {icon?: React.ReactNode; name?: React.ReactNode} & Record<
-	string,
-	unknown
->
 
 function unwrapStorageData(input: unknown): Record<string, unknown> {
 	if (!input || typeof input !== 'object') {
@@ -20,7 +16,7 @@ function unwrapStorageData(input: unknown): Record<string, unknown> {
 	return obj
 }
 
-function ensureKeyedIcon(node: PageTreeNode) {
+function ensureKeyedIcon(node: {icon?: React.ReactNode}) {
 	const icon = node.icon
 	if (React.isValidElement(icon) && icon.key == null) {
 		node.icon = React.cloneElement(icon, {key: 'unrag-icon'})
@@ -35,7 +31,7 @@ export const source = loader({
 		lucideIconsPlugin(),
 		{
 			transformPageTree: {
-				folder(node: PageTreeNode, _folderPath, metaPath) {
+				folder(node: Folder, _folderPath: string, metaPath?: string) {
 					if (!metaPath) {
 						return node
 					}
@@ -78,7 +74,7 @@ export const source = loader({
 
 					return node
 				},
-				file(node: PageTreeNode, file) {
+				file(node: Item, file?: string) {
 					if (!file) {
 						return node
 					}

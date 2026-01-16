@@ -94,6 +94,9 @@ export function createFilePptxExtractor(): AssetExtractor {
 				}
 
 				const xml = await zip.files[slidePath]?.async('string')
+				if (typeof xml !== 'string') {
+					continue
+				}
 				const parts: string[] = []
 				const re = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g
 				while (true) {

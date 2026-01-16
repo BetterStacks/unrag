@@ -6,9 +6,9 @@ import {initCommand} from '@cli/commands/init'
 const workspaceTmpRoot = path.join(process.cwd(), 'tmp', 'test-runs')
 
 type TsConfigJson = {
-	compilerOptions?: {
+	compilerOptions: {
 		baseUrl?: string
-		paths?: Record<string, string[]>
+		paths: Record<string, string[]>
 		types?: string[]
 		lib?: string[]
 	}
@@ -99,7 +99,7 @@ describe('unrag@latest init', () => {
 			'utf8'
 		)
 		expect(ingest).not.toContain('@registry/')
-		expect(ingest).toContain('from "@unrag/')
+		expect(ingest).toMatch(/from ['"]@unrag\//)
 
 		expect(
 			await pathExists(
@@ -295,7 +295,7 @@ describe('unrag@latest init', () => {
 			'utf8'
 		)
 		expect(ingest).not.toContain('@registry/')
-		expect(ingest).toContain('from "@rag/')
+		expect(ingest).toMatch(/from ['"]@rag\//)
 	})
 
 	test('minimal install omits assetProcessing config', async () => {
@@ -404,7 +404,7 @@ describe('unrag@latest init', () => {
 			'utf8'
 		)
 		expect(pdfTextLayer).not.toContain('@registry/')
-		expect(pdfTextLayer).toContain('from "@unrag/')
+		expect(pdfTextLayer).toMatch(/from ['"]@unrag\//)
 
 		const unragJson = await readJson<UnragJson>(
 			path.join(runDir, 'unrag.json')
@@ -440,7 +440,7 @@ describe('unrag@latest init', () => {
 		])
 
 		const cfg = await readFile(path.join(runDir, 'unrag.config.ts'), 'utf8')
-		expect(cfg).toContain('provider: "openai"')
+		expect(cfg).toMatch(/provider:\s*['"]openai['"]/)
 
 		const pkg = await readJson<{
 			dependencies?: Record<string, string>
@@ -461,7 +461,7 @@ describe('unrag@latest init', () => {
 		process.chdir(runDir)
 
 		const originalFetch = globalThis.fetch
-		const mockFetch: typeof fetch = async () => {
+		const mockFetch = async () => {
 			return new Response(
 				JSON.stringify({
 					version: 1,
@@ -500,7 +500,7 @@ describe('unrag@latest init', () => {
 				{status: 200, headers: {'content-type': 'application/json'}}
 			)
 		}
-		globalThis.fetch = mockFetch
+		globalThis.fetch = mockFetch as unknown as typeof fetch
 
 		try {
 			await initCommand([
@@ -521,7 +521,7 @@ describe('unrag@latest init', () => {
 			'utf8'
 		)
 		expect(runner).not.toContain('@registry/')
-		expect(runner).toContain('from "@unrag/')
+		expect(runner).toMatch(/from ['"]@unrag\//)
 
 		// Eval scaffolding should be created.
 		expect(

@@ -188,7 +188,7 @@ export function HomeNavbar() {
 					/>
 				</NavbarLogo>
 			}
-			actions=<ButtonLink href="/install">Get started</ButtonLink>
+			actions={<ButtonLink href="/install">Get started</ButtonLink>}
 		/>
 	)
 }

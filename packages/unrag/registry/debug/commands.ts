@@ -727,9 +727,17 @@ async function handleDeleteDocument(_command: {
 
 	const input = (() => {
 		if (hasSourceId) {
-			return {sourceId: _command.sourceId} as const
+			const sourceId = _command.sourceId
+			if (!sourceId) {
+				throw new Error('Internal error: sourceId missing')
+			}
+			return {sourceId} as const
 		}
-		return {sourceIdPrefix: _command.sourceIdPrefix} as const
+		const sourceIdPrefix = _command.sourceIdPrefix
+		if (!sourceIdPrefix) {
+			throw new Error('Internal error: sourceIdPrefix missing')
+		}
+		return {sourceIdPrefix} as const
 	})()
 
 	// Prefer inspector (can optionally return counts).

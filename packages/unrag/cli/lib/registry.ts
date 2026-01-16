@@ -258,33 +258,36 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 
 	if (typeof presetChunkSize === 'number') {
 		out = out.replace(
-			'chunkSize: 200, // __UNRAG_DEFAULT_chunkSize__',
+			/chunkSize:\s*200\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkSize__/,
 			`chunkSize: ${presetChunkSize},`
 		)
 	} else {
 		out = out.replace(
-			'chunkSize: 200, // __UNRAG_DEFAULT_chunkSize__',
+			/chunkSize:\s*200\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkSize__/,
 			'chunkSize: 200,'
 		)
 	}
 	if (typeof presetChunkOverlap === 'number') {
 		out = out.replace(
-			'chunkOverlap: 40, // __UNRAG_DEFAULT_chunkOverlap__',
+			/chunkOverlap:\s*40\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkOverlap__/,
 			`chunkOverlap: ${presetChunkOverlap},`
 		)
 	} else {
 		out = out.replace(
-			'chunkOverlap: 40, // __UNRAG_DEFAULT_chunkOverlap__',
+			/chunkOverlap:\s*40\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkOverlap__/,
 			'chunkOverlap: 40,'
 		)
 	}
 	if (typeof presetTopK === 'number') {
 		out = out.replace(
-			'topK: 8, // __UNRAG_DEFAULT_topK__',
+			/topK:\s*8\s*,?\s*\/\/ __UNRAG_DEFAULT_topK__/,
 			`topK: ${presetTopK},`
 		)
 	} else {
-		out = out.replace('topK: 8, // __UNRAG_DEFAULT_topK__', 'topK: 8,')
+		out = out.replace(
+			/topK:\s*8\s*,?\s*\/\/ __UNRAG_DEFAULT_topK__/,
+			'topK: 8,'
+		)
 	}
 
 	// Embedding config:
@@ -294,8 +297,10 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 	const presetEmbeddingModel = preset?.embedding?.config?.model
 	const presetEmbeddingTimeoutMs = preset?.embedding?.config?.timeoutMs
 
-	const providerLine = `    provider: "${embeddingProvider}",`
-	out = out.replace(/^\s*provider:\s*".*?",\s*$/m, providerLine)
+	out = out.replace(
+		/^(\s*)provider:\s*['"][^'"]*['"],?\s*$/m,
+		(_m, indent: string) => `${indent}provider: '${embeddingProvider}',`
+	)
 
 	const defaultModelByProvider: Record<string, string> = {
 		ai: 'openai/text-embedding-3-small',
@@ -343,8 +348,8 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 
 	const nextModel = normalizeModelForProvider(resolvedEmbeddingModel)
 	out = out.replace(
-		'model: "openai/text-embedding-3-small", // __UNRAG_EMBEDDING_MODEL__',
-		`model: ${JSON.stringify(nextModel)},`
+		/^(\s*)model:\s*['"][^'"]*['"]\s*,?\s*\/\/ __UNRAG_EMBEDDING_MODEL__\s*$/m,
+		(_m, indent: string) => `${indent}model: ${JSON.stringify(nextModel)},`
 	)
 
 	// Only opt-in to multimodal when explicitly requested by preset.
@@ -367,13 +372,14 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 
 	if (typeof presetEmbeddingTimeoutMs === 'number') {
 		out = out.replace(
-			'timeoutMs: 15_000, // __UNRAG_EMBEDDING_TIMEOUT__',
-			`timeoutMs: ${presetEmbeddingTimeoutMs},`
+			/^(\s*)timeoutMs:\s*15_000\s*,?\s*\/\/ __UNRAG_EMBEDDING_TIMEOUT__\s*$/m,
+			(_m, indent: string) =>
+				`${indent}timeoutMs: ${presetEmbeddingTimeoutMs},`
 		)
 	} else {
 		out = out.replace(
-			'timeoutMs: 15_000, // __UNRAG_EMBEDDING_TIMEOUT__',
-			'timeoutMs: 15_000,'
+			/^(\s*)timeoutMs:\s*15_000\s*,?\s*\/\/ __UNRAG_EMBEDDING_TIMEOUT__\s*$/m,
+			(_m, indent: string) => `${indent}timeoutMs: 15_000,`
 		)
 	}
 
@@ -383,23 +389,23 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 		preset?.engine?.storage?.storeDocumentContent
 	if (typeof presetStoreChunkContent === 'boolean') {
 		out = out.replace(
-			'storeChunkContent: true, // __UNRAG_STORAGE_storeChunkContent__',
+			/storeChunkContent:\s*true\s*,?\s*\/\/ __UNRAG_STORAGE_storeChunkContent__/,
 			`storeChunkContent: ${presetStoreChunkContent},`
 		)
 	} else {
 		out = out.replace(
-			'storeChunkContent: true, // __UNRAG_STORAGE_storeChunkContent__',
+			/storeChunkContent:\s*true\s*,?\s*\/\/ __UNRAG_STORAGE_storeChunkContent__/,
 			'storeChunkContent: true,'
 		)
 	}
 	if (typeof presetStoreDocumentContent === 'boolean') {
 		out = out.replace(
-			'storeDocumentContent: true, // __UNRAG_STORAGE_storeDocumentContent__',
+			/storeDocumentContent:\s*true\s*,?\s*\/\/ __UNRAG_STORAGE_storeDocumentContent__/,
 			`storeDocumentContent: ${presetStoreDocumentContent},`
 		)
 	} else {
 		out = out.replace(
-			'storeDocumentContent: true, // __UNRAG_STORAGE_storeDocumentContent__',
+			/storeDocumentContent:\s*true\s*,?\s*\/\/ __UNRAG_STORAGE_storeDocumentContent__/,
 			'storeDocumentContent: true,'
 		)
 	}
@@ -490,20 +496,30 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 	}
 	// If no extractors and no preset override, assetProcessingBlock remains empty (omitted)
 
-	// Replace the marker with the generated block (or empty string to omit)
+	// Replace the marker line with the generated block (or omit it).
+	// We include a leading comma so the block can be injected after the `extractors: [...]` property.
 	out = out.replace(
-		'  // __UNRAG_ASSET_PROCESSING_OVERRIDES__',
-		assetProcessingBlock
+		/^([ \t]*)\/\/ __UNRAG_ASSET_PROCESSING_OVERRIDES__\s*$/m,
+		(m: string, indent: string) => {
+			if (!assetProcessingBlock) {
+				return m
+			}
+			return `${indent},\n${indent}${assetProcessingBlock.trimEnd()}`
+		}
 	)
 
-	// Inject extractor list (or remove placeholder) without leaving marker comments.
-	const extractorLines =
-		richMedia.enabled && selectedExtractors.length > 0
-			? selectedExtractors
-					.map((ex) => `      ${EXTRACTOR_FACTORY[ex]}(),`)
-					.join('\n')
-			: ''
-	out = out.replace('      // __UNRAG_EXTRACTORS__', extractorLines)
+	// Inject extractor list (or remove placeholder) without depending on exact indentation.
+	out = out.replace(
+		/^([ \t]*)\/\/ __UNRAG_EXTRACTORS__\s*$/m,
+		(m: string, indent: string) => {
+			if (!(richMedia.enabled && selectedExtractors.length > 0)) {
+				return m
+			}
+			return selectedExtractors
+				.map((ex) => `${indent}${EXTRACTOR_FACTORY[ex]}(),`)
+				.join('\n')
+		}
+	)
 
 	return out
 }

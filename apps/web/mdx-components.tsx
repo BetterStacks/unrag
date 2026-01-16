@@ -27,7 +27,11 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
 		Banner,
 		Mermaid,
 		PackageInstall,
-		img: (props) => <ImageZoom {...(props as ComponentProps<'img'>)} />,
+		img: (props) => (
+			<ImageZoom
+				{...(props as unknown as ComponentProps<typeof ImageZoom>)}
+			/>
+		),
 		...components
 	}
 }

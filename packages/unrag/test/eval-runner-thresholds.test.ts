@@ -222,9 +222,23 @@ describe('eval runner thresholds', () => {
 			thresholds: {min: {recallAtK: 1}}
 		})
 
-		expect(observedRetrieveTopK).toBe(6)
-		expect(observedRerankCandidateCount).toBe(6)
-		expect(observedRerankTopK).toBe(2)
+		if (observedRetrieveTopK === null) {
+			throw new Error('Expected retrieve() to be called with topK')
+		}
+		if (observedRerankCandidateCount === null) {
+			throw new Error('Expected rerank() to be called with candidates')
+		}
+		if (observedRerankTopK === null) {
+			throw new Error('Expected rerank() to be called with rerankTopK')
+		}
+
+		const retrieveTopK: number = observedRetrieveTopK
+		const rerankCandidateCount: number = observedRerankCandidateCount
+		const rerankTopK: number = observedRerankTopK
+
+		expect(retrieveTopK).toBe(6)
+		expect(rerankCandidateCount).toBe(6)
+		expect(rerankTopK).toBe(2)
 
 		expect(result.report.config.mode).toBe('retrieve+rerank')
 		expect(result.report.config.rerankTopK).toBe(6)

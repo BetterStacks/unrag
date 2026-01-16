@@ -65,7 +65,7 @@ describe('raw-sql store adapter', () => {
 		const queries: Array<{text: string; values?: unknown[]}> = []
 		const canonicalDocId = '11111111-1111-1111-1111-111111111111'
 
-		const client: Pick<PoolClient, 'query' | 'release'> = {
+		const client = {
 			query: async (text: string, values?: unknown[]) => {
 				queries.push({text, values})
 				// Return the canonical documentId from the upsert query
@@ -75,11 +75,9 @@ describe('raw-sql store adapter', () => {
 				return {rows: []}
 			},
 			release: () => {}
-		}
+		} as unknown as Pick<PoolClient, 'query' | 'release'>
 
-		const pool = {
-			connect: async () => client
-		} as unknown as Pool
+		const pool = {connect: async () => client} as unknown as Pool
 
 		const store = createRawSqlVectorStore(pool)
 		const proposedDocId = crypto.randomUUID()
@@ -157,13 +155,13 @@ describe('raw-sql store adapter', () => {
 	test('delete({sourceIdPrefix}) uses prefix matching', async () => {
 		const queries: Array<{text: string; values?: unknown[]}> = []
 
-		const client: Pick<PoolClient, 'query' | 'release'> = {
+		const client = {
 			query: async (text: string, values?: unknown[]) => {
 				queries.push({text, values})
 				return {rows: []}
 			},
 			release: () => {}
-		}
+		} as unknown as Pick<PoolClient, 'query' | 'release'>
 
 		const pool = {
 			connect: async () => client

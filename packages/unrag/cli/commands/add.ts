@@ -188,7 +188,7 @@ async function patchUnragConfig(args: {
 			const extractorsArrayRegex = /extractors:\s*\[([^\]]*)\]/s
 			const match = newContent.match(extractorsArrayRegex)
 			if (match) {
-				const existing = match[1].trim()
+				const existing = (match[1] ?? '').trim()
 				const newArrayContent = existing
 					? `${existing}\n      ${extractorCall},`
 					: `      ${extractorCall},`
@@ -1144,8 +1144,11 @@ main().catch((err) => {
 		}
 	}
 
-	const extractors = Array.from(
-		new Set([...(config.extractors ?? []), extractor])
+	const existingExtractors = (config.extractors ?? []).filter(
+		(x): x is ExtractorName => availableExtractors.has(x as ExtractorName)
+	)
+	const extractors: ExtractorName[] = Array.from(
+		new Set([...existingExtractors, extractor])
 	).sort()
 
 	await writeJsonFile(configPath, {...config, extractors})
