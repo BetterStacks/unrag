@@ -12,8 +12,6 @@
  */
 
 // @ts-nocheck
-// NOTE: This file is a *template* inside the Unrag repo. The CLI strips this line when
-// generating `unrag.config.ts` into a user's project.
 
 // __UNRAG_IMPORTS__
 

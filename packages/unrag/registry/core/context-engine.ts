@@ -49,7 +49,7 @@ export class ContextEngine {
 	 * This is done asynchronously to avoid blocking engine creation.
 	 */
 	private initDebugServer(): void {
-		// Importing the debug battery must be optional at *build* time too.
+		// Importing the debug battery must be optional.
 		// We use a dynamic importer via `new Function` so bundlers/tsc won't
 		// treat it as a hard dependency when the debug battery isn't installed.
 		const importOptionalModule = (() => {
