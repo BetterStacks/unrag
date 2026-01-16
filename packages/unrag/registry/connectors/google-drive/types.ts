@@ -1,6 +1,6 @@
 import type {
-	ContextEngine,
 	AssetInput,
+	ContextEngine,
 	IngestInput,
 	Metadata
 } from '@registry/core'

@@ -1,8 +1,8 @@
 import {RootProvider} from 'fumadocs-ui/provider/next'
 import './global.css'
-import {Geist, Geist_Mono} from 'next/font/google'
-import type {Metadata} from 'next'
 import {Analytics} from '@vercel/analytics/next'
+import type {Metadata} from 'next'
+import {Geist, Geist_Mono} from 'next/font/google'
 import {NuqsAdapter} from 'nuqs/adapters/next/app'
 
 const geistSans = Geist({

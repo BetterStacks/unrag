@@ -3,8 +3,8 @@
  * Determines projectRoot, installDir, store adapter, and installed modules.
  */
 
+import {readFile, readdir} from 'node:fs/promises'
 import path from 'node:path'
-import {readdir, readFile} from 'node:fs/promises'
 import {exists, tryFindProjectRoot} from '../fs'
 import {readJsonFile} from '../json'
 import type {InferredInstallState, UnragJsonConfig} from './types'

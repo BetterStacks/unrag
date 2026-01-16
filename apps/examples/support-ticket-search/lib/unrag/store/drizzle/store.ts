@@ -1,7 +1,7 @@
-import {documents, chunks, embeddings} from './schema'
-import type {Chunk, VectorStore} from '../../core/types'
-import {eq, like, sql, type SQL} from 'drizzle-orm'
+import {type SQL, eq, like, sql} from 'drizzle-orm'
 import type {PgDatabase, PgQueryResultHKT} from 'drizzle-orm/pg-core'
+import type {Chunk, VectorStore} from '../../core/types'
+import {chunks, documents, embeddings} from './schema'
 
 /**
  * Accepts any Drizzle Postgres database instance regardless of schema type.

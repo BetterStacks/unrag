@@ -1,6 +1,6 @@
-import path from 'node:path'
-import {readFile, writeFile} from 'node:fs/promises'
 import {spawn} from 'node:child_process'
+import {readFile, writeFile} from 'node:fs/promises'
+import path from 'node:path'
 import {exists} from './fs'
 
 type PackageJson = {

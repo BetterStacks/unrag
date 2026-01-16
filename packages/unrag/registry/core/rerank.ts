@@ -1,11 +1,11 @@
+import {getDebugEmitter} from '@registry/core/debug-emitter'
 import type {
-	RerankInput,
-	RerankResult,
 	RerankCandidate,
+	RerankInput,
 	RerankRankingItem,
+	RerankResult,
 	ResolvedContextEngineConfig
 } from '@registry/core/types'
-import {getDebugEmitter} from '@registry/core/debug-emitter'
 
 const now = () => performance.now()
 

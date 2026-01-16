@@ -9,10 +9,10 @@
  *   --port <number>     Port to connect to (shorthand for --url ws://localhost:<port>)
  */
 
-import {outro} from '@clack/prompts'
-import {fileURLToPath} from 'node:url'
-import {dirname, join} from 'node:path'
 import {existsSync} from 'node:fs'
+import {dirname, join} from 'node:path'
+import {fileURLToPath} from 'node:url'
+import {outro} from '@clack/prompts'
 
 type ParsedDebugArgs = {
 	url?: string
@@ -30,7 +30,7 @@ function parseDebugArgs(args: string[]): ParsedDebugArgs {
 			out.url = args[++i]
 		} else if (arg === '--port' || arg === '-p') {
 			const portStr = args[++i] ?? ''
-			out.port = parseInt(portStr, 10)
+			out.port = Number.parseInt(portStr, 10)
 			if (isNaN(out.port)) {
 				throw new Error(`Invalid port: ${portStr}`)
 			}

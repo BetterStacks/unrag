@@ -1,46 +1,15 @@
 'use client'
 
-import Link from 'next/link'
-import {
-	useEffect,
-	useMemo,
-	useState,
-	useCallback,
-	type ComponentType,
-	type SVGProps
-} from 'react'
-import {useQueryState, parseAsString} from 'nuqs'
-import {
-	Battery,
-	Check,
-	ChevronDown,
-	ChevronRight,
-	Copy,
-	Database,
-	FileText,
-	Image,
-	Mic,
-	Package,
-	Puzzle,
-	RefreshCw,
-	Settings2,
-	Share2,
-	Sparkles,
-	Video,
-	Zap,
-	ExternalLink,
-	ArrowLeft
-} from 'lucide-react'
 import {
 	AmazonWebServicesDark,
 	AmazonWebServicesLight,
 	Cohere,
 	Discord,
 	Dropbox,
+	Gemini,
 	GitHubDark,
 	GitHubLight,
 	GitLab,
-	Gemini,
 	GoogleCloud,
 	GoogleDrive,
 	Linear,
@@ -48,6 +17,7 @@ import {
 	MicrosoftOneDrive,
 	MicrosoftSharePoint,
 	MicrosoftTeams,
+	MistralAI,
 	Notion,
 	OllamaDark,
 	OllamaLight,
@@ -59,16 +29,43 @@ import {
 	TogetherAIDark,
 	TogetherAILight,
 	VercelDark,
-	VercelLight,
-	MistralAI
+	VercelLight
 } from '@ridemountainpig/svgl-react'
+import {
+	ArrowLeft,
+	Battery,
+	Check,
+	ChevronDown,
+	ChevronRight,
+	Copy,
+	Database,
+	ExternalLink,
+	FileText,
+	Image,
+	Mic,
+	Package,
+	Puzzle,
+	RefreshCw,
+	Settings2,
+	Share2,
+	Sparkles,
+	Video,
+	Zap
+} from 'lucide-react'
+import Link from 'next/link'
+import {parseAsString, useQueryState} from 'nuqs'
+import {
+	type ComponentType,
+	type SVGProps,
+	useCallback,
+	useEffect,
+	useMemo,
+	useState
+} from 'react'
 
-import {cn} from '@/lib/utils'
 import {Button, PlainButton, SoftButton} from '@/components/elements'
-import {NextStepsDialog} from './next-steps-dialog'
 import {Input} from '@/components/ui/input'
 import {Label} from '@/components/ui/label'
-import {Switch} from '@/components/ui/switch'
 import {
 	Select,
 	SelectContent,
@@ -77,6 +74,9 @@ import {
 	SelectTrigger,
 	SelectValue
 } from '@/components/ui/select'
+import {Switch} from '@/components/ui/switch'
+import {cn} from '@/lib/utils'
+import {NextStepsDialog} from './next-steps-dialog'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -1592,6 +1592,7 @@ export default function InstallWizardClient() {
 							href="/docs/getting-started/quickstart"
 							target="_blank"
 							className="flex items-center gap-2 text-sm text-olive-700 hover:text-olive-950 transition-colors dark:text-white/60 dark:hover:text-white/90"
+							rel="noreferrer"
 						>
 							<span>Docs</span>
 							<ExternalLink className="w-3.5 h-3.5" />

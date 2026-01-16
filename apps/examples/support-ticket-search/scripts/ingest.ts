@@ -1,6 +1,5 @@
 import {db, pool, schema} from '../db'
 import {createUnragEngine} from '../unrag.config'
-import {eq} from 'drizzle-orm'
 
 async function ingest() {
 	console.log('Ingesting support tickets into vector store...\n')

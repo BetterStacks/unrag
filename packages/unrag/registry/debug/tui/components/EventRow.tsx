@@ -1,19 +1,14 @@
-/**
- * Single event row component for list display.
- */
-
-import React from 'react'
-import {Box, Text} from 'ink'
-import type {DebugEvent} from '@registry/debug/types'
 import {
 	chars,
 	eventTypeColor,
 	eventTypeIcon,
 	formatTime,
-	truncate,
+	pad,
 	theme,
-	pad
+	truncate
 } from '@registry/debug/tui/theme'
+import type {DebugEvent} from '@registry/debug/types'
+import {Box, Text} from 'ink'
 
 type EventRowProps = {
 	event: DebugEvent

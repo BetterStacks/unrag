@@ -1,12 +1,12 @@
 import {describe, expect, test} from 'bun:test'
+import {normalizeGoogleDriveAuth} from '@registry/connectors/google-drive/client'
 import {
+	DRIVE_MIME,
+	EXPORT_MIME,
 	assetKindFromMediaType,
 	classifyDriveMimeType,
-	DRIVE_MIME,
-	getNativeExportPlan,
-	EXPORT_MIME
+	getNativeExportPlan
 } from '@registry/connectors/google-drive/mime'
-import {normalizeGoogleDriveAuth} from '@registry/connectors/google-drive/client'
 import {buildGoogleDriveFileIngestInput} from '@registry/connectors/google-drive/sync'
 
 describe('google-drive connector: mime routing', () => {

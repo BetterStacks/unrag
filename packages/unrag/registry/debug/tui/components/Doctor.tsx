@@ -2,16 +2,16 @@
  * Doctor tab: actionable environment + configuration checks.
  */
 
-import React, {useEffect, useMemo, useState} from 'react'
-import {Box, Text, useInput} from 'ink'
+import {useScrollWindow} from '@registry/debug/tui/hooks/useScrollWindow'
+import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
+import {chars, formatDuration, theme, truncate} from '@registry/debug/tui/theme'
 import type {
-	DebugConnection,
 	DebugCommandResult,
+	DebugConnection,
 	DoctorCheck
 } from '@registry/debug/types'
-import {chars, formatDuration, theme, truncate} from '@registry/debug/tui/theme'
-import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
-import {useScrollWindow} from '@registry/debug/tui/hooks/useScrollWindow'
+import {Box, Text, useInput} from 'ink'
+import {useEffect, useMemo, useState} from 'react'
 
 type DoctorProps = {
 	connection: DebugConnection

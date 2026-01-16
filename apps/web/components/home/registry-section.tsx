@@ -1,23 +1,5 @@
 'use client'
 
-import Link from 'next/link'
-import {
-	useEffect,
-	useMemo,
-	useState,
-	type ComponentProps,
-	type ComponentType,
-	type SVGProps
-} from 'react'
-import {
-	useReactTable,
-	getCoreRowModel,
-	getFilteredRowModel,
-	flexRender,
-	createColumnHelper,
-	type ColumnFiltersState,
-	type FilterFn
-} from '@tanstack/react-table'
 import {ArrowSquareOut} from '@phosphor-icons/react'
 import {
 	AmazonWebServicesDark,
@@ -28,10 +10,8 @@ import {
 	Gemini,
 	GitHubDark,
 	GitLab,
-	Groq,
 	GoogleCloud,
 	GoogleDrive,
-	HuggingFace,
 	Linear,
 	MicrosoftAzure,
 	MicrosoftOneDrive,
@@ -43,15 +23,31 @@ import {
 	OpenAIDark,
 	OpenRouterDark,
 	PerplexityAI,
-	ReplicateDark,
-	Salesforce,
 	Slack,
 	TogetherAIDark,
 	VercelDark,
 	XAIDark
 } from '@ridemountainpig/svgl-react'
-import {CopyButton} from '../copy-button'
+import {
+	type ColumnFiltersState,
+	type FilterFn,
+	createColumnHelper,
+	flexRender,
+	getCoreRowModel,
+	getFilteredRowModel,
+	useReactTable
+} from '@tanstack/react-table'
 import {clsx} from 'clsx/lite'
+import Link from 'next/link'
+import {
+	type ComponentProps,
+	type ComponentType,
+	type SVGProps,
+	useEffect,
+	useMemo,
+	useState
+} from 'react'
+import {CopyButton} from '../copy-button'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared Element Components (matching landing page styles)

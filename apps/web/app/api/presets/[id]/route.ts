@@ -1,4 +1,4 @@
-import {NextResponse, type NextRequest} from 'next/server'
+import {type NextRequest, NextResponse} from 'next/server'
 import {redis} from '../../_lib/redis'
 
 function isSafeId(id: string) {

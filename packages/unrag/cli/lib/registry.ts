@@ -1,6 +1,6 @@
-import path from 'node:path'
 import {readFile, writeFile} from 'node:fs/promises'
-import {confirm, isCancel, cancel} from '@clack/prompts'
+import path from 'node:path'
+import {cancel, confirm, isCancel} from '@clack/prompts'
 import {ensureDir, exists, listFilesRecursive} from './fs'
 import type {EmbeddingProviderName, ExtractorName} from './packageJson'
 

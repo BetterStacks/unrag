@@ -2,14 +2,14 @@
  * Event list component with filtering and details.
  */
 
-import React, {useState, useMemo} from 'react'
-import {Box, Text, useInput} from 'ink'
-import type {DebugEvent} from '@registry/debug/types'
 import {EventDetail} from '@registry/debug/tui/components/EventDetail'
 import {EventRow} from '@registry/debug/tui/components/EventRow'
-import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
 import {useScrollWindow} from '@registry/debug/tui/hooks/useScrollWindow'
-import {chars, theme} from '@registry/debug/tui/theme'
+import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
+import {theme} from '@registry/debug/tui/theme'
+import type {DebugEvent} from '@registry/debug/types'
+import {Box, Text, useInput} from 'ink'
+import {useMemo, useState} from 'react'
 
 type EventListProps = {
 	events: DebugEvent[]

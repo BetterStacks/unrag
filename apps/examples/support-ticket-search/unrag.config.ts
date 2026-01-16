@@ -13,11 +13,11 @@
 
 // @ts-nocheck
 
-import {defineUnragConfig} from './lib/unrag/core'
-import {createDrizzleVectorStore} from './lib/unrag/store/drizzle'
-import {createCohereReranker} from './lib/unrag/rerank'
 import {drizzle} from 'drizzle-orm/node-postgres'
 import {Pool} from 'pg'
+import {defineUnragConfig} from './lib/unrag/core'
+import {createCohereReranker} from './lib/unrag/rerank'
+import {createDrizzleVectorStore} from './lib/unrag/store/drizzle'
 
 export const unrag = defineUnragConfig({
 	defaults: {

@@ -20,18 +20,16 @@ interface CohereProvider {
 /**
  * Typed interface for AI SDK rerank function.
  */
-interface RerankFunction {
-	(args: {
-		model: unknown
-		documents: string[]
-		query: string
-	}): Promise<{
-		ranking: Array<{
-			originalIndex: number
-			score: number
-		}>
+type RerankFunction = (args: {
+	model: unknown
+	documents: string[]
+	query: string
+}) => Promise<{
+	ranking: Array<{
+		originalIndex: number
+		score: number
 	}>
-}
+}>
 
 /**
  * Create a Cohere reranker.

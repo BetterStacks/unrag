@@ -2,16 +2,16 @@
  * Hook for managing WebSocket connection to debug server.
  */
 
-import {useState, useEffect, useRef} from 'react'
+import {connectDebugClient} from '@registry/debug/client'
 import type {
+	DebugCapability,
 	DebugCommandResult,
 	DebugCommandType,
-	DebugCapability,
 	DebugConnection,
 	DebugConnectionStatus,
 	DebugServerInfo
 } from '@registry/debug/types'
-import {connectDebugClient} from '@registry/debug/client'
+import {useEffect, useRef, useState} from 'react'
 
 const DEFAULT_URL = 'ws://localhost:3847'
 
@@ -68,7 +68,7 @@ export function useConnection(url?: string): DebugConnection {
 			url: url ?? DEFAULT_URL,
 			reconnect: true,
 			reconnectDelay: 1000,
-			maxReconnectAttempts: Infinity
+			maxReconnectAttempts: Number.POSITIVE_INFINITY
 		})
 
 		connectionRef.current = connection

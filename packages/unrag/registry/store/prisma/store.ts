@@ -1,6 +1,6 @@
-import type {Chunk, DeleteInput, VectorStore} from '@registry/core/types'
 import type {PrismaClient} from '@prisma/client'
 import {empty, sqltag as sql} from '@prisma/client/runtime/library'
+import type {Chunk, DeleteInput, VectorStore} from '@registry/core/types'
 
 const sanitizeMetadata = (metadata: unknown) => {
 	if (metadata === undefined) return null

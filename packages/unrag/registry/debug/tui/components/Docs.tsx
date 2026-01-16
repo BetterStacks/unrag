@@ -2,14 +2,14 @@
  * Docs Explorer tab: browse stored documents and inspect chunks.
  */
 
-import React, {useEffect, useMemo, useRef, useState} from 'react'
-import {Box, Text, useInput} from 'ink'
-import type {DebugConnection, DebugCommandResult} from '@registry/debug/types'
-import {chars, clamp, theme, truncate} from '@registry/debug/tui/theme'
-import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
-import {useScrollWindow} from '@registry/debug/tui/hooks/useScrollWindow'
 import {ScrollableText} from '@registry/debug/tui/components/ScrollableText'
 import {useHotkeysLock} from '@registry/debug/tui/context/HotkeysLock'
+import {useScrollWindow} from '@registry/debug/tui/hooks/useScrollWindow'
+import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
+import {chars, clamp, theme, truncate} from '@registry/debug/tui/theme'
+import type {DebugCommandResult, DebugConnection} from '@registry/debug/types'
+import {Box, Text, useInput} from 'ink'
+import {useEffect, useMemo, useRef, useState} from 'react'
 
 type DocsProps = {
 	connection: DebugConnection

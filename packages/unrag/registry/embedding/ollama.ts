@@ -1,6 +1,6 @@
-import {embed, embedMany, type EmbeddingModel} from 'ai'
 import type {EmbeddingProvider} from '@registry/core/types'
 import {requireOptional} from '@registry/embedding/_shared'
+import {type EmbeddingModel, embed, embedMany} from 'ai'
 
 /**
  * Ollama provider instance interface.

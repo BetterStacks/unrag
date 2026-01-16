@@ -1,11 +1,11 @@
-import {generateText, type LanguageModel} from 'ai'
 import {spawn} from 'node:child_process'
-import {mkdir, readdir, readFile, rm, writeFile} from 'node:fs/promises'
+import {mkdir, readFile, readdir, rm, writeFile} from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import type {AssetExtractor} from '@registry/core/types'
 import {getAssetBytes} from '@registry/extractors/_shared/fetch'
 import {capText} from '@registry/extractors/_shared/text'
+import {type LanguageModel, generateText} from 'ai'
 
 /**
  * Model reference type that accepts both string gateway IDs and LanguageModel instances.

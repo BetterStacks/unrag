@@ -6,23 +6,23 @@
  * debug commands for interactive inspection.
  */
 
-import type {DebugEvent} from '@registry/core/debug-events'
 import {getDebugEmitter} from '@registry/core/debug-emitter'
-import {DEBUG_PROTOCOL_VERSION} from '@registry/debug/types'
+import type {DebugEvent} from '@registry/core/debug-events'
+import {handleCommand} from '@registry/debug/commands'
 import {getUnragDebugRuntime} from '@registry/debug/runtime'
+import {DEBUG_PROTOCOL_VERSION} from '@registry/debug/types'
+import type {
+	ClientMessage,
+	DebugCapability,
+	DebugCommandResult,
+	DebugServer,
+	DebugServerConfig,
+	ServerMessage
+} from '@registry/debug/types'
 import {
 	hasVendoredModuleDir,
 	isUnragBatteryInstalled
 } from '@registry/debug/unrag-json'
-import type {
-	DebugCapability,
-	DebugServerConfig,
-	DebugServer,
-	ClientMessage,
-	ServerMessage,
-	DebugCommandResult
-} from '@registry/debug/types'
-import {handleCommand} from '@registry/debug/commands'
 
 // Default configuration values
 const DEFAULT_PORT = 3847

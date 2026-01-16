@@ -1,6 +1,6 @@
-import {createUnragEngine} from '@/unrag.config'
 import {db, schema} from '@/db'
-import {NextRequest, NextResponse} from 'next/server'
+import {createUnragEngine} from '@/unrag.config'
+import {type NextRequest, NextResponse} from 'next/server'
 
 export async function POST(request: NextRequest) {
 	try {

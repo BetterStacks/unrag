@@ -1,6 +1,6 @@
+import {GITHUB_REPO} from '@/constants'
 import type {BaseLayoutProps} from 'fumadocs-ui/layouts/shared'
 import Image from 'next/image'
-import {GITHUB_REPO} from '@/constants'
 
 export function baseOptions(): BaseLayoutProps {
 	return {

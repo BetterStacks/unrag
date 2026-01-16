@@ -1,22 +1,18 @@
 'use client'
 
-import * as React from 'react'
+import {Shimmer} from '@/components/ai-elements/shimmer'
+import {TicketList} from '@/components/ticket-list'
+import {Button} from '@/components/ui/button'
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput
 } from '@/components/ui/input-group'
-import {Button} from '@/components/ui/button'
-import {TicketList} from '@/components/ticket-list'
-import {Shimmer} from '@/components/ai-elements/shimmer'
-import type {SupportTicket} from '@/db/schema'
-import {
-	MagnifyingGlassIcon,
-	XIcon,
-	ArrowsClockwiseIcon
-} from '@phosphor-icons/react'
 import {Switch} from '@/components/ui/switch'
+import type {SupportTicket} from '@/db/schema'
+import {MagnifyingGlassIcon, XIcon} from '@phosphor-icons/react'
 import {motion} from 'motion/react'
+import * as React from 'react'
 import {toast} from 'sonner'
 
 function truncate(str: string, maxLength: number) {

@@ -1,5 +1,5 @@
-import {TicketCard} from './ticket-card'
 import type {SupportTicket} from '@/db/schema'
+import {TicketCard} from './ticket-card'
 
 interface TicketListProps {
 	tickets: SupportTicket[]

@@ -1,6 +1,6 @@
+import {TicketSearch} from '@/components/ticket-search'
 import {db, schema} from '@/db'
 import {desc} from 'drizzle-orm'
-import {TicketSearch} from '@/components/ticket-search'
 
 export default async function Page() {
 	const tickets = await db

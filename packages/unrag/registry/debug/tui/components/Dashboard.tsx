@@ -2,13 +2,13 @@
  * Dashboard component showing overview statistics and recent events.
  */
 
-import React, {useMemo} from 'react'
-import {Box, Text} from 'ink'
-import type {DebugConnection, DebugEvent} from '@registry/debug/types'
 import {EventRow} from '@registry/debug/tui/components/EventRow'
 import {MetricCard} from '@registry/debug/tui/components/MetricCard'
 import {Sparkline} from '@registry/debug/tui/components/Sparkline'
 import {chars, theme} from '@registry/debug/tui/theme'
+import type {DebugConnection, DebugEvent} from '@registry/debug/types'
+import {Box, Text} from 'ink'
+import {useMemo} from 'react'
 
 type DashboardProps = {
 	events: DebugEvent[]

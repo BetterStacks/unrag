@@ -1,12 +1,12 @@
 import type {
-	DriveClient,
-	AuthClient
+	AuthClient,
+	DriveClient
 } from '@registry/connectors/google-drive/_api-types'
 import type {
 	GoogleDriveAuth,
+	GoogleDriveGoogleAuthAuth,
 	GoogleDriveOAuthAuth,
 	GoogleDriveServiceAccountAuth,
-	GoogleDriveGoogleAuthAuth,
 	ServiceAccountCredentials
 } from '@registry/connectors/google-drive/types'
 

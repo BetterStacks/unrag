@@ -1,16 +1,14 @@
-import type {IngestResult, Metadata} from '@registry/core'
-import type {AssetInput} from '@registry/core/types'
 import type {
 	DriveClient,
 	DriveFile
 } from '@registry/connectors/google-drive/_api-types'
 import {createGoogleDriveClient} from '@registry/connectors/google-drive/client'
 import {
+	DRIVE_MIME,
+	EXPORT_MIME,
 	assetKindFromMediaType,
 	classifyDriveMimeType,
-	EXPORT_MIME,
-	getNativeExportPlan,
-	DRIVE_MIME
+	getNativeExportPlan
 } from '@registry/connectors/google-drive/mime'
 import type {
 	BuildGoogleDriveFileIngestInputArgs,
@@ -18,6 +16,8 @@ import type {
 	GoogleDriveSyncProgressEvent,
 	SyncGoogleDriveFilesInput
 } from '@registry/connectors/google-drive/types'
+import type {IngestResult, Metadata} from '@registry/core'
+import type {AssetInput} from '@registry/core/types'
 
 const DEFAULT_MAX_BYTES = 15 * 1024 * 1024 // 15MB
 

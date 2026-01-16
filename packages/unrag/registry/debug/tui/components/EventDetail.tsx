@@ -1,17 +1,12 @@
-/**
- * Event detail component showing full event information.
- */
-
-import React from 'react'
-import {Box, Text} from 'ink'
-import type {DebugEvent} from '@registry/debug/types'
 import {
 	chars,
-	theme,
-	truncate,
+	formatDuration,
 	pad,
-	formatDuration
+	theme,
+	truncate
 } from '@registry/debug/tui/theme'
+import type {DebugEvent} from '@registry/debug/types'
+import {Box, Text} from 'ink'
 
 type EventDetailProps = {
 	event: DebugEvent

@@ -1,5 +1,5 @@
-import {useEffect, useMemo, useState} from 'react'
 import {clamp} from '@registry/debug/tui/theme'
+import {useEffect, useMemo, useState} from 'react'
 
 /**
  * Keeps a scroll window aligned such that the selected index stays visible.

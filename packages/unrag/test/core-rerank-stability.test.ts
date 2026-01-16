@@ -1,8 +1,8 @@
 import {describe, expect, test} from 'bun:test'
 import {rerank} from '@registry/core/rerank'
 import type {
-	Reranker,
 	RerankCandidate,
+	Reranker,
 	ResolvedContextEngineConfig
 } from '@registry/core/types'
 

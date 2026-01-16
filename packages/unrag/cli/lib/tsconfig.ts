@@ -1,7 +1,7 @@
-import path from 'node:path'
 import {readFile, writeFile} from 'node:fs/promises'
-import {exists} from './fs'
+import path from 'node:path'
 import {parse} from 'jsonc-parser'
+import {exists} from './fs'
 
 type TsConfig = Record<string, unknown> & {
 	compilerOptions?: Record<string, unknown> & {

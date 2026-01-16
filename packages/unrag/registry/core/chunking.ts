@@ -1,4 +1,4 @@
-import type {Chunker, ChunkingOptions, ChunkText} from '@registry/core/types'
+import type {ChunkText, Chunker, ChunkingOptions} from '@registry/core/types'
 
 const DEFAULT_CHUNK_SIZE = 200
 const DEFAULT_CHUNK_OVERLAP = 40

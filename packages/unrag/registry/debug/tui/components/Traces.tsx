@@ -2,9 +2,8 @@
  * Traces tab: groups events by opId and renders a simple waterfall/stage breakdown.
  */
 
-import React, {useMemo, useState} from 'react'
-import {Box, Text, useInput} from 'ink'
-import type {DebugEvent} from '@registry/debug/types'
+import {useScrollWindow} from '@registry/debug/tui/hooks/useScrollWindow'
+import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
 import {
 	chars,
 	formatDuration,
@@ -12,8 +11,9 @@ import {
 	theme,
 	truncate
 } from '@registry/debug/tui/theme'
-import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
-import {useScrollWindow} from '@registry/debug/tui/hooks/useScrollWindow'
+import type {DebugEvent} from '@registry/debug/types'
+import {Box, Text, useInput} from 'ink'
+import {useMemo, useState} from 'react'
 
 type TracesProps = {
 	events: DebugEvent[]

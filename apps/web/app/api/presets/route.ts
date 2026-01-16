@@ -1,6 +1,6 @@
-import {NextResponse, type NextRequest} from 'next/server'
-import {loadRegistryManifest} from '../_lib/registry-manifest'
+import {type NextRequest, NextResponse} from 'next/server'
 import {redis} from '../_lib/redis'
+import {loadRegistryManifest} from '../_lib/registry-manifest'
 
 type StoreAdapter = 'drizzle' | 'prisma' | 'raw-sql'
 type EmbeddingType = 'text' | 'multimodal'

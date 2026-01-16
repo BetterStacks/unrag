@@ -4,10 +4,10 @@
  * and assetProcessing flag enablement.
  */
 
-import path from 'node:path'
 import {readFile} from 'node:fs/promises'
-import {exists} from '../fs'
+import path from 'node:path'
 import {docsUrl} from '../constants'
+import {exists} from '../fs'
 import type {CheckResult, InferredInstallState} from './types'
 import {EXTRACTOR_CONFIG_FLAGS, EXTRACTOR_FACTORIES} from './types'
 

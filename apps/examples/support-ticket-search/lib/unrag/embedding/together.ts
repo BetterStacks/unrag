@@ -1,4 +1,4 @@
-import {embed, embedMany, type EmbeddingModel} from 'ai'
+import {type EmbeddingModel, embed, embedMany} from 'ai'
 import type {EmbeddingProvider} from '../core/types'
 import {requireOptional} from './_shared'
 

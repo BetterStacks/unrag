@@ -3,27 +3,15 @@ import {deleteDocuments} from '@registry/core/delete'
 import {ingest, planIngest} from '@registry/core/ingest'
 import {rerank} from '@registry/core/rerank'
 import {retrieve} from '@registry/core/retrieve'
-import {createAiEmbeddingProvider} from '@registry/embedding/ai'
-import {createOpenAiEmbeddingProvider} from '@registry/embedding/openai'
-import {createGoogleEmbeddingProvider} from '@registry/embedding/google'
-import {createOpenRouterEmbeddingProvider} from '@registry/embedding/openrouter'
-import {createAzureEmbeddingProvider} from '@registry/embedding/azure'
-import {createVertexEmbeddingProvider} from '@registry/embedding/vertex'
-import {createBedrockEmbeddingProvider} from '@registry/embedding/bedrock'
-import {createCohereEmbeddingProvider} from '@registry/embedding/cohere'
-import {createMistralEmbeddingProvider} from '@registry/embedding/mistral'
-import {createTogetherEmbeddingProvider} from '@registry/embedding/together'
-import {createOllamaEmbeddingProvider} from '@registry/embedding/ollama'
-import {createVoyageEmbeddingProvider} from '@registry/embedding/voyage'
 import type {
 	AssetExtractor,
 	ContextEngineConfig,
-	DeleteInput,
 	DefineUnragConfigInput,
+	DeleteInput,
 	EmbeddingProvider,
 	IngestInput,
-	IngestResult,
 	IngestPlanResult,
+	IngestResult,
 	RerankInput,
 	RerankResult,
 	ResolvedContextEngineConfig,
@@ -31,6 +19,18 @@ import type {
 	RetrieveResult,
 	UnragCreateEngineRuntime
 } from '@registry/core/types'
+import {createAiEmbeddingProvider} from '@registry/embedding/ai'
+import {createAzureEmbeddingProvider} from '@registry/embedding/azure'
+import {createBedrockEmbeddingProvider} from '@registry/embedding/bedrock'
+import {createCohereEmbeddingProvider} from '@registry/embedding/cohere'
+import {createGoogleEmbeddingProvider} from '@registry/embedding/google'
+import {createMistralEmbeddingProvider} from '@registry/embedding/mistral'
+import {createOllamaEmbeddingProvider} from '@registry/embedding/ollama'
+import {createOpenAiEmbeddingProvider} from '@registry/embedding/openai'
+import {createOpenRouterEmbeddingProvider} from '@registry/embedding/openrouter'
+import {createTogetherEmbeddingProvider} from '@registry/embedding/together'
+import {createVertexEmbeddingProvider} from '@registry/embedding/vertex'
+import {createVoyageEmbeddingProvider} from '@registry/embedding/voyage'
 
 export class ContextEngine {
 	private readonly config: ResolvedContextEngineConfig

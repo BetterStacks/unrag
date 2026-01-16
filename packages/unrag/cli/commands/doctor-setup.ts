@@ -16,15 +16,15 @@ import {
 	spinner,
 	text
 } from '@clack/prompts'
-import {exists, tryFindProjectRoot, ensureDir} from '../lib/fs'
-import {readJsonFile, writeJsonFile} from '../lib/json'
-import {inferInstallState, inferTableNames} from '../lib/doctor/infer'
-import {
-	type DoctorConfig,
-	DOCTOR_CONFIG_VERSION,
-	DEFAULT_ENV_LOAD_FILES
-} from '../lib/doctor/doctorConfig'
 import {docsUrl} from '../lib/constants'
+import {
+	DEFAULT_ENV_LOAD_FILES,
+	DOCTOR_CONFIG_VERSION,
+	type DoctorConfig
+} from '../lib/doctor/doctorConfig'
+import {inferInstallState, inferTableNames} from '../lib/doctor/infer'
+import {ensureDir, exists, tryFindProjectRoot} from '../lib/fs'
+import {readJsonFile, writeJsonFile} from '../lib/json'
 
 const DEFAULT_CONFIG_PATH = '.unrag/doctor.json'
 
@@ -429,7 +429,7 @@ export async function doctorSetupCommand(args: string[]): Promise<void> {
 		(k) => k in existingScripts
 	)
 
-	let scriptsToAdd: Record<string, string> = scripts
+	const scriptsToAdd: Record<string, string> = scripts
 
 	if (conflictingScripts.length > 0 && !nonInteractive) {
 		// Ask about each conflicting script

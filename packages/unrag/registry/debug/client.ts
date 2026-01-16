@@ -8,15 +8,15 @@
 import type {DebugEvent} from '@registry/core/debug-events'
 import {DEBUG_PROTOCOL_VERSION} from '@registry/debug/types'
 import type {
+	ClientMessage,
 	DebugCapability,
 	DebugClientConfig,
-	DebugConnection,
-	DebugConnectionStatus,
 	DebugCommand,
 	DebugCommandResult,
+	DebugConnection,
+	DebugConnectionStatus,
 	DebugServerInfo,
-	ServerMessage,
-	ClientMessage
+	ServerMessage
 } from '@registry/debug/types'
 
 // Default configuration values
@@ -323,7 +323,7 @@ export function createAutoReconnectClient(
 		url,
 		reconnect: true,
 		reconnectDelay: 1000,
-		maxReconnectAttempts: Infinity
+		maxReconnectAttempts: Number.POSITIVE_INFINITY
 	})
 
 	if (onEvent) {

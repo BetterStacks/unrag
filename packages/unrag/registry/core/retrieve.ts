@@ -1,9 +1,9 @@
-import type {
-	RetrieveInput,
-	RetrieveResult,
-	ResolvedContextEngineConfig
-} from '@registry/core/types'
 import {getDebugEmitter} from '@registry/core/debug-emitter'
+import type {
+	ResolvedContextEngineConfig,
+	RetrieveInput,
+	RetrieveResult
+} from '@registry/core/types'
 
 const now = () => performance.now()
 

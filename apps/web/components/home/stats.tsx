@@ -1,4 +1,4 @@
-import {useId, type ComponentProps, type ReactNode} from 'react'
+import {type ComponentProps, type ReactNode, useId} from 'react'
 import {Section} from '../elements'
 
 function Stat({

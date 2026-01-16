@@ -5,14 +5,14 @@
  * without building an ingestion pipeline first.
  */
 
-import React, {useEffect, useMemo, useState} from 'react'
-import {Box, Text, useInput} from 'ink'
-import type {DebugCommandResult, DebugConnection} from '@registry/debug/types'
 import type {Metadata, MetadataValue} from '@registry/core/types'
-import {chars, theme, truncate} from '@registry/debug/tui/theme'
-import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
 import {ScrollableText} from '@registry/debug/tui/components/ScrollableText'
 import {useHotkeysLock} from '@registry/debug/tui/context/HotkeysLock'
+import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
+import {chars, theme, truncate} from '@registry/debug/tui/theme'
+import type {DebugCommandResult, DebugConnection} from '@registry/debug/types'
+import {Box, Text, useInput} from 'ink'
+import {useEffect, useMemo, useState} from 'react'
 
 type IngestProps = {
 	connection: DebugConnection

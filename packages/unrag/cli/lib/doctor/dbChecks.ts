@@ -713,7 +713,7 @@ async function checkDuplicateSourceIds(
        ) duplicates`
 		)
 
-		const duplicateCount = parseInt(
+		const duplicateCount = Number.parseInt(
 			countResult.rows[0]?.duplicate_count ?? '0',
 			10
 		)
@@ -865,7 +865,7 @@ async function checkIndexes(
 		const countResult = await client.query<{count: string}>(
 			`SELECT COUNT(*) as count FROM ${schema}.${tableNames.embeddings}`
 		)
-		const rowCount = parseInt(countResult.rows[0]?.count ?? '0', 10)
+		const rowCount = Number.parseInt(countResult.rows[0]?.count ?? '0', 10)
 
 		if (vectorIdx) {
 			results.push({
@@ -946,7 +946,10 @@ async function checkDimensionConsistency(
 			nullDimSql,
 			scope ? [scope + '%'] : []
 		)
-		const nullCount = parseInt(nullDimResult.rows[0]?.count ?? '0', 10)
+		const nullCount = Number.parseInt(
+			nullDimResult.rows[0]?.count ?? '0',
+			10
+		)
 
 		if (nullCount > 0) {
 			results.push({
@@ -999,18 +1002,18 @@ async function checkDimensionConsistency(
 				status: 'pass',
 				summary: `All embeddings use ${dim.embedding_dimension} dimensions.`,
 				details: [
-					`Total: ${parseInt(dim.count, 10).toLocaleString()} embeddings`,
+					`Total: ${Number.parseInt(dim.count, 10).toLocaleString()} embeddings`,
 					scope ? `Scope: ${scope}*` : 'All embeddings checked.'
 				],
 				meta: {
 					dimension: dim.embedding_dimension,
-					count: parseInt(dim.count, 10)
+					count: Number.parseInt(dim.count, 10)
 				}
 			})
 		} else {
 			const details = dimensions.map(
 				(d) =>
-					`${d.embedding_dimension} dimensions: ${parseInt(d.count, 10).toLocaleString()} embeddings`
+					`${d.embedding_dimension} dimensions: ${Number.parseInt(d.count, 10).toLocaleString()} embeddings`
 			)
 
 			results.push({
@@ -1033,7 +1036,7 @@ async function checkDimensionConsistency(
 				meta: {
 					dimensions: dimensions.map((d) => ({
 						dimension: d.embedding_dimension,
-						count: parseInt(d.count, 10)
+						count: Number.parseInt(d.count, 10)
 					}))
 				}
 			})

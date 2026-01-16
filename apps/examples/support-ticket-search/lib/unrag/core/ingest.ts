@@ -1,18 +1,18 @@
+import {mergeDeep} from './deep-merge'
 import type {
+	AssetExtractor,
+	AssetExtractorContext,
 	AssetInput,
 	AssetProcessingConfig,
 	AssetProcessingPlanItem,
-	IngestPlanResult,
-	AssetExtractor,
-	AssetExtractorContext,
 	Chunk,
 	IngestInput,
+	IngestPlanResult,
 	IngestResult,
 	IngestWarning,
 	Metadata,
 	ResolvedContextEngineConfig
 } from './types'
-import {mergeDeep} from './deep-merge'
 
 const now = () => performance.now()
 

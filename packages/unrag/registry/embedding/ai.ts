@@ -1,5 +1,5 @@
-import {embed, embedMany} from 'ai'
 import type {EmbeddingProvider} from '@registry/core/types'
+import {embed, embedMany} from 'ai'
 
 type BaseConfig = {
 	/**

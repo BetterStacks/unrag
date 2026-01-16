@@ -1,3 +1,4 @@
+import {Badge} from '@/components/ui/badge'
 import {
 	Card,
 	CardContent,
@@ -5,7 +6,6 @@ import {
 	CardHeader,
 	CardTitle
 } from '@/components/ui/card'
-import {Badge} from '@/components/ui/badge'
 import type {SupportTicket} from '@/db/schema'
 
 interface TicketCardProps {

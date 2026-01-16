@@ -1,6 +1,6 @@
 import {describe, expect, test} from 'bun:test'
-import {ingest} from '@registry/core/ingest'
 import {defaultAssetProcessingConfig} from '@registry/core/config'
+import {ingest} from '@registry/core/ingest'
 import type {
 	AssetExtractor,
 	ResolvedContextEngineConfig

@@ -1,13 +1,13 @@
-import {createUnragEngine} from '@/unrag.config'
 import {db, schema} from '@/db'
+import {createUnragEngine} from '@/unrag.config'
 import {inArray} from 'drizzle-orm'
-import {NextRequest, NextResponse} from 'next/server'
+import {type NextRequest, NextResponse} from 'next/server'
 
 export async function GET(request: NextRequest) {
 	try {
 		const searchParams = request.nextUrl.searchParams
 		const query = searchParams.get('q')
-		const topK = parseInt(searchParams.get('topK') || '10')
+		const topK = Number.parseInt(searchParams.get('topK') || '10')
 		const useRerank = searchParams.get('rerank') === 'true'
 
 		if (!query) {

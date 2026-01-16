@@ -1,10 +1,5 @@
-/**
- * Metric card component for displaying operation statistics.
- */
-
-import React from 'react'
-import {Box, Text} from 'ink'
 import {formatDuration, formatTime, theme} from '@registry/debug/tui/theme'
+import {Box, Text} from 'ink'
 
 type MetricCardProps = {
 	title: string

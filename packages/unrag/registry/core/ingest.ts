@@ -1,20 +1,20 @@
+import {getDebugEmitter} from '@registry/core/debug-emitter'
+import {mergeDeep} from '@registry/core/deep-merge'
 import type {
+	AssetExtractor,
+	AssetExtractorContext,
 	AssetInput,
 	AssetProcessingConfig,
 	AssetProcessingPlanItem,
-	IngestPlanResult,
-	AssetExtractor,
-	AssetExtractorContext,
 	Chunk,
 	IngestInput,
+	IngestPlanResult,
 	IngestResult,
 	IngestWarning,
 	Metadata,
 	ResolvedContextEngineConfig
 } from '@registry/core/types'
-import {mergeDeep} from '@registry/core/deep-merge'
 import {getAssetBytes} from '@registry/extractors/_shared/fetch'
-import {getDebugEmitter} from '@registry/core/debug-emitter'
 
 const now = () => performance.now()
 

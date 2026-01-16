@@ -1,9 +1,9 @@
-import {
-	experimental_transcribe as transcribe,
-	type TranscriptionModel
-} from 'ai'
 import type {AssetExtractor, ExtractedTextItem} from '@registry/core/types'
 import {getAssetBytes} from '@registry/extractors/_shared/fetch'
+import {
+	type TranscriptionModel,
+	experimental_transcribe as transcribe
+} from 'ai'
 
 /**
  * Model reference type that accepts both string gateway IDs and TranscriptionModel instances.
@@ -62,8 +62,8 @@ export function createVideoTranscribeExtractor(): AssetExtractor {
 					.map((s, i) => {
 						const t = String(s?.text ?? '').trim()
 						if (!t) return null
-						const start = Number(s?.startSecond ?? NaN)
-						const end = Number(s?.endSecond ?? NaN)
+						const start = Number(s?.startSecond ?? Number.NaN)
+						const end = Number(s?.endSecond ?? Number.NaN)
 						return {
 							label: `segment-${i + 1}`,
 							content: t,

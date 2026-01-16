@@ -1,32 +1,24 @@
-/**
- * `unrag doctor` command
- *
- * Validates Unrag installations with static checks (default) and optional
- * database checks (--db flag).
- */
-
-import path from 'node:path'
 import {outro, spinner} from '@clack/prompts'
+import {docsUrl} from '../lib/constants'
+import {runConfigCoherenceChecks} from '../lib/doctor/configScan'
+import {runDbChecks} from '../lib/doctor/dbChecks'
+import {
+	getEnvFilesToLoad,
+	mergeDoctorArgsWithConfig,
+	readDoctorConfig,
+	resolveConfigPath
+} from '../lib/doctor/doctorConfig'
+import {loadEnvFilesFromList} from '../lib/doctor/env'
+import {inferInstallState} from '../lib/doctor/infer'
+import {formatJson, formatReport} from '../lib/doctor/output'
+import {runStaticChecks} from '../lib/doctor/staticChecks'
 import type {
 	CheckGroup,
 	CheckResult,
 	DoctorReport,
 	ParsedDoctorArgs
 } from '../lib/doctor/types'
-import {inferInstallState} from '../lib/doctor/infer'
-import {runStaticChecks} from '../lib/doctor/staticChecks'
-import {runConfigCoherenceChecks} from '../lib/doctor/configScan'
-import {runDbChecks} from '../lib/doctor/dbChecks'
-import {formatReport, formatJson} from '../lib/doctor/output'
-import {loadEnvFilesFromList} from '../lib/doctor/env'
-import {docsUrl} from '../lib/constants'
 import {tryFindProjectRoot} from '../lib/fs'
-import {
-	readDoctorConfig,
-	mergeDoctorArgsWithConfig,
-	getEnvFilesToLoad,
-	resolveConfigPath
-} from '../lib/doctor/doctorConfig'
 import {doctorSetupCommand} from './doctor-setup'
 
 type ParsedDoctorArgsWithConfig = ParsedDoctorArgs & {

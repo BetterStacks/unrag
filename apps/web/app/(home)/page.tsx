@@ -1,13 +1,13 @@
 import {Main} from '@/components/elements'
-import {HeroSection} from '@/components/home/hero'
+import {CallToActionSection} from '@/components/home/call-to-action'
+import {FAQsSection} from '@/components/home/faqs'
 import {FeaturesSection} from '@/components/home/features'
+import {FooterSection} from '@/components/home/footer'
+import {HeroSection} from '@/components/home/hero'
+import {RegistrySection} from '@/components/home/registry-section'
 import {StatsSection} from '@/components/home/stats'
 import {TestimonialsSection} from '@/components/home/testimonials'
-import {FAQsSection} from '@/components/home/faqs'
-import {CallToActionSection} from '@/components/home/call-to-action'
-import {FooterSection} from '@/components/home/footer'
-import {RegistrySection} from '@/components/home/registry-section'
-import {Metadata} from 'next'
+import type {Metadata} from 'next'
 
 export const metadata: Metadata = {
 	title: 'Unrag - RAG primitives you own and understand',

@@ -2,9 +2,10 @@
  * Query Runner tab: execute a retrieve command and inspect results.
  */
 
-import React, {useEffect, useMemo, useState} from 'react'
-import {Box, Text, useInput} from 'ink'
-import type {DebugConnection, DebugCommandResult} from '@registry/debug/types'
+import {ScrollableText} from '@registry/debug/tui/components/ScrollableText'
+import {useHotkeysLock} from '@registry/debug/tui/context/HotkeysLock'
+import {useScrollWindow} from '@registry/debug/tui/hooks/useScrollWindow'
+import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
 import {
 	chars,
 	clamp,
@@ -12,10 +13,9 @@ import {
 	theme,
 	truncate
 } from '@registry/debug/tui/theme'
-import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
-import {useScrollWindow} from '@registry/debug/tui/hooks/useScrollWindow'
-import {ScrollableText} from '@registry/debug/tui/components/ScrollableText'
-import {useHotkeysLock} from '@registry/debug/tui/context/HotkeysLock'
+import type {DebugCommandResult, DebugConnection} from '@registry/debug/types'
+import {Box, Text, useInput} from 'ink'
+import {useEffect, useMemo, useState} from 'react'
 
 type QueryRunnerProps = {
 	connection: DebugConnection

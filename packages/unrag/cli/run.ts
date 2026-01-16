@@ -1,8 +1,8 @@
 import {intro, outro} from '@clack/prompts'
-import {initCommand} from './commands/init'
 import {addCommand} from './commands/add'
-import {doctorCommand} from './commands/doctor'
 import {debugCommand} from './commands/debug'
+import {doctorCommand} from './commands/doctor'
+import {initCommand} from './commands/init'
 import {UNRAG_GITHUB_REPO_URL, docsUrl} from './lib/constants'
 
 function renderHelp() {

@@ -1,10 +1,5 @@
-/**
- * Help overlay component showing keyboard shortcuts.
- */
-
-import React from 'react'
-import {Box, Text, useInput} from 'ink'
 import {chars, pad, theme} from '@registry/debug/tui/theme'
+import {Box, Text, useInput} from 'ink'
 
 type HelpOverlayProps = {
 	onClose: () => void

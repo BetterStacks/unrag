@@ -2,8 +2,8 @@
 
 import {clsx} from 'clsx/lite'
 import Link from 'next/link'
-import {useState, type ComponentProps, type ReactNode} from 'react'
-import {ButtonLink, PlainButtonLink} from './elements'
+import {type ComponentProps, type ReactNode, useState} from 'react'
+import {ButtonLink} from './elements'
 
 function NavbarLink({
 	children,

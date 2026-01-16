@@ -4,10 +4,9 @@
  */
 
 import path from 'node:path'
-import {readFile} from 'node:fs/promises'
+import {docsUrl} from '../constants'
 import {exists} from '../fs'
 import {readJsonFile} from '../json'
-import {docsUrl} from '../constants'
 import type {CheckResult, InferredInstallState} from './types'
 import {EMBEDDING_PROVIDER_ENV_VARS, STORE_ADAPTER_DEPS} from './types'
 

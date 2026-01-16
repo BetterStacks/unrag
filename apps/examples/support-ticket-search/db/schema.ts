@@ -1,12 +1,5 @@
-import {
-	integer,
-	pgEnum,
-	pgTable,
-	text,
-	timestamp,
-	varchar
-} from 'drizzle-orm/pg-core'
 import * as unrag from '@unrag/store/drizzle/schema'
+import {pgEnum, pgTable, text, timestamp, varchar} from 'drizzle-orm/pg-core'
 
 export const ticketCategory = pgEnum('ticket_category', [
 	'billing',

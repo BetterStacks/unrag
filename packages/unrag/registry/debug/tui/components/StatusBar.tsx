@@ -1,11 +1,6 @@
-/**
- * Status bar component showing hints and current state.
- */
-
-import React from 'react'
-import {Box, Text} from 'ink'
-import type {DebugConnectionStatus} from '@registry/debug/types'
 import {chars, statusColor, theme, truncate} from '@registry/debug/tui/theme'
+import type {DebugConnectionStatus} from '@registry/debug/types'
+import {Box, Text} from 'ink'
 
 type StatusBarProps = {
 	hint: string

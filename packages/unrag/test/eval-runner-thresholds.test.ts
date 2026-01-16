@@ -1,6 +1,6 @@
-import {describe, expect, test, beforeEach, afterEach} from 'bun:test'
-import path from 'node:path'
+import {afterEach, beforeEach, describe, expect, test} from 'bun:test'
 import {mkdir, rm, writeFile} from 'node:fs/promises'
+import path from 'node:path'
 
 import {runEval} from '@registry/eval/runner'
 

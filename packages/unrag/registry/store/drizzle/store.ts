@@ -1,6 +1,6 @@
-import {documents, chunks, embeddings} from '@registry/store/drizzle/schema'
 import type {Chunk, DeleteInput, VectorStore} from '@registry/core/types'
-import {eq, like, sql, type SQL} from 'drizzle-orm'
+import {chunks, documents, embeddings} from '@registry/store/drizzle/schema'
+import {type SQL, eq, like, sql} from 'drizzle-orm'
 import type {PgDatabase, PgQueryResultHKT} from 'drizzle-orm/pg-core'
 
 /**

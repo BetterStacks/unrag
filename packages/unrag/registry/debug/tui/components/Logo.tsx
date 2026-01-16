@@ -1,10 +1,10 @@
-import React, {useMemo} from 'react'
-import {Box, Text} from 'ink'
-import chalk from 'chalk'
 import {existsSync, readFileSync} from 'node:fs'
 import {dirname, join} from 'node:path'
 import {UNRAG_LOGO_LINES} from '@registry/debug/tui/assets/unragLogo'
 import {clamp, theme} from '@registry/debug/tui/theme'
+import chalk from 'chalk'
+import {Box, Text} from 'ink'
+import {useMemo} from 'react'
 
 type LogoProps = {
 	columns: number

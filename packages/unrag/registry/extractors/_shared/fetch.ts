@@ -67,7 +67,9 @@ export async function fetchBytesFromUrl(args: {
 		throw new Error(`Asset fetch failed (${res.status} ${res.statusText})`)
 	}
 
-	const contentLength = Number(res.headers.get('content-length') ?? NaN)
+	const contentLength = Number(
+		res.headers.get('content-length') ?? Number.NaN
+	)
 	if (Number.isFinite(contentLength) && contentLength > args.maxBytes) {
 		throw new Error(
 			`Asset too large (content-length ${contentLength} > ${args.maxBytes})`

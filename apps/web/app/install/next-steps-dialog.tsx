@@ -1,11 +1,11 @@
 'use client'
 
+import {ArrowRight, Code, Copy, Database, ExternalLink, X} from 'lucide-react'
 import Link from 'next/link'
 import * as React from 'react'
-import {Copy, X, ArrowRight, Database, Code, ExternalLink} from 'lucide-react'
 
-import {ButtonLink, PlainButton} from '@/components/elements'
 import {CodeBlock} from '@/components/code-block'
+import {ButtonLink, PlainButton} from '@/components/elements'
 
 import type {
 	EmbeddingProviderName,

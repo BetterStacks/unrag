@@ -1,6 +1,6 @@
 import type {Metadata} from 'next'
-import InstallWizardClient from './install-wizard-client'
 import {Suspense} from 'react'
+import InstallWizardClient from './install-wizard-client'
 
 export const metadata: Metadata = {
 	title: 'Unrag - Install wizard',

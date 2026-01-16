@@ -1,10 +1,5 @@
-/**
- * Tab navigation bar component.
- */
-
-import React from 'react'
+import {theme} from '@registry/debug/tui/theme'
 import {Box, Text} from 'ink'
-import {chars, theme} from '@registry/debug/tui/theme'
 
 type TabDefinition = {
 	id: string

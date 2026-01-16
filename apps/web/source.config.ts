@@ -1,15 +1,15 @@
 import {
+	type RehypeCodeOptions,
+	rehypeCode,
+	remarkMdxMermaid
+} from 'fumadocs-core/mdx-plugins'
+import {
 	defineConfig,
 	defineDocs,
 	frontmatterSchema,
 	metaSchema
 } from 'fumadocs-mdx/config'
 import {z} from 'zod'
-import {
-	rehypeCode,
-	remarkMdxMermaid,
-	type RehypeCodeOptions
-} from 'fumadocs-core/mdx-plugins'
 
 // Code syntax highlighting theme configuration
 const rehypeCodeOptions: RehypeCodeOptions = {

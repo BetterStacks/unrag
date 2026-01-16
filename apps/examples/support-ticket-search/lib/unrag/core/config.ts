@@ -1,13 +1,13 @@
-import type {
-	Chunker,
-	ContextEngineConfig,
-	ResolvedContextEngineConfig,
-	AssetProcessingConfig,
-	ContentStorageConfig,
-	EmbeddingProcessingConfig
-} from './types'
 import {defaultChunker, resolveChunkingOptions} from './chunking'
 import {mergeDeep} from './deep-merge'
+import type {
+	AssetProcessingConfig,
+	Chunker,
+	ContentStorageConfig,
+	ContextEngineConfig,
+	EmbeddingProcessingConfig,
+	ResolvedContextEngineConfig
+} from './types'
 import type {DeepPartial} from './types'
 
 export const defineConfig = (

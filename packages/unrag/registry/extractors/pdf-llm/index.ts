@@ -1,4 +1,3 @@
-import {generateText, type LanguageModel} from 'ai'
 import type {
 	AssetData,
 	AssetExtractor,
@@ -7,6 +6,7 @@ import type {
 import {getAssetBytes} from '@registry/extractors/_shared/fetch'
 import {normalizeMediaType} from '@registry/extractors/_shared/media'
 import {capText} from '@registry/extractors/_shared/text'
+import {type LanguageModel, generateText} from 'ai'
 
 /**
  * Model reference type that accepts both string gateway IDs and LanguageModel instances.

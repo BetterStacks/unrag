@@ -1,8 +1,3 @@
-/**
- * Sparkline component for displaying mini charts.
- */
-
-import React from 'react'
 import {Text} from 'ink'
 
 type SparklineProps = {

@@ -1,5 +1,5 @@
+import {mkdir, readFile, writeFile} from 'node:fs/promises'
 import path from 'node:path'
-import {mkdir, writeFile, readFile} from 'node:fs/promises'
 
 import type {EvalMode, EvalThresholds} from '@registry/eval/dataset'
 import type {EvalMetricsAtK} from '@registry/eval/metrics'

@@ -9,19 +9,19 @@ import type {DebugEmitter} from '@registry/core/debug-emitter'
 import type {Metadata} from '@registry/core/types'
 import {getUnragDebugRuntime} from '@registry/debug/runtime'
 import type {
+	ClearBufferResult,
 	DebugCommand,
 	DebugCommandResult,
+	DeleteChunksResult,
+	DeleteDocumentResult,
 	DoctorResult,
-	RunEvalResult,
-	PingResult,
-	ClearBufferResult,
 	GetBufferResult,
-	QueryResult,
+	GetDocumentResult,
 	IngestResult,
 	ListDocumentsResult,
-	GetDocumentResult,
-	DeleteDocumentResult,
-	DeleteChunksResult,
+	PingResult,
+	QueryResult,
+	RunEvalResult,
 	StoreStatsResult
 } from '@registry/debug/types'
 import {

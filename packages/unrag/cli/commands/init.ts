@@ -1,3 +1,6 @@
+import {writeFile} from 'node:fs/promises'
+import path from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {
 	cancel,
 	confirm,
@@ -7,16 +10,12 @@ import {
 	select,
 	text
 } from '@clack/prompts'
-import path from 'node:path'
-import {fileURLToPath} from 'node:url'
 import {
-	copyExtractorFiles,
-	copyConnectorFiles,
-	copyBatteryFiles,
-	copyRegistryFiles,
-	type RegistrySelection
-} from '../lib/registry'
-import {readJsonFile, writeJsonFile} from '../lib/json'
+	EVAL_CONFIG_DEFAULT,
+	EVAL_PACKAGE_JSON_SCRIPTS,
+	EVAL_SAMPLE_DATASET_V1,
+	renderEvalRunnerScript
+} from '../lib/evalBatteryScaffold'
 import {
 	ensureDir,
 	exists,
@@ -24,33 +23,34 @@ import {
 	normalizePosixPath,
 	tryFindProjectRoot
 } from '../lib/fs'
+import {readJsonFile, writeJsonFile} from '../lib/json'
 import {readRegistryManifest} from '../lib/manifest'
-import {fetchPreset, type PresetPayloadV1} from '../lib/preset'
 import {
+	type BatteryName,
+	type ConnectorName,
+	type EmbeddingProviderName,
+	type ExtractorName,
 	depsForAdapter,
+	depsForBattery,
 	depsForConnector,
+	depsForEmbeddingProvider,
 	depsForExtractor,
 	detectPackageManager,
-	installDependencies,
 	installCmd,
+	installDependencies,
 	mergeDeps,
 	readPackageJson,
-	type ConnectorName,
-	type ExtractorName,
-	type BatteryName,
-	type EmbeddingProviderName,
-	depsForEmbeddingProvider,
-	depsForBattery,
 	writePackageJson
 } from '../lib/packageJson'
-import {patchTsconfigPaths} from '../lib/tsconfig'
-import {writeFile} from 'node:fs/promises'
+import {type PresetPayloadV1, fetchPreset} from '../lib/preset'
 import {
-	EVAL_CONFIG_DEFAULT,
-	EVAL_PACKAGE_JSON_SCRIPTS,
-	EVAL_SAMPLE_DATASET_V1,
-	renderEvalRunnerScript
-} from '../lib/evalBatteryScaffold'
+	type RegistrySelection,
+	copyBatteryFiles,
+	copyConnectorFiles,
+	copyExtractorFiles,
+	copyRegistryFiles
+} from '../lib/registry'
+import {patchTsconfigPaths} from '../lib/tsconfig'
 
 type InitConfig = {
 	installDir: string

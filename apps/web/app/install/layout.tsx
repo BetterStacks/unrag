@@ -1,5 +1,5 @@
-import type {ReactNode} from 'react'
 import {Instrument_Serif, Inter} from 'next/font/google'
+import type {ReactNode} from 'react'
 
 const inter = Inter({
 	subsets: ['latin'],

@@ -1,4 +1,3 @@
-import type {IngestResult, Metadata} from '@registry/core'
 import {isFullPage} from '@notionhq/client'
 import type {
 	GetPageResponse,
@@ -6,18 +5,18 @@ import type {
 	RichTextItemResponse
 } from '@notionhq/client/build/src/api-endpoints'
 import {
-	createNotionClient,
-	type NotionClient
+	type NotionClient,
+	createNotionClient
 } from '@registry/connectors/notion/client'
 import {
 	normalizeNotionPageId32,
 	toUuidHyphenated
 } from '@registry/connectors/notion/ids'
 import {
-	extractNotionAssets,
-	renderNotionBlocksToText,
 	type NotionBlock,
-	type NotionBlockNode
+	type NotionBlockNode,
+	extractNotionAssets,
+	renderNotionBlocksToText
 } from '@registry/connectors/notion/render'
 import type {
 	BuildNotionPageIngestInputArgs,
@@ -26,6 +25,7 @@ import type {
 	SyncNotionPagesInput,
 	SyncNotionPagesResult
 } from '@registry/connectors/notion/types'
+import type {IngestResult, Metadata} from '@registry/core'
 
 const joinPrefix = (prefix: string | undefined, rest: string) => {
 	const p = (prefix ?? '').trim()

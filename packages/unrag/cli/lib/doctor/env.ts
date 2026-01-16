@@ -5,8 +5,8 @@
  * This loader is best-effort and only supports common KEY=VALUE syntax.
  */
 
-import path from 'node:path'
 import {readFile} from 'node:fs/promises'
+import path from 'node:path'
 import {exists} from '../fs'
 
 export type EnvLoadResult = {

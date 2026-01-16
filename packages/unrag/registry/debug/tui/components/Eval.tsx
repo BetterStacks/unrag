@@ -2,13 +2,13 @@
  * Eval tab: run an eval dataset and view a compact summary.
  */
 
-import React, {useEffect, useMemo, useState} from 'react'
-import {Box, Text, useInput} from 'ink'
-import type {DebugConnection, DebugCommandResult} from '@registry/debug/types'
-import {chars, formatDuration, theme, truncate} from '@registry/debug/tui/theme'
-import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
 import {Sparkline} from '@registry/debug/tui/components/Sparkline'
 import {useHotkeysLock} from '@registry/debug/tui/context/HotkeysLock'
+import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
+import {chars, formatDuration, theme, truncate} from '@registry/debug/tui/theme'
+import type {DebugCommandResult, DebugConnection} from '@registry/debug/types'
+import {Box, Text, useInput} from 'ink'
+import {useEffect, useMemo, useState} from 'react'
 
 type EvalProps = {
 	connection: DebugConnection

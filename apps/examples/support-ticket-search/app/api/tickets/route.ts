@@ -1,15 +1,15 @@
 import {db, schema} from '@/db'
-import {desc, eq} from 'drizzle-orm'
-import {NextRequest, NextResponse} from 'next/server'
+import {desc} from 'drizzle-orm'
+import {type NextRequest, NextResponse} from 'next/server'
 
 export async function GET(request: NextRequest) {
 	try {
 		const searchParams = request.nextUrl.searchParams
 		const category = searchParams.get('category')
 		const status = searchParams.get('status')
-		const limit = parseInt(searchParams.get('limit') || '50')
+		const limit = Number.parseInt(searchParams.get('limit') || '50')
 
-		let query = db
+		const query = db
 			.select()
 			.from(schema.supportTickets)
 			.orderBy(desc(schema.supportTickets.createdAt))

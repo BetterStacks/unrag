@@ -1,7 +1,7 @@
 import type {
+	ResolvedContextEngineConfig,
 	RetrieveInput,
-	RetrieveResult,
-	ResolvedContextEngineConfig
+	RetrieveResult
 } from './types'
 
 const now = () => performance.now()

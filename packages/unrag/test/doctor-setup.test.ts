@@ -1,12 +1,12 @@
-import {test, expect, describe, beforeEach, afterEach} from 'bun:test'
+import {afterEach, beforeEach, describe, expect, test} from 'bun:test'
+import {mkdir, readFile, rm, writeFile} from 'node:fs/promises'
 import path from 'node:path'
-import {mkdir, rm, writeFile, readFile} from 'node:fs/promises'
 import {doctorSetupCommand} from '@cli/commands/doctor-setup'
 import {
-	readDoctorConfig,
-	mergeDoctorArgsWithConfig,
+	type DoctorConfig,
 	getEnvFilesToLoad,
-	type DoctorConfig
+	mergeDoctorArgsWithConfig,
+	readDoctorConfig
 } from '@cli/lib/doctor/doctorConfig'
 
 const workspaceTmpRoot = path.join(process.cwd(), 'tmp', 'test-runs')

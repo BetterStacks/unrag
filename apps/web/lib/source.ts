@@ -38,7 +38,6 @@ export const source = loader({
 					// Fumadocs UI renders folder triggers/links as an array literal:
 					// `[item.icon, item.name]`. Arrays of React elements require keys.
 					ensureKeyedIcon(node as any)
-
 					;(node as any).name = React.createElement(
 						'span',
 						{className: 'unrag-nav-label', key: 'unrag-name'},

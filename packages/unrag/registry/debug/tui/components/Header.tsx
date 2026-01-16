@@ -1,10 +1,3 @@
-/**
- * Header component displaying title, connection status, and session info.
- */
-
-import React from 'react'
-import {Box, Text} from 'ink'
-import type {DebugConnectionStatus} from '@registry/debug/types'
 import {Logo} from '@registry/debug/tui/components/Logo'
 import {
 	chars,
@@ -13,6 +6,8 @@ import {
 	theme,
 	truncate
 } from '@registry/debug/tui/theme'
+import type {DebugConnectionStatus} from '@registry/debug/types'
+import {Box, Text} from 'ink'
 
 type HeaderProps = {
 	title: string

@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'bun:test'
-import {diffEvalReports, type EvalReportV1} from '@registry/eval/report'
+import {type EvalReportV1, diffEvalReports} from '@registry/eval/report'
 
 function reportWithRecall(recallAtK: number): EvalReportV1 {
 	return {

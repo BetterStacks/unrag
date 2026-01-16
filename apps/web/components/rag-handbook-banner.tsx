@@ -1,10 +1,10 @@
 'use client'
 
-import Link from 'next/link'
-import Image from 'next/image'
+import {Button} from '@/components/ui/button'
 import handbookImage from '@/public/rag-handbook.png'
 import {ArrowRight} from 'lucide-react'
-import {Button} from '@/components/ui/button'
+import Image from 'next/image'
+import Link from 'next/link'
 
 /**
  * RAG Handbook Banner Component

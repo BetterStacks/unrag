@@ -5,9 +5,9 @@
  * prevent layout shifts when selected content changes.
  */
 
-import React, {useMemo} from 'react'
-import {Box, Text} from 'ink'
 import {clamp, theme, truncate} from '@registry/debug/tui/theme'
+import {Box, Text} from 'ink'
+import {useMemo} from 'react'
 
 function wrapLine(line: string, width: number): string[] {
 	const out: string[] = []
@@ -26,11 +26,7 @@ function wrapLine(line: string, width: number): string[] {
 	return out
 }
 
-function wrapText(
-	text: string,
-	width: number,
-	maxLines: number = 4000
-): string[] {
+function wrapText(text: string, width: number, maxLines = 4000): string[] {
 	const raw = String(text ?? '')
 	const lines = raw.split(/\r?\n/)
 	const out: string[] = []

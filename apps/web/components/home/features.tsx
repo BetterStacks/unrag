@@ -1,6 +1,6 @@
 import {clsx} from 'clsx/lite'
 import type {ComponentProps, ReactNode} from 'react'
-import {TextLink, Section} from '../elements'
+import {Section, TextLink} from '../elements'
 import {ArrowNarrowRightIcon} from '../icons'
 
 function Feature({

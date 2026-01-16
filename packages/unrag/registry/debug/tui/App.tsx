@@ -5,27 +5,27 @@
  * Uses Ink (React for CLI) for rendering.
  */
 
-import React, {useState, useCallback} from 'react'
-import {render, Box, useInput, useApp} from 'ink'
 import {Dashboard} from '@registry/debug/tui/components/Dashboard'
+import {Docs} from '@registry/debug/tui/components/Docs'
+import {Doctor} from '@registry/debug/tui/components/Doctor'
+import {Eval} from '@registry/debug/tui/components/Eval'
 import {EventList} from '@registry/debug/tui/components/EventList'
 import {Header} from '@registry/debug/tui/components/Header'
 import {HelpOverlay} from '@registry/debug/tui/components/HelpOverlay'
+import {Ingest} from '@registry/debug/tui/components/Ingest'
+import {QueryRunner} from '@registry/debug/tui/components/QueryRunner'
 import {StatusBar} from '@registry/debug/tui/components/StatusBar'
 import {TabBar} from '@registry/debug/tui/components/TabBar'
 import {Traces} from '@registry/debug/tui/components/Traces'
-import {QueryRunner} from '@registry/debug/tui/components/QueryRunner'
-import {Docs} from '@registry/debug/tui/components/Docs'
-import {Ingest} from '@registry/debug/tui/components/Ingest'
-import {Doctor} from '@registry/debug/tui/components/Doctor'
-import {Eval} from '@registry/debug/tui/components/Eval'
-import {useConnection} from '@registry/debug/tui/hooks/useConnection'
-import {useEvents} from '@registry/debug/tui/hooks/useEvents'
-import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
 import {
 	HotkeysLockProvider,
 	useHotkeysLocked
 } from '@registry/debug/tui/context/HotkeysLock'
+import {useConnection} from '@registry/debug/tui/hooks/useConnection'
+import {useEvents} from '@registry/debug/tui/hooks/useEvents'
+import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
+import {Box, render, useApp, useInput} from 'ink'
+import {useCallback, useState} from 'react'
 
 export type Tab =
 	| 'dashboard'

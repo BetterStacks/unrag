@@ -1,4 +1,4 @@
-import type {Chunker, ChunkingOptions, ChunkText} from './types'
+import type {ChunkText, Chunker, ChunkingOptions} from './types'
 
 const DEFAULT_CHUNK_SIZE = 200
 const DEFAULT_CHUNK_OVERLAP = 40
