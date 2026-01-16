@@ -10,6 +10,7 @@ import {
 	select,
 	text
 } from '@clack/prompts'
+import {readCliPackageVersion} from '../lib/cliVersion'
 import {
 	EVAL_CONFIG_DEFAULT,
 	EVAL_PACKAGE_JSON_SCRIPTS,
@@ -28,6 +29,7 @@ import {readRegistryManifest} from '../lib/manifest'
 import {
 	type BatteryName,
 	type ConnectorName,
+	type DepChange,
 	type EmbeddingProviderName,
 	type ExtractorName,
 	depsForAdapter,
@@ -58,13 +60,15 @@ type InitConfig = {
 	aliasBase?: string
 	embeddingProvider?: EmbeddingProviderName
 	version: number
+	installedFrom?: {unragVersion: string}
 	connectors?: string[]
 	extractors?: string[]
 	batteries?: string[]
+	managedFiles?: string[]
 }
 
 const CONFIG_FILE = 'unrag.json'
-const CONFIG_VERSION = 1
+const CONFIG_VERSION = 2
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -81,6 +85,11 @@ type ParsedInitArgs = {
 	overwrite?: 'skip' | 'force'
 	noInstall?: boolean
 }
+
+const formatDepChanges = (changes: DepChange[]) =>
+	changes
+		.map((c) => `${c.name}${c.action === 'update' ? ' (update)' : ''}`)
+		.join(', ')
 
 const parseInitArgs = (args: string[]): ParsedInitArgs => {
 	const out: ParsedInitArgs = {}
@@ -237,6 +246,7 @@ export async function initCommand(args: string[]) {
 		)
 	}
 	const registryRoot = path.join(cliPackageRoot, 'registry')
+	const cliPackageVersion = await readCliPackageVersion(cliPackageRoot)
 	const manifest = await readRegistryManifest(registryRoot)
 
 	const extractorOptions = manifest.extractors.map((ex) => {
@@ -542,12 +552,16 @@ export async function initCommand(args: string[]) {
 			: {enabled: false, extractors: []}
 	}
 
-	await copyRegistryFiles(selection)
+	const managedFiles = new Set<string>()
+	const coreFiles = await copyRegistryFiles(selection)
+	for (const file of coreFiles) {
+		managedFiles.add(file)
+	}
 
 	// Install selected extractor modules (vendor code) before updating deps.
 	if (richMediaEnabled && selectedExtractors.length > 0) {
 		for (const extractor of selectedExtractors) {
-			await copyExtractorFiles({
+			const extractorFiles = await copyExtractorFiles({
 				projectRoot: root,
 				registryRoot,
 				installDir,
@@ -556,6 +570,9 @@ export async function initCommand(args: string[]) {
 				yes: nonInteractive,
 				overwrite: overwritePolicy
 			})
+			for (const file of extractorFiles) {
+				managedFiles.add(file)
+			}
 		}
 	}
 
@@ -592,7 +609,7 @@ export async function initCommand(args: string[]) {
 	// Install connector modules (vendor code) before updating deps.
 	if (connectorsFromPreset.length > 0) {
 		for (const connector of connectorsFromPreset) {
-			await copyConnectorFiles({
+			const connectorFiles = await copyConnectorFiles({
 				projectRoot: root,
 				registryRoot,
 				installDir,
@@ -601,6 +618,9 @@ export async function initCommand(args: string[]) {
 				yes: nonInteractive,
 				overwrite: overwritePolicy
 			})
+			for (const file of connectorFiles) {
+				managedFiles.add(file)
+			}
 		}
 	}
 
@@ -634,7 +654,7 @@ export async function initCommand(args: string[]) {
 	// Install battery modules (vendor code) before updating deps.
 	if (batteriesFromPreset.length > 0) {
 		for (const battery of batteriesFromPreset) {
-			await copyBatteryFiles({
+			const batteryFiles = await copyBatteryFiles({
 				projectRoot: root,
 				registryRoot,
 				installDir,
@@ -643,6 +663,9 @@ export async function initCommand(args: string[]) {
 				yes: nonInteractive,
 				overwrite: overwritePolicy
 			})
+			for (const file of batteryFiles) {
+				managedFiles.add(file)
+			}
 		}
 	}
 
@@ -684,6 +707,7 @@ export async function initCommand(args: string[]) {
 		aliasBase,
 		embeddingProvider,
 		version: CONFIG_VERSION,
+		installedFrom: {unragVersion: cliPackageVersion},
 		connectors: Array.from(
 			new Set([...(existing?.connectors ?? []), ...connectorsFromPreset])
 		).sort(),
@@ -697,6 +721,7 @@ export async function initCommand(args: string[]) {
 			new Set([...(existing?.batteries ?? []), ...batteriesFromPreset])
 		).sort()
 	}
+	config.managedFiles = Array.from(managedFiles).sort()
 	await writeJsonFile(path.join(root, CONFIG_FILE), config)
 
 	// Battery-specific scaffolding (preset installs are non-interactive).
@@ -881,8 +906,8 @@ export async function initCommand(args: string[]) {
 				: '- TypeScript: no tsconfig changes needed',
 			'',
 			merged.changes.length > 0
-				? `Added deps: ${merged.changes.map((c) => c.name).join(', ')}`
-				: 'Added deps: none',
+				? `Deps: ${formatDepChanges(merged.changes)}`
+				: 'Deps: none',
 			installLine,
 			'',
 			...envHint,

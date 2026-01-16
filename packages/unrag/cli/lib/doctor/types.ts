@@ -68,8 +68,11 @@ export type UnragJsonConfig = {
 	aliasBase?: string
 	embeddingProvider?: string
 	version?: number
+	installedFrom?: {unragVersion?: string}
 	connectors?: string[]
 	extractors?: string[]
+	batteries?: string[]
+	managedFiles?: string[]
 }
 
 /**

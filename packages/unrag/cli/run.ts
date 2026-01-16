@@ -3,6 +3,7 @@ import {addCommand} from './commands/add'
 import {debugCommand} from './commands/debug'
 import {doctorCommand} from './commands/doctor'
 import {initCommand} from './commands/init'
+import {upgradeCommand} from './commands/upgrade'
 import {UNRAG_GITHUB_REPO_URL, docsUrl} from './lib/constants'
 
 function renderHelp() {
@@ -18,6 +19,7 @@ function renderHelp() {
 		'  add <connector>     Install a connector (notion, google-drive)',
 		'  add extractor <n>   Install an extractor (pdf-llm, image-ocr, etc.)',
 		'  add battery <name>  Install a battery module (reranker, eval, debug)',
+		'  upgrade             Upgrade vendored sources (git-style merge)',
 		'  doctor              Validate installation and configuration',
 		'  doctor setup        Generate project-specific doctor config and scripts',
 		'  debug               Open real-time debug TUI (requires UNRAG_DEBUG=true in app)',
@@ -54,6 +56,7 @@ function renderHelp() {
 		'  bunx unrag@latest init --yes --extractors pdf-text-layer,file-text',
 		'  bunx unrag add notion --yes',
 		'  bunx unrag add battery reranker --yes',
+		'  bunx unrag upgrade',
 		'  bunx unrag doctor',
 		'  bunx unrag doctor --db',
 		'  bunx unrag doctor setup',
@@ -99,6 +102,11 @@ export async function run(argv: string[]) {
 
 	if (command === 'doctor') {
 		await doctorCommand(rest)
+		return
+	}
+
+	if (command === 'upgrade') {
+		await upgradeCommand(rest)
 		return
 	}
 

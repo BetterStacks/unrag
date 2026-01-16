@@ -48,6 +48,10 @@ type FileMapping = {
 
 const readText = (filePath: string) => readFile(filePath, 'utf8')
 
+const toPosixPath = (p: string) => p.replace(/\\/g, '/')
+const toProjectRelative = (projectRoot: string, absPath: string) =>
+	toPosixPath(path.relative(projectRoot, absPath))
+
 const writeText = async (filePath: string, content: string) => {
 	await ensureDir(path.dirname(filePath))
 	await writeFile(filePath, content, 'utf8')
@@ -652,7 +656,9 @@ const renderDocs = (content: string, selection: RegistrySelection) => {
 		.replaceAll('`@unrag/*`', `\`${selection.aliasBase}/*\``)
 }
 
-export async function copyRegistryFiles(selection: RegistrySelection) {
+export async function copyRegistryFiles(
+	selection: RegistrySelection
+): Promise<string[]> {
 	const toAbs = (projectRelative: string) =>
 		path.join(selection.projectRoot, projectRelative)
 
@@ -861,6 +867,10 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
 	const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY
 	const overwritePolicy = selection.overwrite ?? 'skip'
 
+	const managedFiles = fileMappings.map((mapping) =>
+		toProjectRelative(selection.projectRoot, mapping.dest)
+	)
+
 	// overwrite handling
 	for (const mapping of fileMappings) {
 		if (!(await exists(mapping.src))) {
@@ -896,6 +906,8 @@ export async function copyRegistryFiles(selection: RegistrySelection) {
 		)
 		await writeText(mapping.dest, content)
 	}
+
+	return managedFiles
 }
 
 export type ConnectorSelection = {
@@ -908,7 +920,9 @@ export type ConnectorSelection = {
 	overwrite?: 'skip' | 'force'
 }
 
-export async function copyConnectorFiles(selection: ConnectorSelection) {
+export async function copyConnectorFiles(
+	selection: ConnectorSelection
+): Promise<string[]> {
 	const toAbs = (projectRelative: string) =>
 		path.join(selection.projectRoot, projectRelative)
 
@@ -936,6 +950,7 @@ export async function copyConnectorFiles(selection: ConnectorSelection) {
 	const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY
 	const overwritePolicy = selection.overwrite ?? 'skip'
 
+	const managedFiles = new Set<string>()
 	for (const src of files) {
 		if (!(await exists(src))) {
 			throw new Error(`Registry file missing: ${src}`)
@@ -968,6 +983,14 @@ export async function copyConnectorFiles(selection: ConnectorSelection) {
 		const content = rewriteRegistryAliasImports(raw, selection.aliasBase)
 		await writeText(dest, content)
 	}
+
+	for (const src of files) {
+		const rel = path.relative(connectorRegistryAbs, src)
+		const dest = path.join(destRootAbs, rel)
+		managedFiles.add(toProjectRelative(selection.projectRoot, dest))
+	}
+
+	return Array.from(managedFiles)
 }
 
 export type ExtractorSelection = {
@@ -980,7 +1003,9 @@ export type ExtractorSelection = {
 	overwrite?: 'skip' | 'force'
 }
 
-export async function copyExtractorFiles(selection: ExtractorSelection) {
+export async function copyExtractorFiles(
+	selection: ExtractorSelection
+): Promise<string[]> {
 	const toAbs = (projectRelative: string) =>
 		path.join(selection.projectRoot, projectRelative)
 
@@ -1059,6 +1084,8 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
 		return Boolean(answer)
 	}
 
+	const managedFiles = new Set<string>()
+
 	// Copy extractor files.
 	for (const src of extractorFiles) {
 		if (!(await exists(src))) {
@@ -1092,6 +1119,19 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
 		const content = rewriteRegistryAliasImports(raw, selection.aliasBase)
 		await writeText(dest, content)
 	}
+
+	for (const src of extractorFiles) {
+		const rel = path.relative(extractorRegistryAbs, src)
+		const dest = path.join(destRootAbs, rel)
+		managedFiles.add(toProjectRelative(selection.projectRoot, dest))
+	}
+	for (const src of sharedFiles) {
+		const rel = path.relative(sharedRegistryAbs, src)
+		const dest = path.join(sharedDestRootAbs, rel)
+		managedFiles.add(toProjectRelative(selection.projectRoot, dest))
+	}
+
+	return Array.from(managedFiles)
 }
 
 export type BatterySelection = {
@@ -1104,7 +1144,9 @@ export type BatterySelection = {
 	overwrite?: 'skip' | 'force'
 }
 
-export async function copyBatteryFiles(selection: BatterySelection) {
+export async function copyBatteryFiles(
+	selection: BatterySelection
+): Promise<string[]> {
 	const toAbs = (projectRelative: string) =>
 		path.join(selection.projectRoot, projectRelative)
 
@@ -1187,6 +1229,8 @@ export async function copyBatteryFiles(selection: BatterySelection) {
 		return Boolean(answer)
 	}
 
+	const managedFiles = new Set<string>()
+
 	// Copy battery files.
 	for (const src of filteredBatteryFiles) {
 		if (!(await exists(src))) {
@@ -1203,4 +1247,12 @@ export async function copyBatteryFiles(selection: BatterySelection) {
 		const content = rewriteRegistryAliasImports(raw, selection.aliasBase)
 		await writeText(dest, content)
 	}
+
+	for (const src of filteredBatteryFiles) {
+		const rel = path.relative(batteryRegistryAbs, src)
+		const dest = path.join(destRootAbs, rel)
+		managedFiles.add(toProjectRelative(selection.projectRoot, dest))
+	}
+
+	return Array.from(managedFiles)
 }
