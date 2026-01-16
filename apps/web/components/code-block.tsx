@@ -78,7 +78,7 @@ const tokenColors: Record<Token["type"], string> = {
   function: "text-[#dcdcaa]",
   string: "text-[#ce9178]",
   number: "text-[#b5cea8]",
-  comment: "text-white/35",
+  comment: "text-olive-600/70 dark:text-white/35",
   text: "",
 };
 
@@ -110,10 +110,10 @@ export function CodeBlock({ code, highlight }: { code: string; highlight?: numbe
         <div
           key={i}
           className={
-            highlight?.includes(i) ? "bg-white/[0.04] -mx-3 px-3" : ""
+            highlight?.includes(i) ? "bg-olive-950/[0.04] dark:bg-white/[0.04] -mx-3 px-3" : ""
           }
         >
-          <span className="text-white/25 select-none w-6 inline-block text-right mr-3">
+          <span className="text-olive-600/50 dark:text-white/25 select-none w-6 inline-block text-right mr-3">
             {i + 1}
           </span>
           <HighlightedLine line={line} />

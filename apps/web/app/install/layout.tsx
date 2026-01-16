@@ -16,7 +16,9 @@ const instrumentSerif = Instrument_Serif({
 
 export default function InstallLayout({ children }: { children: ReactNode }) {
   return (
-    <div className={`unrag-theme ${inter.variable} ${instrumentSerif.variable}`}>
+    <div
+      className={`unrag-theme font-sans ${inter.variable} ${instrumentSerif.variable} min-h-screen bg-lemon-50 text-olive-950 dark:bg-lemon-950 dark:text-white`}
+    >
       {children}
     </div>
   );

@@ -197,7 +197,7 @@ const results = await engine.retrieve({
       />
 
       {/* Panel */}
-      <div className="absolute inset-y-0 right-0 w-full max-w-2xl bg-lemon-100 dark:bg-lemon-950 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
+      <div className="absolute inset-y-0 right-0 w-full max-w-2xl bg-lemon-50 dark:bg-lemon-950 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
         {/* Header */}
         <header className="flex items-center justify-between px-6 py-4 shrink-0">
           <h2 className="font-display text-2xl text-olive-950 dark:text-white">Next steps</h2>

@@ -26,10 +26,12 @@ import {
 } from 'lucide-react';
 import {
   AmazonWebServicesDark,
+  AmazonWebServicesLight,
   Cohere,
   Discord,
   Dropbox,
   GitHubDark,
+  GitHubLight,
   GitLab,
   Gemini,
   GoogleCloud,
@@ -41,11 +43,16 @@ import {
   MicrosoftTeams,
   Notion,
   OllamaDark,
+  OllamaLight,
   OpenAIDark,
+  OpenAILight,
   OpenRouterDark,
+  OpenRouterLight,
   Slack,
   TogetherAIDark,
+  TogetherAILight,
   VercelDark,
+  VercelLight,
   MistralAI,
 } from '@ridemountainpig/svgl-react';
 
@@ -150,6 +157,31 @@ type Step = {
   icon: React.ReactNode;
 };
 
+type ThemeIconPair = {
+  light: ComponentType<SVGProps<SVGSVGElement>>;
+  dark: ComponentType<SVGProps<SVGSVGElement>>;
+};
+
+function monoIcon(icon: ComponentType<SVGProps<SVGSVGElement>>): ThemeIconPair {
+  return { light: icon, dark: icon };
+}
+
+function ThemeIcon({
+  icon,
+  className,
+  ...props
+}: { icon: ThemeIconPair; className?: string } & SVGProps<SVGSVGElement>) {
+  const Light = icon.light;
+  const Dark = icon.dark;
+
+  return (
+    <>
+      <Light {...props} className={cn(className, 'dark:hidden')} />
+      <Dark {...props} className={cn(className, 'hidden dark:block')} />
+    </>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants & Defaults
 // ─────────────────────────────────────────────────────────────────────────────
@@ -243,7 +275,7 @@ type EmbeddingModelOption = {
   id: string;
   label: string;
   providerLabel: string;
-  icon: ComponentType<any>;
+  icon: ThemeIconPair;
   supports: EmbeddingType[]; // what the embedding output can represent
   recommended?: boolean;
 };
@@ -288,7 +320,7 @@ const EMBEDDING_PROVIDER_OPTIONS: Array<{
   name: string;
   description: string;
   docsHref: string;
-  icon: ComponentType<any>;
+  icon: ThemeIconPair;
   badge?: string;
 }> = [
   {
@@ -296,7 +328,7 @@ const EMBEDDING_PROVIDER_OPTIONS: Array<{
     name: 'Vercel AI Gateway',
     description: 'Unified gateway for AI SDK models. Great default to start.',
     docsHref: '/docs/providers/ai-gateway',
-    icon: VercelDark,
+    icon: { light: VercelLight, dark: VercelDark },
     badge: 'default',
   },
   {
@@ -304,77 +336,77 @@ const EMBEDDING_PROVIDER_OPTIONS: Array<{
     name: 'Voyage AI',
     description: 'Best-in-class embeddings + the only built-in multimodal provider.',
     docsHref: '/docs/providers/voyage',
-    icon: VoyageLogo,
+    icon: monoIcon(VoyageLogo),
   },
   {
     id: 'openai',
     name: 'OpenAI',
     description: 'Direct OpenAI embeddings via the AI SDK provider.',
     docsHref: '/docs/providers/openai',
-    icon: OpenAIDark,
+    icon: { light: OpenAILight, dark: OpenAIDark },
   },
   {
     id: 'google',
     name: 'Google AI (Gemini)',
     description: 'Gemini embeddings via the AI SDK provider.',
     docsHref: '/docs/providers/google',
-    icon: Gemini,
+    icon: monoIcon(Gemini),
   },
   {
     id: 'openrouter',
     name: 'OpenRouter',
     description: 'Route across models/providers behind one API.',
     docsHref: '/docs/providers/openrouter',
-    icon: OpenRouterDark,
+    icon: { light: OpenRouterLight, dark: OpenRouterDark },
   },
   {
     id: 'azure',
     name: 'Azure OpenAI',
     description: 'Enterprise-friendly OpenAI deployments on Azure.',
     docsHref: '/docs/providers/azure',
-    icon: MicrosoftAzure,
+    icon: monoIcon(MicrosoftAzure),
   },
   {
     id: 'vertex',
     name: 'Vertex AI',
     description: 'Google Cloud Vertex AI embeddings.',
     docsHref: '/docs/providers/vertex',
-    icon: GoogleCloud,
+    icon: monoIcon(GoogleCloud),
   },
   {
     id: 'bedrock',
     name: 'AWS Bedrock',
     description: 'AWS-native embeddings (Titan, etc).',
     docsHref: '/docs/providers/bedrock',
-    icon: AmazonWebServicesDark,
+    icon: { light: AmazonWebServicesLight, dark: AmazonWebServicesDark },
   },
   {
     id: 'cohere',
     name: 'Cohere',
     description: 'Cohere embeddings via the AI SDK provider.',
     docsHref: '/docs/providers/cohere',
-    icon: Cohere,
+    icon: monoIcon(Cohere),
   },
   {
     id: 'mistral',
     name: 'Mistral',
     description: 'Mistral embeddings via the AI SDK provider.',
     docsHref: '/docs/providers/mistral',
-    icon: MistralAI,
+    icon: monoIcon(MistralAI),
   },
   {
     id: 'together',
     name: 'Together.ai',
     description: 'Open models served via Together.',
     docsHref: '/docs/providers/together',
-    icon: TogetherAIDark,
+    icon: { light: TogetherAILight, dark: TogetherAIDark },
   },
   {
     id: 'ollama',
     name: 'Ollama (local)',
     description: 'Local embeddings for offline/dev workflows.',
     docsHref: '/docs/providers/ollama',
-    icon: OllamaDark,
+    icon: { light: OllamaLight, dark: OllamaDark },
   },
 ];
 
@@ -384,7 +416,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'openai/text-embedding-3-small',
       label: 'openai/text-embedding-3-small',
       providerLabel: 'OpenAI',
-      icon: OpenAIDark,
+      icon: { light: OpenAILight, dark: OpenAIDark },
       supports: ['text'],
       recommended: true,
     },
@@ -392,21 +424,21 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'openai/text-embedding-3-large',
       label: 'openai/text-embedding-3-large',
       providerLabel: 'OpenAI',
-      icon: OpenAIDark,
+      icon: { light: OpenAILight, dark: OpenAIDark },
       supports: ['text'],
     },
     {
       id: 'google/text-embedding-004',
       label: 'google/text-embedding-004',
       providerLabel: 'Google',
-      icon: Gemini,
+      icon: monoIcon(Gemini),
       supports: ['text'],
     },
     {
       id: 'amazon/titan-embed-text-v2',
       label: 'amazon/titan-embed-text-v2',
       providerLabel: 'Amazon Web Services',
-      icon: AmazonWebServicesDark,
+      icon: { light: AmazonWebServicesLight, dark: AmazonWebServicesDark },
       supports: ['text'],
     },
   ],
@@ -415,7 +447,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'text-embedding-3-small',
       label: 'text-embedding-3-small',
       providerLabel: 'OpenAI',
-      icon: OpenAIDark,
+      icon: { light: OpenAILight, dark: OpenAIDark },
       supports: ['text'],
       recommended: true,
     },
@@ -423,7 +455,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'text-embedding-3-large',
       label: 'text-embedding-3-large',
       providerLabel: 'OpenAI',
-      icon: OpenAIDark,
+      icon: { light: OpenAILight, dark: OpenAIDark },
       supports: ['text'],
     },
   ],
@@ -432,7 +464,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'gemini-embedding-001',
       label: 'gemini-embedding-001',
       providerLabel: 'Google',
-      icon: Gemini,
+      icon: monoIcon(Gemini),
       supports: ['text'],
       recommended: true,
     },
@@ -442,7 +474,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'text-embedding-3-small',
       label: 'text-embedding-3-small',
       providerLabel: 'OpenRouter',
-      icon: OpenRouterDark,
+      icon: { light: OpenRouterLight, dark: OpenRouterDark },
       supports: ['text'],
       recommended: true,
     },
@@ -452,7 +484,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'text-embedding-3-small',
       label: 'text-embedding-3-small',
       providerLabel: 'Azure OpenAI',
-      icon: MicrosoftAzure,
+      icon: monoIcon(MicrosoftAzure),
       supports: ['text'],
       recommended: true,
     },
@@ -462,7 +494,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'text-embedding-004',
       label: 'text-embedding-004',
       providerLabel: 'Vertex AI',
-      icon: GoogleCloud,
+      icon: monoIcon(GoogleCloud),
       supports: ['text'],
       recommended: true,
     },
@@ -472,7 +504,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'amazon.titan-embed-text-v2:0',
       label: 'amazon.titan-embed-text-v2:0',
       providerLabel: 'AWS Bedrock',
-      icon: AmazonWebServicesDark,
+      icon: { light: AmazonWebServicesLight, dark: AmazonWebServicesDark },
       supports: ['text'],
       recommended: true,
     },
@@ -482,7 +514,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'embed-english-v3.0',
       label: 'embed-english-v3.0',
       providerLabel: 'Cohere',
-      icon: Cohere,
+      icon: monoIcon(Cohere),
       supports: ['text'],
       recommended: true,
     },
@@ -492,7 +524,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'mistral-embed',
       label: 'mistral-embed',
       providerLabel: 'Mistral',
-      icon: MistralAI,
+      icon: monoIcon(MistralAI),
       supports: ['text'],
       recommended: true,
     },
@@ -502,7 +534,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'togethercomputer/m2-bert-80M-2k-retrieval',
       label: 'togethercomputer/m2-bert-80M-2k-retrieval',
       providerLabel: 'Together.ai',
-      icon: TogetherAIDark,
+      icon: { light: TogetherAILight, dark: TogetherAIDark },
       supports: ['text'],
       recommended: true,
     },
@@ -512,7 +544,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'nomic-embed-text',
       label: 'nomic-embed-text',
       providerLabel: 'Ollama',
-      icon: OllamaDark,
+      icon: { light: OllamaLight, dark: OllamaDark },
       supports: ['text'],
       recommended: true,
     },
@@ -522,7 +554,7 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'voyage-3.5-lite',
       label: 'voyage-3.5-lite',
       providerLabel: 'Voyage',
-      icon: VoyageLogo,
+      icon: monoIcon(VoyageLogo),
       supports: ['text'],
       recommended: true,
     },
@@ -530,21 +562,21 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<Record<EmbeddingProviderName, Embedd
       id: 'voyage-3',
       label: 'voyage-3',
       providerLabel: 'Voyage',
-      icon: VoyageLogo,
+      icon: monoIcon(VoyageLogo),
       supports: ['text'],
     },
     {
       id: 'voyage-code-3',
       label: 'voyage-code-3',
       providerLabel: 'Voyage',
-      icon: VoyageLogo,
+      icon: monoIcon(VoyageLogo),
       supports: ['text'],
     },
     {
       id: 'voyage-multimodal-3',
       label: 'voyage-multimodal-3',
       providerLabel: 'Voyage',
-      icon: VoyageLogo,
+      icon: monoIcon(VoyageLogo),
       supports: ['multimodal'],
       recommended: true,
     },
@@ -571,18 +603,18 @@ const EXTRACTOR_ICONS: Record<string, React.ReactNode> = {
   file: <FileText className="w-4 h-4" />,
 };
 
-const connectorLogoById: Record<string, ComponentType<any>> = {
-  notion: Notion,
-  'google-drive': GoogleDrive,
-  github: GitHubDark,
-  gitlab: GitLab,
-  slack: Slack,
-  discord: Discord,
-  linear: Linear,
-  dropbox: Dropbox,
-  onedrive: MicrosoftOneDrive,
-  teams: MicrosoftTeams,
-  sharepoint: MicrosoftSharePoint,
+const connectorLogoById: Record<string, ThemeIconPair> = {
+  notion: monoIcon(Notion),
+  'google-drive': monoIcon(GoogleDrive),
+  github: { light: GitHubLight, dark: GitHubDark },
+  gitlab: monoIcon(GitLab),
+  slack: monoIcon(Slack),
+  discord: monoIcon(Discord),
+  linear: monoIcon(Linear),
+  dropbox: monoIcon(Dropbox),
+  onedrive: monoIcon(MicrosoftOneDrive),
+  teams: monoIcon(MicrosoftTeams),
+  sharepoint: monoIcon(MicrosoftSharePoint),
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -709,7 +741,7 @@ function DocsIconLink({ href, label }: { href: string; label: string }) {
       target="_blank"
       rel="noreferrer"
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-[#757572]/20 bg-white/[0.02] text-white/45 hover:text-white/80 hover:bg-white/[0.05] transition-all opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+      className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-olive-950/10 bg-white/60 text-olive-700 hover:text-olive-950 hover:bg-white/80 transition-all opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 dark:border-[#757572]/20 dark:bg-white/[0.02] dark:text-white/45 dark:hover:text-white/80 dark:hover:bg-white/[0.05]"
       aria-label={label}
       title={label}
     >
@@ -745,7 +777,7 @@ function ClickableCard({
         }
       }}
       className={cn(
-        'group relative w-full text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
+        'group relative w-full text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-950/15 dark:focus-visible:ring-white/20',
         disabled && 'cursor-not-allowed',
         className
       )}
@@ -781,32 +813,35 @@ function SelectionCard({
       disabled={disabled}
       className={cn(
         'group relative w-full text-left rounded-xl border p-4 transition-all duration-200',
-        'hover:border-[#757572]/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
+        'hover:border-olive-950/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-950/15 dark:hover:border-[#757572]/30 dark:focus-visible:ring-white/20',
         selected
-          ? 'border-white/30 bg-white/[0.04]'
-          : 'border-[#757572]/15 bg-white/[0.02] hover:bg-white/[0.03]',
-        disabled && 'opacity-50 cursor-not-allowed hover:border-[#757572]/15 hover:bg-white/[0.02]'
+          ? 'border-olive-950/15 bg-white/70 dark:border-white/30 dark:bg-white/[0.04]'
+          : 'border-olive-950/10 bg-white/60 hover:bg-white/70 dark:border-[#757572]/15 dark:bg-white/[0.02] dark:hover:bg-white/[0.03]',
+        disabled &&
+          'opacity-50 cursor-not-allowed hover:border-olive-950/10 hover:bg-white/60 dark:hover:border-[#757572]/15 dark:hover:bg-white/[0.02]'
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-white/90">{title}</span>
+            <span className="font-medium text-olive-950/90 dark:text-white/90">{title}</span>
             {badge && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20 capitalize">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-olive-950/[0.04] text-olive-700 border border-olive-950/10 capitalize dark:bg-white/5 dark:text-white/40 dark:border-[#757572]/20">
                 {badge}
               </span>
             )}
           </div>
-          <p className="mt-1 text-sm text-white/50 leading-relaxed">{description}</p>
+          <p className="mt-1 text-sm text-olive-700 leading-relaxed dark:text-white/50">{description}</p>
         </div>
         <div
           className={cn(
             'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all',
-            selected ? 'border-white bg-white' : 'border-white/20 group-hover:border-white/30'
+            selected
+              ? 'border-olive-950 bg-olive-950 dark:border-white dark:bg-white'
+              : 'border-olive-950/20 group-hover:border-olive-950/30 dark:border-white/20 dark:group-hover:border-white/30'
           )}
         >
-          {selected && <div className="w-2 h-2 rounded-full bg-black" />}
+          {selected && <div className="w-2 h-2 rounded-full bg-lemon-50 dark:bg-black" />}
         </div>
       </div>
     </button>
@@ -839,24 +874,26 @@ function ExtractorCard({
       onClick={onToggle}
       className={cn(
         'rounded-lg border p-3',
-        'hover:border-[#757572]/30',
+        'hover:border-olive-950/20 dark:hover:border-[#757572]/30',
         selected
-          ? 'border-white/25 bg-white/[0.05]'
-          : 'border-[#757572]/15 bg-white/[0.02] hover:bg-white/[0.03]'
+          ? 'border-olive-950/15 bg-white/70 dark:border-white/25 dark:bg-white/[0.05]'
+          : 'border-olive-950/10 bg-white/60 hover:bg-white/70 dark:border-[#757572]/15 dark:bg-white/[0.02] dark:hover:bg-white/[0.03]'
       )}
     >
       <div className="flex items-start gap-3">
         <div
           className={cn(
             'w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors',
-            selected ? 'bg-white/10 text-white' : 'bg-white/5 text-white/40'
+            selected
+              ? 'bg-olive-950/[0.05] text-olive-950 dark:bg-white/10 dark:text-white'
+              : 'bg-olive-950/[0.04] text-olive-700 dark:bg-white/5 dark:text-white/40'
           )}
         >
           {icon}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-sm text-white/90">{label || id}</span>
+            <span className="font-mono text-sm text-olive-950/90 dark:text-white/90">{label || id}</span>
             {workerOnly && (
               <span className="text-[9px] px-1.5 py-0.5 rounded capitalize bg-amber-500/10 text-amber-400/80 border border-amber-500/20">
                 worker
@@ -868,12 +905,14 @@ function ExtractorCard({
               </div>
             ) : null}
           </div>
-          {description && <p className="mt-0.5 text-xs text-white/40 line-clamp-2">{description}</p>}
+          {description && <p className="mt-0.5 text-xs text-olive-700/80 line-clamp-2 dark:text-white/40">{description}</p>}
         </div>
         <div
           className={cn(
             'w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-all',
-            selected ? 'border-white/40 bg-white text-black' : 'border-[#757572]/20 group-hover:border-white/25'
+            selected
+              ? 'border-olive-950/40 bg-olive-950 text-lemon-50 dark:border-white/40 dark:bg-white dark:text-black'
+              : 'border-olive-950/20 group-hover:border-olive-950/25 dark:border-[#757572]/20 dark:group-hover:border-white/25'
           )}
         >
           {selected && <Check className="w-3 h-3" strokeWidth={3} />}
@@ -889,7 +928,7 @@ function ConnectorCard({
   description,
   status,
   docsHref,
-  logo: Logo,
+  logo,
   selected,
   onToggle,
 }: {
@@ -898,7 +937,7 @@ function ConnectorCard({
   description?: string;
   status?: 'available' | 'coming-soon';
   docsHref?: string | null;
-  logo?: ComponentType<any>;
+  logo?: ThemeIconPair;
   selected: boolean;
   onToggle: () => void;
 }) {
@@ -910,22 +949,27 @@ function ConnectorCard({
       disabled={!isAvailable}
       className={cn(
         'rounded-xl border p-4',
-        selected ? 'border-white/25 bg-white/[0.05]' : 'border-[#757572]/15 bg-white/[0.02]',
-        isAvailable ? 'hover:border-[#757572]/30 hover:bg-white/[0.03]' : 'opacity-50 cursor-not-allowed'
+        selected ? 'border-olive-950/15 bg-white/70 dark:border-white/25 dark:bg-white/[0.05]' : 'border-olive-950/10 bg-white/60 dark:border-[#757572]/15 dark:bg-white/[0.02]',
+        isAvailable
+          ? 'hover:border-olive-950/20 hover:bg-white/70 dark:hover:border-[#757572]/30 dark:hover:bg-white/[0.03]'
+          : 'opacity-50 cursor-not-allowed'
       )}
     >
       <div className="flex items-start gap-3">
         <div
           className={cn(
             'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-colors',
-            selected ? 'bg-white/10 text-white' : 'bg-white/5 text-white/40'
+            selected
+              ? 'bg-olive-950/[0.05] text-olive-950 dark:bg-white/10 dark:text-white'
+              : 'bg-olive-950/[0.04] text-olive-700 dark:bg-white/5 dark:text-white/40'
           )}
         >
-          {Logo ? (
-            <Logo
+          {logo ? (
+            <ThemeIcon
+              icon={logo}
               width={18}
               height={18}
-              className={cn('text-white/90', !selected && 'opacity-70')}
+              className={cn('text-olive-950/90 dark:text-white/90', !selected && 'opacity-70')}
               aria-label={displayName || id}
             />
           ) : (
@@ -934,11 +978,13 @@ function ConnectorCard({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-white/90">{displayName || id}</span>
+            <span className="font-medium text-olive-950/90 dark:text-white/90">{displayName || id}</span>
             <span
               className={cn(
                 'text-[10px] px-2 py-0.5 rounded-full border capitalize',
-                isAvailable ? 'bg-emerald-500/10 text-emerald-400/80 border-emerald-500/20' : 'bg-white/5 text-white/40 border-[#757572]/20'
+                isAvailable
+                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-400/80'
+                  : 'bg-olive-950/[0.04] text-olive-700 border-olive-950/10 dark:bg-white/5 dark:text-white/40 dark:border-[#757572]/20'
               )}
             >
               {isAvailable ? 'available' : 'coming soon'}
@@ -949,12 +995,14 @@ function ConnectorCard({
               </div>
             ) : null}
           </div>
-          {description && <p className="mt-1 text-sm text-white/50">{description}</p>}
+          {description && <p className="mt-1 text-sm text-olive-700 dark:text-white/50">{description}</p>}
         </div>
         <div
           className={cn(
             'w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-all',
-            selected ? 'border-white/40 bg-white text-black' : 'border-[#757572]/20 group-hover:border-white/25'
+            selected
+              ? 'border-olive-950/40 bg-olive-950 text-lemon-50 dark:border-white/40 dark:bg-white dark:text-black'
+              : 'border-olive-950/20 group-hover:border-olive-950/25 dark:border-[#757572]/20 dark:group-hover:border-white/25'
           )}
         >
           {selected && <Check className="w-3 h-3" strokeWidth={3} />}
@@ -992,26 +1040,32 @@ function BatteryCard({
       disabled={!isAvailable}
       className={cn(
         'rounded-xl border p-4',
-        selected ? 'border-white/25 bg-white/[0.05]' : 'border-[#757572]/15 bg-white/[0.02]',
-        isAvailable ? 'hover:border-[#757572]/30 hover:bg-white/[0.03]' : 'opacity-50 cursor-not-allowed'
+        selected ? 'border-olive-950/15 bg-white/70 dark:border-white/25 dark:bg-white/[0.05]' : 'border-olive-950/10 bg-white/60 dark:border-[#757572]/15 dark:bg-white/[0.02]',
+        isAvailable
+          ? 'hover:border-olive-950/20 hover:bg-white/70 dark:hover:border-[#757572]/30 dark:hover:bg-white/[0.03]'
+          : 'opacity-50 cursor-not-allowed'
       )}
     >
       <div className="flex items-start gap-3">
         <div
           className={cn(
             'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-colors',
-            selected ? 'bg-white/10 text-white' : 'bg-white/5 text-white/40'
+            selected
+              ? 'bg-olive-950/[0.05] text-olive-950 dark:bg-white/10 dark:text-white'
+              : 'bg-olive-950/[0.04] text-olive-700 dark:bg-white/5 dark:text-white/40'
           )}
         >
           <Battery className="w-5 h-5" />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-white/90">{displayName || id}</span>
+            <span className="font-medium text-olive-950/90 dark:text-white/90">{displayName || id}</span>
             <span
               className={cn(
                 'text-[10px] px-2 py-0.5 rounded-full border capitalize',
-                isAvailable ? 'bg-emerald-500/10 text-emerald-400/80 border-emerald-500/20' : 'bg-white/5 text-white/40 border-[#757572]/20'
+                isAvailable
+                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-400/80'
+                  : 'bg-olive-950/[0.04] text-olive-700 border-olive-950/10 dark:bg-white/5 dark:text-white/40 dark:border-[#757572]/20'
               )}
             >
               {isAvailable ? 'available' : 'coming soon'}
@@ -1027,18 +1081,20 @@ function BatteryCard({
               </div>
             ) : null}
           </div>
-          {description && <p className="mt-1 text-sm text-white/50">{description}</p>}
+          {description && <p className="mt-1 text-sm text-olive-700 dark:text-white/50">{description}</p>}
           {defaultModel && isAvailable && (
             <div className="mt-2 flex items-center gap-2">
-              <span className="text-xs text-white/35">Default model:</span>
-              <code className="text-xs px-1.5 py-0.5 rounded bg-white/5 text-white/60 font-mono">{defaultModel}</code>
+              <span className="text-xs text-olive-600 dark:text-white/35">Default model:</span>
+              <code className="text-xs px-1.5 py-0.5 rounded bg-olive-950/[0.04] text-olive-700 font-mono dark:bg-white/5 dark:text-white/60">{defaultModel}</code>
             </div>
           )}
         </div>
         <div
           className={cn(
             'w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-all',
-            selected ? 'border-white/40 bg-white text-black' : 'border-[#757572]/20 group-hover:border-white/25'
+            selected
+              ? 'border-olive-950/40 bg-olive-950 text-lemon-50 dark:border-white/40 dark:bg-white dark:text-black'
+              : 'border-olive-950/20 group-hover:border-olive-950/25 dark:border-[#757572]/20 dark:group-hover:border-white/25'
           )}
         >
           {selected && <Check className="w-3 h-3" strokeWidth={3} />}
@@ -1051,8 +1107,8 @@ function BatteryCard({
 function SectionHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className="mb-6">
-      <h2 className="font-display text-xl font-normal text-white/90">{title}</h2>
-      {description && <p className="mt-1 text-sm text-white/50">{description}</p>}
+      <h2 className="font-display text-xl font-normal text-olive-950/90 dark:text-white/90">{title}</h2>
+      {description && <p className="mt-1 text-sm text-olive-700 dark:text-white/50">{description}</p>}
     </div>
   );
 }
@@ -1061,8 +1117,8 @@ function FieldGroup({ label, hint, children }: { label: string; hint?: string; c
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between">
-        <Label className="text-sm text-white/70">{label}</Label>
-        {hint && <span className="text-xs text-white/30">{hint}</span>}
+        <Label className="text-sm text-olive-900/80 dark:text-white/70">{label}</Label>
+        {hint && <span className="text-xs text-olive-600 dark:text-white/30">{hint}</span>}
       </div>
       {children}
     </div>
@@ -1073,7 +1129,7 @@ function RecommendedBadge({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        'text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/50 border border-[#757572]/20',
+        'text-[10px] px-2 py-0.5 rounded-full bg-olive-950/[0.04] text-olive-700 border border-olive-950/10 dark:bg-white/5 dark:text-white/50 dark:border-[#757572]/20',
         className
       )}
     >
@@ -1300,7 +1356,8 @@ export default function InstallWizardClient() {
 
   const currentStepId = STEPS[currentStep]?.id ?? 'install';
   const embeddingProviderIcon =
-    EMBEDDING_PROVIDER_OPTIONS.find((p) => p.id === state.embedding.provider)?.icon ?? VercelDark;
+    EMBEDDING_PROVIDER_OPTIONS.find((p) => p.id === state.embedding.provider)?.icon ??
+    ({ light: VercelLight, dark: VercelDark } satisfies ThemeIconPair);
   const embeddingTriggerIcon = isCustomEmbeddingModel
     ? embeddingProviderIcon
     : (selectedEmbeddingModelOption?.icon ?? embeddingProviderIcon);
@@ -1309,7 +1366,7 @@ export default function InstallWizardClient() {
     : (selectedEmbeddingModelOption?.label ?? state.embedding.model);
 
   return (
-    <div className="min-h-screen bg-lemon-950">
+    <div className="min-h-screen bg-transparent">
       {installCommand ? (
         <NextStepsDialog
           open={nextStepsOpen}
@@ -1318,15 +1375,15 @@ export default function InstallWizardClient() {
           manifest={manifest}
         />
       ) : null}
-      <header className="sticky top-0 z-50 border-b border-[#757572]/20 bg-lemon-950/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-olive-950/10 bg-lemon-50/80 backdrop-blur-xl dark:border-[#757572]/20 dark:bg-lemon-950/80">
         <div className="max-w-[1600px] mx-auto px-6 min-h-14 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:py-0">
           <div className="flex flex-wrap items-center gap-4">
-            <Link href="/" className="flex items-center gap-2 text-white/60 hover:text-white/90 transition-colors">
+            <Link href="/" className="flex items-center gap-2 text-olive-700 hover:text-olive-950 transition-colors dark:text-white/60 dark:hover:text-white/90">
               <ArrowLeft className="w-4 h-4" />
               <span className="text-sm font-medium">Back</span>
             </Link>
-            <div className="w-px h-5 bg-white/10" />
-            <h1 className="font-display text-base font-normal text-white/80">Configure Installation</h1>
+            <div className="w-px h-5 bg-olive-950/10 dark:bg-white/10" />
+            <h1 className="font-display text-base font-normal text-olive-950/80 dark:text-white/80">Configure Installation</h1>
           </div>
           <div className="flex-wrap items-center gap-3 hidden sm:flex">
             <PlainButton
@@ -1339,7 +1396,7 @@ export default function InstallWizardClient() {
             <a
               href="/docs/getting-started/quickstart"
               target="_blank"
-              className="flex items-center gap-2 text-sm text-white/60 hover:text-white/90 transition-colors"
+              className="flex items-center gap-2 text-sm text-olive-700 hover:text-olive-950 transition-colors dark:text-white/60 dark:hover:text-white/90"
             >
               <span>Docs</span>
               <ExternalLink className="w-3.5 h-3.5" />
@@ -1349,7 +1406,7 @@ export default function InstallWizardClient() {
       </header>
 
       <div className="max-w-[1600px] mx-auto flex flex-col min-h-[calc(100vh-3.5rem)] lg:flex-row">
-        <aside className="hidden w-64 shrink-0 border-r border-[#757572]/20 p-6 lg:block">
+        <aside className="hidden w-64 shrink-0 border-r border-olive-950/10 p-6 lg:block dark:border-[#757572]/20">
           <div className="sticky top-20">
             <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-4">Steps</div>
             <nav className="space-y-1">
@@ -1365,32 +1422,32 @@ export default function InstallWizardClient() {
                       'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200',
                       'focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-500/30',
                       isActive
-                        ? 'bg-olive-700/20 text-white'
+                        ? 'bg-olive-950/[0.05] text-olive-950 dark:bg-olive-700/20 dark:text-white'
                         : isCompleted
-                          ? 'text-olive-300 hover:text-white hover:bg-olive-800/20'
-                          : 'text-olive-500 hover:text-olive-300 hover:bg-olive-800/15'
+                          ? 'text-olive-700 hover:text-olive-950 hover:bg-olive-950/[0.04] dark:text-olive-300 dark:hover:text-white dark:hover:bg-olive-800/20'
+                          : 'text-olive-600 hover:text-olive-950 hover:bg-olive-950/[0.03] dark:text-olive-500 dark:hover:text-olive-300 dark:hover:bg-olive-800/15'
                     )}
                   >
                     <div
                       className={cn(
                         'w-6 h-6 rounded-md flex items-center justify-center transition-colors',
                         isActive
-                          ? 'bg-olive-600/30 text-white'
+                          ? 'bg-olive-950/[0.06] text-olive-950 dark:bg-olive-600/30 dark:text-white'
                           : isCompleted
-                            ? 'bg-olive-500/20 text-olive-300'
-                            : 'bg-olive-800/30 text-olive-500'
+                            ? 'bg-olive-950/[0.05] text-olive-700 dark:bg-olive-500/20 dark:text-olive-300'
+                            : 'bg-olive-950/[0.03] text-olive-600 dark:bg-olive-800/30 dark:text-olive-500'
                       )}
                     >
                       {isCompleted ? <Check className="w-3.5 h-3.5" /> : step.icon}
                     </div>
                     <span className="font-medium">{step.label}</span>
-                    {isActive && <ChevronRight className="w-4 h-4 ml-auto text-white/40" />}
+                    {isActive && <ChevronRight className="w-4 h-4 ml-auto text-olive-500 dark:text-white/40" />}
                   </button>
                 );
               })}
             </nav>
 
-            <div className="mt-8 pt-6 border-t border-[#757572]/20">
+            <div className="mt-8 pt-6 border-t border-olive-950/10 dark:border-[#757572]/20">
               <PlainButton
                 size="md"
                 onClick={reset}
@@ -1423,22 +1480,22 @@ export default function InstallWizardClient() {
                       key={step.id}
                       onClick={() => goToStep(index)}
                       className={cn(
-                        'shrink-0 inline-flex items-center gap-2 rounded-full border border-[#757572]/20 px-3 py-2 text-xs font-medium transition-colors',
+                        'shrink-0 inline-flex items-center gap-2 rounded-full border border-olive-950/10 px-3 py-2 text-xs font-medium transition-colors dark:border-[#757572]/20',
                         isActive
-                          ? 'bg-olive-700/20 text-white'
+                          ? 'bg-olive-950/[0.05] text-olive-950 dark:bg-olive-700/20 dark:text-white'
                           : isCompleted
-                            ? 'text-olive-300 hover:text-white hover:bg-olive-800/20'
-                            : 'text-olive-500 hover:text-olive-300 hover:bg-olive-800/15'
+                            ? 'text-olive-700 hover:text-olive-950 hover:bg-olive-950/[0.04] dark:text-olive-300 dark:hover:text-white dark:hover:bg-olive-800/20'
+                            : 'text-olive-600 hover:text-olive-950 hover:bg-olive-950/[0.03] dark:text-olive-500 dark:hover:text-olive-300 dark:hover:bg-olive-800/15'
                       )}
                     >
                       <span
                         className={cn(
                           'flex h-5 w-5 items-center justify-center rounded-full text-[10px]',
                           isActive
-                            ? 'bg-olive-600/30 text-white'
+                            ? 'bg-olive-950/[0.06] text-olive-950 dark:bg-olive-600/30 dark:text-white'
                             : isCompleted
-                              ? 'bg-olive-500/20 text-olive-300'
-                              : 'bg-olive-800/30 text-olive-500'
+                              ? 'bg-olive-950/[0.05] text-olive-700 dark:bg-olive-500/20 dark:text-olive-300'
+                              : 'bg-olive-950/[0.03] text-olive-600 dark:bg-olive-800/30 dark:text-olive-500'
                         )}
                       >
                         {isCompleted ? <Check className="w-3 h-3" /> : step.icon}
@@ -1458,21 +1515,21 @@ export default function InstallWizardClient() {
               >
                 {/* Welcome Hero */}
                 <div className="mb-8">
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-olive-700/20 to-olive-700/10 border border-[#757572]/25 mb-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-olive-950/[0.06] to-olive-950/[0.03] border border-olive-950/10 mb-4 dark:from-olive-700/20 dark:to-olive-700/10 dark:border-[#757572]/25">
                     <Zap className="w-3.5 h-3.5 text-olive-400" />
-                    <span className="text-xs font-medium text-olive-300">Interactive Setup Wizard</span>
+                    <span className="text-xs font-medium text-olive-700 dark:text-olive-300">Interactive Setup Wizard</span>
                   </div>
-                  <h2 className="font-display text-3xl font-normal text-white/95 mb-2">Configure your RAG pipeline</h2>
-                  <p className="text-white/50 leading-relaxed">
+                  <h2 className="font-display text-3xl font-normal text-olive-950 mb-2 dark:text-white/95">Configure your RAG pipeline</h2>
+                  <p className="text-olive-700 leading-relaxed dark:text-white/50">
                     This wizard will guide you through setting up Unrag in your project. Configure your database, embeddings, extractors, and connectors—then generate a single command to install everything.
                   </p>
                 </div>
 
                 {/* Project Configuration */}
-                <div className="rounded-xl border border-[#757572]/15 bg-white/[0.02] p-5">
+                <div className="rounded-xl border border-olive-950/10 bg-white/70 p-5 dark:border-[#757572]/15 dark:bg-white/[0.02]">
                   <div className="flex items-center gap-2 mb-4">
-                    <Settings2 className="w-4 h-4 text-white/50" />
-                    <span className="text-sm font-medium text-white/70">Project Configuration</span>
+                    <Settings2 className="w-4 h-4 text-olive-700 dark:text-white/50" />
+                    <span className="text-sm font-medium text-olive-900/80 dark:text-white/70">Project Configuration</span>
                   </div>
                   <div className="space-y-5">
                     <FieldGroup label="Install directory" hint="Relative to project root">
@@ -1484,7 +1541,7 @@ export default function InstallWizardClient() {
                             install: { ...prev.install, installDir: e.target.value },
                           }))
                         }
-                        className="bg-white/[0.03] border-[#757572]/20 text-white placeholder:text-white/30 focus:border-[#757572]/30"
+                        className="bg-white border-olive-950/10 text-olive-950 placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
                       />
                     </FieldGroup>
 
@@ -1497,7 +1554,7 @@ export default function InstallWizardClient() {
                             install: { ...prev.install, aliasBase: e.target.value },
                           }))
                         }
-                        className="bg-white/[0.03] border-[#757572]/20 text-white placeholder:text-white/30 focus:border-[#757572]/30"
+                        className="bg-white border-olive-950/10 text-olive-950 placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
                       />
                     </FieldGroup>
                   </div>
@@ -1509,7 +1566,7 @@ export default function InstallWizardClient() {
                   {['TypeScript', 'pgvector', 'AI SDK', 'Drizzle / Prisma'].map((tech) => (
                     <span
                       key={tech}
-                      className="inline-flex items-center px-2.5 py-1 rounded-md bg-olive-800/20 border border-[#757572]/25 text-xs font-medium text-olive-400"
+                      className="inline-flex items-center px-2.5 py-1 rounded-md bg-olive-950/[0.03] border border-olive-950/10 text-xs font-medium text-olive-700 dark:bg-olive-800/20 dark:border-[#757572]/25 dark:text-olive-400"
                     >
                       {tech}
                     </span>
@@ -1547,13 +1604,13 @@ export default function InstallWizardClient() {
                   ))}
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-[#757572]/20">
+                <div className="mt-8 pt-6 border-t border-olive-950/10 dark:border-[#757572]/20">
                   <SectionHeader title="Storage Options" description="Control what content is persisted to the database." />
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#757572]/15 bg-white/[0.02] p-4">
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-olive-950/10 bg-white/60 p-4 dark:border-[#757572]/15 dark:bg-white/[0.02]">
                       <div>
-                        <div className="font-medium text-white/90">Store chunk content</div>
-                        <div className="text-sm text-white/50">Persist chunk text for retrieval results</div>
+                        <div className="font-medium text-olive-950/90 dark:text-white/90">Store chunk content</div>
+                        <div className="text-sm text-olive-700 dark:text-white/50">Persist chunk text for retrieval results</div>
                       </div>
                       <Switch
                         checked={state.storage.storeChunkContent}
@@ -1565,10 +1622,10 @@ export default function InstallWizardClient() {
                         }
                       />
                     </div>
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#757572]/15 bg-white/[0.02] p-4">
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-olive-950/10 bg-white/60 p-4 dark:border-[#757572]/15 dark:bg-white/[0.02]">
                       <div>
-                        <div className="font-medium text-white/90">Store document content</div>
-                        <div className="text-sm text-white/50">Persist full document text</div>
+                        <div className="font-medium text-olive-950/90 dark:text-white/90">Store document content</div>
+                        <div className="text-sm text-olive-700 dark:text-white/50">Persist full document text</div>
                       </div>
                       <Switch
                         checked={state.storage.storeDocumentContent}
@@ -1624,14 +1681,15 @@ export default function InstallWizardClient() {
                   ))}
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-[#757572]/20 space-y-6">
+                <div className="mt-8 pt-6 border-t border-olive-950/10 space-y-6 dark:border-[#757572]/20">
                   <FieldGroup
                     label="Embedding provider"
                     hint="This controls which provider Unrag uses for embeddings (and which env vars you'll need)."
                   >
                     {(() => {
                       const selectedProvider = EMBEDDING_PROVIDER_OPTIONS.find((p) => p.id === state.embedding.provider);
-                      const SelectedIcon = selectedProvider?.icon ?? VercelDark;
+                      const SelectedIcon =
+                        selectedProvider?.icon ?? ({ light: VercelLight, dark: VercelDark } satisfies ThemeIconPair);
                       return (
                         <div className="space-y-3">
                           <Select
@@ -1649,49 +1707,57 @@ export default function InstallWizardClient() {
                               }));
                             }}
                           >
-                            <SelectTrigger className="h-auto min-h-[72px] bg-white/[0.03] border-[#757572]/20 text-white hover:bg-white/[0.04] focus:ring-white/20 px-4 py-3">
+                            <SelectTrigger className="h-auto min-h-[72px] bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 px-4 py-3 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
                               <SelectValue>
                                 <div className="flex items-start gap-3 text-left">
-                                  <div className="w-10 h-10 rounded-lg bg-white/5 border border-[#757572]/20 flex items-center justify-center shrink-0 text-white/80">
-                                    <SelectedIcon width={18} height={18} className="text-white/85" aria-label={selectedProvider?.name ?? 'Provider'} />
+                                  <div className="w-10 h-10 rounded-lg bg-olive-950/[0.04] border border-olive-950/10 flex items-center justify-center shrink-0 text-olive-900 dark:bg-white/5 dark:border-[#757572]/20 dark:text-white/80">
+                                    <ThemeIcon
+                                      icon={SelectedIcon}
+                                      width={18}
+                                      height={18}
+                                      className="text-olive-950/85 dark:text-white/85"
+                                      aria-label={selectedProvider?.name ?? 'Provider'}
+                                    />
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
-                                      <span className="font-medium text-white/90">{selectedProvider?.name ?? 'Select provider'}</span>
+                                      <span className="font-medium text-olive-950/90 dark:text-white/90">{selectedProvider?.name ?? 'Select provider'}</span>
                                       {selectedProvider?.badge ? (
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20 capitalize">
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-olive-950/[0.04] text-olive-700 border border-olive-950/10 capitalize dark:bg-white/5 dark:text-white/40 dark:border-[#757572]/20">
                                           {selectedProvider.badge}
                                         </span>
                                       ) : null}
                                     </div>
-                                    <p className="mt-0.5 text-sm text-white/50 leading-relaxed line-clamp-1">{selectedProvider?.description}</p>
+                                    <p className="mt-0.5 text-sm text-olive-700 leading-relaxed line-clamp-1 dark:text-white/50">
+                                      {selectedProvider?.description}
+                                    </p>
                                   </div>
                                 </div>
                               </SelectValue>
                             </SelectTrigger>
-                            <SelectContent className="border-[#757572]/20 bg-lemon-900 text-white max-h-[400px]">
+                            <SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 max-h-[400px] dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
                               {EMBEDDING_PROVIDER_OPTIONS.map((p) => {
                                 const Icon = p.icon;
                                 return (
                                   <SelectItem
                                     key={p.id}
                                     value={p.id}
-                                    className="focus:bg-white/5 focus:text-white data-[state=checked]:text-white py-3 px-3"
+                                    className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 py-3 px-3 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
                                   >
                                     <div className="flex items-start gap-3">
-                                      <div className="w-9 h-9 rounded-lg bg-white/5 border border-[#757572]/20 flex items-center justify-center shrink-0 text-white/80">
-                                        <Icon width={16} height={16} className="text-white/85" aria-label={p.name} />
+                                      <div className="w-9 h-9 rounded-lg bg-olive-950/[0.04] border border-olive-950/10 flex items-center justify-center shrink-0 text-olive-900 dark:bg-white/5 dark:border-[#757572]/20 dark:text-white/80">
+                                        <ThemeIcon icon={Icon} width={16} height={16} className="text-olive-950/85 dark:text-white/85" aria-label={p.name} />
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
-                                          <span className="font-medium text-white/90">{p.name}</span>
+                                          <span className="font-medium text-olive-950/90 dark:text-white/90">{p.name}</span>
                                           {p.badge ? (
-                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20 capitalize">
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-olive-950/[0.04] text-olive-700 border border-olive-950/10 capitalize dark:bg-white/5 dark:text-white/40 dark:border-[#757572]/20">
                                               {p.badge}
                                             </span>
                                           ) : null}
                                         </div>
-                                        <p className="mt-0.5 text-xs text-white/45 leading-relaxed">{p.description}</p>
+                                        <p className="mt-0.5 text-xs text-olive-700 leading-relaxed dark:text-white/45">{p.description}</p>
                                       </div>
                                     </div>
                                   </SelectItem>
@@ -1705,7 +1771,7 @@ export default function InstallWizardClient() {
                                 href={selectedProvider.docsHref}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 text-xs text-white/45 hover:text-white/70 transition-colors"
+                                className="inline-flex items-center gap-1.5 text-xs text-olive-700 hover:text-olive-950 transition-colors dark:text-white/45 dark:hover:text-white/70"
                               >
                                 <ExternalLink className="w-3 h-3" />
                                 View {selectedProvider.name} docs
@@ -1716,9 +1782,14 @@ export default function InstallWizardClient() {
                       );
                     })()}
                     {state.embedding.type === 'multimodal' && state.embedding.provider !== 'voyage' ? (
-                      <div className="mt-3 text-xs text-white/45 leading-relaxed">
+                      <div className="mt-3 text-xs text-olive-700 leading-relaxed dark:text-white/45">
                         Heads up: true multimodal embeddings (image + text in the same vector space) are only supported by the{' '}
-                        <Link href="/docs/providers/voyage" target="_blank" rel="noreferrer" className="text-white/70 hover:text-white">
+                        <Link
+                          href="/docs/providers/voyage"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-olive-950 hover:text-olive-950 dark:text-white/70 dark:hover:text-white"
+                        >
                           Voyage provider
                         </Link>
                         . With other providers, images are typically indexed via extractors (captions/OCR) as text.
@@ -1749,53 +1820,59 @@ export default function InstallWizardClient() {
                           }));
                         }}
                       >
-                        <SelectTrigger className="h-12 bg-white/[0.03] border-[#757572]/20 text-white hover:bg-white/[0.04] focus:ring-white/20">
+                        <SelectTrigger className="h-12 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
                           <SelectValue>
                             <div className="inline-flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-lg bg-white/5 border border-[#757572]/20 flex items-center justify-center shrink-0">
+                              <div className="w-7 h-7 rounded-lg bg-olive-950/[0.04] border border-olive-950/10 flex items-center justify-center shrink-0 dark:bg-white/5 dark:border-[#757572]/20">
                                 {(() => {
-                                  const Icon = embeddingTriggerIcon;
                                   return (
-                                    <Icon
+                                    <ThemeIcon
+                                      icon={embeddingTriggerIcon}
                                       width={16}
                                       height={16}
-                                      className="text-white/90"
+                                      className="text-olive-950/90 dark:text-white/90"
                                       aria-label="Model provider"
                                     />
                                   );
                                 })()}
                               </div>
-                              <span className="font-mono text-sm text-white/85">{embeddingTriggerLabel}</span>
+                              <span className="font-mono text-sm text-olive-950/85 dark:text-white/85">{embeddingTriggerLabel}</span>
                             </div>
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="border-[#757572]/20 bg-lemon-900 text-white">
+                        <SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
                           {embeddingModelOptions.map((opt) => {
                             const Icon = opt.icon;
                             return (
                               <SelectItem
                                 key={opt.id}
                                 value={opt.id}
-                                className="focus:bg-white/5 focus:text-white data-[state=checked]:text-white"
+                                className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
                               >
                                 <span className="flex items-center gap-2 w-full">
-                                  <span className="w-5 h-5 rounded bg-white/5 border border-[#757572]/20 flex items-center justify-center">
-                                    <Icon width={14} height={14} className="text-white/85" aria-label={opt.providerLabel} />
+                                  <span className="w-5 h-5 rounded bg-olive-950/[0.04] border border-olive-950/10 flex items-center justify-center dark:bg-white/5 dark:border-[#757572]/20">
+                                    <ThemeIcon icon={Icon} width={14} height={14} className="text-olive-950/85 dark:text-white/85" aria-label={opt.providerLabel} />
                                   </span>
                                   <span className="font-mono text-sm">{opt.label}</span>
-                                  <span className="ml-auto text-xs text-white/35">{opt.providerLabel}</span>
+                                  <span className="ml-auto text-xs text-olive-600 dark:text-white/35">{opt.providerLabel}</span>
                                 </span>
                               </SelectItem>
                             );
                           })}
-                          <SelectSeparator className="bg-white/10" />
+                          <SelectSeparator className="bg-olive-950/10 dark:bg-white/10" />
                           <SelectItem
                             value={CUSTOM_MODEL_VALUE}
-                            className="focus:bg-white/5 focus:text-white data-[state=checked]:text-white"
+                            className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
                           >
                             <span className="flex items-center gap-2 w-full">
-                              <span className="w-5 h-5 rounded bg-white/5 border border-[#757572]/20 flex items-center justify-center">
-                                <VercelDark width={14} height={14} className="text-white/85" aria-label="Custom model" />
+                              <span className="w-5 h-5 rounded bg-olive-950/[0.04] border border-olive-950/10 flex items-center justify-center dark:bg-white/5 dark:border-[#757572]/20">
+                                <ThemeIcon
+                                  icon={{ light: VercelLight, dark: VercelDark }}
+                                  width={14}
+                                  height={14}
+                                  className="text-olive-950/85 dark:text-white/85"
+                                  aria-label="Custom model"
+                                />
                               </span>
                               <span className="text-sm">Custom model…</span>
                             </span>
@@ -1815,9 +1892,9 @@ export default function InstallWizardClient() {
                               }));
                             }}
                             placeholder={MODEL_PLACEHOLDER_BY_PROVIDER[state.embedding.provider] ?? 'model-id'}
-                            className="bg-white/[0.03] border-[#757572]/20 text-white font-mono text-sm placeholder:text-white/30 focus:border-[#757572]/30"
+                            className="bg-white border-olive-950/10 text-olive-950 font-mono text-sm placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
                           />
-                          <div className="text-xs text-white/40">
+                          <div className="text-xs text-olive-700/80 dark:text-white/40">
                             {state.embedding.type === 'multimodal'
                               ? 'Make sure this model supports image embeddings.'
                               : state.embedding.provider === 'ai'
@@ -1840,7 +1917,7 @@ export default function InstallWizardClient() {
                           }))
                         }
                       >
-                        <SelectTrigger className="h-11 bg-white/[0.03] border-[#757572]/20 text-white hover:bg-white/[0.04] focus:ring-white/20">
+                        <SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
                           <SelectValue>
                             <div className="flex items-center gap-2 w-full min-w-0">
                               <span className="font-mono text-sm">{state.defaults.chunkSize}</span>
@@ -1850,9 +1927,13 @@ export default function InstallWizardClient() {
                             </div>
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="border-[#757572]/20 bg-lemon-900 text-white">
+                        <SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
                           {CHUNK_SIZE_OPTIONS.map((n) => (
-                            <SelectItem key={n} value={String(n)} className="focus:bg-white/5 focus:text-white">
+                            <SelectItem
+                              key={n}
+                              value={String(n)}
+                              className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+                            >
                               <div className="flex items-center gap-2 w-full min-w-0">
                                 <span className="font-mono text-sm">{n}</span>
                                 {n === RECOMMENDED_DEFAULTS.chunkSize ? (
@@ -1874,7 +1955,7 @@ export default function InstallWizardClient() {
                           }))
                         }
                       >
-                        <SelectTrigger className="h-11 bg-white/[0.03] border-[#757572]/20 text-white hover:bg-white/[0.04] focus:ring-white/20">
+                        <SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
                           <SelectValue>
                             <div className="flex items-center gap-2 w-full min-w-0">
                               <span className="font-mono text-sm">{state.defaults.chunkOverlap}</span>
@@ -1884,9 +1965,13 @@ export default function InstallWizardClient() {
                             </div>
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="border-[#757572]/20 bg-lemon-900 text-white">
+                        <SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
                           {CHUNK_OVERLAP_OPTIONS.map((n) => (
-                            <SelectItem key={n} value={String(n)} className="focus:bg-white/5 focus:text-white">
+                            <SelectItem
+                              key={n}
+                              value={String(n)}
+                              className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+                            >
                               <div className="flex items-center gap-2 w-full min-w-0">
                                 <span className="font-mono text-sm">{n}</span>
                                 {n === RECOMMENDED_DEFAULTS.chunkOverlap ? (
@@ -1908,7 +1993,7 @@ export default function InstallWizardClient() {
                           }))
                         }
                       >
-                        <SelectTrigger className="h-11 bg-white/[0.03] border-[#757572]/20 text-white hover:bg-white/[0.04] focus:ring-white/20">
+                        <SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
                           <SelectValue>
                             <div className="flex items-center gap-2 w-full min-w-0">
                               <span className="font-mono text-sm">{state.defaults.topK}</span>
@@ -1918,9 +2003,13 @@ export default function InstallWizardClient() {
                             </div>
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="border-[#757572]/20 bg-lemon-900 text-white">
+                        <SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
                           {TOP_K_OPTIONS.map((n) => (
-                            <SelectItem key={n} value={String(n)} className="focus:bg-white/5 focus:text-white">
+                            <SelectItem
+                              key={n}
+                              value={String(n)}
+                              className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+                            >
                               <div className="flex items-center gap-2 w-full min-w-0">
                                 <span className="font-mono text-sm">{n}</span>
                                 {n === RECOMMENDED_DEFAULTS.topK ? (
@@ -2154,37 +2243,37 @@ export default function InstallWizardClient() {
 
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="rounded-xl border border-[#757572]/15 bg-olive-800/10 p-4">
+                    <div className="rounded-xl border border-olive-950/10 bg-white/70 p-4 dark:border-[#757572]/15 dark:bg-olive-800/10">
                       <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">Database</div>
-                      <div className="text-lg font-medium text-olive-100">{summary.adapter}</div>
+                      <div className="text-lg font-medium text-olive-950 dark:text-olive-100">{summary.adapter}</div>
                     </div>
-                    <div className="rounded-xl border border-[#757572]/15 bg-olive-800/10 p-4">
+                    <div className="rounded-xl border border-olive-950/10 bg-white/70 p-4 dark:border-[#757572]/15 dark:bg-olive-800/10">
                       <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">Embeddings</div>
-                      <div className="text-lg font-medium text-olive-100 capitalize">{summary.embeddingType}</div>
-                      <div className="mt-1 text-xs text-olive-400">{summary.embeddingProvider}</div>
+                      <div className="text-lg font-medium text-olive-950 capitalize dark:text-olive-100">{summary.embeddingType}</div>
+                      <div className="mt-1 text-xs text-olive-600 dark:text-olive-400">{summary.embeddingProvider}</div>
                     </div>
-                    <div className="rounded-xl border border-[#757572]/15 bg-olive-800/10 p-4">
+                    <div className="rounded-xl border border-olive-950/10 bg-white/70 p-4 dark:border-[#757572]/15 dark:bg-olive-800/10">
                       <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">Extractors</div>
-                      <div className="text-lg font-medium text-olive-100">{summary.extractorCount} selected</div>
+                      <div className="text-lg font-medium text-olive-950 dark:text-olive-100">{summary.extractorCount} selected</div>
                     </div>
-                    <div className="rounded-xl border border-[#757572]/15 bg-olive-800/10 p-4">
+                    <div className="rounded-xl border border-olive-950/10 bg-white/70 p-4 dark:border-[#757572]/15 dark:bg-olive-800/10">
                       <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">Connectors</div>
-                      <div className="text-lg font-medium text-olive-100">{summary.connectorCount} selected</div>
+                      <div className="text-lg font-medium text-olive-950 dark:text-olive-100">{summary.connectorCount} selected</div>
                     </div>
                     {summary.batteryCount > 0 && (
-                      <div className="rounded-xl border border-[#757572]/15 bg-olive-800/10 p-4 col-span-2">
+                      <div className="rounded-xl border border-olive-950/10 bg-white/70 p-4 col-span-2 dark:border-[#757572]/15 dark:bg-olive-800/10">
                         <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">Batteries</div>
-                        <div className="text-lg font-medium text-olive-100">{summary.batteryCount} selected</div>
-                        <div className="mt-1 text-xs text-olive-400">{state.modules.batteries.join(', ')}</div>
+                        <div className="text-lg font-medium text-olive-950 dark:text-olive-100">{summary.batteryCount} selected</div>
+                        <div className="mt-1 text-xs text-olive-600 dark:text-olive-400">{state.modules.batteries.join(', ')}</div>
                       </div>
                     )}
                   </div>
 
-                  <div className="rounded-xl border border-[#757572]/15 bg-lemon-950/80 overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#757572]/20 bg-olive-800/10">
+                  <div className="rounded-xl border border-olive-950/10 bg-white/70 overflow-hidden dark:border-[#757572]/15 dark:bg-lemon-950/80">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-olive-950/10 bg-olive-950/[0.03] dark:border-[#757572]/20 dark:bg-olive-800/10">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-olive-400">Install Command</span>
-                        <div className="w-px h-4 bg-olive-700/30" />
+                        <span className="text-xs font-medium text-olive-700 dark:text-olive-400">Install Command</span>
+                        <div className="w-px h-4 bg-olive-950/10 dark:bg-olive-700/30" />
                         <div className="flex items-center gap-1.5">
                           {(['bun', 'pnpm', 'npm', 'yarn'] as const).map((pm) => (
                             <button
@@ -2194,8 +2283,8 @@ export default function InstallWizardClient() {
                               className={cn(
                                 'px-2 py-1 text-xs font-medium rounded-md transition-colors',
                                 pkgManager === pm
-                                  ? 'bg-olive-600/30 text-white'
-                                  : 'text-olive-400 hover:text-olive-200 hover:bg-olive-700/20'
+                                  ? 'bg-olive-950 text-lemon-50 dark:bg-olive-600/30 dark:text-white'
+                                  : 'text-olive-700 hover:text-olive-950 hover:bg-olive-950/[0.03] dark:text-olive-400 dark:hover:text-olive-200 dark:hover:bg-olive-700/20'
                               )}
                             >
                               {pm}
@@ -2215,9 +2304,9 @@ export default function InstallWizardClient() {
                     </div>
                     <div className="p-4">
                       {installCommand ? (
-                        <code className="block font-mono text-sm text-lime-400 break-all">{installCommand}</code>
+                        <code className="block font-mono text-sm text-lime-700 break-all dark:text-lime-400">{installCommand}</code>
                       ) : (
-                        <div className="text-sm text-olive-400 leading-relaxed">
+                        <div className="text-sm text-olive-700 leading-relaxed dark:text-olive-400">
                           Create a preset to generate the installation command. This keeps the command fully deterministic and includes all configuration.
                         </div>
                       )}
@@ -2250,16 +2339,16 @@ export default function InstallWizardClient() {
                   </div>
 
                   {presetId && (
-                    <div className="rounded-xl border border-[#757572]/30 bg-olive-800/15 p-5 shadow-[0_0_24px_-6px_rgba(200,200,150,0.08)]">
+                    <div className="rounded-xl border border-olive-950/15 bg-white/70 p-5 shadow-[0_0_24px_-6px_rgba(200,200,150,0.08)] dark:border-[#757572]/30 dark:bg-olive-800/15">
                       <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-olive-600/20 border border-[#757572]/30 flex items-center justify-center shrink-0">
-                          <Check className="w-5 h-5 text-olive-300" />
+                        <div className="w-10 h-10 rounded-lg bg-olive-950/[0.05] border border-olive-950/15 flex items-center justify-center shrink-0 dark:bg-olive-600/20 dark:border-[#757572]/30">
+                          <Check className="w-5 h-5 text-olive-800 dark:text-olive-300" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="font-display text-xl font-normal text-olive-100">Preset created</div>
-                          <div className="mt-1 text-sm text-olive-400">
+                          <div className="font-display text-xl font-normal text-olive-950 dark:text-olive-100">Preset created</div>
+                          <div className="mt-1 text-sm text-olive-700 dark:text-olive-400">
                             Your configuration is saved as preset{' '}
-                            <code className="px-1.5 py-0.5 rounded bg-olive-700/30 font-mono text-olive-200">{presetId}</code>.
+                            <code className="px-1.5 py-0.5 rounded bg-olive-950/[0.04] font-mono text-olive-800 dark:bg-olive-700/30 dark:text-olive-200">{presetId}</code>.
                             The command above includes this preset ID.
                           </div>
                           {installCommand ? (
@@ -2281,7 +2370,7 @@ export default function InstallWizardClient() {
               </div>
             )}
 
-            <div className="flex items-center justify-between mt-12 pt-6 border-t border-[#757572]/20">
+            <div className="flex items-center justify-between mt-12 pt-6 border-t border-olive-950/10 dark:border-[#757572]/20">
               <PlainButton
                 size="lg"
                 onClick={() => goToStep(currentStep - 1)}
@@ -2319,39 +2408,39 @@ export default function InstallWizardClient() {
           </div>
         </main>
 
-        <aside className="w-96 shrink-0 border-l border-[#757572]/20 p-6 hidden xl:block">
+        <aside className="w-96 shrink-0 border-l border-olive-950/10 p-6 hidden xl:block dark:border-[#757572]/20">
           <div className="sticky top-20">
             <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-4">Live Preview</div>
 
             <div className="space-y-3 mb-6">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-olive-400">Directory</span>
-                <span className="font-mono text-olive-200">{state.install.installDir}</span>
+                <span className="font-mono text-olive-800 dark:text-olive-200">{state.install.installDir}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-olive-400">Adapter</span>
-                <span className="text-olive-200">{state.install.storeAdapter}</span>
+                <span className="text-olive-800 dark:text-olive-200">{state.install.storeAdapter}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-olive-400">Embedding</span>
-                <span className="text-olive-200 capitalize">{state.embedding.type}</span>
+                <span className="text-olive-800 capitalize dark:text-olive-200">{state.embedding.type}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-olive-400">Extractors</span>
-                <span className="text-olive-200">{state.modules.extractors.length}</span>
+                <span className="text-olive-800 dark:text-olive-200">{state.modules.extractors.length}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-olive-400">Connectors</span>
-                <span className="text-olive-200">{state.modules.connectors.length}</span>
+                <span className="text-olive-800 dark:text-olive-200">{state.modules.connectors.length}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-olive-400">Batteries</span>
-                <span className="text-olive-200">{state.modules.batteries.length}</span>
+                <span className="text-olive-800 dark:text-olive-200">{state.modules.batteries.length}</span>
               </div>
             </div>
 
-            <div className="rounded-xl border border-[#757572]/15 bg-lemon-950/80 overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#757572]/20 bg-olive-800/10">
+            <div className="rounded-xl border border-olive-950/10 bg-white/70 overflow-hidden dark:border-[#757572]/15 dark:bg-lemon-950/80">
+              <div className="flex items-center justify-between px-3 py-2.5 border-b border-olive-950/10 bg-olive-950/[0.03] dark:border-[#757572]/20 dark:bg-olive-800/10">
                 <div className="flex items-center gap-1.5">
                   {(['bun', 'pnpm', 'npm', 'yarn'] as const).map((pm) => (
                     <button
@@ -2360,7 +2449,9 @@ export default function InstallWizardClient() {
                       onClick={() => setPkgManager(pm)}
                       className={cn(
                         'px-2 py-1 text-xs font-medium rounded-md transition-colors',
-                        pkgManager === pm ? 'bg-olive-600/30 text-white' : 'text-olive-400 hover:text-olive-200 hover:bg-olive-700/20'
+                        pkgManager === pm
+                          ? 'bg-olive-950 text-lemon-50 dark:bg-olive-600/30 dark:text-white'
+                          : 'text-olive-700 hover:text-olive-950 hover:bg-olive-950/[0.03] dark:text-olive-400 dark:hover:text-olive-200 dark:hover:bg-olive-700/20'
                       )}
                     >
                       {pm}
@@ -2373,7 +2464,9 @@ export default function InstallWizardClient() {
                   disabled={!installCommand}
                   className={cn(
                     'inline-flex items-center gap-2 px-2 py-1 rounded-md transition-colors',
-                    installCommand ? 'text-white/55 hover:text-white hover:bg-white/[0.04]' : 'text-white/25 cursor-not-allowed'
+                    installCommand
+                      ? 'text-olive-700 hover:text-olive-950 hover:bg-olive-950/[0.03] dark:text-white/55 dark:hover:text-white dark:hover:bg-white/[0.04]'
+                      : 'text-olive-400 cursor-not-allowed dark:text-white/25'
                   )}
                 >
                   <Copy className="w-4 h-4" />
@@ -2383,7 +2476,7 @@ export default function InstallWizardClient() {
               <div className="p-3">
                 {installCommand ? (
                   <div className="space-y-3">
-                    <code className="block font-mono text-xs text-lime-400 break-all leading-relaxed">{installCommand}</code>
+                    <code className="block font-mono text-xs text-lime-700 break-all leading-relaxed dark:text-lime-400">{installCommand}</code>
                     <SoftButton
                       size="md"
                       onClick={() => setNextStepsOpen(true)}
@@ -2395,7 +2488,7 @@ export default function InstallWizardClient() {
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    <div className="text-xs text-white/45 leading-relaxed">
+                    <div className="text-xs text-olive-700 leading-relaxed dark:text-white/45">
                       Create a preset to generate the installation command. Creating a preset saves the config so you can come back to it later.
                     </div>
                     <Button size="md" disabled={creatingPreset} onClick={handleCreatePreset} className="w-full">
@@ -2407,7 +2500,7 @@ export default function InstallWizardClient() {
             </div>
 
             {(state.modules.extractors.length > 0 || state.modules.connectors.length > 0 || state.modules.batteries.length > 0) && (
-              <div className="mt-6 pt-6 border-t border-[#757572]/20">
+              <div className="mt-6 pt-6 border-t border-olive-950/10 dark:border-[#757572]/20">
                 {state.modules.extractors.length > 0 && (
                   <div className="mb-4">
                     <div className="text-xs text-olive-500 mb-2">Extractors</div>
@@ -2420,7 +2513,7 @@ export default function InstallWizardClient() {
                             href={href}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs px-2 py-1 rounded bg-olive-700/20 text-olive-300 font-mono transition-colors hover:bg-olive-600/30 hover:text-olive-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-500/30"
+                            className="text-xs px-2 py-1 rounded bg-olive-950/[0.04] text-olive-800 font-mono transition-colors hover:bg-olive-950/[0.06] hover:text-olive-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-500/30 dark:bg-olive-700/20 dark:text-olive-300 dark:hover:bg-olive-600/30 dark:hover:text-olive-200"
                             title="Open docs"
                             aria-label={`Open docs for ${id}`}
                           >
@@ -2443,7 +2536,7 @@ export default function InstallWizardClient() {
                             href={href}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs px-2 py-1 rounded bg-olive-700/20 text-olive-300 font-mono capitalize transition-colors hover:bg-olive-600/30 hover:text-olive-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-500/30"
+                            className="text-xs px-2 py-1 rounded bg-olive-950/[0.04] text-olive-800 font-mono capitalize transition-colors hover:bg-olive-950/[0.06] hover:text-olive-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-500/30 dark:bg-olive-700/20 dark:text-olive-300 dark:hover:bg-olive-600/30 dark:hover:text-olive-200"
                             title="Open docs"
                             aria-label={`Open docs for ${id}`}
                           >
@@ -2461,7 +2554,7 @@ export default function InstallWizardClient() {
                       {state.modules.batteries.map((id) => (
                         <span
                           key={id}
-                          className="text-xs px-2 py-1 rounded bg-olive-600/20 text-olive-300 font-mono capitalize border border-[#757572]/25"
+                          className="text-xs px-2 py-1 rounded bg-olive-950/[0.04] text-olive-800 font-mono capitalize border border-olive-950/10 dark:bg-olive-600/20 dark:text-olive-300 dark:border-[#757572]/25"
                         >
                           {id}
                         </span>

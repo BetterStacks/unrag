@@ -36,8 +36,8 @@ export default function InstallPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-lemon-950 flex items-center justify-center">
-          <div className="text-sm text-olive-400">Loading install wizard…</div>
+        <div className="min-h-screen bg-lemon-50 dark:bg-lemon-950 flex items-center justify-center">
+          <div className="text-sm text-olive-700 dark:text-olive-400">Loading install wizard…</div>
         </div>
       }
     >
