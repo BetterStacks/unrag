@@ -13,6 +13,8 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "lint": "turbo run lint",
+    "lint:fix": "biome check --fix .",
+    "format": "biome format --write .",
     "types:check": "turbo run types:check",
     "export:excalidraw": "bash ./scripts/export-excalidraw.sh",
     "changeset": "changeset",
@@ -20,9 +22,8 @@
     "release": "changeset publish"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@changesets/cli": "^2.29.7",
     "turbo": "^2.5.6"
   }
 }
-
-
