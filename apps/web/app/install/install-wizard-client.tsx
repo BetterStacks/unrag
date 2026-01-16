@@ -50,7 +50,7 @@ import {
 } from '@ridemountainpig/svgl-react';
 
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { Button, PlainButton } from '@/components/elements';
 import { NextStepsDialog } from './next-steps-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -709,7 +709,7 @@ function DocsIconLink({ href, label }: { href: string; label: string }) {
       target="_blank"
       rel="noreferrer"
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-white/10 bg-white/[0.02] text-white/45 hover:text-white/80 hover:bg-white/[0.05] transition-all opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+      className="inline-flex items-center justify-center w-7 h-7 rounded-md border border-[#757572]/20 bg-white/[0.02] text-white/45 hover:text-white/80 hover:bg-white/[0.05] transition-all opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
       aria-label={label}
       title={label}
     >
@@ -781,11 +781,11 @@ function SelectionCard({
       disabled={disabled}
       className={cn(
         'group relative w-full text-left rounded-xl border p-4 transition-all duration-200',
-        'hover:border-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
+        'hover:border-[#757572]/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
         selected
           ? 'border-white/30 bg-white/[0.04]'
-          : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.03]',
-        disabled && 'opacity-50 cursor-not-allowed hover:border-white/[0.08] hover:bg-white/[0.02]'
+          : 'border-[#757572]/15 bg-white/[0.02] hover:bg-white/[0.03]',
+        disabled && 'opacity-50 cursor-not-allowed hover:border-[#757572]/15 hover:bg-white/[0.02]'
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -793,7 +793,7 @@ function SelectionCard({
           <div className="flex items-center gap-2">
             <span className="font-medium text-white/90">{title}</span>
             {badge && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10 capitalize">
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20 capitalize">
                 {badge}
               </span>
             )}
@@ -839,10 +839,10 @@ function ExtractorCard({
       onClick={onToggle}
       className={cn(
         'rounded-lg border p-3',
-        'hover:border-white/20',
+        'hover:border-[#757572]/30',
         selected
           ? 'border-white/25 bg-white/[0.05]'
-          : 'border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.03]'
+          : 'border-[#757572]/15 bg-white/[0.02] hover:bg-white/[0.03]'
       )}
     >
       <div className="flex items-start gap-3">
@@ -873,7 +873,7 @@ function ExtractorCard({
         <div
           className={cn(
             'w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-all',
-            selected ? 'border-white/40 bg-white text-black' : 'border-white/15 group-hover:border-white/25'
+            selected ? 'border-white/40 bg-white text-black' : 'border-[#757572]/20 group-hover:border-white/25'
           )}
         >
           {selected && <Check className="w-3 h-3" strokeWidth={3} />}
@@ -910,8 +910,8 @@ function ConnectorCard({
       disabled={!isAvailable}
       className={cn(
         'rounded-xl border p-4',
-        selected ? 'border-white/25 bg-white/[0.05]' : 'border-white/[0.08] bg-white/[0.02]',
-        isAvailable ? 'hover:border-white/20 hover:bg-white/[0.03]' : 'opacity-50 cursor-not-allowed'
+        selected ? 'border-white/25 bg-white/[0.05]' : 'border-[#757572]/15 bg-white/[0.02]',
+        isAvailable ? 'hover:border-[#757572]/30 hover:bg-white/[0.03]' : 'opacity-50 cursor-not-allowed'
       )}
     >
       <div className="flex items-start gap-3">
@@ -938,7 +938,7 @@ function ConnectorCard({
             <span
               className={cn(
                 'text-[10px] px-2 py-0.5 rounded-full border capitalize',
-                isAvailable ? 'bg-emerald-500/10 text-emerald-400/80 border-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10'
+                isAvailable ? 'bg-emerald-500/10 text-emerald-400/80 border-emerald-500/20' : 'bg-white/5 text-white/40 border-[#757572]/20'
               )}
             >
               {isAvailable ? 'available' : 'coming soon'}
@@ -954,7 +954,7 @@ function ConnectorCard({
         <div
           className={cn(
             'w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-all',
-            selected ? 'border-white/40 bg-white text-black' : 'border-white/15 group-hover:border-white/25'
+            selected ? 'border-white/40 bg-white text-black' : 'border-[#757572]/20 group-hover:border-white/25'
           )}
         >
           {selected && <Check className="w-3 h-3" strokeWidth={3} />}
@@ -984,7 +984,7 @@ function BatteryCard({
   onToggle: () => void;
 }) {
   const isAvailable = status === 'available';
-  const isExperimental = id === 'eval';
+  const isExperimental = id === 'debug';
 
   return (
     <ClickableCard
@@ -992,8 +992,8 @@ function BatteryCard({
       disabled={!isAvailable}
       className={cn(
         'rounded-xl border p-4',
-        selected ? 'border-white/25 bg-white/[0.05]' : 'border-white/[0.08] bg-white/[0.02]',
-        isAvailable ? 'hover:border-white/20 hover:bg-white/[0.03]' : 'opacity-50 cursor-not-allowed'
+        selected ? 'border-white/25 bg-white/[0.05]' : 'border-[#757572]/15 bg-white/[0.02]',
+        isAvailable ? 'hover:border-[#757572]/30 hover:bg-white/[0.03]' : 'opacity-50 cursor-not-allowed'
       )}
     >
       <div className="flex items-start gap-3">
@@ -1011,7 +1011,7 @@ function BatteryCard({
             <span
               className={cn(
                 'text-[10px] px-2 py-0.5 rounded-full border capitalize',
-                isAvailable ? 'bg-emerald-500/10 text-emerald-400/80 border-emerald-500/20' : 'bg-white/5 text-white/40 border-white/10'
+                isAvailable ? 'bg-emerald-500/10 text-emerald-400/80 border-emerald-500/20' : 'bg-white/5 text-white/40 border-[#757572]/20'
               )}
             >
               {isAvailable ? 'available' : 'coming soon'}
@@ -1038,7 +1038,7 @@ function BatteryCard({
         <div
           className={cn(
             'w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-all',
-            selected ? 'border-white/40 bg-white text-black' : 'border-white/15 group-hover:border-white/25'
+            selected ? 'border-white/40 bg-white text-black' : 'border-[#757572]/20 group-hover:border-white/25'
           )}
         >
           {selected && <Check className="w-3 h-3" strokeWidth={3} />}
@@ -1051,7 +1051,7 @@ function BatteryCard({
 function SectionHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className="mb-6">
-      <h2 className="text-lg font-semibold text-white/90">{title}</h2>
+      <h2 className="font-display text-xl font-normal text-white/90">{title}</h2>
       {description && <p className="mt-1 text-sm text-white/50">{description}</p>}
     </div>
   );
@@ -1073,7 +1073,7 @@ function RecommendedBadge({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        'text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/50 border border-white/10',
+        'text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/50 border border-[#757572]/20',
         className
       )}
     >
@@ -1309,7 +1309,7 @@ export default function InstallWizardClient() {
     : (selectedEmbeddingModelOption?.label ?? state.embedding.model);
 
   return (
-    <div className="min-h-screen bg-[hsl(0,0%,3%)]">
+    <div className="min-h-screen bg-lemon-950">
       {installCommand ? (
         <NextStepsDialog
           open={nextStepsOpen}
@@ -1318,7 +1318,7 @@ export default function InstallWizardClient() {
           manifest={manifest}
         />
       ) : null}
-      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[hsl(0,0%,3%)]/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-50 border-b border-[#757572]/20 bg-lemon-950/80 backdrop-blur-xl">
         <div className="max-w-[1600px] mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2 text-white/60 hover:text-white/90 transition-colors">
@@ -1326,18 +1326,16 @@ export default function InstallWizardClient() {
               <span className="text-sm font-medium">Back</span>
             </Link>
             <div className="w-px h-5 bg-white/10" />
-            <h1 className="text-sm font-medium text-white/80">Configure Installation</h1>
+            <h1 className="font-display text-base font-normal text-white/80">Configure Installation</h1>
           </div>
           <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
+            <PlainButton
+              size="md"
               onClick={() => handleCopy('url')}
-              className="text-white/60 hover:text-white hover:bg-white/5"
             >
               <Share2 className="w-4 h-4" />
               {copied === 'url' ? 'Copied!' : 'Share'}
-            </Button>
+            </PlainButton>
             <a
               href="/docs/getting-started/quickstart"
               target="_blank"
@@ -1351,9 +1349,9 @@ export default function InstallWizardClient() {
       </header>
 
       <div className="max-w-[1600px] mx-auto flex min-h-[calc(100vh-3.5rem)]">
-        <aside className="w-64 shrink-0 border-r border-white/[0.06] p-6">
+        <aside className="w-64 shrink-0 border-r border-[#757572]/20 p-6">
           <div className="sticky top-20">
-            <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-4">Steps</div>
+            <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-4">Steps</div>
             <nav className="space-y-1">
               {STEPS.map((step, index) => {
                 const isActive = index === currentStep;
@@ -1365,22 +1363,22 @@ export default function InstallWizardClient() {
                     onClick={() => goToStep(index)}
                     className={cn(
                       'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200',
-                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20',
+                      'focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-500/30',
                       isActive
-                        ? 'bg-white/[0.08] text-white'
+                        ? 'bg-olive-700/20 text-white'
                         : isCompleted
-                          ? 'text-white/60 hover:text-white/80 hover:bg-white/[0.03]'
-                          : 'text-white/40 hover:text-white/60 hover:bg-white/[0.03]'
+                          ? 'text-olive-300 hover:text-white hover:bg-olive-800/20'
+                          : 'text-olive-500 hover:text-olive-300 hover:bg-olive-800/15'
                     )}
                   >
                     <div
                       className={cn(
                         'w-6 h-6 rounded-md flex items-center justify-center transition-colors',
                         isActive
-                          ? 'bg-white/10 text-white'
+                          ? 'bg-olive-600/30 text-white'
                           : isCompleted
-                            ? 'bg-emerald-500/10 text-emerald-400'
-                            : 'bg-white/5 text-white/30'
+                            ? 'bg-olive-500/20 text-olive-300'
+                            : 'bg-olive-800/30 text-olive-500'
                       )}
                     >
                       {isCompleted ? <Check className="w-3.5 h-3.5" /> : step.icon}
@@ -1392,16 +1390,15 @@ export default function InstallWizardClient() {
               })}
             </nav>
 
-            <div className="mt-8 pt-6 border-t border-white/[0.06]">
-              <Button
-                variant="ghost"
-                size="sm"
+            <div className="mt-8 pt-6 border-t border-[#757572]/20">
+              <PlainButton
+                size="md"
                 onClick={reset}
-                className="w-full justify-start text-white/40 hover:text-white/60 hover:bg-white/5"
+                className="w-full justify-start"
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
+                <RefreshCw className="w-4 h-4" />
                 Reset to defaults
-              </Button>
+              </PlainButton>
             </div>
           </div>
         </aside>
@@ -1417,18 +1414,18 @@ export default function InstallWizardClient() {
               >
                 {/* Welcome Hero */}
                 <div className="mb-8">
-                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-white/[0.08] to-white/[0.04] border border-white/[0.08] mb-4">
-                    <Zap className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="text-xs font-medium text-white/70">Interactive Setup Wizard</span>
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-olive-700/20 to-olive-700/10 border border-[#757572]/25 mb-4">
+                    <Zap className="w-3.5 h-3.5 text-olive-400" />
+                    <span className="text-xs font-medium text-olive-300">Interactive Setup Wizard</span>
                   </div>
-                  <h2 className="text-2xl font-semibold text-white/95 mb-2">Configure your RAG pipeline</h2>
+                  <h2 className="font-display text-3xl font-normal text-white/95 mb-2">Configure your RAG pipeline</h2>
                   <p className="text-white/50 leading-relaxed">
                     This wizard will guide you through setting up Unrag in your project. Configure your database, embeddings, extractors, and connectors—then generate a single command to install everything.
                   </p>
                 </div>
 
                 {/* Project Configuration */}
-                <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-5">
+                <div className="rounded-xl border border-[#757572]/15 bg-white/[0.02] p-5">
                   <div className="flex items-center gap-2 mb-4">
                     <Settings2 className="w-4 h-4 text-white/50" />
                     <span className="text-sm font-medium text-white/70">Project Configuration</span>
@@ -1443,7 +1440,7 @@ export default function InstallWizardClient() {
                             install: { ...prev.install, installDir: e.target.value },
                           }))
                         }
-                        className="bg-white/[0.03] border-white/10 text-white placeholder:text-white/30 focus:border-white/20"
+                        className="bg-white/[0.03] border-[#757572]/20 text-white placeholder:text-white/30 focus:border-[#757572]/30"
                       />
                     </FieldGroup>
 
@@ -1456,7 +1453,7 @@ export default function InstallWizardClient() {
                             install: { ...prev.install, aliasBase: e.target.value },
                           }))
                         }
-                        className="bg-white/[0.03] border-white/10 text-white placeholder:text-white/30 focus:border-white/20"
+                        className="bg-white/[0.03] border-[#757572]/20 text-white placeholder:text-white/30 focus:border-[#757572]/30"
                       />
                     </FieldGroup>
                   </div>
@@ -1464,11 +1461,11 @@ export default function InstallWizardClient() {
 
                 {/* Tech Stack badges */}
                 <div className="mt-6 flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-white/30">Built with</span>
+                  <span className="text-xs text-olive-500">Built with</span>
                   {['TypeScript', 'pgvector', 'AI SDK', 'Drizzle / Prisma'].map((tech) => (
                     <span
                       key={tech}
-                      className="inline-flex items-center px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06] text-xs font-medium text-white/50"
+                      className="inline-flex items-center px-2.5 py-1 rounded-md bg-olive-800/20 border border-[#757572]/25 text-xs font-medium text-olive-400"
                     >
                       {tech}
                     </span>
@@ -1506,10 +1503,10 @@ export default function InstallWizardClient() {
                   ))}
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-white/[0.06]">
+                <div className="mt-8 pt-6 border-t border-[#757572]/20">
                   <SectionHeader title="Storage Options" description="Control what content is persisted to the database." />
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#757572]/15 bg-white/[0.02] p-4">
                       <div>
                         <div className="font-medium text-white/90">Store chunk content</div>
                         <div className="text-sm text-white/50">Persist chunk text for retrieval results</div>
@@ -1524,7 +1521,7 @@ export default function InstallWizardClient() {
                         }
                       />
                     </div>
-                    <div className="flex items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+                    <div className="flex items-center justify-between gap-4 rounded-xl border border-[#757572]/15 bg-white/[0.02] p-4">
                       <div>
                         <div className="font-medium text-white/90">Store document content</div>
                         <div className="text-sm text-white/50">Persist full document text</div>
@@ -1583,7 +1580,7 @@ export default function InstallWizardClient() {
                   ))}
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-white/[0.06] space-y-6">
+                <div className="mt-8 pt-6 border-t border-[#757572]/20 space-y-6">
                   <FieldGroup
                     label="Embedding provider"
                     hint="This controls which provider Unrag uses for embeddings (and which env vars you'll need)."
@@ -1608,17 +1605,17 @@ export default function InstallWizardClient() {
                               }));
                             }}
                           >
-                            <SelectTrigger className="h-auto min-h-[72px] bg-white/[0.03] border-white/10 text-white hover:bg-white/[0.04] focus:ring-white/20 px-4 py-3">
+                            <SelectTrigger className="h-auto min-h-[72px] bg-white/[0.03] border-[#757572]/20 text-white hover:bg-white/[0.04] focus:ring-white/20 px-4 py-3">
                               <SelectValue>
                                 <div className="flex items-start gap-3 text-left">
-                                  <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-white/80">
+                                  <div className="w-10 h-10 rounded-lg bg-white/5 border border-[#757572]/20 flex items-center justify-center shrink-0 text-white/80">
                                     <SelectedIcon width={18} height={18} className="text-white/85" aria-label={selectedProvider?.name ?? 'Provider'} />
                                   </div>
                                   <div className="min-w-0 flex-1">
                                     <div className="flex items-center gap-2">
                                       <span className="font-medium text-white/90">{selectedProvider?.name ?? 'Select provider'}</span>
                                       {selectedProvider?.badge ? (
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10 capitalize">
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20 capitalize">
                                           {selectedProvider.badge}
                                         </span>
                                       ) : null}
@@ -1628,7 +1625,7 @@ export default function InstallWizardClient() {
                                 </div>
                               </SelectValue>
                             </SelectTrigger>
-                            <SelectContent className="border-white/10 bg-[hsl(0,0%,6%)] text-white max-h-[400px]">
+                            <SelectContent className="border-[#757572]/20 bg-lemon-900 text-white max-h-[400px]">
                               {EMBEDDING_PROVIDER_OPTIONS.map((p) => {
                                 const Icon = p.icon;
                                 return (
@@ -1638,14 +1635,14 @@ export default function InstallWizardClient() {
                                     className="focus:bg-white/5 focus:text-white data-[state=checked]:text-white py-3 px-3"
                                   >
                                     <div className="flex items-start gap-3">
-                                      <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-white/80">
+                                      <div className="w-9 h-9 rounded-lg bg-white/5 border border-[#757572]/20 flex items-center justify-center shrink-0 text-white/80">
                                         <Icon width={16} height={16} className="text-white/85" aria-label={p.name} />
                                       </div>
                                       <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
                                           <span className="font-medium text-white/90">{p.name}</span>
                                           {p.badge ? (
-                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10 capitalize">
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20 capitalize">
                                               {p.badge}
                                             </span>
                                           ) : null}
@@ -1708,10 +1705,10 @@ export default function InstallWizardClient() {
                           }));
                         }}
                       >
-                        <SelectTrigger className="h-12 bg-white/[0.03] border-white/10 text-white hover:bg-white/[0.04] focus:ring-white/20">
+                        <SelectTrigger className="h-12 bg-white/[0.03] border-[#757572]/20 text-white hover:bg-white/[0.04] focus:ring-white/20">
                           <SelectValue>
                             <div className="inline-flex items-center gap-2.5">
-                              <div className="w-7 h-7 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+                              <div className="w-7 h-7 rounded-lg bg-white/5 border border-[#757572]/20 flex items-center justify-center shrink-0">
                                 {(() => {
                                   const Icon = embeddingTriggerIcon;
                                   return (
@@ -1728,7 +1725,7 @@ export default function InstallWizardClient() {
                             </div>
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="border-white/10 bg-[hsl(0,0%,6%)] text-white">
+                        <SelectContent className="border-[#757572]/20 bg-lemon-900 text-white">
                           {embeddingModelOptions.map((opt) => {
                             const Icon = opt.icon;
                             return (
@@ -1738,7 +1735,7 @@ export default function InstallWizardClient() {
                                 className="focus:bg-white/5 focus:text-white data-[state=checked]:text-white"
                               >
                                 <span className="flex items-center gap-2 w-full">
-                                  <span className="w-5 h-5 rounded bg-white/5 border border-white/10 flex items-center justify-center">
+                                  <span className="w-5 h-5 rounded bg-white/5 border border-[#757572]/20 flex items-center justify-center">
                                     <Icon width={14} height={14} className="text-white/85" aria-label={opt.providerLabel} />
                                   </span>
                                   <span className="font-mono text-sm">{opt.label}</span>
@@ -1753,7 +1750,7 @@ export default function InstallWizardClient() {
                             className="focus:bg-white/5 focus:text-white data-[state=checked]:text-white"
                           >
                             <span className="flex items-center gap-2 w-full">
-                              <span className="w-5 h-5 rounded bg-white/5 border border-white/10 flex items-center justify-center">
+                              <span className="w-5 h-5 rounded bg-white/5 border border-[#757572]/20 flex items-center justify-center">
                                 <VercelDark width={14} height={14} className="text-white/85" aria-label="Custom model" />
                               </span>
                               <span className="text-sm">Custom model…</span>
@@ -1774,7 +1771,7 @@ export default function InstallWizardClient() {
                               }));
                             }}
                             placeholder={MODEL_PLACEHOLDER_BY_PROVIDER[state.embedding.provider] ?? 'model-id'}
-                            className="bg-white/[0.03] border-white/10 text-white font-mono text-sm placeholder:text-white/30 focus:border-white/20"
+                            className="bg-white/[0.03] border-[#757572]/20 text-white font-mono text-sm placeholder:text-white/30 focus:border-[#757572]/30"
                           />
                           <div className="text-xs text-white/40">
                             {state.embedding.type === 'multimodal'
@@ -1799,7 +1796,7 @@ export default function InstallWizardClient() {
                           }))
                         }
                       >
-                        <SelectTrigger className="h-11 bg-white/[0.03] border-white/10 text-white hover:bg-white/[0.04] focus:ring-white/20">
+                        <SelectTrigger className="h-11 bg-white/[0.03] border-[#757572]/20 text-white hover:bg-white/[0.04] focus:ring-white/20">
                           <SelectValue>
                             <div className="flex items-center gap-2 w-full min-w-0">
                               <span className="font-mono text-sm">{state.defaults.chunkSize}</span>
@@ -1809,7 +1806,7 @@ export default function InstallWizardClient() {
                             </div>
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="border-white/10 bg-[hsl(0,0%,6%)] text-white">
+                        <SelectContent className="border-[#757572]/20 bg-lemon-900 text-white">
                           {CHUNK_SIZE_OPTIONS.map((n) => (
                             <SelectItem key={n} value={String(n)} className="focus:bg-white/5 focus:text-white">
                               <div className="flex items-center gap-2 w-full min-w-0">
@@ -1833,7 +1830,7 @@ export default function InstallWizardClient() {
                           }))
                         }
                       >
-                        <SelectTrigger className="h-11 bg-white/[0.03] border-white/10 text-white hover:bg-white/[0.04] focus:ring-white/20">
+                        <SelectTrigger className="h-11 bg-white/[0.03] border-[#757572]/20 text-white hover:bg-white/[0.04] focus:ring-white/20">
                           <SelectValue>
                             <div className="flex items-center gap-2 w-full min-w-0">
                               <span className="font-mono text-sm">{state.defaults.chunkOverlap}</span>
@@ -1843,7 +1840,7 @@ export default function InstallWizardClient() {
                             </div>
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="border-white/10 bg-[hsl(0,0%,6%)] text-white">
+                        <SelectContent className="border-[#757572]/20 bg-lemon-900 text-white">
                           {CHUNK_OVERLAP_OPTIONS.map((n) => (
                             <SelectItem key={n} value={String(n)} className="focus:bg-white/5 focus:text-white">
                               <div className="flex items-center gap-2 w-full min-w-0">
@@ -1867,7 +1864,7 @@ export default function InstallWizardClient() {
                           }))
                         }
                       >
-                        <SelectTrigger className="h-11 bg-white/[0.03] border-white/10 text-white hover:bg-white/[0.04] focus:ring-white/20">
+                        <SelectTrigger className="h-11 bg-white/[0.03] border-[#757572]/20 text-white hover:bg-white/[0.04] focus:ring-white/20">
                           <SelectValue>
                             <div className="flex items-center gap-2 w-full min-w-0">
                               <span className="font-mono text-sm">{state.defaults.topK}</span>
@@ -1877,7 +1874,7 @@ export default function InstallWizardClient() {
                             </div>
                           </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="border-white/10 bg-[hsl(0,0%,6%)] text-white">
+                        <SelectContent className="border-[#757572]/20 bg-lemon-900 text-white">
                           {TOP_K_OPTIONS.map((n) => (
                             <SelectItem key={n} value={String(n)} className="focus:bg-white/5 focus:text-white">
                               <div className="flex items-center gap-2 w-full min-w-0">
@@ -2053,7 +2050,7 @@ export default function InstallWizardClient() {
                 {!manifest ? (
                   <div className="flex items-center justify-center h-40 text-white/40">Loading batteries...</div>
                 ) : availableBatteries.length === 0 ? (
-                  <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-6 text-center">
+                  <div className="rounded-xl border border-[#757572]/15 bg-white/[0.02] p-6 text-center">
                     <Battery className="w-8 h-8 mx-auto mb-3 text-white/20" />
                     <div className="text-sm text-white/50">No batteries available yet.</div>
                     <div className="mt-1 text-xs text-white/30">Batteries like rerankers and eval harnesses will appear here when available.</div>
@@ -2113,37 +2110,37 @@ export default function InstallWizardClient() {
 
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-                      <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">Database</div>
-                      <div className="text-lg font-medium text-white/90">{summary.adapter}</div>
+                    <div className="rounded-xl border border-[#757572]/15 bg-olive-800/10 p-4">
+                      <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">Database</div>
+                      <div className="text-lg font-medium text-olive-100">{summary.adapter}</div>
                     </div>
-                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-                      <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">Embeddings</div>
-                      <div className="text-lg font-medium text-white/90 capitalize">{summary.embeddingType}</div>
-                      <div className="mt-1 text-xs text-white/45">{summary.embeddingProvider}</div>
+                    <div className="rounded-xl border border-[#757572]/15 bg-olive-800/10 p-4">
+                      <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">Embeddings</div>
+                      <div className="text-lg font-medium text-olive-100 capitalize">{summary.embeddingType}</div>
+                      <div className="mt-1 text-xs text-olive-400">{summary.embeddingProvider}</div>
                     </div>
-                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-                      <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">Extractors</div>
-                      <div className="text-lg font-medium text-white/90">{summary.extractorCount} selected</div>
+                    <div className="rounded-xl border border-[#757572]/15 bg-olive-800/10 p-4">
+                      <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">Extractors</div>
+                      <div className="text-lg font-medium text-olive-100">{summary.extractorCount} selected</div>
                     </div>
-                    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
-                      <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">Connectors</div>
-                      <div className="text-lg font-medium text-white/90">{summary.connectorCount} selected</div>
+                    <div className="rounded-xl border border-[#757572]/15 bg-olive-800/10 p-4">
+                      <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">Connectors</div>
+                      <div className="text-lg font-medium text-olive-100">{summary.connectorCount} selected</div>
                     </div>
                     {summary.batteryCount > 0 && (
-                      <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 col-span-2">
-                        <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">Batteries</div>
-                        <div className="text-lg font-medium text-white/90">{summary.batteryCount} selected</div>
-                        <div className="mt-1 text-xs text-white/45">{state.modules.batteries.join(', ')}</div>
+                      <div className="rounded-xl border border-[#757572]/15 bg-olive-800/10 p-4 col-span-2">
+                        <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">Batteries</div>
+                        <div className="text-lg font-medium text-olive-100">{summary.batteryCount} selected</div>
+                        <div className="mt-1 text-xs text-olive-400">{state.modules.batteries.join(', ')}</div>
                       </div>
                     )}
                   </div>
 
-                  <div className="rounded-xl border border-white/[0.08] bg-black/40 overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+                  <div className="rounded-xl border border-[#757572]/15 bg-lemon-950/80 overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#757572]/20 bg-olive-800/10">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-medium text-white/40">Install Command</span>
-                        <div className="w-px h-4 bg-white/10" />
+                        <span className="text-xs font-medium text-olive-400">Install Command</span>
+                        <div className="w-px h-4 bg-olive-700/30" />
                         <div className="flex items-center gap-1.5">
                           {(['bun', 'pnpm', 'npm', 'yarn'] as const).map((pm) => (
                             <button
@@ -2153,8 +2150,8 @@ export default function InstallWizardClient() {
                               className={cn(
                                 'px-2 py-1 text-xs font-medium rounded-md transition-colors',
                                 pkgManager === pm
-                                  ? 'bg-white/10 text-white'
-                                  : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
+                                  ? 'bg-olive-600/30 text-white'
+                                  : 'text-olive-400 hover:text-olive-200 hover:bg-olive-700/20'
                               )}
                             >
                               {pm}
@@ -2162,22 +2159,21 @@ export default function InstallWizardClient() {
                           ))}
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
+                      <PlainButton
+                        size="md"
                         onClick={() => handleCopy('command')}
                         disabled={!installCommand}
-                        className="h-7 px-2 text-white/50 hover:text-white hover:bg-white/5 disabled:opacity-30"
+                        className="disabled:opacity-30"
                       >
                         <Copy className="w-3.5 h-3.5" />
                         {copied === 'command' ? 'Copied!' : 'Copy'}
-                      </Button>
+                      </PlainButton>
                     </div>
                     <div className="p-4">
                       {installCommand ? (
                         <code className="block font-mono text-sm text-lime-400 break-all">{installCommand}</code>
                       ) : (
-                        <div className="text-sm text-white/45 leading-relaxed">
+                        <div className="text-sm text-olive-400 leading-relaxed">
                           Create a preset to generate the installation command. This keeps the command fully deterministic and includes all configuration.
                         </div>
                       )}
@@ -2186,10 +2182,10 @@ export default function InstallWizardClient() {
 
                   <div className="flex items-center gap-3">
                     {!presetId && (
-                      <Button onClick={handleCreatePreset} disabled={creatingPreset} variant="cta">
+                      <Button onClick={handleCreatePreset} disabled={creatingPreset} size="lg">
                         {creatingPreset ? (
                           <>
-                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                            <RefreshCw className="w-4 h-4 animate-spin" />
                             Creating...
                           </>
                         ) : (
@@ -2200,38 +2196,36 @@ export default function InstallWizardClient() {
                         )}
                       </Button>
                     )}
-                    <Button
-                      variant="outline"
+                    <PlainButton
+                      size="lg"
                       onClick={() => handleCopy('url')}
-                      className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
                     >
                       <Share2 className="w-4 h-4" />
                       {copied === 'url' ? 'Copied!' : 'Share URL'}
-                    </Button>
+                    </PlainButton>
                   </div>
 
                   {presetId && (
-                    <div className="rounded-xl border border-white/20 bg-white/[0.03] p-5 shadow-[0_0_24px_-6px_rgba(255,255,255,0.08)]">
+                    <div className="rounded-xl border border-[#757572]/30 bg-olive-800/15 p-5 shadow-[0_0_24px_-6px_rgba(200,200,150,0.08)]">
                       <div className="flex items-start gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
-                          <Check className="w-5 h-5 text-white" />
+                        <div className="w-10 h-10 rounded-lg bg-olive-600/20 border border-[#757572]/30 flex items-center justify-center shrink-0">
+                          <Check className="w-5 h-5 text-olive-300" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-lg font-semibold text-white">Preset created</div>
-                          <div className="mt-1 text-sm text-white/60">
+                          <div className="font-display text-xl font-normal text-olive-100">Preset created</div>
+                          <div className="mt-1 text-sm text-olive-400">
                             Your configuration is saved as preset{' '}
-                            <code className="px-1.5 py-0.5 rounded bg-white/10 font-mono text-white/90">{presetId}</code>.
+                            <code className="px-1.5 py-0.5 rounded bg-olive-700/30 font-mono text-olive-200">{presetId}</code>.
                             The command above includes this preset ID.
                           </div>
                           {installCommand ? (
                             <div className="mt-4">
                               <Button
-                                size="sm"
-                                variant="cta"
+                                size="lg"
                                 onClick={() => setNextStepsOpen(true)}
                               >
                                 Open next steps
-                                <ChevronRight className="w-4 h-4 ml-2" />
+                                <ChevronRight className="w-4 h-4" />
                               </Button>
                             </div>
                           ) : null}
@@ -2243,16 +2237,16 @@ export default function InstallWizardClient() {
               </div>
             )}
 
-            <div className="flex items-center justify-between mt-12 pt-6 border-t border-white/[0.06]">
-              <Button
-                variant="ghost"
+            <div className="flex items-center justify-between mt-12 pt-6 border-t border-[#757572]/20">
+              <PlainButton
+                size="lg"
                 onClick={() => goToStep(currentStep - 1)}
                 disabled={currentStep === 0}
-                className={cn('text-white/60 hover:text-white hover:bg-white/5 disabled:opacity-30', currentStep === 0 && 'invisible')}
+                className={cn('disabled:opacity-30', currentStep === 0 && 'invisible')}
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
+                <ArrowLeft className="w-4 h-4" />
                 Previous
-              </Button>
+              </PlainButton>
               <div className="flex items-center gap-1.5">
                 {STEPS.map((_, index) => (
                   <button
@@ -2261,10 +2255,10 @@ export default function InstallWizardClient() {
                     className={cn(
                       'w-2 h-2 rounded-full transition-all',
                       index === currentStep
-                        ? 'bg-white w-6'
+                        ? 'bg-olive-300 w-6'
                         : index < currentStep
-                          ? 'bg-white/40 hover:bg-white/60'
-                          : 'bg-white/20 hover:bg-white/30'
+                          ? 'bg-olive-400/50 hover:bg-olive-400/70'
+                          : 'bg-olive-700/50 hover:bg-olive-600/50'
                     )}
                   />
                 ))}
@@ -2272,49 +2266,48 @@ export default function InstallWizardClient() {
               <Button
                 onClick={() => goToStep(currentStep + 1)}
                 className={cn(currentStep === STEPS.length - 1 && 'invisible')}
-                variant="cta"
-                size="sm"
+                size="lg"
               >
                 Next
-                <ChevronRight className="w-4 h-4 ml-2" />
+                <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
           </div>
         </main>
 
-        <aside className="w-96 shrink-0 border-l border-white/[0.06] p-6 hidden xl:block">
+        <aside className="w-96 shrink-0 border-l border-[#757572]/20 p-6 hidden xl:block">
           <div className="sticky top-20">
-            <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-4">Live Preview</div>
+            <div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-4">Live Preview</div>
 
             <div className="space-y-3 mb-6">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-white/50">Directory</span>
-                <span className="font-mono text-white/80">{state.install.installDir}</span>
+                <span className="text-olive-400">Directory</span>
+                <span className="font-mono text-olive-200">{state.install.installDir}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-white/50">Adapter</span>
-                <span className="text-white/80">{state.install.storeAdapter}</span>
+                <span className="text-olive-400">Adapter</span>
+                <span className="text-olive-200">{state.install.storeAdapter}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-white/50">Embedding</span>
-                <span className="text-white/80 capitalize">{state.embedding.type}</span>
+                <span className="text-olive-400">Embedding</span>
+                <span className="text-olive-200 capitalize">{state.embedding.type}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-white/50">Extractors</span>
-                <span className="text-white/80">{state.modules.extractors.length}</span>
+                <span className="text-olive-400">Extractors</span>
+                <span className="text-olive-200">{state.modules.extractors.length}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-white/50">Connectors</span>
-                <span className="text-white/80">{state.modules.connectors.length}</span>
+                <span className="text-olive-400">Connectors</span>
+                <span className="text-olive-200">{state.modules.connectors.length}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-white/50">Batteries</span>
-                <span className="text-white/80">{state.modules.batteries.length}</span>
+                <span className="text-olive-400">Batteries</span>
+                <span className="text-olive-200">{state.modules.batteries.length}</span>
               </div>
             </div>
 
-            <div className="rounded-xl border border-white/[0.08] bg-black/40 overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2.5 border-b border-white/[0.06] bg-white/[0.02]">
+            <div className="rounded-xl border border-[#757572]/15 bg-lemon-950/80 overflow-hidden">
+              <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#757572]/20 bg-olive-800/10">
                 <div className="flex items-center gap-1.5">
                   {(['bun', 'pnpm', 'npm', 'yarn'] as const).map((pm) => (
                     <button
@@ -2323,7 +2316,7 @@ export default function InstallWizardClient() {
                       onClick={() => setPkgManager(pm)}
                       className={cn(
                         'px-2 py-1 text-xs font-medium rounded-md transition-colors',
-                        pkgManager === pm ? 'bg-white/10 text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
+                        pkgManager === pm ? 'bg-olive-600/30 text-white' : 'text-olive-400 hover:text-olive-200 hover:bg-olive-700/20'
                       )}
                     >
                       {pm}
@@ -2347,22 +2340,21 @@ export default function InstallWizardClient() {
                 {installCommand ? (
                   <div className="space-y-3">
                     <code className="block font-mono text-xs text-lime-400 break-all leading-relaxed">{installCommand}</code>
-                    <Button
-                      size="sm"
-                      variant="outline"
+                    <PlainButton
+                      size="md"
                       onClick={() => setNextStepsOpen(true)}
-                      className="w-full border-white/10 text-white/75 hover:text-white hover:bg-white/5"
+                      className="w-full"
                     >
                       Next steps
-                      <ChevronRight className="w-4 h-4 ml-2" />
-                    </Button>
+                      <ChevronRight className="w-4 h-4" />
+                    </PlainButton>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     <div className="text-xs text-white/45 leading-relaxed">
                       Create a preset to generate the installation command. Creating a preset saves the config so you can come back to it later.
                     </div>
-                    <Button size="sm" disabled={creatingPreset} onClick={handleCreatePreset} variant="cta" className="w-full">
+                    <Button size="md" disabled={creatingPreset} onClick={handleCreatePreset} className="w-full">
                       {creatingPreset ? 'Creating…' : 'Create preset'}
                     </Button>
                   </div>
@@ -2371,10 +2363,10 @@ export default function InstallWizardClient() {
             </div>
 
             {(state.modules.extractors.length > 0 || state.modules.connectors.length > 0 || state.modules.batteries.length > 0) && (
-              <div className="mt-6 pt-6 border-t border-white/[0.06]">
+              <div className="mt-6 pt-6 border-t border-[#757572]/20">
                 {state.modules.extractors.length > 0 && (
                   <div className="mb-4">
-                    <div className="text-xs text-white/30 mb-2">Extractors</div>
+                    <div className="text-xs text-olive-500 mb-2">Extractors</div>
                     <div className="flex flex-wrap gap-1.5">
                       {state.modules.extractors.map((id) => {
                         const href = extractorDocsById.get(id) ?? '/docs/extractors';
@@ -2384,7 +2376,7 @@ export default function InstallWizardClient() {
                             href={href}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs px-2 py-1 rounded bg-white/5 text-white/60 font-mono transition-colors hover:bg-white/10 hover:text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                            className="text-xs px-2 py-1 rounded bg-olive-700/20 text-olive-300 font-mono transition-colors hover:bg-olive-600/30 hover:text-olive-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-500/30"
                             title="Open docs"
                             aria-label={`Open docs for ${id}`}
                           >
@@ -2397,7 +2389,7 @@ export default function InstallWizardClient() {
                 )}
                 {state.modules.connectors.length > 0 && (
                   <div className="mb-4">
-                    <div className="text-xs text-white/30 mb-2">Connectors</div>
+                    <div className="text-xs text-olive-500 mb-2">Connectors</div>
                     <div className="flex flex-wrap gap-1.5">
                       {state.modules.connectors.map((id) => {
                         const href = connectorDocsById.get(id) ?? '/docs/connectors';
@@ -2407,7 +2399,7 @@ export default function InstallWizardClient() {
                             href={href}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-xs px-2 py-1 rounded bg-white/5 text-white/60 font-mono capitalize transition-colors hover:bg-white/10 hover:text-white/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/20"
+                            className="text-xs px-2 py-1 rounded bg-olive-700/20 text-olive-300 font-mono capitalize transition-colors hover:bg-olive-600/30 hover:text-olive-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-500/30"
                             title="Open docs"
                             aria-label={`Open docs for ${id}`}
                           >
@@ -2420,12 +2412,12 @@ export default function InstallWizardClient() {
                 )}
                 {state.modules.batteries.length > 0 && (
                   <div>
-                    <div className="text-xs text-white/30 mb-2">Batteries</div>
+                    <div className="text-xs text-olive-500 mb-2">Batteries</div>
                     <div className="flex flex-wrap gap-1.5">
                       {state.modules.batteries.map((id) => (
                         <span
                           key={id}
-                          className="text-xs px-2 py-1 rounded bg-emerald-500/10 text-emerald-400/80 font-mono capitalize border border-emerald-500/20"
+                          className="text-xs px-2 py-1 rounded bg-olive-600/20 text-olive-300 font-mono capitalize border border-[#757572]/25"
                         >
                           {id}
                         </span>

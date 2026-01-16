@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink, PlainButton } from "@/components/elements";
 import { CodeBlock } from "@/components/code-block";
 import {
   Dialog,
@@ -297,9 +297,9 @@ function StepCard({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+    <div className="rounded-xl border border-[#757572]/15 bg-white/[0.02] p-4">
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-white/70">
+        <div className="w-9 h-9 rounded-lg bg-white/5 border border-[#757572]/20 flex items-center justify-center shrink-0 text-white/70">
           {icon}
         </div>
         <div className="flex-1 min-w-0">
@@ -417,7 +417,7 @@ export async function GET(request: Request) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl">Next steps</DialogTitle>
+          <DialogTitle className="font-display text-3xl font-normal">Next steps</DialogTitle>
           <DialogDescription className="max-w-xl">
             You are almost done. We now have the necessary source code in our codebase. Do these quick steps to set secrets and ship your first retrieval endpoint.
           </DialogDescription>
@@ -429,19 +429,17 @@ export async function GET(request: Request) {
             title="1) Set environment variables"
             description="Presets never store secrets. Set these in your deployment environment (and locally for dev)."
             action={
-              <Button
-                variant="ghost"
-                size="sm"
+              <PlainButton
+                size="md"
                 onClick={() => copyToClipboard(envVarsToCopy.map((n) => `${n}=`).join("\n"), "env")}
-                className="h-7 px-2 text-white/55 hover:text-white hover:bg-white/5"
               >
                 <Copy className="w-3.5 h-3.5" />
                 {copiedEnv ? "Copied" : "Copy all"}
-              </Button>
+              </PlainButton>
             }
           >
             <div className="space-y-2">
-              <div className="rounded-lg border border-white/[0.08] bg-black/30 p-3">
+              <div className="rounded-lg border border-[#757572]/15 bg-lemon-950/60 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="text-sm font-medium text-white/80">Embedding provider</div>
                   <DocLink href={providerDocsHref(selectedEmbeddingProvider)}>
@@ -456,7 +454,7 @@ export async function GET(request: Request) {
                   {embeddingVars.map((v) => (
                     <div
                       key={v.name}
-                      className="flex items-start justify-between gap-3 rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2"
+                      className="flex items-start justify-between gap-3 rounded-md border border-[#757572]/20 bg-white/[0.02] px-3 py-2"
                     >
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -466,7 +464,7 @@ export async function GET(request: Request) {
                               required
                             </span>
                           ) : (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10">
+                            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20">
                               optional
                             </span>
                           )}
@@ -478,7 +476,7 @@ export async function GET(request: Request) {
                 </div>
               </div>
 
-              <div className="rounded-lg border border-white/[0.08] bg-black/30 p-3">
+              <div className="rounded-lg border border-[#757572]/15 bg-lemon-950/60 p-3">
                 <div className="flex items-center justify-between gap-3">
                   <code className="font-mono text-xs text-white/85">DATABASE_URL</code>
                   <span className="text-xs text-white/35">required for Postgres</span>
@@ -505,7 +503,7 @@ export async function GET(request: Request) {
                     return (
                       <div
                         key={id}
-                        className="rounded-lg border border-white/[0.08] bg-black/30 p-3"
+                        className="rounded-lg border border-[#757572]/15 bg-lemon-950/60 p-3"
                       >
                         <div className="flex items-center justify-between gap-3">
                           <div className="text-sm font-medium text-white/80">{name}</div>
@@ -515,7 +513,7 @@ export async function GET(request: Request) {
                           {(meta?.envVars ?? []).map((v) => (
                             <div
                               key={v.name}
-                              className="flex items-start justify-between gap-3 rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2"
+                              className="flex items-start justify-between gap-3 rounded-md border border-[#757572]/20 bg-white/[0.02] px-3 py-2"
                             >
                               <div className="min-w-0">
                                 <div className="flex items-center gap-2">
@@ -525,7 +523,7 @@ export async function GET(request: Request) {
                                       required
                                     </span>
                                   ) : (
-                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10">
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20">
                                       optional
                                     </span>
                                   )}
@@ -549,7 +547,7 @@ export async function GET(request: Request) {
                 <div className="text-xs font-medium uppercase tracking-wider text-white/30 mb-2">
                   Battery env vars
                 </div>
-                <div className="rounded-lg border border-white/[0.08] bg-black/30 p-3">
+                <div className="rounded-lg border border-[#757572]/15 bg-lemon-950/60 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-medium text-white/80">Batteries</div>
                     <span className="text-xs text-white/40">{batteryInfo.map(b => b.meta?.displayName ?? b.id).join(", ")}</span>
@@ -558,7 +556,7 @@ export async function GET(request: Request) {
                     {batteryVars.map((v) => (
                       <div
                         key={v.name}
-                        className="flex items-start justify-between gap-3 rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2"
+                        className="flex items-start justify-between gap-3 rounded-md border border-[#757572]/20 bg-white/[0.02] px-3 py-2"
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
@@ -568,7 +566,7 @@ export async function GET(request: Request) {
                                 required
                               </span>
                             ) : (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-white/10">
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/40 border border-[#757572]/20">
                                 optional
                               </span>
                             )}
@@ -596,7 +594,7 @@ export async function GET(request: Request) {
                     <div
                       key={id}
                       className={cn(
-                        "flex items-center justify-between gap-3 rounded-lg border border-white/[0.08] bg-black/30 px-3 py-2"
+                        "flex items-center justify-between gap-3 rounded-lg border border-[#757572]/15 bg-lemon-950/60 px-3 py-2"
                       )}
                     >
                       <div className="min-w-0">
@@ -616,19 +614,17 @@ export async function GET(request: Request) {
             title={workerOnlyExtractors.length > 0 ? "3) Add your first retrieval endpoint" : "2) Add your first retrieval endpoint"}
             description="Create a simple search API route and verify retrieval works end-to-end."
             action={
-              <Button
-                variant="ghost"
-                size="sm"
+              <PlainButton
+                size="md"
                 onClick={() => copyToClipboard(retrievalSnippet, "snippet")}
-                className="h-7 px-2 text-white/55 hover:text-white hover:bg-white/5"
               >
-                <Copy className="w-3.5 h-3.5 mr-1.5" />
+                <Copy className="w-3.5 h-3.5" />
                 {copiedSnippet ? "Copied" : "Copy"}
-              </Button>
+              </PlainButton>
             }
           >
-            <div className="rounded-lg border border-white/[0.08] bg-black/40 overflow-hidden">
-              <div className="px-3 py-2 border-b border-white/[0.06] bg-white/[0.02]">
+            <div className="rounded-lg border border-[#757572]/15 bg-lemon-950/80 overflow-hidden">
+              <div className="px-3 py-2 border-b border-[#757572]/20 bg-white/[0.02]">
                 <span className="text-xs font-medium text-white/40">Next.js Route Handler</span>
               </div>
               <div className="p-3">
@@ -639,23 +635,20 @@ export async function GET(request: Request) {
               Try it: <code className="font-mono text-white/70">/api/search?q=how+do+I+install</code>
             </div>
             <div className="mt-4">
-              <Button asChild variant="cta" size="sm">
-                <Link href="/docs/getting-started/first-retrieval" target="_blank" rel="noreferrer">
-                  More patterns
-                </Link>
-              </Button>
+              <ButtonLink href="/docs/getting-started/first-retrieval" size="lg" target="_blank" rel="noreferrer">
+                More patterns
+              </ButtonLink>
             </div>
           </StepCard>
         </div>
 
         <DialogFooter className="mt-2">
-          <Button
-            variant="outline"
+          <PlainButton
+            size="lg"
             onClick={() => onOpenChange(false)}
-            className="border-white/10 text-white/70 hover:text-white hover:bg-white/5"
           >
             Close
-          </Button>
+          </PlainButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>
