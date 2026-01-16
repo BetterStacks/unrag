@@ -93,14 +93,15 @@ function HighlightedLine({line}: {line: string}) {
 		<>
 			{tokens.map((token, i) => {
 				const colorClass = tokenColors[token.type]
+				const key = `${token.type}:${token.value}:${i}`
 				if (colorClass) {
 					return (
-						<span key={i} className={colorClass}>
+						<span key={key} className={colorClass}>
 							{token.value}
 						</span>
 					)
 				}
-				return <span key={i}>{token.value}</span>
+				return <span key={key}>{token.value}</span>
 			})}
 		</>
 	)

@@ -34,6 +34,7 @@ export function CopyButton({text}: {text: string}) {
 
 	return (
 		<button
+			type="button"
 			className="ml-2 p-1.5 rounded hover:bg-[var(--color-fd-accent)] transition-colors text-[var(--color-fd-muted-foreground)] hover:text-[var(--color-fd-foreground)]"
 			onClick={copy}
 			title={copied ? 'Copied' : 'Copy to clipboard'}
@@ -46,6 +47,7 @@ export function CopyButton({text}: {text: string}) {
 					viewBox="0 0 24 24"
 					stroke="currentColor"
 				>
+					<title>Copied</title>
 					<path
 						strokeLinecap="round"
 						strokeLinejoin="round"
@@ -60,6 +62,7 @@ export function CopyButton({text}: {text: string}) {
 					viewBox="0 0 24 24"
 					stroke="currentColor"
 				>
+					<title>Copy</title>
 					<path
 						strokeLinecap="round"
 						strokeLinejoin="round"

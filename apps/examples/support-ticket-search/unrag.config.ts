@@ -192,13 +192,17 @@ export function createUnragEngine() {
 		throw new Error('DATABASE_URL is required')
 	}
 
-	const pool =
-		(globalThis as any).__unragPool ??
-		new Pool({connectionString: databaseUrl})
-	;(globalThis as any).__unragPool = pool
+	type UnragGlobalCache = typeof globalThis & {
+		__unragPool?: Pool
+		__unragDrizzleDb?: ReturnType<typeof drizzle>
+	}
+	const g = globalThis as UnragGlobalCache
 
-	const db = (globalThis as any).__unragDrizzleDb ?? drizzle(pool)
-	;(globalThis as any).__unragDrizzleDb = db
+	const pool = g.__unragPool ?? new Pool({connectionString: databaseUrl})
+	g.__unragPool = pool
+
+	const db = g.__unragDrizzleDb ?? drizzle(pool)
+	g.__unragDrizzleDb = db
 
 	const store = createDrizzleVectorStore(db)
 

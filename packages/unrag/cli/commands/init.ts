@@ -194,6 +194,35 @@ const toBatteries = (xs: string[] | undefined): BatteryName[] =>
 		.map((s) => String(s).trim())
 		.filter(Boolean) as BatteryName[]
 
+function getPresetEmbeddingProvider(
+	preset: PresetPayloadV1 | null
+): EmbeddingProviderName | undefined {
+	const cfg = preset?.config
+	if (!cfg || typeof cfg !== 'object') {
+		return undefined
+	}
+	const embedding = (cfg as Record<string, unknown>).embedding
+	if (!embedding || typeof embedding !== 'object') {
+		return undefined
+	}
+	const v = (embedding as Record<string, unknown>).provider
+	return v === 'ai' ||
+		v === 'openai' ||
+		v === 'google' ||
+		v === 'openrouter' ||
+		v === 'azure' ||
+		v === 'vertex' ||
+		v === 'bedrock' ||
+		v === 'cohere' ||
+		v === 'mistral' ||
+		v === 'together' ||
+		v === 'ollama' ||
+		v === 'voyage' ||
+		v === 'custom'
+		? v
+		: undefined
+}
+
 export async function initCommand(args: string[]) {
 	const root = await tryFindProjectRoot(process.cwd())
 	if (!root) {
@@ -260,24 +289,7 @@ export async function initCommand(args: string[]) {
 		}
 	}
 
-	const presetEmbeddingProvider = (() => {
-		const v = (preset as any)?.config?.embedding?.provider as unknown
-		return v === 'ai' ||
-			v === 'openai' ||
-			v === 'google' ||
-			v === 'openrouter' ||
-			v === 'azure' ||
-			v === 'vertex' ||
-			v === 'bedrock' ||
-			v === 'cohere' ||
-			v === 'mistral' ||
-			v === 'together' ||
-			v === 'ollama' ||
-			v === 'voyage' ||
-			v === 'custom'
-			? (v as EmbeddingProviderName)
-			: undefined
-	})()
+	const presetEmbeddingProvider = getPresetEmbeddingProvider(preset)
 
 	const defaults = {
 		installDir:
@@ -467,18 +479,20 @@ export async function initCommand(args: string[]) {
 				: await groupMultiselect<ExtractorName>({
 						message:
 							'Select extractors to enable (space to toggle, enter to confirm)',
-						options: extractorOptions.reduce<Record<string, any[]>>(
-							(acc, opt) => {
-								acc[opt.group] ??= []
-								acc[opt.group]?.push({
-									value: opt.value,
-									label: opt.label,
-									...(opt.hint ? {hint: opt.hint} : {})
-								})
-								return acc
-							},
-							{}
-						),
+						options: extractorOptions.reduce<
+							Record<
+								string,
+								Array<{value: ExtractorName; label: string; hint?: string}>
+							>
+						>((acc, opt) => {
+							acc[opt.group] ??= []
+							acc[opt.group]?.push({
+								value: opt.value,
+								label: opt.label,
+								...(opt.hint ? {hint: opt.hint} : {})
+							})
+							return acc
+						}, {}),
 						initialValues:
 							extractorsFromArgs.length > 0
 								? extractorsFromArgs
@@ -514,7 +528,9 @@ export async function initCommand(args: string[]) {
 		embeddingProvider,
 		yes: nonInteractive,
 		overwrite: overwritePolicy,
-		presetConfig: (preset?.config as any) ?? undefined,
+		presetConfig:
+			(preset?.config as RegistrySelection['presetConfig'] | undefined) ??
+			undefined,
 		richMedia: richMediaEnabled
 			? {
 					enabled: true,
@@ -555,9 +571,9 @@ export async function initCommand(args: string[]) {
 		? toConnectors(preset.modules?.connectors)
 		: []
 	const availableConnectorIds = new Set(
-		(manifest.connectors ?? [])
-			.filter((c: any) => c.status === 'available')
-			.map((c: any) => String(c.id)) as ConnectorName[]
+		manifest.connectors
+			.filter((c) => c.status === 'available')
+			.map((c) => c.id as ConnectorName)
 	)
 	if (preset) {
 		const unknown = connectorsFromPreset.filter(
@@ -598,8 +614,8 @@ export async function initCommand(args: string[]) {
 		: []
 	const availableBatteryIds = new Set(
 		(manifest.batteries ?? [])
-			.filter((b: any) => b.status === 'available')
-			.map((b: any) => String(b.id)) as BatteryName[]
+			.filter((b) => b.status === 'available')
+			.map((b) => b.id as BatteryName)
 	)
 	if (preset) {
 		const unknown = batteriesFromPreset.filter(
@@ -709,7 +725,10 @@ export async function initCommand(args: string[]) {
 		await writeIfMissing(scriptAbs, renderEvalRunnerScript({aliasBase}))
 
 		// Add package.json scripts, non-destructively.
-		const pkg2: any = await readPackageJson(root)
+		type PackageJsonWithScripts = Awaited<ReturnType<typeof readPackageJson>> & {
+			scripts?: Record<string, string>
+		}
+		const pkg2 = (await readPackageJson(root)) as PackageJsonWithScripts
 		const existingScripts = (pkg2.scripts ?? {}) as Record<string, string>
 		const toAdd: Record<string, string> = {}
 		for (const [name, cmd] of Object.entries(EVAL_PACKAGE_JSON_SCRIPTS)) {

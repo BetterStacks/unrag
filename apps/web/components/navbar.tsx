@@ -32,6 +32,7 @@ function NavbarLink({
 					stroke="currentColor"
 					className="size-6"
 				>
+					<title>Chevron</title>
 					<path
 						strokeLinecap="round"
 						strokeLinejoin="round"
@@ -103,6 +104,7 @@ function NavbarWithLinksActionsAndCenteredLogo({
 								fill="currentColor"
 								className="size-6"
 							>
+								<title>Menu</title>
 								<path
 									fillRule="evenodd"
 									d="M3.748 8.248a.75.75 0 0 1 .75-.75h15a.75.75 0 0 1 0 1.5h-15a.75.75 0 0 1-.75-.75ZM3.748 15.75a.75.75 0 0 1 .75-.751h15a.75.75 0 0 1 0 1.5h-15a.75.75 0 0 1-.75-.75Z"
@@ -115,10 +117,11 @@ function NavbarWithLinksActionsAndCenteredLogo({
 
 				{menuOpen && (
 					<div className="fixed inset-0 z-50 lg:hidden">
-						<div
+						<dialog
 							id="mobile-menu"
-							role="dialog"
+							open
 							aria-modal="true"
+							aria-label="Mobile menu"
 							className="fixed inset-0 bg-lemon-100 px-6 py-6 lg:px-10 dark:bg-lemon-950"
 						>
 							<div className="flex justify-end">
@@ -136,6 +139,7 @@ function NavbarWithLinksActionsAndCenteredLogo({
 										stroke="currentColor"
 										className="size-6"
 									>
+										<title>Close</title>
 										<path
 											strokeLinecap="round"
 											strokeLinejoin="round"
@@ -147,7 +151,7 @@ function NavbarWithLinksActionsAndCenteredLogo({
 							<div className="mt-6 flex flex-col gap-6">
 								{links}
 							</div>
-						</div>
+						</dialog>
 					</div>
 				)}
 			</nav>

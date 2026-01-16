@@ -54,7 +54,7 @@ const exampleQueries = [
 	}
 ]
 
-export function TicketSearch({initialTickets}: TicketSearchProps) {
+export function TicketSearch({initialTickets: _initialTickets}: TicketSearchProps) {
 	const [query, setQuery] = React.useState('')
 	const [results, setResults] = React.useState<SearchResult[] | null>(null)
 	const [isSearching, setIsSearching] = React.useState(false)
@@ -243,7 +243,7 @@ export function TicketSearch({initialTickets}: TicketSearchProps) {
 								{displayTickets.length} results for &#34;{query}
 								&#34;
 							</p>
-							<label className="text-muted-foreground flex items-center gap-2 text-xs">
+							<div className="text-muted-foreground flex items-center gap-2 text-xs">
 								<Switch
 									size="sm"
 									checked={useRerank}
@@ -253,7 +253,7 @@ export function TicketSearch({initialTickets}: TicketSearchProps) {
 									}}
 								/>
 								<span>Rerank</span>
-							</label>
+							</div>
 						</div>
 						<Button
 							variant="ghost"

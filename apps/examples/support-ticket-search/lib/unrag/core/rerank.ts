@@ -70,7 +70,10 @@ export const rerank = async (
 	const skippedIndices: number[] = []
 
 	for (let i = 0; i < candidates.length; i++) {
-		const candidate = candidates[i]!
+		const candidate = candidates[i]
+		if (!candidate) {
+			continue
+		}
 		let text = candidate.content?.trim() ?? ''
 
 		// Try resolveText hook if content is empty
@@ -122,7 +125,10 @@ export const rerank = async (
 	const ranking: RerankRankingItem[] = []
 
 	for (let rank = 0; rank < result.order.length; rank++) {
-		const docIndex = result.order[rank]!
+		const docIndex = result.order[rank]
+		if (docIndex === undefined) {
+			continue
+		}
 		const originalCandidateIndex = validCandidateIndices[docIndex]
 		if (originalCandidateIndex === undefined) {
 			continue
@@ -145,9 +151,13 @@ export const rerank = async (
 
 	// Select top-K chunks
 	const topKRanking = ranking.slice(0, topK)
-	const chunks: RerankCandidate[] = topKRanking.map(
-		(r) => candidates[r.index]!
-	)
+	const chunks: RerankCandidate[] = []
+	for (const r of topKRanking) {
+		const candidate = candidates[r.index]
+		if (candidate) {
+			chunks.push(candidate)
+		}
+	}
 
 	const totalMs = now() - totalStart
 

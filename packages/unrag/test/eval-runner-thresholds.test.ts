@@ -2,6 +2,7 @@ import {afterEach, beforeEach, describe, expect, test} from 'bun:test'
 import {mkdir, rm, writeFile} from 'node:fs/promises'
 import path from 'node:path'
 
+import type {ContextEngine} from '@registry/core/context-engine'
 import {runEval} from '@registry/eval/runner'
 
 const workspaceTmpRoot = path.join(process.cwd(), 'tmp', 'test-runs')
@@ -63,7 +64,7 @@ describe('eval runner thresholds', () => {
 				throw new Error('not used')
 			},
 			delete: async () => {}
-		} as any
+		} as unknown as ContextEngine
 
 		const result = await runEval({
 			engine,
@@ -115,7 +116,7 @@ describe('eval runner thresholds', () => {
 				throw new Error('not used')
 			},
 			delete: async () => {}
-		} as any
+		} as unknown as ContextEngine
 
 		const result = await runEval({
 			engine,
@@ -174,19 +175,31 @@ describe('eval runner thresholds', () => {
 		]
 
 		const engine = {
-			retrieve: async (input: any) => {
-				observedRetrieveTopK = input?.topK ?? null
+			retrieve: async (input: unknown) => {
+				const topK =
+					input && typeof input === 'object'
+						? (input as Record<string, unknown>).topK
+						: undefined
+				observedRetrieveTopK = typeof topK === 'number' ? topK : null
 				return {
 					chunks: candidates,
 					embeddingModel: 'test-embed',
 					durations: {embeddingMs: 1, retrievalMs: 1, totalMs: 2}
 				}
 			},
-			rerank: async (input: any) => {
-				observedRerankCandidateCount = Array.isArray(input?.candidates)
-					? input.candidates.length
+			rerank: async (input: unknown) => {
+				const candidatesList =
+					input && typeof input === 'object'
+						? (input as Record<string, unknown>).candidates
+						: undefined
+				observedRerankCandidateCount = Array.isArray(candidatesList)
+					? candidatesList.length
 					: null
-				observedRerankTopK = input?.topK ?? null
+				const rerankTopK =
+					input && typeof input === 'object'
+						? (input as Record<string, unknown>).topK
+						: undefined
+				observedRerankTopK = typeof rerankTopK === 'number' ? rerankTopK : null
 				return {
 					chunks: [candidates[4], candidates[0]].filter(Boolean), // promote relevant
 					ranking: [],
@@ -199,7 +212,7 @@ describe('eval runner thresholds', () => {
 				throw new Error('not used')
 			},
 			delete: async () => {}
-		} as any
+		} as unknown as ContextEngine
 
 		const result = await runEval({
 			engine,
@@ -208,9 +221,9 @@ describe('eval runner thresholds', () => {
 			thresholds: {min: {recallAtK: 1}}
 		})
 
-		expect(observedRetrieveTopK!).toBe(6)
-		expect(observedRerankCandidateCount!).toBe(6)
-		expect(observedRerankTopK!).toBe(2)
+		expect(observedRetrieveTopK).toBe(6)
+		expect(observedRerankCandidateCount).toBe(6)
+		expect(observedRerankTopK).toBe(2)
 
 		expect(result.report.config.mode).toBe('retrieve+rerank')
 		expect(result.report.config.rerankTopK).toBe(6)

@@ -278,16 +278,16 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
 		config: {
 			mode,
 			topK,
-			...(mode === 'retrieve+rerank' &&
-			(args.rerankTopK ?? dataset.defaults.rerankTopK) !== undefined
-				? {
-						rerankTopK: clampRerankTopK({
-							topK,
-							rerankTopK:
-								args.rerankTopK ?? dataset.defaults.rerankTopK!
-						})
-					}
-				: {}),
+			...(() => {
+				if (mode !== 'retrieve+rerank') {
+					return {}
+				}
+				const rerankTopK = args.rerankTopK ?? dataset.defaults.rerankTopK
+				if (rerankTopK === undefined) {
+					return {}
+				}
+				return {rerankTopK: clampRerankTopK({topK, rerankTopK})}
+			})(),
 			scopePrefix,
 			ingest,
 			cleanup,
@@ -350,7 +350,7 @@ function normalizeMetadata(input: unknown): Metadata | undefined {
 	if (!input || typeof input !== 'object' || Array.isArray(input)) {
 		return undefined
 	}
-	const out: Record<string, any> = {}
+	const out: Record<string, unknown> = {}
 	for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
 		if (v === undefined) {
 			continue
@@ -421,9 +421,14 @@ function medianOf(xs: number[]): number {
 	}
 	const mid = Math.floor(ys.length / 2)
 	if (ys.length % 2 === 1) {
-		return ys[mid]!
+		return ys[mid] ?? 0
 	}
-	return (ys[mid - 1]! + ys[mid]!) / 2
+	const a = ys[mid - 1]
+	const b = ys[mid]
+	if (a === undefined || b === undefined) {
+		return 0
+	}
+	return (a + b) / 2
 }
 
 function buildTimingAggregates(mode: EvalMode, qs: EvalQueryResult[]) {
@@ -463,17 +468,15 @@ function deepMergeThresholds(
 	base: Partial<EvalThresholds>,
 	override: Partial<EvalThresholds>
 ): Partial<EvalThresholds> {
-	const out: Partial<EvalThresholds> = {
-		min: {...(base.min ?? {})},
-		max: {...(base.max ?? {})}
-	}
+	const min = {...(base.min ?? {})}
+	const max = {...(base.max ?? {})}
 	if (override.min) {
-		Object.assign(out.min!, override.min)
+		Object.assign(min, override.min)
 	}
 	if (override.max) {
-		Object.assign(out.max!, override.max)
+		Object.assign(max, override.max)
 	}
-	return out
+	return {min, max}
 }
 
 function evaluateThresholds(args: {

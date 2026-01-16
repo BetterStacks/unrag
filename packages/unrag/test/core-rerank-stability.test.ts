@@ -65,14 +65,14 @@ const createCandidates = (texts: string[]): RerankCandidate[] =>
 const createConfig = (reranker: Reranker): ResolvedContextEngineConfig =>
 	({
 		reranker,
-		embedding: {} as any,
-		store: {} as any,
+		embedding: {} as unknown as ResolvedContextEngineConfig['embedding'],
+		store: {} as unknown as ResolvedContextEngineConfig['store'],
 		defaults: {chunkSize: 200, chunkOverlap: 40},
 		chunker: () => [],
 		idGenerator: () => crypto.randomUUID(),
 		extractors: [],
 		storage: {storeChunkContent: true, storeDocumentContent: true},
-		assetProcessing: {} as any,
+		assetProcessing: {} as unknown as ResolvedContextEngineConfig['assetProcessing'],
 		embeddingProcessing: {concurrency: 4, batchSize: 32}
 	}) as ResolvedContextEngineConfig
 
@@ -236,15 +236,22 @@ describe('core rerank - stable ordering', () => {
 		const config = createConfig(reranker)
 
 		const originalCandidates = createCandidates(['test content'])
-		originalCandidates[0]!.metadata = {key: 'value'}
-		originalCandidates[0]!.documentContent = 'full document'
+		const only = originalCandidates[0]
+		if (!only) {
+			throw new Error('Expected one candidate')
+		}
+		only.metadata = {key: 'value'}
+		only.documentContent = 'full document'
 
 		const result = await rerank(config, {
 			query: 'test',
 			candidates: originalCandidates
 		})
 
-		const chunk = result.chunks[0]!
+		const chunk = result.chunks[0]
+		if (!chunk) {
+			throw new Error('Expected one reranked chunk')
+		}
 		expect(chunk.id).toBe('chunk-0')
 		expect(chunk.content).toBe('test content')
 		expect(chunk.metadata).toEqual({key: 'value'})

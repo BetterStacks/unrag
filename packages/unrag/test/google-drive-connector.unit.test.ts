@@ -7,6 +7,7 @@ import {
 	classifyDriveMimeType,
 	getNativeExportPlan
 } from '@registry/connectors/google-drive/mime'
+import type {GoogleDriveAuth} from '@registry/connectors/google-drive/types'
 import {buildGoogleDriveFileIngestInput} from '@registry/connectors/google-drive/sync'
 
 describe('google-drive connector: mime routing', () => {
@@ -88,12 +89,16 @@ describe('google-drive connector: auth normalization', () => {
 	test('oauth: accepts oauthClient escape hatch', () => {
 		const dummy = {any: 'thing'}
 		expect(
-			normalizeGoogleDriveAuth({kind: 'oauth', oauthClient: dummy} as any)
+			normalizeGoogleDriveAuth(
+				{kind: 'oauth', oauthClient: dummy} as unknown as GoogleDriveAuth
+			)
 		).toEqual({kind: 'oauth_client', oauthClient: dummy})
 	})
 
 	test('oauth: validates required config fields', () => {
-		expect(() => normalizeGoogleDriveAuth({kind: 'oauth'} as any)).toThrow()
+		expect(() =>
+			normalizeGoogleDriveAuth({kind: 'oauth'} as unknown as GoogleDriveAuth)
+		).toThrow()
 
 		expect(
 			normalizeGoogleDriveAuth({
@@ -102,7 +107,7 @@ describe('google-drive connector: auth normalization', () => {
 				clientSecret: 'secret',
 				redirectUri: 'http://localhost/cb',
 				refreshToken: 'rt'
-			} as any)
+			} as unknown as GoogleDriveAuth)
 		).toMatchObject({kind: 'oauth_config'})
 	})
 
@@ -111,7 +116,7 @@ describe('google-drive connector: auth normalization', () => {
 			normalizeGoogleDriveAuth({
 				kind: 'service_account',
 				credentialsJson: '{}'
-			} as any)
+			} as unknown as GoogleDriveAuth)
 		).toThrow()
 
 		const json = JSON.stringify({
@@ -124,7 +129,7 @@ describe('google-drive connector: auth normalization', () => {
 				kind: 'service_account',
 				credentialsJson: json,
 				subject: 'user@company.com'
-			} as any)
+			} as unknown as GoogleDriveAuth)
 		).toEqual({
 			kind: 'service_account',
 			credentials: {
@@ -138,10 +143,14 @@ describe('google-drive connector: auth normalization', () => {
 
 	test('google_auth: requires auth instance', () => {
 		expect(() =>
-			normalizeGoogleDriveAuth({kind: 'google_auth'} as any)
+			normalizeGoogleDriveAuth(
+				{kind: 'google_auth'} as unknown as GoogleDriveAuth
+			)
 		).toThrow()
 		expect(
-			normalizeGoogleDriveAuth({kind: 'google_auth', auth: {x: 1}} as any)
+			normalizeGoogleDriveAuth(
+				{kind: 'google_auth', auth: {x: 1}} as unknown as GoogleDriveAuth
+			)
 		).toEqual({kind: 'google_auth', auth: {x: 1}})
 	})
 })

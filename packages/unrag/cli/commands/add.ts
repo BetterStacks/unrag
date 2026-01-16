@@ -149,7 +149,7 @@ async function patchUnragConfig(args: {
 				if (exportMatch) {
 					newContent = newContent.replace(
 						exportMatch[0],
-						exportMatch[0] + importLine + '\n'
+						`${exportMatch[0] + importLine}\n`
 					)
 				} else {
 					// Fallback: add at the top after @ts-nocheck
@@ -275,11 +275,7 @@ async function patchUnragConfig(args: {
 						const extractorsArrayEnd =
 							newContent.lastIndexOf('    ],')
 						if (extractorsArrayEnd > 0) {
-							newContent =
-								newContent.slice(0, extractorsArrayEnd + 5) +
-								'\n' +
-								assetProcessingBlock.trimEnd() +
-								newContent.slice(extractorsArrayEnd + 5)
+							newContent = `${newContent.slice(0, extractorsArrayEnd + 5)}\n${assetProcessingBlock.trimEnd()}${newContent.slice(extractorsArrayEnd + 5)}`
 							modified = true
 						} else {
 							// Fallback: find engine closing brace
@@ -318,8 +314,12 @@ const shouldWriteFile = async (
 	projectRoot: string,
 	nonInteractive: boolean
 ): Promise<boolean> => {
-	if (!(await exists(absPath))) return true
-	if (nonInteractive) return false
+	if (!(await exists(absPath))) {
+		return true
+	}
+	if (nonInteractive) {
+		return false
+	}
 	const answer = await confirm({
 		message: `Overwrite ${path.relative(projectRoot, absPath)}?`,
 		initialValue: false
@@ -345,7 +345,9 @@ const addPackageJsonScripts = async (args: {
 
 	if (conflicting.length > 0 && args.nonInteractive) {
 		// In non-interactive mode, keep existing scripts (non-destructive).
-		for (const k of conflicting) delete toAdd[k]
+		for (const k of conflicting) {
+			delete toAdd[k]
+		}
 	}
 
 	if (conflicting.length > 0 && !args.nonInteractive) {
@@ -387,9 +389,12 @@ const addPackageJsonScripts = async (args: {
 					initialValue: `${scriptName}:new`,
 					validate: (v) => {
 						const s = String(v).trim()
-						if (!s) return 'Script name is required'
-						if (s in existing || s in toAdd)
+						if (!s) {
+							return 'Script name is required'
+						}
+						if (s in existing || s in toAdd) {
 							return 'Script name already exists'
+						}
 						return
 					}
 				})
@@ -458,7 +463,6 @@ const parseAddArgs = (args: string[]): ParsedAddArgs => {
 			!a.startsWith('-')
 		) {
 			out.name = a
-			continue
 		}
 	}
 
@@ -872,13 +876,13 @@ main().catch((err) => {
 			if (await shouldWriteFile(datasetAbs, root, nonInteractive)) {
 				await writeTextFile(
 					datasetAbs,
-					JSON.stringify(sampleDataset, null, 2) + '\n'
+					`${JSON.stringify(sampleDataset, null, 2)}\n`
 				)
 			}
 			if (await shouldWriteFile(configAbs, root, nonInteractive)) {
 				await writeTextFile(
 					configAbs,
-					JSON.stringify(evalConfig, null, 2) + '\n'
+					`${JSON.stringify(evalConfig, null, 2)}\n`
 				)
 			}
 			if (await shouldWriteFile(scriptAbs, root, nonInteractive)) {
@@ -886,8 +890,10 @@ main().catch((err) => {
 			}
 
 			const scriptsToAdd: Record<string, string> = {
-				'unrag:eval': `bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json`,
-				'unrag:eval:ci': `bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json --ci`
+				'unrag:eval':
+					'bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json',
+				'unrag:eval:ci':
+					'bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json --ci'
 			}
 
 			const scriptsResult = await addPackageJsonScripts({
@@ -936,7 +942,7 @@ main().catch((err) => {
 			if (await shouldWriteFile(configAbs, root, nonInteractive)) {
 				await writeTextFile(
 					configAbs,
-					JSON.stringify(debugConfig, null, 2) + '\n'
+					`${JSON.stringify(debugConfig, null, 2)}\n`
 				)
 			}
 
@@ -956,7 +962,7 @@ main().catch((err) => {
 					`Installed battery: ${battery}.`,
 					'',
 					`- Code: ${path.join(config.installDir, 'debug')}`,
-					`- Config: .unrag/debug/config.json`,
+					'- Config: .unrag/debug/config.json',
 					'',
 					merged.changes.length > 0
 						? `Added deps: ${merged.changes.map((c) => c.name).join(', ')}`
@@ -1145,8 +1151,8 @@ main().catch((err) => {
 			'',
 			`- Code: ${path.join(config.installDir, 'extractors', extractor)}`,
 			configPatched
-				? `- Config: updated unrag.config.ts (imported, registered, and enabled)`
-				: `- Config: unrag.config.ts not found or could not be patched automatically`,
+				? '- Config: updated unrag.config.ts (imported, registered, and enabled)'
+				: '- Config: unrag.config.ts not found or could not be patched automatically',
 			'',
 			merged.changes.length > 0
 				? `Added deps: ${merged.changes.map((c) => c.name).join(', ')}`

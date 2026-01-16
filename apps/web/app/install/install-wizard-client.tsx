@@ -737,7 +737,7 @@ function normalizeState(s: WizardStateV1): WizardStateV1 {
 	const embeddingType = (s.embedding?.type ??
 		DEFAULT_STATE.embedding.type) as EmbeddingType
 	const embeddingProvider = (() => {
-		const v = (s.embedding as any)?.provider as unknown
+		const v = (s.embedding as unknown as {provider?: unknown})?.provider
 		return v === 'ai' ||
 			v === 'openai' ||
 			v === 'google' ||
@@ -851,24 +851,10 @@ function ClickableCard({
 	children: React.ReactNode
 }) {
 	return (
-		<div
-			role="button"
-			tabIndex={disabled ? -1 : 0}
-			aria-disabled={disabled ? true : undefined}
-			onClick={() => {
-				if (!disabled) {
-					onClick()
-				}
-			}}
-			onKeyDown={(e) => {
-				if (disabled) {
-					return
-				}
-				if (e.key === 'Enter' || e.key === ' ') {
-					e.preventDefault()
-					onClick()
-				}
-			}}
+		<button
+			type="button"
+			disabled={disabled}
+			onClick={onClick}
 			className={cn(
 				'group relative w-full text-left transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-950/15 dark:focus-visible:ring-white/20',
 				disabled && 'cursor-not-allowed',
@@ -876,7 +862,7 @@ function ClickableCard({
 			)}
 		>
 			{children}
-		</div>
+		</button>
 	)
 }
 
@@ -1463,7 +1449,7 @@ export default function InstallWizardClient() {
 		setState
 	])
 
-	function pmExecBase(pm: 'bun' | 'npm' | 'pnpm' | 'yarn') {
+	const pmExecBase = useCallback((pm: 'bun' | 'npm' | 'pnpm' | 'yarn') => {
 		return pm === 'bun'
 			? 'bunx'
 			: pm === 'pnpm'
@@ -1471,7 +1457,7 @@ export default function InstallWizardClient() {
 				: pm === 'yarn'
 					? 'yarn dlx'
 					: 'npx'
-	}
+	}, [])
 
 	const commandPreview = useMemo(() => {
 		if (presetId) {
@@ -1496,7 +1482,7 @@ export default function InstallWizardClient() {
 		}
 		const base = pmExecBase(pkgManager)
 		return `${base} unrag@latest init --yes --preset ${presetId}`
-	}, [pkgManager, presetId])
+	}, [pkgManager, pmExecBase, presetId])
 
 	const summary = useMemo(() => {
 		return {
@@ -1666,6 +1652,7 @@ export default function InstallWizardClient() {
 								return (
 									<button
 										key={step.id}
+										type="button"
 										onClick={() => goToStep(index)}
 										className={cn(
 											'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200',
@@ -1737,6 +1724,7 @@ export default function InstallWizardClient() {
 									return (
 										<button
 											key={step.id}
+											type="button"
 											onClick={() => goToStep(index)}
 											className={cn(
 												'shrink-0 inline-flex items-center gap-2 rounded-full border border-olive-950/10 px-3 py-2 text-xs font-medium transition-colors dark:border-[#757572]/20',
@@ -3180,9 +3168,10 @@ export default function InstallWizardClient() {
 								Previous
 							</PlainButton>
 							<div className="flex items-center gap-1.5">
-								{STEPS.map((_, index) => (
+								{STEPS.map((step, index) => (
 									<button
-										key={index}
+										key={step.id}
+										type="button"
 										onClick={() => goToStep(index)}
 										className={cn(
 											'w-2 h-2 rounded-full transition-all',
