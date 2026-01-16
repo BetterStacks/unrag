@@ -159,7 +159,9 @@ async function inferInstallDirFromFilesystem(
 ): Promise<string | null> {
 	for (const candidate of DEFAULT_INSTALL_DIRS) {
 		const full = path.join(projectRoot, candidate)
-		if (!(await exists(full))) continue
+		if (!(await exists(full))) {
+			continue
+		}
 
 		// Check for unrag.md or store/ or core/ folder
 		const hasUnragMd = await exists(path.join(full, 'unrag.md'))
@@ -180,7 +182,9 @@ async function inferStoreAdapterFromFilesystem(
 	installDir: string
 ): Promise<'drizzle' | 'prisma' | 'raw-sql' | null> {
 	const storeDir = path.join(installDir, 'store')
-	if (!(await exists(storeDir))) return null
+	if (!(await exists(storeDir))) {
+		return null
+	}
 
 	try {
 		const entries = await readdir(storeDir, {withFileTypes: true})
@@ -188,9 +192,15 @@ async function inferStoreAdapterFromFilesystem(
 
 		// Check for adapter folder names (may include provider suffix)
 		for (const dir of dirs) {
-			if (dir.includes('drizzle')) return 'drizzle'
-			if (dir.includes('prisma')) return 'prisma'
-			if (dir.includes('raw-sql')) return 'raw-sql'
+			if (dir.includes('drizzle')) {
+				return 'drizzle'
+			}
+			if (dir.includes('prisma')) {
+				return 'prisma'
+			}
+			if (dir.includes('raw-sql')) {
+				return 'raw-sql'
+			}
 		}
 	} catch {
 		// ignore
@@ -205,7 +215,9 @@ async function inferEmbeddingProviderFromFilesystem(
 	installDir: string
 ): Promise<string | null> {
 	const embeddingDir = path.join(installDir, 'embedding')
-	if (!(await exists(embeddingDir))) return null
+	if (!(await exists(embeddingDir))) {
+		return null
+	}
 
 	const providers = [
 		'ai',
@@ -242,7 +254,9 @@ async function inferExtractorsFromFilesystem(
 	installDir: string
 ): Promise<string[]> {
 	const extractorsDir = path.join(installDir, 'extractors')
-	if (!(await exists(extractorsDir))) return []
+	if (!(await exists(extractorsDir))) {
+		return []
+	}
 
 	try {
 		const entries = await readdir(extractorsDir, {withFileTypes: true})
@@ -252,9 +266,13 @@ async function inferExtractorsFromFilesystem(
 			.filter((name) => {
 				// Unrag's vendored extractor templates include internal helpers under `_shared/`.
 				// This is not a user-installable extractor module and should not be treated as one.
-				if (name === '_shared') return false
+				if (name === '_shared') {
+					return false
+				}
 				// Also ignore other private/internal folders.
-				if (name.startsWith('_')) return false
+				if (name.startsWith('_')) {
+					return false
+				}
 				return true
 			})
 	} catch {
@@ -269,7 +287,9 @@ async function inferConnectorsFromFilesystem(
 	installDir: string
 ): Promise<string[]> {
 	const connectorsDir = path.join(installDir, 'connectors')
-	if (!(await exists(connectorsDir))) return []
+	if (!(await exists(connectorsDir))) {
+		return []
+	}
 
 	try {
 		const entries = await readdir(connectorsDir, {withFileTypes: true})
@@ -287,7 +307,9 @@ async function inferDbEnvVarFromConfig(
 	projectRoot: string
 ): Promise<string | null> {
 	const configPath = path.join(projectRoot, CONFIG_TS_FILE)
-	if (!(await exists(configPath))) return null
+	if (!(await exists(configPath))) {
+		return null
+	}
 
 	try {
 		const content = await readFile(configPath, 'utf8')
@@ -315,8 +337,16 @@ async function inferDbEnvVarFromConfig(
 			}
 		}
 
-		if (candidates.length === 0) return null
-		if (candidates.length === 1) return candidates[0]!
+		if (candidates.length === 0) {
+			return null
+		}
+		const first = candidates[0]
+		if (!first) {
+			return null
+		}
+		if (candidates.length === 1) {
+			return first
+		}
 
 		// Multiple candidates - prefer common names
 		const preferred = candidates.find(
@@ -325,7 +355,7 @@ async function inferDbEnvVarFromConfig(
 				c.endsWith('_DATABASE_URL') ||
 				c.endsWith('_DB_URL')
 		)
-		return preferred ?? candidates[0]!
+		return preferred ?? first
 	} catch {
 		return null
 	}
@@ -344,26 +374,30 @@ function extractDbEnvVarCandidates(source: string): string[] {
 	// Pattern 1: process.env.SOME_VAR near connectionString or Pool
 	const connectionStringPattern =
 		/connectionString\s*[:=]\s*process\.env\.([A-Z_][A-Z0-9_]*)/gi
-	let match
-	while ((match = connectionStringPattern.exec(source)) !== null) {
-		if (match[1]) candidates.push(match[1])
+	for (const match of source.matchAll(connectionStringPattern)) {
+		const name = match[1]
+		if (name) {
+			candidates.push(name)
+		}
 	}
 
 	// Pattern 2: DATABASE_URL or similar in process.env
 	const dbUrlPattern =
 		/process\.env\.([A-Z_]*(?:DATABASE|DB)_?(?:URL|URI|CONNECTION)[A-Z_]*)/gi
-	while ((match = dbUrlPattern.exec(source)) !== null) {
-		if (match[1] && !candidates.includes(match[1])) {
-			candidates.push(match[1])
+	for (const match of source.matchAll(dbUrlPattern)) {
+		const name = match[1]
+		if (name && !candidates.includes(name)) {
+			candidates.push(name)
 		}
 	}
 
 	// Pattern 3: Generic process.env.SOME_URL after new Pool(
 	const poolPattern =
 		/new\s+Pool\s*\(\s*\{[^}]*process\.env\.([A-Z_][A-Z0-9_]*)/gi
-	while ((match = poolPattern.exec(source)) !== null) {
-		if (match[1] && !candidates.includes(match[1])) {
-			candidates.push(match[1])
+	for (const match of source.matchAll(poolPattern)) {
+		const name = match[1]
+		if (name && !candidates.includes(name)) {
+			candidates.push(name)
 		}
 	}
 
@@ -378,9 +412,11 @@ function extractLocalImports(source: string): string[] {
 
 	// Match: import { x } from "./path" or from "@/path"
 	const importPattern = /from\s+["']([.@][^"']+)["']/g
-	let match
-	while ((match = importPattern.exec(source)) !== null) {
-		if (match[1]) imports.push(match[1])
+	for (const match of source.matchAll(importPattern)) {
+		const spec = match[1]
+		if (spec) {
+			imports.push(spec)
+		}
 	}
 
 	return imports
@@ -400,12 +436,16 @@ async function resolveImportPath(
 		// Try common extensions
 		for (const ext of ['.ts', '.tsx', '.js', '.jsx', '']) {
 			const candidate = resolved + ext
-			if (await exists(candidate)) return candidate
+			if (await exists(candidate)) {
+				return candidate
+			}
 		}
 		// Try as directory with index
 		for (const ext of ['.ts', '.tsx', '.js', '.jsx']) {
 			const candidate = path.join(resolved, `index${ext}`)
-			if (await exists(candidate)) return candidate
+			if (await exists(candidate)) {
+				return candidate
+			}
 		}
 		return null
 	}
@@ -444,8 +484,9 @@ async function resolveImportPath(
 									''
 								]) {
 									const candidate = resolved + ext
-									if (await exists(candidate))
+									if (await exists(candidate)) {
 										return candidate
+									}
 								}
 							}
 						}
@@ -473,10 +514,14 @@ export async function inferTableNames(
 		embeddings: 'embeddings'
 	}
 
-	if (!storeAdapter || !installDir) return defaults
+	if (!storeAdapter || !installDir) {
+		return defaults
+	}
 
 	const storeDir = path.join(installDir, 'store')
-	if (!(await exists(storeDir))) return defaults
+	if (!(await exists(storeDir))) {
+		return defaults
+	}
 
 	// Try to find and parse schema/store files
 	try {
@@ -484,7 +529,9 @@ export async function inferTableNames(
 		const adapterDir = entries.find(
 			(e) => e.isDirectory() && e.name.includes(storeAdapter)
 		)
-		if (!adapterDir) return defaults
+		if (!adapterDir) {
+			return defaults
+		}
 
 		const adapterPath = path.join(storeDir, adapterDir.name)
 
@@ -529,11 +576,12 @@ function extractDrizzleTableNames(source: string): Partial<{
 	// Match: pgTable("table_name", ...)
 	const tablePattern =
 		/export\s+const\s+(documents|chunks|embeddings)\s*=\s*pgTable\s*\(\s*["']([^"']+)["']/g
-	let match
-	while ((match = tablePattern.exec(source)) !== null) {
+	for (const match of source.matchAll(tablePattern)) {
 		const varName = match[1] as 'documents' | 'chunks' | 'embeddings'
 		const tableName = match[2]
-		if (tableName) result[varName] = tableName
+		if (tableName) {
+			result[varName] = tableName
+		}
 	}
 
 	return result
@@ -561,9 +609,11 @@ function extractSqlTableNames(source: string): Partial<{
 
 	const found = new Set<string>()
 	for (const pattern of patterns) {
-		let match
-		while ((match = pattern.exec(source)) !== null) {
-			if (match[1]) found.add(match[1].toLowerCase())
+		for (const match of source.matchAll(pattern)) {
+			const table = match[1]
+			if (table) {
+				found.add(table.toLowerCase())
+			}
 		}
 	}
 

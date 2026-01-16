@@ -78,7 +78,7 @@ function NavbarWithLinksActionsAndCenteredLogo({
 			)}
 			{...props}
 		>
-			<style>{`:root { --scroll-padding-top: 3.5rem }`}</style>
+			<style>{':root { --scroll-padding-top: 3.5rem }'}</style>
 			<nav>
 				<div className="mx-auto flex h-(--scroll-padding-top) max-w-7xl items-center gap-4 px-6 lg:px-10">
 					<div className="flex items-center">{logo}</div>
@@ -184,11 +184,7 @@ export function HomeNavbar() {
 					/>
 				</NavbarLogo>
 			}
-			actions={
-				<>
-					<ButtonLink href="/install">Get started</ButtonLink>
-				</>
-			}
+			actions=<ButtonLink href="/install">Get started</ButtonLink>
 		/>
 	)
 }

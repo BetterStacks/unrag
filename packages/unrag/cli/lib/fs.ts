@@ -53,7 +53,9 @@ export async function listFilesRecursive(dir: string): Promise<string[]> {
 		} else {
 			// ignore symlinks and others
 			const s = await stat(full).catch(() => null)
-			if (s?.isFile()) out.push(full)
+			if (s?.isFile()) {
+				out.push(full)
+			}
 		}
 	}
 	return out

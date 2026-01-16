@@ -4,7 +4,9 @@ const UUID_HYPHEN_RE =
 
 export function normalizeNotionId32(input: string): string {
 	const raw = String(input ?? '').trim()
-	if (!raw) throw new Error('Notion id is required')
+	if (!raw) {
+		throw new Error('Notion id is required')
+	}
 
 	// Try to extract UUID-like tokens from URLs or mixed strings.
 	const token =

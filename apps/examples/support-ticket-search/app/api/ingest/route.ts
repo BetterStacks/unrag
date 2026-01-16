@@ -2,7 +2,7 @@ import {db, schema} from '@/db'
 import {createUnragEngine} from '@/unrag.config'
 import {type NextRequest, NextResponse} from 'next/server'
 
-export async function POST(request: NextRequest) {
+export async function POST(_request: NextRequest) {
 	try {
 		const engine = createUnragEngine()
 

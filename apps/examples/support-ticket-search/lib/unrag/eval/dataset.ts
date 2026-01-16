@@ -80,7 +80,9 @@ function asNonEmptyString(x: unknown, path: string): string {
 }
 
 function asOptionalNumber(x: unknown, path: string): number | undefined {
-	if (x === undefined) return undefined
+	if (x === undefined) {
+		return undefined
+	}
 	if (typeof x !== 'number' || !Number.isFinite(x)) {
 		throw err(path, 'must be a finite number')
 	}
@@ -88,7 +90,9 @@ function asOptionalNumber(x: unknown, path: string): number | undefined {
 }
 
 function asStringArray(x: unknown, path: string): string[] {
-	if (!Array.isArray(x)) throw err(path, 'must be an array')
+	if (!Array.isArray(x)) {
+		throw err(path, 'must be an array')
+	}
 	const out: string[] = []
 	for (let i = 0; i < x.length; i++) {
 		const v = x[i]
@@ -104,40 +108,52 @@ function parseThresholds(
 	x: unknown,
 	path: string
 ): Partial<EvalThresholds> | undefined {
-	if (x === undefined) return undefined
-	if (!isObject(x)) throw err(path, 'must be an object')
+	if (x === undefined) {
+		return undefined
+	}
+	if (!isObject(x)) {
+		throw err(path, 'must be an object')
+	}
 	const min = isObject(x.min) ? x.min : undefined
 	const max = isObject(x.max) ? x.max : undefined
 
 	const out: Partial<EvalThresholds> = {}
 	if (min) {
 		out.min = {}
-		if (min.hitAtK !== undefined)
+		if (min.hitAtK !== undefined) {
 			out.min.hitAtK = asOptionalNumber(min.hitAtK, `${path}.min.hitAtK`)
-		if (min.recallAtK !== undefined)
+		}
+		if (min.recallAtK !== undefined) {
 			out.min.recallAtK = asOptionalNumber(
 				min.recallAtK,
 				`${path}.min.recallAtK`
 			)
-		if (min.mrrAtK !== undefined)
+		}
+		if (min.mrrAtK !== undefined) {
 			out.min.mrrAtK = asOptionalNumber(min.mrrAtK, `${path}.min.mrrAtK`)
+		}
 	}
 	if (max) {
 		out.max = {}
-		if (max.p95TotalMs !== undefined)
+		if (max.p95TotalMs !== undefined) {
 			out.max.p95TotalMs = asOptionalNumber(
 				max.p95TotalMs,
 				`${path}.max.p95TotalMs`
 			)
+		}
 	}
 	return out
 }
 
 export function parseEvalDataset(json: unknown): EvalDatasetV1 {
-	if (!isObject(json)) throw err('$', 'must be an object')
+	if (!isObject(json)) {
+		throw err('$', 'must be an object')
+	}
 
 	const version = json.version
-	if (version !== '1') throw err('$.version', 'must be "1"')
+	if (version !== '1') {
+		throw err('$.version', 'must be "1"')
+	}
 
 	const id = asNonEmptyString(json.id, '$.id')
 	const description =
@@ -145,7 +161,9 @@ export function parseEvalDataset(json: unknown): EvalDatasetV1 {
 			? undefined
 			: asNonEmptyString(json.description, '$.description')
 
-	if (!isObject(json.defaults)) throw err('$.defaults', 'must be an object')
+	if (!isObject(json.defaults)) {
+		throw err('$.defaults', 'must be an object')
+	}
 	const defaults = json.defaults
 	const scopePrefix = asNonEmptyString(
 		defaults.scopePrefix,
@@ -176,14 +194,18 @@ export function parseEvalDataset(json: unknown): EvalDatasetV1 {
 	)
 
 	const documents = (() => {
-		if (json.documents === undefined) return undefined
-		if (!Array.isArray(json.documents))
+		if (json.documents === undefined) {
+			return undefined
+		}
+		if (!Array.isArray(json.documents)) {
 			throw err('$.documents', 'must be an array')
+		}
 		const out: EvalDatasetDocument[] = []
 		for (let i = 0; i < json.documents.length; i++) {
 			const d = json.documents[i]
-			if (!isObject(d))
+			if (!isObject(d)) {
 				throw err(`$.documents[${i}]`, 'must be an object')
+			}
 			const sourceId = asNonEmptyString(
 				d.sourceId,
 				`$.documents[${i}].sourceId`
@@ -228,7 +250,9 @@ export function parseEvalDataset(json: unknown): EvalDatasetV1 {
 	const queries: EvalDatasetQuery[] = []
 	for (let i = 0; i < json.queries.length; i++) {
 		const q = json.queries[i]
-		if (!isObject(q)) throw err(`$.queries[${i}]`, 'must be an object')
+		if (!isObject(q)) {
+			throw err(`$.queries[${i}]`, 'must be an object')
+		}
 		const qid = asNonEmptyString(q.id, `$.queries[${i}].id`)
 		const query = asNonEmptyString(q.query, `$.queries[${i}].query`)
 		const qTopK = asOptionalNumber(q.topK, `$.queries[${i}].topK`)
@@ -240,8 +264,9 @@ export function parseEvalDataset(json: unknown): EvalDatasetV1 {
 			q.rerankTopK,
 			`$.queries[${i}].rerankTopK`
 		)
-		if (!isObject(q.relevant))
+		if (!isObject(q.relevant)) {
 			throw err(`$.queries[${i}].relevant`, 'must be an object')
+		}
 		const relevantSourceIds = asStringArray(
 			q.relevant.sourceIds,
 			`$.queries[${i}].relevant.sourceIds`

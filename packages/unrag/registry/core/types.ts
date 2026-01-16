@@ -504,7 +504,7 @@ export type IngestPlanResult = {
  */
 export type DeepPartial<T> = {
 	[K in keyof T]?: T[K] extends Array<infer U>
-		? Array<U>
+		? U[]
 		: T[K] extends object
 			? DeepPartial<T[K]>
 			: T[K]

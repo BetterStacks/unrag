@@ -188,7 +188,9 @@ export const unrag = defineUnragConfig({
 
 export function createUnragEngine() {
 	const databaseUrl = process.env.DATABASE_URL
-	if (!databaseUrl) throw new Error('DATABASE_URL is required')
+	if (!databaseUrl) {
+		throw new Error('DATABASE_URL is required')
+	}
 
 	const pool =
 		(globalThis as any).__unragPool ??

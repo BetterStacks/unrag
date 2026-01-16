@@ -91,16 +91,22 @@ function getIp(req: NextRequest): string {
 }
 
 function isWizardStateV1(x: unknown): x is WizardStateV1 {
-	if (!x || typeof x !== 'object') return false
-	const o = x as any
-	if (o.v !== 1) return false
-	if (!o.install || !o.modules || !o.defaults || !o.embedding || !o.storage)
+	if (!x || typeof x !== 'object') {
 		return false
+	}
+	const o = x as Record<string, unknown>
+	if (o.v !== 1) {
+		return false
+	}
+	if (!o.install || !o.modules || !o.defaults || !o.embedding || !o.storage) {
+		return false
+	}
 	if (
 		o.modules &&
+		typeof o.modules === 'object' &&
 		'batteries' in o.modules &&
-		o.modules.batteries != null &&
-		!Array.isArray(o.modules.batteries)
+		(o.modules as Record<string, unknown>).batteries != null &&
+		!Array.isArray((o.modules as Record<string, unknown>).batteries)
 	) {
 		return false
 	}
@@ -118,8 +124,8 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 	const connectors = Array.isArray(input.modules.connectors)
 		? input.modules.connectors.map(String).filter(Boolean)
 		: []
-	const batteries = Array.isArray((input.modules as any).batteries)
-		? (input.modules as any).batteries.map(String).filter(Boolean)
+	const batteries = Array.isArray(input.modules.batteries)
+		? input.modules.batteries.map(String).filter(Boolean)
 		: []
 
 	const chunkSize = Number(input.defaults.chunkSize) || 200
@@ -128,7 +134,7 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 
 	const embeddingType = (input.embedding.type ?? 'text') as EmbeddingType
 	const embeddingProvider = (() => {
-		const v = (input.embedding as any)?.provider as unknown
+		const v = (input.embedding as unknown as {provider?: unknown})?.provider
 		return v === 'ai' ||
 			v === 'openai' ||
 			v === 'google' ||
@@ -167,7 +173,7 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 }
 
 function makePresetFromWizard(state: WizardStateV1): PresetPayloadV1 {
-	const assetProcessing = (state.engine as any)?.assetProcessing
+	const assetProcessing = state.engine?.assetProcessing
 	return {
 		version: 1,
 		createdAt: new Date().toISOString(),
@@ -247,7 +253,13 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({error: 'Invalid JSON'}, {status: 400})
 	}
 
-	const rawState = (body as any)?.state ?? body
+	const rawState = (() => {
+		if (body && typeof body === 'object') {
+			const state = (body as Record<string, unknown>).state
+			return state ?? body
+		}
+		return body
+	})()
 	if (!isWizardStateV1(rawState)) {
 		return NextResponse.json({error: 'Invalid wizard state'}, {status: 400})
 	}
@@ -257,17 +269,17 @@ export async function POST(req: NextRequest) {
 	// Validate against manifest (no unknown modules; only available connectors).
 	const manifest = await loadRegistryManifest()
 	const allowedExtractors = new Set(
-		(manifest.extractors ?? []).map((e: any) => String(e.id))
+		(manifest.extractors ?? []).map((e) => e.id)
 	)
 	const allowedConnectors = new Set(
 		(manifest.connectors ?? [])
-			.filter((c: any) => c.status === 'available')
-			.map((c: any) => String(c.id))
+			.filter((c) => c.status === 'available')
+			.map((c) => c.id)
 	)
 	const allowedBatteries = new Set(
 		(manifest.batteries ?? [])
-			.filter((b: any) => b.status === 'available')
-			.map((b: any) => String(b.id))
+			.filter((b) => b.status === 'available')
+			.map((b) => b.id)
 	)
 
 	const unknownExtractors = state.modules.extractors.filter(

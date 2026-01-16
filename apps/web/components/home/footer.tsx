@@ -11,9 +11,7 @@ function FooterCategory({
 	return (
 		<div {...props}>
 			<h3>{title}</h3>
-			<ul role="list" className="mt-2 flex flex-col gap-2">
-				{children}
-			</ul>
+			<ul className="mt-2 flex flex-col gap-2">{children}</ul>
 		</div>
 	)
 }
@@ -196,16 +194,12 @@ export function FooterSection() {
 				</>
 			}
 			fineprint="© 2025 Betterstacks, Ltd."
-			socialLinks={
-				<>
-					<SocialLink
-						href="https://github.com/BetterStacks/unrag"
-						name="GitHub"
-					>
-						<GitHubIcon />
-					</SocialLink>
-				</>
-			}
+			socialLinks=<SocialLink
+				href="https://github.com/BetterStacks/unrag"
+				name="GitHub"
+			>
+				<GitHubIcon />
+			</SocialLink>
 		/>
 	)
 }

@@ -51,7 +51,7 @@ export async function patchTsconfigPaths(params: {
 			}
 		}
 
-		await writeFile(abs, JSON.stringify(next, null, 2) + '\n', 'utf8')
+		await writeFile(abs, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
 		return {changed: true, file: 'tsconfig.json'}
 	}
 
@@ -87,7 +87,9 @@ export async function patchTsconfigPaths(params: {
 	)
 
 	const needsWrite = !hasBaseUrl || !hasRagAlias || !hasRagConfigAlias
-	if (!needsWrite) return {changed: false, file: configFile}
+	if (!needsWrite) {
+		return {changed: false, file: configFile}
+	}
 
 	if (!hasBaseUrl) {
 		next.compilerOptions.baseUrl = '.'
@@ -99,6 +101,6 @@ export async function patchTsconfigPaths(params: {
 		next.compilerOptions.paths[configAliasKey] = configTarget
 	}
 
-	await writeFile(abs, JSON.stringify(next, null, 2) + '\n', 'utf8')
+	await writeFile(abs, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
 	return {changed: true, file: configFile}
 }

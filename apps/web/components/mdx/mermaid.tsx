@@ -71,26 +71,38 @@ export function Mermaid({
 			try {
 				const mermaid = await getMermaid()
 				const res = await mermaid.render(mermaidId, normalizedChart)
-				if (cancelled) return
+				if (cancelled) {
+					return
+				}
 				setSvg(res.svg)
 				setBind(() => res.bindFunctions)
 			} catch (e) {
-				if (cancelled) return
+				if (cancelled) {
+					return
+				}
 				setError(e instanceof Error ? e.message : String(e))
 			}
 		}
 
-		if (normalizedChart.length > 0) run()
+		if (normalizedChart.length > 0) {
+			run()
+		}
 		return () => {
 			cancelled = true
 		}
 	}, [mermaidId, normalizedChart])
 
 	useEffect(() => {
-		if (!svg) return
-		if (!bind) return
+		if (!svg) {
+			return
+		}
+		if (!bind) {
+			return
+		}
 		const el = containerRef.current
-		if (!el) return
+		if (!el) {
+			return
+		}
 		bind(el)
 	}, [svg, bind])
 

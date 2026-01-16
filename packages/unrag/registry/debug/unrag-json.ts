@@ -13,10 +13,14 @@ export function readUnragJson(
 ): UnragInstallInfo | null {
 	try {
 		const p = path.join(cwd, 'unrag.json')
-		if (!existsSync(p)) return null
+		if (!existsSync(p)) {
+			return null
+		}
 		const raw = readFileSync(p, 'utf8')
 		const json = JSON.parse(raw) as unknown
-		if (!json || typeof json !== 'object') return null
+		if (!json || typeof json !== 'object') {
+			return null
+		}
 		return json as UnragInstallInfo
 	} catch {
 		return null
@@ -28,7 +32,7 @@ export function isUnragBatteryInstalled(
 	cwd: string = process.cwd()
 ): boolean {
 	const info = readUnragJson(cwd)
-	const batteries = Array.isArray(info?.batteries) ? info!.batteries! : []
+	const batteries = Array.isArray(info?.batteries) ? info?.batteries! : []
 	return batteries.includes(name)
 }
 

@@ -95,9 +95,7 @@ export function connectDebugClient(
 					}
 
 					if (protocolVersion !== DEBUG_PROTOCOL_VERSION) {
-						errorMessage =
-							`Protocol mismatch. Server=${protocolVersion}, client=${DEBUG_PROTOCOL_VERSION}. ` +
-							`Please upgrade unrag CLI or the app package so both match.`
+						errorMessage = `Protocol mismatch. Server=${protocolVersion}, client=${DEBUG_PROTOCOL_VERSION}. Please upgrade unrag CLI or the app package so both match.`
 						updateStatus('error')
 						try {
 							ws?.close(1002, 'Protocol mismatch')
@@ -132,7 +130,7 @@ export function connectDebugClient(
 					handleEvent(message.event)
 					break
 
-				case 'result':
+				case 'result': {
 					const pending = pendingRequests.get(message.requestId)
 					if (pending) {
 						clearTimeout(pending.timeout)
@@ -140,6 +138,7 @@ export function connectDebugClient(
 						pending.resolve(message.result)
 					}
 					break
+				}
 			}
 		} catch {
 			// Ignore malformed messages
@@ -166,7 +165,7 @@ export function connectDebugClient(
 						name: 'unrag-debug-tui'
 					}
 				}
-				ws!.send(JSON.stringify(hello))
+				ws?.send(JSON.stringify(hello))
 			}
 
 			ws.onmessage = (event) => {
@@ -279,7 +278,7 @@ export function connectDebugClient(
 					command
 				}
 
-				ws!.send(JSON.stringify(message))
+				ws?.send(JSON.stringify(message))
 			})
 		},
 

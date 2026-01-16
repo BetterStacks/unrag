@@ -118,7 +118,6 @@ function parseDoctorArgs(args: string[]): ParsedDoctorArgsWithConfig {
 				out.envFile = v
 				i++
 			}
-			continue
 		}
 	}
 

@@ -85,9 +85,13 @@ export function clamp(n: number, min: number, max: number): number {
 
 export function truncate(text: string, maxLen: number): string {
 	const s = String(text ?? '')
-	if (maxLen <= 0) return ''
-	if (s.length <= maxLen) return s
-	return s.slice(0, Math.max(0, maxLen - 1)) + '…'
+	if (maxLen <= 0) {
+		return ''
+	}
+	if (s.length <= maxLen) {
+		return s
+	}
+	return `${s.slice(0, Math.max(0, maxLen - 1))}…`
 }
 
 export function pad(
@@ -96,7 +100,9 @@ export function pad(
 	align: 'left' | 'right' = 'left'
 ): string {
 	const s = String(text ?? '')
-	if (s.length >= width) return s.slice(0, width)
+	if (s.length >= width) {
+		return s.slice(0, width)
+	}
 	return align === 'left' ? s.padEnd(width) : s.padStart(width)
 }
 
@@ -142,18 +148,34 @@ export function statusColor(status: DebugConnectionStatus): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function eventTypeColor(type: string): string {
-	if (type.includes('error')) return theme.error
-	if (type.startsWith('ingest')) return theme.ingest
-	if (type.startsWith('retrieve')) return theme.retrieve
-	if (type.startsWith('rerank')) return theme.rerank
-	if (type.startsWith('delete')) return theme.delete
+	if (type.includes('error')) {
+		return theme.error
+	}
+	if (type.startsWith('ingest')) {
+		return theme.ingest
+	}
+	if (type.startsWith('retrieve')) {
+		return theme.retrieve
+	}
+	if (type.startsWith('rerank')) {
+		return theme.rerank
+	}
+	if (type.startsWith('delete')) {
+		return theme.delete
+	}
 	return theme.muted
 }
 
 export function eventTypeIcon(type: string): string {
-	if (type.includes('error')) return chars.cross
-	if (type.includes('complete')) return chars.check
-	if (type.includes('start')) return chars.arrow
+	if (type.includes('error')) {
+		return chars.cross
+	}
+	if (type.includes('complete')) {
+		return chars.check
+	}
+	if (type.includes('start')) {
+		return chars.arrow
+	}
 	return chars.dot
 }
 
@@ -172,8 +194,14 @@ export function formatTime(timestamp: number): string {
 }
 
 export function formatDuration(ms: number): string {
-	if (ms < 1) return '<1ms'
-	if (ms < 1000) return `${Math.round(ms)}ms`
-	if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+	if (ms < 1) {
+		return '<1ms'
+	}
+	if (ms < 1000) {
+		return `${Math.round(ms)}ms`
+	}
+	if (ms < 60000) {
+		return `${(ms / 1000).toFixed(1)}s`
+	}
 	return `${(ms / 60000).toFixed(1)}m`
 }

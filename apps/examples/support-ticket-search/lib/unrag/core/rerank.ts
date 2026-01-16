@@ -124,7 +124,9 @@ export const rerank = async (
 	for (let rank = 0; rank < result.order.length; rank++) {
 		const docIndex = result.order[rank]!
 		const originalCandidateIndex = validCandidateIndices[docIndex]
-		if (originalCandidateIndex === undefined) continue
+		if (originalCandidateIndex === undefined) {
+			continue
+		}
 
 		ranking.push({
 			index: originalCandidateIndex,

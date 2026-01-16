@@ -141,7 +141,9 @@ function getBunServe(): ((config: BunServeConfig) => BunServer) | null {
 }
 
 function decodeWsMessage(raw: WsMessageData): string | null {
-	if (typeof raw === 'string') return raw
+	if (typeof raw === 'string') {
+		return raw
+	}
 
 	// Buffer is a Uint8Array subclass, so this covers Buffer too.
 	if (raw instanceof Uint8Array) {
@@ -152,7 +154,9 @@ function decodeWsMessage(raw: WsMessageData): string | null {
 		return new TextDecoder().decode(raw)
 	}
 
-	if (isUint8ArrayArray(raw)) return decodeUint8ArrayChunks(raw)
+	if (isUint8ArrayArray(raw)) {
+		return decodeUint8ArrayChunks(raw)
+	}
 
 	return null
 }
@@ -218,8 +222,12 @@ export async function startDebugServer(
 		// This will be expanded as we implement interactive features.
 		const caps: DebugCapability[] = ['doctor']
 		const rt = getUnragDebugRuntime()
-		if (rt?.engine) caps.push('query')
-		if (rt?.engine) caps.push('ingest')
+		if (rt?.engine) {
+			caps.push('query')
+		}
+		if (rt?.engine) {
+			caps.push('ingest')
+		}
 		if (
 			rt?.engine &&
 			isUnragBatteryInstalled('eval') &&
@@ -227,7 +235,9 @@ export async function startDebugServer(
 		) {
 			caps.push('eval')
 		}
-		if (rt?.storeInspector) caps.push('docs', 'storeInspector')
+		if (rt?.storeInspector) {
+			caps.push('docs', 'storeInspector')
+		}
 		return caps
 	}
 
@@ -268,13 +278,13 @@ export async function startDebugServer(
 
 			if (instance.nodeWss) {
 				await new Promise<void>((resolve) =>
-					instance.nodeWss!.close(() => resolve())
+					instance.nodeWss?.close(() => resolve())
 				)
 				instance.nodeWss = null
 			}
 			if (instance.nodeHttpServer) {
 				await new Promise<void>((resolve) =>
-					instance.nodeHttpServer!.close(() => resolve())
+					instance.nodeHttpServer?.close(() => resolve())
 				)
 				instance.nodeHttpServer = null
 			}
@@ -339,7 +349,9 @@ export async function startDebugServer(
 	const handleMessage = (ws: WebSocketClient, rawMessage: WsMessageData) => {
 		try {
 			const text = decodeWsMessage(rawMessage)
-			if (!text) return
+			if (!text) {
+				return
+			}
 			const message = JSON.parse(text) as ClientMessage
 
 			if (message.type === 'hello') {
@@ -354,10 +366,7 @@ export async function startDebugServer(
 					const err: ServerMessage = {
 						type: 'error',
 						code: 'protocol_mismatch',
-						message:
-							`Debug protocol mismatch. Server=${DEBUG_PROTOCOL_VERSION}, ` +
-							`client supports [${supported.join(', ')}]. ` +
-							`Please upgrade unrag in your app and your CLI.`,
+						message: `Debug protocol mismatch. Server=${DEBUG_PROTOCOL_VERSION}, client supports [${supported.join(', ')}]. Please upgrade unrag in your app and your CLI.`,
 						details: {
 							serverProtocolVersion: DEBUG_PROTOCOL_VERSION,
 							clientSupported: supported
@@ -370,7 +379,9 @@ export async function startDebugServer(
 
 				if (state) {
 					state.helloReceived = true
-					if (state.timer) clearTimeout(state.timer)
+					if (state.timer) {
+						clearTimeout(state.timer)
+					}
 					state.timer = null
 					if (!state.welcomeSent) {
 						state.welcomeSent = true
@@ -388,7 +399,9 @@ export async function startDebugServer(
 				const state = clientState.get(ws)
 				if (state && !state.welcomeSent) {
 					state.welcomeSent = true
-					if (state.timer) clearTimeout(state.timer)
+					if (state.timer) {
+						clearTimeout(state.timer)
+					}
 					state.timer = null
 					sendWelcome(ws)
 				}
@@ -426,7 +439,9 @@ export async function startDebugServer(
 
 	const handleClose = (ws: WebSocketClient) => {
 		const state = clientState.get(ws)
-		if (state?.timer) clearTimeout(state.timer)
+		if (state?.timer) {
+			clearTimeout(state.timer)
+		}
 		clientState.delete(ws)
 		clients.delete(ws)
 		instance.clientCount = clients.size
@@ -445,7 +460,9 @@ export async function startDebugServer(
 				hostname: host,
 				fetch(req: Request, server: BunServerContext) {
 					const upgraded = server.upgrade(req, {data: {}})
-					if (upgraded) return undefined
+					if (upgraded) {
+						return undefined
+					}
 					return new Response('Upgrade Required', {
 						status: 426,
 						headers: {Upgrade: 'websocket'}
@@ -505,7 +522,7 @@ export async function startDebugServer(
 
 		return instance
 	} catch (error) {
-		console.error(`[unrag:debug] Failed to start server:`, error)
+		console.error('[unrag:debug] Failed to start server:', error)
 		if (instance.unsubscribe) {
 			instance.unsubscribe()
 		}
@@ -531,7 +548,9 @@ async function loadWsModule(): Promise<WsModule | null> {
 }
 
 function normalizeWsModule(mod: unknown): WsModule | null {
-	if (!mod || typeof mod !== 'object') return null
+	if (!mod || typeof mod !== 'object') {
+		return null
+	}
 
 	const m = mod as Record<string, unknown>
 	const candidate =
@@ -549,8 +568,12 @@ function normalizeWsModule(mod: unknown): WsModule | null {
 	) => NodeWebSocketServer => typeof v === 'function'
 
 	const out: WsModule = {}
-	if (isCtor(WebSocketServer)) out.WebSocketServer = WebSocketServer
-	if (isCtor(Server)) out.Server = Server
+	if (isCtor(WebSocketServer)) {
+		out.WebSocketServer = WebSocketServer
+	}
+	if (isCtor(Server)) {
+		out.Server = Server
+	}
 
 	return out.WebSocketServer || out.Server ? out : null
 }

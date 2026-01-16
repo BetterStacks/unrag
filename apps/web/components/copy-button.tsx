@@ -8,8 +8,9 @@ export function CopyButton({text}: {text: string}) {
 
 	useEffect(() => {
 		return () => {
-			if (resetTimerRef.current)
+			if (resetTimerRef.current) {
 				window.clearTimeout(resetTimerRef.current)
+			}
 		}
 	}, [])
 
@@ -18,8 +19,9 @@ export function CopyButton({text}: {text: string}) {
 			await navigator.clipboard.writeText(text)
 			setCopied(true)
 
-			if (resetTimerRef.current)
+			if (resetTimerRef.current) {
 				window.clearTimeout(resetTimerRef.current)
+			}
 			resetTimerRef.current = window.setTimeout(() => {
 				setCopied(false)
 				resetTimerRef.current = null

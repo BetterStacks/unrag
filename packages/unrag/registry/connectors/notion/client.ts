@@ -18,7 +18,9 @@ export function createNotionClient(
 	input: CreateNotionClientInput
 ): NotionClient {
 	const token = input.token?.trim()
-	if (!token) throw new Error('NOTION token is required')
+	if (!token) {
+		throw new Error('NOTION token is required')
+	}
 
 	const options: NotionClientOptions = {
 		auth: token,

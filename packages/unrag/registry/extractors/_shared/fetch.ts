@@ -7,16 +7,30 @@ const isProbablyIpLiteral = (host: string) =>
 
 const isDisallowedHost = (host: string) => {
 	const h = host.toLowerCase()
-	if (h === 'localhost' || h.endsWith('.localhost')) return true
-	if (h === '0.0.0.0') return true
-	if (h === '127.0.0.1' || h.startsWith('127.')) return true
-	if (h === '::1') return true
+	if (h === 'localhost' || h.endsWith('.localhost')) {
+		return true
+	}
+	if (h === '0.0.0.0') {
+		return true
+	}
+	if (h === '127.0.0.1' || h.startsWith('127.')) {
+		return true
+	}
+	if (h === '::1') {
+		return true
+	}
 
 	// If host is an IP literal, block common private ranges.
 	if (isProbablyIpLiteral(h)) {
-		if (h.startsWith('10.')) return true
-		if (h.startsWith('192.168.')) return true
-		if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(h)) return true
+		if (h.startsWith('10.')) {
+			return true
+		}
+		if (h.startsWith('192.168.')) {
+			return true
+		}
+		if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(h)) {
+			return true
+		}
 	}
 
 	return false

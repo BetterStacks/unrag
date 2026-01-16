@@ -110,7 +110,7 @@ export async function writeEvalReport(
 ): Promise<string> {
 	await ensureDir(outputDir)
 	const outPath = path.join(outputDir, 'report.json')
-	await writeFile(outPath, JSON.stringify(report, null, 2) + '\n', 'utf8')
+	await writeFile(outPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8')
 	return outPath
 }
 
@@ -121,8 +121,8 @@ export async function writeEvalSummaryMd(
 	await ensureDir(outputDir)
 	const outPath = path.join(outputDir, 'summary.md')
 	const lines: string[] = []
-	lines.push(`# Unrag Eval Report`)
-	lines.push(``)
+	lines.push('# Unrag Eval Report')
+	lines.push('')
 	lines.push(`- Dataset: \`${report.dataset.id}\``)
 	lines.push(`- Mode: \`${report.config.mode}\``)
 	lines.push(`- topK: \`${report.config.topK}\``)
@@ -134,13 +134,13 @@ export async function writeEvalSummaryMd(
 	lines.push(`- scopePrefix: \`${report.config.scopePrefix}\``)
 	lines.push(`- ingest: \`${report.config.ingest}\``)
 	lines.push(`- createdAt: \`${report.createdAt}\``)
-	lines.push(``)
+	lines.push('')
 
 	const stageLines = (label: string, a: EvalAggregatesForStage) => {
 		lines.push(`## ${label}`)
-		lines.push(``)
-		lines.push(`| metric | mean | median |`)
-		lines.push(`| --- | ---: | ---: |`)
+		lines.push('')
+		lines.push('| metric | mean | median |')
+		lines.push('| --- | ---: | ---: |')
 		lines.push(
 			`| hit@k | ${a.mean.hitAtK.toFixed(3)} | ${a.median.hitAtK.toFixed(3)} |`
 		)
@@ -158,12 +158,13 @@ export async function writeEvalSummaryMd(
 				`| ndcg@k | ${(a.mean.ndcgAtK ?? 0).toFixed(3)} | ${(a.median.ndcgAtK ?? 0).toFixed(3)} |`
 			)
 		}
-		lines.push(``)
+		lines.push('')
 	}
 
 	stageLines('Retrieved', report.results.aggregates.retrieved)
-	if (report.results.aggregates.reranked)
+	if (report.results.aggregates.reranked) {
 		stageLines('Reranked', report.results.aggregates.reranked)
+	}
 
 	// Worst queries by recall@k (post-rerank if present)
 	const sortKey = (q: EvalQueryResult) =>
@@ -171,29 +172,31 @@ export async function writeEvalSummaryMd(
 	const worst = [...report.results.queries]
 		.sort((a, b) => sortKey(a) - sortKey(b))
 		.slice(0, 10)
-	lines.push(`## Worst queries`)
-	lines.push(``)
-	lines.push(`| id | recall@k | hit@k | mrr@k |`)
-	lines.push(`| --- | ---: | ---: | ---: |`)
+	lines.push('## Worst queries')
+	lines.push('')
+	lines.push('| id | recall@k | hit@k | mrr@k |')
+	lines.push('| --- | ---: | ---: | ---: |')
 	for (const q of worst) {
 		const m = q.reranked?.metrics ?? q.retrieved.metrics
 		lines.push(
 			`| \`${q.id}\` | ${m.recallAtK.toFixed(3)} | ${m.hitAtK.toFixed(0)} | ${m.mrrAtK.toFixed(3)} |`
 		)
 	}
-	lines.push(``)
+	lines.push('')
 
 	if (
 		Array.isArray(report.results.thresholdFailures) &&
 		report.results.thresholdFailures.length > 0
 	) {
-		lines.push(`## Threshold failures`)
-		lines.push(``)
-		for (const f of report.results.thresholdFailures) lines.push(`- ${f}`)
-		lines.push(``)
+		lines.push('## Threshold failures')
+		lines.push('')
+		for (const f of report.results.thresholdFailures) {
+			lines.push(`- ${f}`)
+		}
+		lines.push('')
 	}
 
-	await writeFile(outPath, lines.join('\n') + '\n', 'utf8')
+	await writeFile(outPath, `${lines.join('\n')}\n`, 'utf8')
 	return outPath
 }
 
@@ -229,7 +232,9 @@ export function percentiles(values: number[]): Percentiles {
 		.filter((v) => Number.isFinite(v))
 		.slice()
 		.sort((a, b) => a - b)
-	if (xs.length === 0) return {p50: 0, p95: 0}
+	if (xs.length === 0) {
+		return {p50: 0, p95: 0}
+	}
 	return {
 		p50: quantile(xs, 0.5),
 		p95: quantile(xs, 0.95)
@@ -237,7 +242,9 @@ export function percentiles(values: number[]): Percentiles {
 }
 
 function quantile(sorted: number[], q: number): number {
-	if (sorted.length === 0) return 0
+	if (sorted.length === 0) {
+		return 0
+	}
 	const pos = (sorted.length - 1) * q
 	const base = Math.floor(pos)
 	const rest = pos - base
@@ -357,7 +364,7 @@ export async function writeEvalDiffJson(
 ): Promise<string> {
 	await ensureDir(outputDir)
 	const outPath = path.join(outputDir, 'diff.json')
-	await writeFile(outPath, JSON.stringify(diff, null, 2) + '\n', 'utf8')
+	await writeFile(outPath, `${JSON.stringify(diff, null, 2)}\n`, 'utf8')
 	return outPath
 }
 
@@ -368,15 +375,15 @@ export async function writeEvalDiffMd(
 	await ensureDir(outputDir)
 	const outPath = path.join(outputDir, 'diff.md')
 	const lines: string[] = []
-	lines.push(`# Unrag Eval Diff`)
-	lines.push(``)
+	lines.push('# Unrag Eval Diff')
+	lines.push('')
 	lines.push(`- Baseline: \`${diff.baseline.datasetId}\``)
 	lines.push(`- Candidate: \`${diff.candidate.datasetId}\``)
-	lines.push(``)
-	lines.push(`## Aggregate deltas (mean)`)
-	lines.push(``)
-	lines.push(`| metric | retrieved Δ | reranked Δ |`)
-	lines.push(`| --- | ---: | ---: |`)
+	lines.push('')
+	lines.push('## Aggregate deltas (mean)')
+	lines.push('')
+	lines.push('| metric | retrieved Δ | reranked Δ |')
+	lines.push('| --- | ---: | ---: |')
 	const fmt = (n: number | undefined) =>
 		typeof n === 'number' ? n.toFixed(3) : '—'
 	lines.push(
@@ -391,23 +398,23 @@ export async function writeEvalDiffMd(
 	lines.push(
 		`| mrr@k | ${fmt(diff.deltas.retrieved.mrrAtK)} | ${fmt(diff.deltas.reranked?.mrrAtK)} |`
 	)
-	lines.push(``)
+	lines.push('')
 	if (typeof diff.deltas.p95TotalMs === 'number') {
 		lines.push(
 			`- p95 total ms Δ: \`${diff.deltas.p95TotalMs.toFixed(1)}ms\``
 		)
-		lines.push(``)
+		lines.push('')
 	}
-	lines.push(`## Worst recall regressions`)
-	lines.push(``)
-	lines.push(`| id | Δ recall@k | baseline | candidate |`)
-	lines.push(`| --- | ---: | ---: | ---: |`)
+	lines.push('## Worst recall regressions')
+	lines.push('')
+	lines.push('| id | Δ recall@k | baseline | candidate |')
+	lines.push('| --- | ---: | ---: | ---: |')
 	for (const r of diff.worstRegressions) {
 		lines.push(
 			`| \`${r.id}\` | ${r.deltaRecallAtK.toFixed(3)} | ${r.baselineRecallAtK.toFixed(3)} | ${r.candidateRecallAtK.toFixed(3)} |`
 		)
 	}
-	lines.push(``)
-	await writeFile(outPath, lines.join('\n') + '\n', 'utf8')
+	lines.push('')
+	await writeFile(outPath, `${lines.join('\n')}\n`, 'utf8')
 	return outPath
 }

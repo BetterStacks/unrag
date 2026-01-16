@@ -107,14 +107,30 @@ export function App({url}: AppProps) {
 		}
 
 		// Number keys for direct tab selection
-		if (input === '1') setActiveTab('dashboard')
-		if (input === '2') setActiveTab('events')
-		if (input === '3') setActiveTab('traces')
-		if (input === '4') setActiveTab('query')
-		if (input === '5') setActiveTab('docs')
-		if (input === '6') setActiveTab('ingest')
-		if (input === '7') setActiveTab('doctor')
-		if (input === '8') setActiveTab('eval')
+		if (input === '1') {
+			setActiveTab('dashboard')
+		}
+		if (input === '2') {
+			setActiveTab('events')
+		}
+		if (input === '3') {
+			setActiveTab('traces')
+		}
+		if (input === '4') {
+			setActiveTab('query')
+		}
+		if (input === '5') {
+			setActiveTab('docs')
+		}
+		if (input === '6') {
+			setActiveTab('ingest')
+		}
+		if (input === '7') {
+			setActiveTab('doctor')
+		}
+		if (input === '8') {
+			setActiveTab('eval')
+		}
 	})
 
 	return (
@@ -191,8 +207,12 @@ export function runDebugTui(options?: RunOptions) {
 		if (stdin?.isTTY && typeof stdin.setRawMode === 'function') {
 			stdin.setRawMode(true)
 		}
-		if (typeof stdin?.setEncoding === 'function') stdin.setEncoding('utf8')
-		if (typeof stdin?.resume === 'function') stdin.resume()
+		if (typeof stdin?.setEncoding === 'function') {
+			stdin.setEncoding('utf8')
+		}
+		if (typeof stdin?.resume === 'function') {
+			stdin.resume()
+		}
 	} catch {
 		// ignore
 	}

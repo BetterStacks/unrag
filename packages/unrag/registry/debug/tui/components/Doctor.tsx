@@ -18,14 +18,22 @@ type DoctorProps = {
 }
 
 function statusColor(status: DoctorCheck['status']): string {
-	if (status === 'ok') return theme.ok
-	if (status === 'warn') return theme.warning
+	if (status === 'ok') {
+		return theme.ok
+	}
+	if (status === 'warn') {
+		return theme.warning
+	}
 	return theme.error
 }
 
 function statusIcon(status: DoctorCheck['status']): string {
-	if (status === 'ok') return chars.check
-	if (status === 'warn') return chars.dot
+	if (status === 'ok') {
+		return chars.check
+	}
+	if (status === 'warn') {
+		return chars.dot
+	}
 	return chars.cross
 }
 
@@ -48,13 +56,17 @@ export function Doctor({connection}: DoctorProps) {
 	}
 
 	useEffect(() => {
-		if (connection.status !== 'connected') return
+		if (connection.status !== 'connected') {
+			return
+		}
 		void run()
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [connection.status])
 
 	const doctor = useMemo(() => {
-		if (res?.type !== 'doctor') return undefined
+		if (res?.type !== 'doctor') {
+			return undefined
+		}
 		return res
 	}, [res])
 
@@ -79,10 +91,12 @@ export function Doctor({connection}: DoctorProps) {
 			void run()
 			return
 		}
-		if (key.upArrow || input === 'k')
+		if (key.upArrow || input === 'k') {
 			setSelectedIndex((p) => Math.max(0, p - 1))
-		if (key.downArrow || input === 'j')
+		}
+		if (key.downArrow || input === 'j') {
 			setSelectedIndex((p) => Math.min(maxIndex, p + 1))
+		}
 	})
 
 	const summary = useMemo(() => {
@@ -90,9 +104,13 @@ export function Doctor({connection}: DoctorProps) {
 		let warn = 0
 		let err = 0
 		for (const c of checks) {
-			if (c.status === 'ok') ok++
-			else if (c.status === 'warn') warn++
-			else err++
+			if (c.status === 'ok') {
+				ok++
+			} else if (c.status === 'warn') {
+				warn++
+			} else {
+				err++
+			}
 		}
 		return {ok, warn, err}
 	}, [checks])

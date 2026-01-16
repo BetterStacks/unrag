@@ -161,7 +161,7 @@ type Connector = {
 	description: string
 	installCmd?: string
 	status: 'available' | 'coming-soon'
-	logo: ComponentType<any>
+	logo: ComponentType<SVGProps<SVGSVGElement>>
 	docUrl?: string
 }
 
@@ -169,7 +169,7 @@ type Provider = {
 	name: string
 	status: 'available' | 'coming-soon'
 	description?: string
-	logo: ComponentType<any>
+	logo: ComponentType<SVGProps<SVGSVGElement>>
 	installCmd?: string
 	docUrl?: string
 }
@@ -208,7 +208,7 @@ type RegistryManifest = {
 	}>
 }
 
-const connectorLogoById: Record<string, ComponentType<any>> = {
+const connectorLogoById: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
 	notion: Notion,
 	'google-drive': GoogleDrive,
 	github: GitHubDark,
@@ -349,14 +349,20 @@ function toSearchableText(
 	value: unknown,
 	{withDotPrefixes}: {withDotPrefixes?: boolean} = {}
 ) {
-	if (value === null || value === undefined) return ''
+	if (value === null || value === undefined) {
+		return ''
+	}
 
 	if (Array.isArray(value)) {
 		const parts = value
 			.flatMap((v) => {
-				if (v === null || v === undefined) return []
+				if (v === null || v === undefined) {
+					return []
+				}
 				const s = String(v)
-				if (!s) return []
+				if (!s) {
+					return []
+				}
 				return withDotPrefixes
 					? [s, s.startsWith('.') ? s : `.${s}`]
 					: [s]
@@ -371,7 +377,9 @@ function toSearchableText(
 		typeof value === 'boolean'
 	) {
 		const s = String(value)
-		if (!withDotPrefixes) return s
+		if (!withDotPrefixes) {
+			return s
+		}
 		return [s, s.startsWith('.') ? s : `.${s}`].join(' ')
 	}
 
@@ -386,7 +394,9 @@ function normalizeSearchTerms(filterValue: unknown) {
 	const rawSearch = String(filterValue ?? '')
 		.trim()
 		.toLowerCase()
-	if (!rawSearch) return []
+	if (!rawSearch) {
+		return []
+	}
 	return rawSearch.split(/\s+/).filter(Boolean)
 }
 
@@ -396,7 +406,9 @@ const extractorGlobalFilter: FilterFn<Extractor> = (
 	filterValue
 ) => {
 	const terms = normalizeSearchTerms(filterValue)
-	if (terms.length === 0) return true
+	if (terms.length === 0) {
+		return true
+	}
 
 	const e = row.original
 	const haystack = [
@@ -419,7 +431,9 @@ const connectorGlobalFilter: FilterFn<Connector> = (
 	filterValue
 ) => {
 	const terms = normalizeSearchTerms(filterValue)
-	if (terms.length === 0) return true
+	if (terms.length === 0) {
+		return true
+	}
 
 	const c = row.original
 	const haystack = [
@@ -442,7 +456,9 @@ const providerGlobalFilter: FilterFn<Provider> = (
 	filterValue
 ) => {
 	const terms = normalizeSearchTerms(filterValue)
-	if (terms.length === 0) return true
+	if (terms.length === 0) {
+		return true
+	}
 
 	const p = row.original
 	const haystack = [p.name, p.status, p.description ?? '']
@@ -507,7 +523,9 @@ function RowActions({
 	docHref,
 	docLabel
 }: {copyText?: string; docHref?: string; docLabel?: string}) {
-	if (!copyText && !docHref) return null
+	if (!copyText && !docHref) {
+		return null
+	}
 
 	return (
 		<div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
@@ -565,7 +583,9 @@ const extractorColumns = [
 			</div>
 		),
 		filterFn: (row, columnId, filterValue) => {
-			if (!filterValue) return true
+			if (!filterValue) {
+				return true
+			}
 			const fileTypes = row.getValue(columnId) as string[]
 			return fileTypes.some((type) => type === filterValue)
 		}
@@ -612,7 +632,11 @@ function ExtractorsTable({data}: {data: Extractor[]}) {
 
 	const allFileTypes = useMemo(() => {
 		const types = new Set<string>()
-		data.forEach((e) => e.fileTypes.forEach((t) => types.add(t)))
+		for (const e of data) {
+			for (const t of e.fileTypes) {
+				types.add(t)
+			}
+		}
 		return Array.from(types).sort()
 	}, [data])
 
@@ -630,7 +654,9 @@ function ExtractorsTable({data}: {data: Extractor[]}) {
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
+						aria-hidden="true"
 					>
+						<title>Search</title>
 						<path
 							strokeLinecap="round"
 							strokeLinejoin="round"
@@ -769,7 +795,9 @@ const connectorColumns = [
 			</div>
 		),
 		filterFn: (row, columnId, filterValue) => {
-			if (!filterValue) return true
+			if (!filterValue) {
+				return true
+			}
 			const types = row.getValue(columnId) as string[]
 			return types.some((t) => t === filterValue)
 		}
@@ -819,7 +847,11 @@ function ConnectorsTable({data}: {data: Connector[]}) {
 
 	const allConnectorTypes = useMemo(() => {
 		const types = new Set<string>()
-		data.forEach((c) => c.types.forEach((t) => types.add(t)))
+		for (const c of data) {
+			for (const t of c.types) {
+				types.add(t)
+			}
+		}
 		return Array.from(types).sort()
 	}, [data])
 
@@ -836,7 +868,9 @@ function ConnectorsTable({data}: {data: Connector[]}) {
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
+						aria-hidden="true"
 					>
+						<title>Search</title>
 						<path
 							strokeLinecap="round"
 							strokeLinejoin="round"
@@ -1010,7 +1044,9 @@ function ProvidersTab() {
 						fill="none"
 						viewBox="0 0 24 24"
 						stroke="currentColor"
+						aria-hidden="true"
 					>
+						<title>Search</title>
 						<path
 							strokeLinecap="round"
 							strokeLinejoin="round"
@@ -1105,7 +1141,9 @@ export function RegistrySection() {
 		async function load() {
 			try {
 				const res = await fetch('/api/manifest', {cache: 'force-cache'})
-				if (!res.ok) return
+				if (!res.ok) {
+					return
+				}
 				const json = (await res.json()) as RegistryManifest
 
 				const nextExtractors: Extractor[] = (json.extractors ?? []).map(
@@ -1170,7 +1208,9 @@ export function RegistrySection() {
 					}
 				)
 
-				if (cancelled) return
+				if (cancelled) {
+					return
+				}
 				setExtractors(nextExtractors)
 				setConnectors(nextConnectors)
 			} catch {
@@ -1240,7 +1280,9 @@ export function RegistrySection() {
 									viewBox="0 0 24 24"
 									stroke="currentColor"
 									strokeWidth={2}
+									aria-hidden="true"
 								>
+									<title>Arrow right</title>
 									<path
 										strokeLinecap="round"
 										strokeLinejoin="round"
@@ -1259,6 +1301,7 @@ export function RegistrySection() {
 						{tabs.map((tab) => (
 							<button
 								key={tab.id}
+								type="button"
 								onClick={() => setActiveTab(tab.id)}
 								className={clsx(
 									'relative px-5 py-2 text-sm font-medium rounded-lg transition-all duration-200',

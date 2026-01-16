@@ -37,7 +37,9 @@ export function formatReport(
 
 	// Groups
 	for (const group of report.groups) {
-		if (group.results.length === 0) continue
+		if (group.results.length === 0) {
+			continue
+		}
 
 		lines.push(`${group.title}`)
 		lines.push('─'.repeat(group.title.length))
@@ -56,10 +58,18 @@ export function formatReport(
 	const {pass, warn, fail, skip, total} = report.summary
 	const summaryParts: string[] = []
 
-	if (pass > 0) summaryParts.push(STATUS_COLORS.pass(`${pass} passed`))
-	if (warn > 0) summaryParts.push(STATUS_COLORS.warn(`${warn} warnings`))
-	if (fail > 0) summaryParts.push(STATUS_COLORS.fail(`${fail} failed`))
-	if (skip > 0) summaryParts.push(STATUS_COLORS.skip(`${skip} skipped`))
+	if (pass > 0) {
+		summaryParts.push(STATUS_COLORS.pass(`${pass} passed`))
+	}
+	if (warn > 0) {
+		summaryParts.push(STATUS_COLORS.warn(`${warn} warnings`))
+	}
+	if (fail > 0) {
+		summaryParts.push(STATUS_COLORS.fail(`${fail} failed`))
+	}
+	if (skip > 0) {
+		summaryParts.push(STATUS_COLORS.skip(`${skip} skipped`))
+	}
 
 	lines.push(`${summaryParts.join(', ')} (${total} total)`)
 
@@ -116,7 +126,7 @@ function formatResult(result: CheckResult): string {
 
 	// Fix hints (indented, different styling)
 	if (result.fixHints && result.fixHints.length > 0) {
-		lines.push(`      Fix:`)
+		lines.push('      Fix:')
 		for (const hint of result.fixHints) {
 			lines.push(`        ${hint}`)
 		}

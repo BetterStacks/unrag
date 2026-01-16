@@ -53,7 +53,9 @@ export function createImageCaptionLlmExtractor(): AssetExtractor {
 			})
 
 			const caption = (result.text ?? '').trim()
-			if (!caption) return {texts: [], diagnostics: {model: cfg.model}}
+			if (!caption) {
+				return {texts: [], diagnostics: {model: cfg.model}}
+			}
 
 			return {
 				texts: [

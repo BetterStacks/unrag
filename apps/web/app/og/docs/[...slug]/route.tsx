@@ -27,7 +27,9 @@ export async function GET(
 ) {
 	const {slug} = await params
 	const page = source.getPage(slug.slice(0, -1))
-	if (!page) notFound()
+	if (!page) {
+		notFound()
+	}
 
 	const [geistRegular, geistBold, logo, banner] = await Promise.all([
 		geistRegularPromise,

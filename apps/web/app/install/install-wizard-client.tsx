@@ -665,7 +665,9 @@ const connectorLogoById: Record<string, ThemeIconPair> = {
 
 function toBase64Url(bytes: Uint8Array) {
 	let binary = ''
-	for (const b of bytes) binary += String.fromCharCode(b)
+	for (const b of bytes) {
+		binary += String.fromCharCode(b)
+	}
 	const b64 = btoa(binary)
 	return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
 }
@@ -675,7 +677,9 @@ function fromBase64Url(b64url: string) {
 	const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4)
 	const binary = atob(padded)
 	const bytes = new Uint8Array(binary.length)
-	for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+	for (let i = 0; i < binary.length; i++) {
+		bytes[i] = binary.charCodeAt(i)
+	}
 	return bytes
 }
 
@@ -686,12 +690,16 @@ function encodeWizardState(state: WizardStateV1) {
 }
 
 function decodeWizardState(encoded: string): WizardStateV1 | null {
-	if (!encoded) return null
+	if (!encoded) {
+		return null
+	}
 	try {
 		const bytes = fromBase64Url(encoded)
 		const json = new TextDecoder().decode(bytes)
 		const parsed = JSON.parse(json) as Partial<WizardStateV1> | null
-		if (!parsed || parsed.v !== 1) return null
+		if (!parsed || parsed.v !== 1) {
+			return null
+		}
 		return parsed as WizardStateV1
 	} catch {
 		return null
@@ -848,10 +856,14 @@ function ClickableCard({
 			tabIndex={disabled ? -1 : 0}
 			aria-disabled={disabled ? true : undefined}
 			onClick={() => {
-				if (!disabled) onClick()
+				if (!disabled) {
+					onClick()
+				}
 			}}
 			onKeyDown={(e) => {
-				if (disabled) return
+				if (disabled) {
+					return
+				}
 				if (e.key === 'Enter' || e.key === ' ') {
 					e.preventDefault()
 					onClick()
@@ -1335,9 +1347,13 @@ export default function InstallWizardClient() {
 		async function load() {
 			try {
 				const res = await fetch('/api/manifest', {cache: 'force-cache'})
-				if (!res.ok) return
+				if (!res.ok) {
+					return
+				}
 				const json = (await res.json()) as RegistryManifest
-				if (cancelled) return
+				if (cancelled) {
+					return
+				}
 				setManifest(json)
 			} catch {
 				// ignore
@@ -1393,8 +1409,9 @@ export default function InstallWizardClient() {
 	}, [state.embedding.provider])
 
 	const embeddingModelOptions = useMemo(() => {
-		if (state.embedding.type !== 'multimodal')
+		if (state.embedding.type !== 'multimodal') {
 			return embeddingModelOptionsAll
+		}
 		const filtered = embeddingModelOptionsAll.filter((m) =>
 			m.supports.includes('multimodal')
 		)
@@ -1403,7 +1420,9 @@ export default function InstallWizardClient() {
 
 	const embeddingModelOptionById = useMemo(() => {
 		const m = new Map<string, EmbeddingModelOption>()
-		for (const o of embeddingModelOptionsAll) m.set(o.id, o)
+		for (const o of embeddingModelOptionsAll) {
+			m.set(o.id, o)
+		}
 		return m
 	}, [embeddingModelOptionsAll])
 
@@ -1417,13 +1436,20 @@ export default function InstallWizardClient() {
 		: state.embedding.model
 
 	useEffect(() => {
-		if (state.embedding.type !== 'multimodal') return
+		if (state.embedding.type !== 'multimodal') {
+			return
+		}
 		const desired =
 			DEFAULT_MULTIMODAL_MODEL_BY_PROVIDER[state.embedding.provider]
-		if (!desired) return
-		if (state.embedding.model === desired) return
-		if (selectedEmbeddingModelOption?.supports.includes('multimodal'))
+		if (!desired) {
 			return
+		}
+		if (state.embedding.model === desired) {
+			return
+		}
+		if (selectedEmbeddingModelOption?.supports.includes('multimodal')) {
+			return
+		}
 		setForceCustomEmbeddingModel(false)
 		setState((prev) => ({
 			...prev,
@@ -1465,7 +1491,9 @@ export default function InstallWizardClient() {
 	}, [state, presetId])
 
 	const installCommand = useMemo(() => {
-		if (!presetId) return null
+		if (!presetId) {
+			return null
+		}
 		const base = pmExecBase(pkgManager)
 		return `${base} unrag@latest init --yes --preset ${presetId}`
 	}, [pkgManager, presetId])
@@ -1488,17 +1516,36 @@ export default function InstallWizardClient() {
 
 	const requiredEmbeddingEnvVars = useMemo(() => {
 		const p = state.embedding.provider
-		if (p === 'ai') return ['AI_GATEWAY_API_KEY']
-		if (p === 'openai') return ['OPENAI_API_KEY']
-		if (p === 'google') return ['GOOGLE_GENERATIVE_AI_API_KEY']
-		if (p === 'openrouter') return ['OPENROUTER_API_KEY']
-		if (p === 'cohere') return ['COHERE_API_KEY']
-		if (p === 'mistral') return ['MISTRAL_API_KEY']
-		if (p === 'together') return ['TOGETHER_AI_API_KEY']
-		if (p === 'voyage') return ['VOYAGE_API_KEY']
-		if (p === 'azure')
+		if (p === 'ai') {
+			return ['AI_GATEWAY_API_KEY']
+		}
+		if (p === 'openai') {
+			return ['OPENAI_API_KEY']
+		}
+		if (p === 'google') {
+			return ['GOOGLE_GENERATIVE_AI_API_KEY']
+		}
+		if (p === 'openrouter') {
+			return ['OPENROUTER_API_KEY']
+		}
+		if (p === 'cohere') {
+			return ['COHERE_API_KEY']
+		}
+		if (p === 'mistral') {
+			return ['MISTRAL_API_KEY']
+		}
+		if (p === 'together') {
+			return ['TOGETHER_AI_API_KEY']
+		}
+		if (p === 'voyage') {
+			return ['VOYAGE_API_KEY']
+		}
+		if (p === 'azure') {
 			return ['AZURE_OPENAI_API_KEY', 'AZURE_RESOURCE_NAME']
-		if (p === 'bedrock') return ['AWS_REGION']
+		}
+		if (p === 'bedrock') {
+			return ['AWS_REGION']
+		}
 		return []
 	}, [state.embedding.provider])
 
@@ -1524,9 +1571,13 @@ export default function InstallWizardClient() {
 				headers: {'content-type': 'application/json'},
 				body: JSON.stringify({state})
 			})
-			if (!res.ok) return
+			if (!res.ok) {
+				return
+			}
 			const json = (await res.json()) as {id?: string}
-			if (!json?.id) return
+			if (!json?.id) {
+				return
+			}
 			setPresetId(json.id, {history: 'replace', shallow: true})
 		} finally {
 			setCreatingPreset(false)
@@ -1964,9 +2015,7 @@ export default function InstallWizardClient() {
 															type: type.id,
 															provider: 'voyage',
 															model:
-																DEFAULT_MULTIMODAL_MODEL_BY_PROVIDER[
-																	'voyage'
-																] ??
+																DEFAULT_MULTIMODAL_MODEL_BY_PROVIDER.voyage ??
 																'voyage-multimodal-3'
 														}
 													}))

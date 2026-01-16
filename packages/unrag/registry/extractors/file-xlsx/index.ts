@@ -36,8 +36,12 @@ export function createFileXlsxExtractor(): AssetExtractor {
 	return {
 		name: 'file:xlsx',
 		supports: ({asset, ctx}) => {
-			if (asset.kind !== 'file') return false
-			if (!ctx.assetProcessing.file.xlsx.enabled) return false
+			if (asset.kind !== 'file') {
+				return false
+			}
+			if (!ctx.assetProcessing.file.xlsx.enabled) {
+				return false
+			}
 			const filename =
 				asset.data.kind === 'bytes'
 					? asset.data.filename
@@ -66,16 +70,24 @@ export function createFileXlsxExtractor(): AssetExtractor {
 
 			const parts: string[] = []
 			for (const sheetName of wb.SheetNames ?? []) {
-				if (parts.join('\n\n').length >= cfg.maxOutputChars) break
+				if (parts.join('\n\n').length >= cfg.maxOutputChars) {
+					break
+				}
 				const sheet = wb.Sheets?.[sheetName]
-				if (!sheet) continue
+				if (!sheet) {
+					continue
+				}
 				const csv = String(xlsx.utils.sheet_to_csv(sheet) ?? '').trim()
-				if (!csv) continue
+				if (!csv) {
+					continue
+				}
 				parts.push(`# Sheet: ${sheetName}\n\n${csv}`)
 			}
 
 			const text = capText(parts.join('\n\n'), cfg.maxOutputChars).trim()
-			if (text.length < cfg.minChars) return {texts: []}
+			if (text.length < cfg.minChars) {
+				return {texts: []}
+			}
 
 			return {
 				texts: [{label: 'xlsx', content: text}]

@@ -1,6 +1,8 @@
 export function capText(text: string, maxChars: number): string {
 	const t = String(text ?? '')
-	if (!Number.isFinite(maxChars) || maxChars <= 0) return t
+	if (!Number.isFinite(maxChars) || maxChars <= 0) {
+		return t
+	}
 	return t.length <= maxChars ? t : t.slice(0, maxChars).trimEnd()
 }
 

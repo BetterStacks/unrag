@@ -13,11 +13,21 @@ type EventDetailProps = {
 }
 
 function formatValue(value: unknown): string {
-	if (typeof value === 'string') return value
-	if (typeof value === 'number') return value.toLocaleString()
-	if (typeof value === 'boolean') return value ? 'yes' : 'no'
-	if (Array.isArray(value)) return `[${value.length}]`
-	if (value === null || value === undefined) return '–'
+	if (typeof value === 'string') {
+		return value
+	}
+	if (typeof value === 'number') {
+		return value.toLocaleString()
+	}
+	if (typeof value === 'boolean') {
+		return value ? 'yes' : 'no'
+	}
+	if (Array.isArray(value)) {
+		return `[${value.length}]`
+	}
+	if (value === null || value === undefined) {
+		return '–'
+	}
 	return JSON.stringify(value)
 }
 

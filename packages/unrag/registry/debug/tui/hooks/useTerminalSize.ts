@@ -33,10 +33,15 @@ export function useTerminalSize(): TerminalSize {
 		const onResize = () => setSize(get())
 
 		// Node stdout emits "resize" when TTY size changes.
-		if (out?.on) out.on('resize', onResize)
+		if (out?.on) {
+			out.on('resize', onResize)
+		}
 		return () => {
-			if (out?.off) out.off('resize', onResize)
-			else if (out?.removeListener) out.removeListener('resize', onResize)
+			if (out?.off) {
+				out.off('resize', onResize)
+			} else if (out?.removeListener) {
+				out.removeListener('resize', onResize)
+			}
 		}
 	}, [get, stdout])
 

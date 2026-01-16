@@ -54,7 +54,9 @@ export const createCohereReranker = (
 	let rerankFn: RerankFunction | null = null
 
 	const loadSdk = async () => {
-		if (cohereProvider && rerankFn) return {cohereProvider, rerankFn}
+		if (cohereProvider && rerankFn) {
+			return {cohereProvider, rerankFn}
+		}
 
 		try {
 			const [cohereModule, aiModule] = await Promise.all([

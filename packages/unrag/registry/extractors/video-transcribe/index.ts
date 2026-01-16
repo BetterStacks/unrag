@@ -61,7 +61,9 @@ export function createVideoTranscribeExtractor(): AssetExtractor {
 				const textItems: ExtractedTextItem[] = segments
 					.map((s, i) => {
 						const t = String(s?.text ?? '').trim()
-						if (!t) return null
+						if (!t) {
+							return null
+						}
 						const start = Number(s?.startSecond ?? Number.NaN)
 						const end = Number(s?.endSecond ?? Number.NaN)
 						return {
@@ -92,7 +94,9 @@ export function createVideoTranscribeExtractor(): AssetExtractor {
 			}
 
 			const text = (result.text ?? '').trim()
-			if (!text) return {texts: [], diagnostics: {model: cfg.model}}
+			if (!text) {
+				return {texts: [], diagnostics: {model: cfg.model}}
+			}
 
 			return {
 				texts: [{label: 'transcript', content: text}],

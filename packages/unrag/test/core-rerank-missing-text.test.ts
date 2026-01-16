@@ -140,7 +140,9 @@ describe('core rerank - missing text handling', () => {
 
 		const resolveText = async (c: RerankCandidate) => {
 			// Simulate fetching text from external store
-			if (c.id === 'chunk-1') return 'resolved-content'
+			if (c.id === 'chunk-1') {
+				return 'resolved-content'
+			}
 			return ''
 		}
 
@@ -260,9 +262,9 @@ describe('core rerank - missing text handling', () => {
 		})
 
 		// Should return original order since all are skipped
-		expect(result.chunks[0]!.id).toBe('chunk-0')
-		expect(result.chunks[1]!.id).toBe('chunk-1')
-		expect(result.chunks[2]!.id).toBe('chunk-2')
+		expect(result.chunks[0]?.id).toBe('chunk-0')
+		expect(result.chunks[1]?.id).toBe('chunk-1')
+		expect(result.chunks[2]?.id).toBe('chunk-2')
 		expect(result.warnings.some((w) => w.includes('All candidates'))).toBe(
 			true
 		)

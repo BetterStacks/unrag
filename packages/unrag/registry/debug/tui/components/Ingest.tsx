@@ -50,8 +50,9 @@ export function Ingest({connection}: IngestProps) {
 
 	const metaParse = useMemo(() => {
 		const t = (metadataText ?? '').trim()
-		if (!t)
+		if (!t) {
 			return {ok: true as const, value: undefined as Metadata | undefined}
+		}
 		try {
 			const v = JSON.parse(t) as unknown
 			if (v && typeof v === 'object' && !Array.isArray(v)) {
@@ -136,7 +137,7 @@ export function Ingest({connection}: IngestProps) {
 
 	const isEditing = mode === 'editing'
 	useHotkeysLock(isEditing)
-	const editTarget =
+	const _editTarget =
 		focus === 'sourceId'
 			? sourceId
 			: focus === 'content'
@@ -154,7 +155,9 @@ export function Ingest({connection}: IngestProps) {
 							: ''
 
 	useInput((input, key) => {
-		if (!ingestCapable) return
+		if (!ingestCapable) {
+			return
+		}
 
 		if (mode === 'editing') {
 			// Nano-like: type freely; Esc / Ctrl+X exits; Enter applies.
@@ -169,43 +172,60 @@ export function Ingest({connection}: IngestProps) {
 
 			const backspace = key.backspace || key.delete
 			if (backspace) {
-				if (focus === 'sourceId') setSourceId((s) => s.slice(0, -1))
-				if (focus === 'content') {
-					if (inputMode === 'file')
-						setContentPath((s) => s.slice(0, -1))
-					else setContent((s) => s.slice(0, -1))
+				if (focus === 'sourceId') {
+					setSourceId((s) => s.slice(0, -1))
 				}
-				if (focus === 'metadata') setMetadataText((s) => s.slice(0, -1))
-				if (focus === 'chunkSize')
+				if (focus === 'content') {
+					if (inputMode === 'file') {
+						setContentPath((s) => s.slice(0, -1))
+					} else {
+						setContent((s) => s.slice(0, -1))
+					}
+				}
+				if (focus === 'metadata') {
+					setMetadataText((s) => s.slice(0, -1))
+				}
+				if (focus === 'chunkSize') {
 					setChunkSize((n) =>
 						typeof n === 'number'
 							? Number(String(n).slice(0, -1)) || 0
 							: undefined
 					)
-				if (focus === 'chunkOverlap')
+				}
+				if (focus === 'chunkOverlap') {
 					setChunkOverlap((n) =>
 						typeof n === 'number'
 							? Number(String(n).slice(0, -1)) || 0
 							: undefined
 					)
+				}
 				return
 			}
 
 			if (input && input.length === 1 && !key.ctrl && !key.meta) {
-				if (focus === 'sourceId') setSourceId((s) => s + input)
-				if (focus === 'content') {
-					if (inputMode === 'file') setContentPath((s) => s + input)
-					else setContent((s) => s + input)
+				if (focus === 'sourceId') {
+					setSourceId((s) => s + input)
 				}
-				if (focus === 'metadata') setMetadataText((s) => s + input)
-				if (focus === 'chunkSize')
+				if (focus === 'content') {
+					if (inputMode === 'file') {
+						setContentPath((s) => s + input)
+					} else {
+						setContent((s) => s + input)
+					}
+				}
+				if (focus === 'metadata') {
+					setMetadataText((s) => s + input)
+				}
+				if (focus === 'chunkSize') {
 					setChunkSize((n) =>
 						Number(`${typeof n === 'number' ? n : ''}${input}`)
 					)
-				if (focus === 'chunkOverlap')
+				}
+				if (focus === 'chunkOverlap') {
 					setChunkOverlap((n) =>
 						Number(`${typeof n === 'number' ? n : ''}${input}`)
 					)
+				}
 				return
 			}
 
@@ -241,8 +261,11 @@ export function Ingest({connection}: IngestProps) {
 		}
 
 		if (input === 'c' && focus === 'content') {
-			if (inputMode === 'file') setContentPath('')
-			else setContent('')
+			if (inputMode === 'file') {
+				setContentPath('')
+			} else {
+				setContent('')
+			}
 			return
 		}
 
@@ -271,7 +294,9 @@ export function Ingest({connection}: IngestProps) {
 	const hasWarnings = Boolean(ok && out?.warnings && out.warnings.length > 0)
 
 	useEffect(() => {
-		if (hasWarnings) setWarningsScrollTop(0)
+		if (hasWarnings) {
+			setWarningsScrollTop(0)
+		}
 	}, [hasWarnings, out?.warnings?.length])
 
 	const detailsHeight = Math.max(6, Math.min(14, rows - 18))

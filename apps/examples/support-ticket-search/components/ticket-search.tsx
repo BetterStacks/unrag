@@ -16,8 +16,10 @@ import * as React from 'react'
 import {toast} from 'sonner'
 
 function truncate(str: string, maxLength: number) {
-	if (str.length <= maxLength) return str
-	return str.slice(0, maxLength) + '...'
+	if (str.length <= maxLength) {
+		return str
+	}
+	return `${str.slice(0, maxLength)}...`
 }
 
 interface SearchResult {

@@ -38,12 +38,22 @@ type Trace = {
 }
 
 function inferOpName(e: DebugEvent): string {
-	if (e.opName) return e.opName
+	if (e.opName) {
+		return e.opName
+	}
 	const t = e.type
-	if (t.startsWith('ingest')) return 'ingest'
-	if (t.startsWith('retrieve')) return 'retrieve'
-	if (t.startsWith('rerank')) return 'rerank'
-	if (t.startsWith('delete')) return 'delete'
+	if (t.startsWith('ingest')) {
+		return 'ingest'
+	}
+	if (t.startsWith('retrieve')) {
+		return 'retrieve'
+	}
+	if (t.startsWith('rerank')) {
+		return 'rerank'
+	}
+	if (t.startsWith('delete')) {
+		return 'delete'
+	}
 	return 'op'
 }
 
@@ -69,8 +79,9 @@ function inferLabel(opName: string, events: DebugEvent[]): string {
 	}
 	if (opName === 'delete') {
 		const start = byType('delete:start')
-		if (start?.mode && start?.value)
+		if (start?.mode && start?.value) {
 			return `${String(start.mode)} ${String(start.value)}`
+		}
 		return 'delete'
 	}
 	return opName
@@ -98,27 +109,30 @@ function computeStages(
 			| number
 			| undefined
 
-		if (typeof chunking === 'number')
+		if (typeof chunking === 'number') {
 			stages.push({
 				id: 'chunking',
 				label: 'chunking',
 				ms: chunking,
 				color: theme.muted
 			})
-		if (typeof embedding === 'number')
+		}
+		if (typeof embedding === 'number') {
 			stages.push({
 				id: 'embedding',
 				label: 'embedding',
 				ms: embedding,
 				color: theme.ingest
 			})
-		if (typeof storage === 'number')
+		}
+		if (typeof storage === 'number') {
 			stages.push({
 				id: 'storage',
 				label: 'storage',
 				ms: storage,
 				color: theme.borderActive
 			})
+		}
 		return {totalMs: total, stages}
 	}
 
@@ -127,20 +141,22 @@ function computeStages(
 		const total = complete?.totalDurationMs as number | undefined
 		const embedding = complete?.embeddingMs as number | undefined
 		const retrieval = complete?.retrievalMs as number | undefined
-		if (typeof embedding === 'number')
+		if (typeof embedding === 'number') {
 			stages.push({
 				id: 'embedding',
 				label: 'embedding',
 				ms: embedding,
 				color: theme.retrieve
 			})
-		if (typeof retrieval === 'number')
+		}
+		if (typeof retrieval === 'number') {
 			stages.push({
 				id: 'db',
 				label: 'db',
 				ms: retrieval,
 				color: theme.borderActive
 			})
+		}
 		return {totalMs: total, stages}
 	}
 
@@ -148,26 +164,28 @@ function computeStages(
 		const complete = find('rerank:complete')
 		const total = complete?.totalMs as number | undefined
 		const rerankMs = complete?.rerankMs as number | undefined
-		if (typeof rerankMs === 'number')
+		if (typeof rerankMs === 'number') {
 			stages.push({
 				id: 'rerank',
 				label: 'rerank',
 				ms: rerankMs,
 				color: theme.rerank
 			})
+		}
 		return {totalMs: total, stages}
 	}
 
 	if (opName === 'delete') {
 		const complete = find('delete:complete')
 		const total = complete?.durationMs as number | undefined
-		if (typeof total === 'number')
+		if (typeof total === 'number') {
 			stages.push({
 				id: 'delete',
 				label: 'delete',
 				ms: total,
 				color: theme.delete
 			})
+		}
 		return {totalMs: total, stages}
 	}
 
@@ -179,8 +197,11 @@ function computeTraces(events: DebugEvent[]): Trace[] {
 	for (const e of events) {
 		const opId = e.opId ?? 'uncorrelated'
 		const arr = map.get(opId)
-		if (arr) arr.push(e)
-		else map.set(opId, [e])
+		if (arr) {
+			arr.push(e)
+		} else {
+			map.set(opId, [e])
+		}
 	}
 
 	const traces: Trace[] = []
@@ -262,10 +283,12 @@ export function Traces({events}: TracesProps) {
 	)
 
 	useInput((input, key) => {
-		if (key.upArrow || input === 'k')
+		if (key.upArrow || input === 'k') {
 			setSelectedIndex((p) => Math.max(0, p - 1))
-		if (key.downArrow || input === 'j')
+		}
+		if (key.downArrow || input === 'j') {
 			setSelectedIndex((p) => Math.min(maxIndex, p + 1))
+		}
 	})
 
 	return (

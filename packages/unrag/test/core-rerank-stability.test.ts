@@ -93,10 +93,10 @@ describe('core rerank - stable ordering', () => {
 		})
 
 		// With equal scores, original order should be preserved
-		expect(result.chunks[0]!.id).toBe('chunk-0')
-		expect(result.chunks[1]!.id).toBe('chunk-1')
-		expect(result.chunks[2]!.id).toBe('chunk-2')
-		expect(result.chunks[3]!.id).toBe('chunk-3')
+		expect(result.chunks[0]?.id).toBe('chunk-0')
+		expect(result.chunks[1]?.id).toBe('chunk-1')
+		expect(result.chunks[2]?.id).toBe('chunk-2')
+		expect(result.chunks[3]?.id).toBe('chunk-3')
 	})
 
 	test('preserves original order when reranker returns no scores', async () => {
@@ -110,9 +110,9 @@ describe('core rerank - stable ordering', () => {
 		})
 
 		// Without scores, should maintain the order returned by reranker
-		expect(result.chunks[0]!.id).toBe('chunk-0')
-		expect(result.chunks[1]!.id).toBe('chunk-1')
-		expect(result.chunks[2]!.id).toBe('chunk-2')
+		expect(result.chunks[0]?.id).toBe('chunk-0')
+		expect(result.chunks[1]?.id).toBe('chunk-1')
+		expect(result.chunks[2]?.id).toBe('chunk-2')
 	})
 
 	test('ranking items without scores have undefined rerankScore', async () => {
@@ -125,8 +125,8 @@ describe('core rerank - stable ordering', () => {
 			candidates
 		})
 
-		expect(result.ranking[0]!.rerankScore).toBeUndefined()
-		expect(result.ranking[1]!.rerankScore).toBeUndefined()
+		expect(result.ranking[0]?.rerankScore).toBeUndefined()
+		expect(result.ranking[1]?.rerankScore).toBeUndefined()
 	})
 
 	test('handles partial ordering (some tied)', async () => {
@@ -145,11 +145,11 @@ describe('core rerank - stable ordering', () => {
 		})
 
 		// First item should be first (highest score)
-		expect(result.chunks[0]!.content).toBe('best')
+		expect(result.chunks[0]?.content).toBe('best')
 		// Tied items should maintain relative order
-		expect(result.chunks[1]!.content).toBe('tied-a')
-		expect(result.chunks[2]!.content).toBe('tied-b')
-		expect(result.chunks[3]!.content).toBe('tied-c')
+		expect(result.chunks[1]?.content).toBe('tied-a')
+		expect(result.chunks[2]?.content).toBe('tied-b')
+		expect(result.chunks[3]?.content).toBe('tied-c')
 	})
 
 	test('skipped candidates appear after valid candidates in ranking', async () => {
@@ -224,7 +224,7 @@ describe('core rerank - stable ordering', () => {
 			rerank(config, {query: 'test', candidates})
 		])
 
-		const firstOrder = results[0]!.chunks.map((c) => c.id)
+		const firstOrder = results[0]?.chunks.map((c) => c.id)
 		for (const result of results.slice(1)) {
 			const order = result.chunks.map((c) => c.id)
 			expect(order).toEqual(firstOrder)

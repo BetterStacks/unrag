@@ -12,22 +12,28 @@ const outputPath = path.join(outDir, 'changelog-body.mdx')
 
 function stripTopHeader(markdown) {
 	const lines = markdown.split(/\r?\n/)
-	if (lines.length === 0) return markdown
+	if (lines.length === 0) {
+		return markdown
+	}
 
 	// Remove leading blank lines
-	while (lines.length > 0 && lines[0].trim() === '') lines.shift()
+	while (lines.length > 0 && lines[0].trim() === '') {
+		lines.shift()
+	}
 
 	// Remove `# unrag` (so the docs page title is the single H1)
 	if (lines[0]?.match(/^#\s*unrag\s*$/i)) {
 		lines.shift()
-		while (lines.length > 0 && lines[0].trim() === '') lines.shift()
+		while (lines.length > 0 && lines[0].trim() === '') {
+			lines.shift()
+		}
 	}
 
 	return lines.join('\n')
 }
 
 const raw = await readFile(inputPath, 'utf8')
-const body = stripTopHeader(raw).trimEnd() + '\n'
+const body = `${stripTopHeader(raw).trimEnd()}\n`
 
 await mkdir(outDir, {recursive: true})
 await writeFile(

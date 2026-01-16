@@ -41,7 +41,9 @@ function computeStats(events: DebugEvent[]): Stats {
 
 	const pushWindow = (arr: number[], value: number) => {
 		arr.push(value)
-		if (arr.length > 10) arr.shift()
+		if (arr.length > 10) {
+			arr.shift()
+		}
 	}
 
 	for (const event of events) {

@@ -58,8 +58,12 @@ const DEFAULT_TEXT_MODEL = 'text-embedding-3-small'
 
 const buildHeaders = (config: OpenRouterEmbeddingConfig) => {
 	const headers: Record<string, string> = {...(config.headers ?? {})}
-	if (config.referer) headers['HTTP-Referer'] = config.referer
-	if (config.title) headers['X-Title'] = config.title
+	if (config.referer) {
+		headers['HTTP-Referer'] = config.referer
+	}
+	if (config.title) {
+		headers['X-Title'] = config.title
+	}
 	return headers
 }
 

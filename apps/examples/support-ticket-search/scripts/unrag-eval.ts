@@ -58,20 +58,30 @@ async function loadEnvFilesBestEffort(projectRoot: string) {
 	]
 	for (const rel of candidates) {
 		const abs = path.join(projectRoot, rel)
-		if (!(await fileExists(abs))) continue
+		if (!(await fileExists(abs))) {
+			continue
+		}
 		const raw = await readFile(abs, 'utf8').catch(() => '')
 		for (const line of raw.split(/\r?\n/)) {
 			const s = line.trim()
-			if (!s || s.startsWith('#')) continue
+			if (!s || s.startsWith('#')) {
+				continue
+			}
 			const eq = s.indexOf('=')
-			if (eq < 0) continue
+			if (eq < 0) {
+				continue
+			}
 			const key = s.slice(0, eq).trim()
 			const value = s
 				.slice(eq + 1)
 				.trim()
 				.replace(/^"|"$/g, '')
-			if (!key) continue
-			if (process.env[key] === undefined) process.env[key] = value
+			if (!key) {
+				continue
+			}
+			if (process.env[key] === undefined) {
+				process.env[key] = value
+			}
 		}
 	}
 }
@@ -79,19 +89,27 @@ async function loadEnvFilesBestEffort(projectRoot: string) {
 function parseThresholdExpr(expr: string): Partial<EvalThresholds> {
 	const s = String(expr ?? '').trim()
 	const eq = s.indexOf('=')
-	if (eq < 0)
+	if (eq < 0) {
 		throw new Error(`Invalid --threshold: "${s}" (expected key=value)`)
+	}
 	const key = s.slice(0, eq).trim()
 	const value = Number(s.slice(eq + 1).trim())
-	if (!Number.isFinite(value))
+	if (!Number.isFinite(value)) {
 		throw new Error(`Invalid --threshold value: "${s}"`)
+	}
 
 	const out: Partial<EvalThresholds> = {}
-	if (key === 'min.hitAtK') out.min = {hitAtK: value}
-	else if (key === 'min.recallAtK') out.min = {recallAtK: value}
-	else if (key === 'min.mrrAtK') out.min = {mrrAtK: value}
-	else if (key === 'max.p95TotalMs') out.max = {p95TotalMs: value}
-	else throw new Error(`Unknown threshold key: "${key}"`)
+	if (key === 'min.hitAtK') {
+		out.min = {hitAtK: value}
+	} else if (key === 'min.recallAtK') {
+		out.min = {recallAtK: value}
+	} else if (key === 'min.mrrAtK') {
+		out.min = {mrrAtK: value}
+	} else if (key === 'max.p95TotalMs') {
+		out.max = {p95TotalMs: value}
+	} else {
+		throw new Error(`Unknown threshold key: "${key}"`)
+	}
 	return out
 }
 
@@ -111,37 +129,48 @@ function parseArgs(argv: string[]): CliArgs {
 
 	for (let i = 0; i < argv.length; i++) {
 		const a = argv[i]
-		if (a === '--dataset') out.dataset = argv[++i]
-		else if (a === '--baseline') out.baseline = argv[++i]
-		else if (a === '--outputDir' || a === '--output-dir')
+		if (a === '--dataset') {
+			out.dataset = argv[++i]
+		} else if (a === '--baseline') {
+			out.baseline = argv[++i]
+		} else if (a === '--outputDir' || a === '--output-dir') {
 			out.outputDir = argv[++i]
-		else if (a === '--mode') out.mode = argv[++i] as EvalMode
-		else if (a === '--topK' || a === '--top-k') out.topK = Number(argv[++i])
-		else if (a === '--rerankTopK' || a === '--rerank-top-k')
+		} else if (a === '--mode') {
+			out.mode = argv[++i] as EvalMode
+		} else if (a === '--topK' || a === '--top-k') {
+			out.topK = Number(argv[++i])
+		} else if (a === '--rerankTopK' || a === '--rerank-top-k') {
 			out.rerankTopK = Number(argv[++i])
-		else if (a === '--scopePrefix' || a === '--scope-prefix')
+		} else if (a === '--scopePrefix' || a === '--scope-prefix') {
 			out.scopePrefix = argv[++i]
-		else if (a === '--no-ingest') out.ingest = false
-		else if (a === '--cleanup') out.cleanup = argv[++i] as EvalCleanupPolicy
-		else if (a === '--threshold')
+		} else if (a === '--no-ingest') {
+			out.ingest = false
+		} else if (a === '--cleanup') {
+			out.cleanup = argv[++i] as EvalCleanupPolicy
+		} else if (a === '--threshold') {
 			thresholds.push(parseThresholdExpr(argv[++i] ?? ''))
-		else if (a === '--ci') out.ci = true
-		else if (a === '--allow-assets') out.allowAssets = true
-		else if (
+		} else if (a === '--ci') {
+			out.ci = true
+		} else if (a === '--allow-assets') {
+			out.allowAssets = true
+		} else if (
 			a === '--allow-non-eval-prefix' ||
 			a === '--allow-custom-prefix'
-		)
+		) {
 			out.allowNonEvalPrefix = true
-		else if (a === '--yes' || a === '-y') out.yes = true
-		else if (a === '--include-ndcg') out.includeNdcg = true
-		else if (a === '--help' || a === '-h') {
+		} else if (a === '--yes' || a === '-y') {
+			out.yes = true
+		} else if (a === '--include-ndcg') {
+			out.includeNdcg = true
+		} else if (a === '--help' || a === '-h') {
 			printHelp()
 			process.exit(0)
 		}
 	}
 
-	for (const t of thresholds)
+	for (const t of thresholds) {
 		out.thresholds = mergeThresholds(out.thresholds ?? {}, t)
+	}
 	return out
 }
 
@@ -175,7 +204,9 @@ function printHelp() {
 
 async function readConfigFile(projectRoot: string): Promise<any | null> {
 	const abs = path.join(projectRoot, '.unrag/eval/config.json')
-	if (!(await fileExists(abs))) return null
+	if (!(await fileExists(abs))) {
+		return null
+	}
 	const raw = await readFile(abs, 'utf8')
 	try {
 		return JSON.parse(raw)
@@ -186,12 +217,16 @@ async function readConfigFile(projectRoot: string): Promise<any | null> {
 }
 
 function sanitizeMode(v: any): EvalMode | undefined {
-	if (v === 'retrieve' || v === 'retrieve+rerank') return v
+	if (v === 'retrieve' || v === 'retrieve+rerank') {
+		return v
+	}
 	return undefined
 }
 
 function sanitizeCleanup(v: any): EvalCleanupPolicy | undefined {
-	if (v === 'none' || v === 'on-success' || v === 'always') return v
+	if (v === 'none' || v === 'on-success' || v === 'always') {
+		return v
+	}
 	return undefined
 }
 
@@ -204,7 +239,9 @@ async function main() {
 
 	const datasetPath =
 		cli.dataset ?? cfg?.dataset ?? '.unrag/eval/datasets/sample.json'
-	if (!datasetPath) throw new Error('--dataset is required')
+	if (!datasetPath) {
+		throw new Error('--dataset is required')
+	}
 
 	const engine = createUnragEngine()
 
@@ -272,7 +309,7 @@ async function main() {
 				: '',
 			result.thresholdFailures.length > 0
 				? `[unrag:eval] Threshold failures:\n- ${result.thresholdFailures.join('\n- ')}`
-				: `[unrag:eval] Thresholds: pass`
+				: '[unrag:eval] Thresholds: pass'
 		]
 			.filter(Boolean)
 			.join('\n')

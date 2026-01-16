@@ -20,7 +20,9 @@ export function useScrollWindow(args: {
 
 	// Reset hook for filters/paging.
 	useEffect(() => {
-		if (resetKey === undefined) return
+		if (resetKey === undefined) {
+			return
+		}
 		setScrollTop(0)
 	}, [resetKey])
 
@@ -33,9 +35,12 @@ export function useScrollWindow(args: {
 	useEffect(() => {
 		setScrollTop((t) => {
 			const idx = clamp(selectedIndex, 0, Math.max(0, itemCount - 1))
-			if (idx < t) return idx
-			if (idx >= t + safeViewport)
+			if (idx < t) {
+				return idx
+			}
+			if (idx >= t + safeViewport) {
 				return clamp(idx - safeViewport + 1, 0, maxTop)
+			}
 			return clamp(t, 0, maxTop)
 		})
 	}, [itemCount, selectedIndex, safeViewport, maxTop])

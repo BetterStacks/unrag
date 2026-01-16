@@ -42,8 +42,10 @@ interface GoogleDriveMetadata extends Metadata {
 
 const joinPrefix = (prefix: string | undefined, rest: string) => {
 	const p = (prefix ?? '').trim()
-	if (!p) return rest
-	return p.endsWith(':') ? p + rest : p + ':' + rest
+	if (!p) {
+		return rest
+	}
+	return p.endsWith(':') ? p + rest : `${p}:${rest}`
 }
 
 export function buildGoogleDriveFileIngestInput(
@@ -61,8 +63,10 @@ export function buildGoogleDriveFileIngestInput(
 	}
 }
 
-const asMessage = (err: unknown) => {
-	if (err instanceof Error) return err.message
+const _asMessage = (err: unknown) => {
+	if (err instanceof Error) {
+		return err.message
+	}
 	try {
 		return typeof err === 'string' ? err : JSON.stringify(err)
 	} catch {
@@ -71,12 +75,18 @@ const asMessage = (err: unknown) => {
 }
 
 const toUint8Array = (data: unknown): Uint8Array => {
-	if (!data) return new Uint8Array()
-	if (data instanceof Uint8Array) return data
+	if (!data) {
+		return new Uint8Array()
+	}
+	if (data instanceof Uint8Array) {
+		return data
+	}
 	if (typeof Buffer !== 'undefined' && Buffer.isBuffer(data)) {
 		return new Uint8Array(data)
 	}
-	if (data instanceof ArrayBuffer) return new Uint8Array(data)
+	if (data instanceof ArrayBuffer) {
+		return new Uint8Array(data)
+	}
 	if (ArrayBuffer.isView(data)) {
 		return new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
 	}
@@ -95,14 +105,20 @@ const isNotFound = (
 	err: unknown,
 	treatForbiddenAsNotFound: boolean
 ): boolean => {
-	if (typeof err !== 'object' || err === null) return false
+	if (typeof err !== 'object' || err === null) {
+		return false
+	}
 	const e = err as Record<string, unknown>
 	const response = e.response as Record<string, unknown> | undefined
 	const status = Number(
 		e.code ?? e.status ?? response?.status ?? e.statusCode ?? 0
 	)
-	if (status === 404) return true
-	if (treatForbiddenAsNotFound && status === 403) return true
+	if (status === 404) {
+		return true
+	}
+	if (treatForbiddenAsNotFound && status === 403) {
+		return true
+	}
 	return false
 }
 
@@ -508,7 +524,9 @@ export async function syncGoogleDriveFiles(
 
 	for (const fileIdRaw of input.fileIds) {
 		const fileId = String(fileIdRaw ?? '').trim()
-		if (!fileId) continue
+		if (!fileId) {
+			continue
+		}
 
 		const sourceId = joinPrefix(
 			input.sourceIdPrefix,

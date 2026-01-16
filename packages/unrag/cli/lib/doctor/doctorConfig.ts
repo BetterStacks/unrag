@@ -97,9 +97,11 @@ export async function readDoctorConfig(
 export function mergeDoctorArgsWithConfig(
 	args: ParsedDoctorArgs,
 	config: DoctorConfig | null,
-	projectRoot: string
+	_projectRoot: string
 ): ParsedDoctorArgs {
-	if (!config) return args
+	if (!config) {
+		return args
+	}
 
 	const merged: ParsedDoctorArgs = {...args}
 

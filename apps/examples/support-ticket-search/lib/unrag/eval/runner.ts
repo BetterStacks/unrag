@@ -82,17 +82,17 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
 	const scopePrefix: string = (
 		args.scopePrefix ?? dataset.defaults.scopePrefix
 	).trim()
-	if (!scopePrefix)
+	if (!scopePrefix) {
 		throw new Error(
-			`[unrag:eval] Missing scopePrefix (dataset.defaults.scopePrefix)`
+			'[unrag:eval] Missing scopePrefix (dataset.defaults.scopePrefix)'
 		)
+	}
 
 	// Guardrails around delete-by-prefix
 	const isEvalNamespaced = scopePrefix.startsWith('eval:')
 	if (!isEvalNamespaced && !args.allowNonEvalPrefix) {
 		throw new Error(
-			`[unrag:eval] Refusing to run with scopePrefix="${scopePrefix}" because it does not start with "eval:". ` +
-				`Use --allow-non-eval-prefix and --yes only if you understand the delete-by-prefix risk.`
+			`[unrag:eval] Refusing to run with scopePrefix="${scopePrefix}" because it does not start with "eval:". Use --allow-non-eval-prefix and --yes only if you understand the delete-by-prefix risk.`
 		)
 	}
 
@@ -109,8 +109,7 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
 	if (ingest && datasetHasDocs) {
 		if (!isEvalNamespaced && !args.confirmedDangerousDelete) {
 			throw new Error(
-				`[unrag:eval] Refusing to delete non-eval scopePrefix="${scopePrefix}" without confirmation. ` +
-					`Re-run with --yes (and keep the prefix narrowly scoped).`
+				`[unrag:eval] Refusing to delete non-eval scopePrefix="${scopePrefix}" without confirmation. Re-run with --yes (and keep the prefix narrowly scoped).`
 			)
 		}
 
@@ -120,8 +119,7 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
 			const sourceId = doc.sourceId
 			if (!sourceId.startsWith(scopePrefix)) {
 				throw new Error(
-					`[unrag:eval] Dataset document sourceId "${sourceId}" does not start with scopePrefix "${scopePrefix}". ` +
-						`To keep eval isolated, ensure dataset documents are namespaced under defaults.scopePrefix.`
+					`[unrag:eval] Dataset document sourceId "${sourceId}" does not start with scopePrefix "${scopePrefix}". To keep eval isolated, ensure dataset documents are namespaced under defaults.scopePrefix.`
 				)
 			}
 
@@ -132,8 +130,8 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
 
 			if (doc.assets !== undefined && !args.allowAssets) {
 				throw new Error(
-					`[unrag:eval] Dataset includes documents[].assets but assets are disabled by default for safety. ` +
-						`Re-run with --allow-assets if you understand the SSRF/network variance implications.`
+					'[unrag:eval] Dataset includes documents[].assets but assets are disabled by default for safety. ' +
+						'Re-run with --allow-assets if you understand the SSRF/network variance implications.'
 				)
 			}
 
@@ -326,8 +324,9 @@ async function resolveDocumentContent(
 	doc: EvalDatasetDocument,
 	loadByRef: EvalRunArgs['loadDocumentByRef']
 ): Promise<string> {
-	if (typeof doc.content === 'string' && doc.content.trim().length > 0)
+	if (typeof doc.content === 'string' && doc.content.trim().length > 0) {
 		return doc.content
+	}
 	if (typeof doc.loaderRef === 'string' && doc.loaderRef.trim().length > 0) {
 		if (!loadByRef) {
 			throw new Error(
@@ -343,16 +342,19 @@ async function resolveDocumentContent(
 		return content
 	}
 	throw new Error(
-		`[unrag:eval] Dataset document is missing both content and loaderRef.`
+		'[unrag:eval] Dataset document is missing both content and loaderRef.'
 	)
 }
 
 function normalizeMetadata(input: unknown): Metadata | undefined {
-	if (!input || typeof input !== 'object' || Array.isArray(input))
+	if (!input || typeof input !== 'object' || Array.isArray(input)) {
 		return undefined
+	}
 	const out: Record<string, any> = {}
 	for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
-		if (v === undefined) continue
+		if (v === undefined) {
+			continue
+		}
 		if (
 			v === null ||
 			typeof v === 'string' ||
@@ -371,7 +373,6 @@ function normalizeMetadata(input: unknown): Metadata | undefined {
 					typeof x === 'boolean'
 			)
 			out[k] = xs
-			continue
 		}
 		// Drop unsupported nested objects for stability/diff-friendliness.
 	}
@@ -404,7 +405,9 @@ function aggregatesFor(metrics: EvalMetricsAtK[]) {
 
 function meanOf(xs: number[]): number {
 	const ys = xs.filter((v) => Number.isFinite(v))
-	if (ys.length === 0) return 0
+	if (ys.length === 0) {
+		return 0
+	}
 	return ys.reduce((a, b) => a + b, 0) / ys.length
 }
 
@@ -413,9 +416,13 @@ function medianOf(xs: number[]): number {
 		.filter((v) => Number.isFinite(v))
 		.slice()
 		.sort((a, b) => a - b)
-	if (ys.length === 0) return 0
+	if (ys.length === 0) {
+		return 0
+	}
 	const mid = Math.floor(ys.length / 2)
-	if (ys.length % 2 === 1) return ys[mid]!
+	if (ys.length % 2 === 1) {
+		return ys[mid]!
+	}
 	return (ys[mid - 1]! + ys[mid]!) / 2
 }
 
@@ -460,8 +467,12 @@ function deepMergeThresholds(
 		min: {...(base.min ?? {})},
 		max: {...(base.max ?? {})}
 	}
-	if (override.min) Object.assign(out.min!, override.min)
-	if (override.max) Object.assign(out.max!, override.max)
+	if (override.min) {
+		Object.assign(out.min!, override.min)
+	}
+	if (override.max) {
+		Object.assign(out.max!, override.max)
+	}
 	return out
 }
 
@@ -514,6 +525,8 @@ function evaluateThresholds(args: {
 function clampRerankTopK(args: {topK: number; rerankTopK: number}): number {
 	const topK = Math.max(1, Math.floor(args.topK))
 	const requested = Math.floor(args.rerankTopK)
-	if (!Number.isFinite(requested) || requested <= 0) return topK * 3
+	if (!Number.isFinite(requested) || requested <= 0) {
+		return topK * 3
+	}
 	return Math.max(topK, requested)
 }

@@ -78,9 +78,9 @@ describe('core rerank - basic functionality', () => {
 
 		// Reverse reranker puts last first
 		expect(result.chunks.length).toBe(3)
-		expect(result.chunks[0]!.id).toBe('chunk-2')
-		expect(result.chunks[1]!.id).toBe('chunk-1')
-		expect(result.chunks[2]!.id).toBe('chunk-0')
+		expect(result.chunks[0]?.id).toBe('chunk-2')
+		expect(result.chunks[1]?.id).toBe('chunk-1')
+		expect(result.chunks[2]?.id).toBe('chunk-0')
 	})
 
 	test('rerank respects topK parameter', async () => {
@@ -95,8 +95,8 @@ describe('core rerank - basic functionality', () => {
 		})
 
 		expect(result.chunks.length).toBe(2)
-		expect(result.chunks[0]!.id).toBe('chunk-4')
-		expect(result.chunks[1]!.id).toBe('chunk-3')
+		expect(result.chunks[0]?.id).toBe('chunk-4')
+		expect(result.chunks[1]?.id).toBe('chunk-3')
 	})
 
 	test('rerank returns all candidates when topK is not specified', async () => {
@@ -184,9 +184,9 @@ describe('core rerank - basic functionality', () => {
 
 		// ranking should have all items, not just topK
 		expect(result.ranking.length).toBe(3)
-		expect(result.ranking[0]!.index).toBe(2) // Reversed order
-		expect(result.ranking[1]!.index).toBe(1)
-		expect(result.ranking[2]!.index).toBe(0)
+		expect(result.ranking[0]?.index).toBe(2) // Reversed order
+		expect(result.ranking[1]?.index).toBe(1)
+		expect(result.ranking[2]?.index).toBe(0)
 	})
 
 	test('rerank includes rerank scores in ranking', async () => {
@@ -199,8 +199,8 @@ describe('core rerank - basic functionality', () => {
 			candidates
 		})
 
-		expect(result.ranking[0]!.rerankScore).toBeDefined()
-		expect(typeof result.ranking[0]!.rerankScore).toBe('number')
+		expect(result.ranking[0]?.rerankScore).toBeDefined()
+		expect(typeof result.ranking[0]?.rerankScore).toBe('number')
 	})
 
 	test('rerank works with length-based reranker', async () => {
@@ -218,9 +218,9 @@ describe('core rerank - basic functionality', () => {
 		})
 
 		// Shortest first
-		expect(result.chunks[0]!.content).toBe('short')
-		expect(result.chunks[1]!.content).toBe('medium text')
-		expect(result.chunks[2]!.content).toBe('long content here')
+		expect(result.chunks[0]?.content).toBe('short')
+		expect(result.chunks[1]?.content).toBe('medium text')
+		expect(result.chunks[2]?.content).toBe('long content here')
 	})
 
 	test('rerank returns empty result for empty candidates', async () => {

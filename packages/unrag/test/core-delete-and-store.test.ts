@@ -1,28 +1,35 @@
 import {describe, expect, test} from 'bun:test'
 import {deleteDocuments} from '@registry/core/delete'
+import type {DeleteInput, ResolvedContextEngineConfig} from '@registry/core/types'
 import {createRawSqlVectorStore} from '@registry/store/raw-sql/store'
+import type {Pool, PoolClient} from 'pg'
 
 describe('core deleteDocuments', () => {
 	test('throws when neither sourceId nor sourceIdPrefix is provided', async () => {
-		const calls: any[] = []
+		const calls: unknown[] = []
 		const config = {
 			store: {delete: async (input: unknown) => calls.push(input)}
-		} as any
+		} as unknown as ResolvedContextEngineConfig
 
-		await expect(deleteDocuments(config, {} as any)).rejects.toThrow(
+		await expect(
+			deleteDocuments(config, {} as unknown as DeleteInput)
+		).rejects.toThrow(
 			'Provide exactly one of "sourceId" or "sourceIdPrefix".'
 		)
 		expect(calls.length).toBe(0)
 	})
 
 	test('throws when both sourceId and sourceIdPrefix are provided', async () => {
-		const calls: any[] = []
+		const calls: unknown[] = []
 		const config = {
 			store: {delete: async (input: unknown) => calls.push(input)}
-		} as any
+		} as unknown as ResolvedContextEngineConfig
 
 		await expect(
-			deleteDocuments(config, {sourceId: 'a', sourceIdPrefix: 'b'} as any)
+			deleteDocuments(
+				config,
+				{sourceId: 'a', sourceIdPrefix: 'b'} as unknown as DeleteInput
+			)
 		).rejects.toThrow(
 			'Provide exactly one of "sourceId" or "sourceIdPrefix".'
 		)
@@ -30,20 +37,20 @@ describe('core deleteDocuments', () => {
 	})
 
 	test('delegates to store.delete for exact sourceId', async () => {
-		const calls: any[] = []
+		const calls: unknown[] = []
 		const config = {
 			store: {delete: async (input: unknown) => calls.push(input)}
-		} as any
+		} as unknown as ResolvedContextEngineConfig
 
 		await deleteDocuments(config, {sourceId: 'docs:one'})
 		expect(calls).toEqual([{sourceId: 'docs:one'}])
 	})
 
 	test('delegates to store.delete for prefix deletes', async () => {
-		const calls: any[] = []
+		const calls: unknown[] = []
 		const config = {
 			store: {delete: async (input: unknown) => calls.push(input)}
-		} as any
+		} as unknown as ResolvedContextEngineConfig
 
 		await deleteDocuments(config, {sourceIdPrefix: 'tenant:acme:'})
 		expect(calls).toEqual([{sourceIdPrefix: 'tenant:acme:'}])
@@ -55,7 +62,7 @@ describe('raw-sql store adapter', () => {
 		const queries: Array<{text: string; values?: unknown[]}> = []
 		const canonicalDocId = '11111111-1111-1111-1111-111111111111'
 
-		const client = {
+		const client: Pick<PoolClient, 'query' | 'release'> = {
 			query: async (text: string, values?: unknown[]) => {
 				queries.push({text, values})
 				// Return the canonical documentId from the upsert query
@@ -69,7 +76,7 @@ describe('raw-sql store adapter', () => {
 
 		const pool = {
 			connect: async () => client
-		} as any
+		} as unknown as Pool
 
 		const store = createRawSqlVectorStore(pool)
 		const proposedDocId = crypto.randomUUID()
@@ -130,11 +137,12 @@ describe('raw-sql store adapter', () => {
 
 	test('upsert throws when called with empty chunks array', async () => {
 		const pool = {
-			connect: async () => ({
+			connect: async () =>
+				({
 				query: async () => ({rows: []}),
 				release: () => {}
-			})
-		} as any
+			}) as unknown as PoolClient
+		} as unknown as Pool
 
 		const store = createRawSqlVectorStore(pool)
 
@@ -146,7 +154,7 @@ describe('raw-sql store adapter', () => {
 	test('delete({sourceIdPrefix}) uses prefix matching', async () => {
 		const queries: Array<{text: string; values?: unknown[]}> = []
 
-		const client = {
+		const client: Pick<PoolClient, 'query' | 'release'> = {
 			query: async (text: string, values?: unknown[]) => {
 				queries.push({text, values})
 				return {rows: []}
@@ -156,7 +164,7 @@ describe('raw-sql store adapter', () => {
 
 		const pool = {
 			connect: async () => client
-		} as any
+		} as unknown as Pool
 
 		const store = createRawSqlVectorStore(pool)
 		await store.delete({sourceIdPrefix: 'tenant:acme:'})

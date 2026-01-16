@@ -19,7 +19,9 @@ const run = async (cmd: string, args: string[], opts: {cwd: string}) => {
 			child.stderr.on('data', (d) => (stderr += d.toString()))
 			child.on('error', reject)
 			child.on('close', (code) => {
-				if (code === 0) return resolve({stdout, stderr})
+				if (code === 0) {
+					return resolve({stdout, stderr})
+				}
 				reject(
 					new Error(
 						`${cmd} exited with code ${code}\n${stderr}`.trim()

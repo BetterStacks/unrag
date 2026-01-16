@@ -21,7 +21,9 @@ describe('core ingest warnings', () => {
 			defaults: {chunkSize: 200, chunkOverlap: 40},
 			chunker: (content) => {
 				const text = (content ?? '').trim()
-				if (!text) return []
+				if (!text) {
+					return []
+				}
 				return [
 					{
 						index: 0,

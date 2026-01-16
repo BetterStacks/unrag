@@ -29,8 +29,10 @@ import type {IngestResult, Metadata} from '@registry/core'
 
 const joinPrefix = (prefix: string | undefined, rest: string) => {
 	const p = (prefix ?? '').trim()
-	if (!p) return rest
-	return p.endsWith(':') ? p + rest : p + ':' + rest
+	if (!p) {
+		return rest
+	}
+	return p.endsWith(':') ? p + rest : `${p}:${rest}`
 }
 
 export function buildNotionPageIngestInput(
@@ -53,7 +55,9 @@ const richTextToText = (richText: RichTextItemResponse[] | undefined): string =>
 	(richText ?? []).map((t) => t.plain_text).join('')
 
 const getNotionPageTitle = (page: GetPageResponse): string => {
-	if (!isFullPage(page)) return ''
+	if (!isFullPage(page)) {
+		return ''
+	}
 	const props = page.properties
 	for (const key of Object.keys(props)) {
 		const p = props[key]
@@ -80,9 +84,13 @@ async function listAllBlockChildren(
 			})
 
 		blocks.push(...(res.results as NotionBlock[]))
-		if (!res.has_more) break
+		if (!res.has_more) {
+			break
+		}
 		cursor = res.next_cursor ?? undefined
-		if (!cursor) break
+		if (!cursor) {
+			break
+		}
 	}
 
 	return blocks
@@ -160,10 +168,14 @@ export async function loadNotionPageDocument(args: {
 }
 
 const isNotFound = (err: unknown): boolean => {
-	if (typeof err !== 'object' || err === null) return false
+	if (typeof err !== 'object' || err === null) {
+		return false
+	}
 	const e = err as Record<string, unknown>
 	const status = Number(e.status ?? e.statusCode ?? e.code ?? 0)
-	if (status === 404) return true
+	if (status === 404) {
+		return true
+	}
 	const msg = String(e.message ?? '')
 	return msg.toLowerCase().includes('could not find')
 }

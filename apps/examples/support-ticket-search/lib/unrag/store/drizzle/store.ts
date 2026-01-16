@@ -124,7 +124,7 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
 		if (scope.sourceId) {
 			// Interpret scope.sourceId as a prefix so callers can namespace content
 			// (e.g. `tenant:acme:`) without needing separate tables.
-			filters.push(sql`c.source_id like ${scope.sourceId + '%'}`)
+			filters.push(sql`c.source_id like ${`${scope.sourceId}%`}`)
 		}
 
 		const whereClause =
@@ -180,6 +180,6 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
 
 		await db
 			.delete(documents)
-			.where(like(documents.sourceId, input.sourceIdPrefix + '%'))
+			.where(like(documents.sourceId, `${input.sourceIdPrefix}%`))
 	}
 })

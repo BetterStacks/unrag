@@ -28,18 +28,29 @@ export function classifyDriveMimeType(
 	mimeType: string | undefined
 ): DriveMimeClassification {
 	const mt = String(mimeType ?? '').trim()
-	if (!mt) return {kind: 'binary'}
+	if (!mt) {
+		return {kind: 'binary'}
+	}
 
-	if (mt === DRIVE_MIME.folder) return {kind: 'folder'}
-	if (mt === DRIVE_MIME.shortcut) return {kind: 'shortcut'}
+	if (mt === DRIVE_MIME.folder) {
+		return {kind: 'folder'}
+	}
+	if (mt === DRIVE_MIME.shortcut) {
+		return {kind: 'shortcut'}
+	}
 
-	if (mt === DRIVE_MIME.doc) return {kind: 'google_native', nativeKind: 'doc'}
-	if (mt === DRIVE_MIME.sheet)
+	if (mt === DRIVE_MIME.doc) {
+		return {kind: 'google_native', nativeKind: 'doc'}
+	}
+	if (mt === DRIVE_MIME.sheet) {
 		return {kind: 'google_native', nativeKind: 'sheet'}
-	if (mt === DRIVE_MIME.slides)
+	}
+	if (mt === DRIVE_MIME.slides) {
 		return {kind: 'google_native', nativeKind: 'slides'}
-	if (mt === DRIVE_MIME.drawing)
+	}
+	if (mt === DRIVE_MIME.drawing) {
 		return {kind: 'google_native', nativeKind: 'drawing'}
+	}
 
 	return {kind: 'binary'}
 }
@@ -61,12 +72,15 @@ export type DriveNativeExportPlan =
 export function getNativeExportPlan(
 	nativeKind: DriveGoogleNativeKind
 ): DriveNativeExportPlan {
-	if (nativeKind === 'doc')
+	if (nativeKind === 'doc') {
 		return {kind: 'content', mimeType: EXPORT_MIME.text}
-	if (nativeKind === 'sheet')
+	}
+	if (nativeKind === 'sheet') {
 		return {kind: 'content', mimeType: EXPORT_MIME.csv}
-	if (nativeKind === 'slides')
+	}
+	if (nativeKind === 'slides') {
 		return {kind: 'content', mimeType: EXPORT_MIME.text}
+	}
 	if (nativeKind === 'drawing') {
 		return {
 			kind: 'asset',
@@ -84,9 +98,17 @@ export function assetKindFromMediaType(
 	const mt = String(mediaType ?? '')
 		.trim()
 		.toLowerCase()
-	if (mt === 'application/pdf') return 'pdf'
-	if (mt.startsWith('image/')) return 'image'
-	if (mt.startsWith('audio/')) return 'audio'
-	if (mt.startsWith('video/')) return 'video'
+	if (mt === 'application/pdf') {
+		return 'pdf'
+	}
+	if (mt.startsWith('image/')) {
+		return 'image'
+	}
+	if (mt.startsWith('audio/')) {
+		return 'audio'
+	}
+	if (mt.startsWith('video/')) {
+		return 'video'
+	}
 	return 'file'
 }

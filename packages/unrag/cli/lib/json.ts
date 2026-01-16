@@ -10,5 +10,5 @@ export async function readJsonFile<T>(filePath: string): Promise<T | null> {
 }
 
 export async function writeJsonFile(filePath: string, data: unknown) {
-	await writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf8')
+	await writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
 }

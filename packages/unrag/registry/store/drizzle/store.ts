@@ -8,6 +8,19 @@ import type {PgDatabase, PgQueryResultHKT} from 'drizzle-orm/pg-core'
  */
 type DrizzleDb = PgDatabase<PgQueryResultHKT, Record<string, unknown>>
 
+const getExecuteRows = (result: unknown): unknown[] => {
+	if (Array.isArray(result)) {
+		return result
+	}
+
+	if (result && typeof result === 'object' && 'rows' in result) {
+		const rows = (result as {rows?: unknown}).rows
+		return Array.isArray(rows) ? rows : []
+	}
+
+	return []
+}
+
 /**
  * Query row type for vector similarity search results.
  */
@@ -96,7 +109,7 @@ export const createDrizzleVectorStore = (
 	const inspector: DebugStoreInspector = {
 		listDocuments: async ({prefix, limit = 50, offset = 0}) => {
 			const where = prefix
-				? sql`where d.source_id like ${prefix + '%'}`
+				? sql`where d.source_id like ${`${prefix}%`}`
 				: sql``
 
 			const rows = await db.execute(
@@ -123,25 +136,17 @@ export const createDrizzleVectorStore = (
         `
 			)
 
-			const docRows = (
-				Array.isArray(rows)
-					? (rows as any[])
-					: ((rows as any)?.rows ?? [])
-			) as Array<{
+			const docRows = getExecuteRows(rows) as Array<{
 				source_id: unknown
 				created_at: unknown
 				chunk_count: unknown
 			}>
 
-			const totalRows = (
-				Array.isArray(totalRes)
-					? (totalRes as any[])
-					: ((totalRes as any)?.rows ?? [])
-			) as Array<{total: unknown}>
+			const totalRows = getExecuteRows(totalRes) as Array<{total: unknown}>
 
 			const total =
 				typeof totalRows[0]?.total === 'number'
-					? totalRows[0]!.total
+					? totalRows[0]?.total
 					: Number(totalRows[0]?.total ?? 0)
 
 			return {
@@ -172,11 +177,11 @@ export const createDrizzleVectorStore = (
         `
 			)
 
-			const docRows = (
-				Array.isArray(docRes)
-					? (docRes as any[])
-					: ((docRes as any)?.rows ?? [])
-			) as Array<{id: unknown; source_id: unknown; metadata: unknown}>
+			const docRows = getExecuteRows(docRes) as Array<{
+				id: unknown
+				source_id: unknown
+				metadata: unknown
+			}>
 
 			const doc = docRows[0]
 			if (!doc?.id) {
@@ -196,11 +201,7 @@ export const createDrizzleVectorStore = (
         `
 			)
 
-			const chunkRows = (
-				Array.isArray(chunksRes)
-					? (chunksRes as any[])
-					: ((chunksRes as any)?.rows ?? [])
-			) as Array<{
+			const chunkRows = getExecuteRows(chunksRes) as Array<{
 				id: unknown
 				idx: unknown
 				content: unknown
@@ -225,18 +226,18 @@ export const createDrizzleVectorStore = (
 			const res = await db.execute(
 				'sourceId' in input
 					? sql`delete from ${documents} where source_id = ${input.sourceId} returning 1 as one`
-					: sql`delete from ${documents} where source_id like ${input.sourceIdPrefix + '%'} returning 1 as one`
+					: sql`delete from ${documents} where source_id like ${`${input.sourceIdPrefix}%`} returning 1 as one`
 			)
 
-			const rows = (
-				Array.isArray(res) ? (res as any[]) : ((res as any)?.rows ?? [])
-			) as Array<{one: unknown}>
+			const rows = getExecuteRows(res) as Array<{one: unknown}>
 			return {deletedCount: rows.length}
 		},
 
 		deleteChunks: async ({chunkIds}) => {
 			const ids = Array.isArray(chunkIds) ? chunkIds.filter(Boolean) : []
-			if (ids.length === 0) return {deletedCount: 0}
+			if (ids.length === 0) {
+				return {deletedCount: 0}
+			}
 
 			const inList = sql.join(
 				ids.map((id) => sql`${id}::uuid`),
@@ -246,9 +247,7 @@ export const createDrizzleVectorStore = (
 			const res = await db.execute(
 				sql`delete from ${chunks} where id in (${inList}) returning 1 as one`
 			)
-			const rows = (
-				Array.isArray(res) ? (res as any[]) : ((res as any)?.rows ?? [])
-			) as Array<{one: unknown}>
+			const rows = getExecuteRows(res) as Array<{one: unknown}>
 			return {deletedCount: rows.length}
 		},
 
@@ -263,15 +262,15 @@ export const createDrizzleVectorStore = (
         `
 			)
 
-			const rows = (
-				Array.isArray(res) ? (res as any[]) : ((res as any)?.rows ?? [])
-			) as Array<{
-				documents_count: unknown
-				chunks_count: unknown
-				embeddings_count: unknown
-				embedding_dimension: unknown
-			}>
-			const row = rows[0] ?? ({} as any)
+			type StoreStatsRow = {
+				documents_count?: unknown
+				chunks_count?: unknown
+				embeddings_count?: unknown
+				embedding_dimension?: unknown
+			}
+
+			const rows = getExecuteRows(res) as Array<StoreStatsRow>
+			const row: StoreStatsRow = rows[0] ?? {}
 
 			const documentsCount = Number(row.documents_count ?? 0)
 			const chunksCount = Number(row.chunks_count ?? 0)
@@ -304,7 +303,10 @@ export const createDrizzleVectorStore = (
 			}
 
 			return await db.transaction(async (tx) => {
-				const head = chunkItems[0]!
+				const head = chunkItems[0]
+				if (!head) {
+					throw new Error('upsert() requires at least one chunk')
+				}
 				const documentRow = toDocumentRow(head)
 
 				// Upsert document by source_id (requires UNIQUE constraint on documents.source_id).
@@ -366,7 +368,7 @@ export const createDrizzleVectorStore = (
 			if (scope.sourceId) {
 				// Interpret scope.sourceId as a prefix so callers can namespace content
 				// (e.g. `tenant:acme:`) without needing separate tables.
-				filters.push(sql`c.source_id like ${scope.sourceId + '%'}`)
+				filters.push(sql`c.source_id like ${`${scope.sourceId}%`}`)
 			}
 
 			const whereClause =
@@ -422,7 +424,7 @@ export const createDrizzleVectorStore = (
 
 			await db
 				.delete(documents)
-				.where(like(documents.sourceId, input.sourceIdPrefix + '%'))
+				.where(like(documents.sourceId, `${input.sourceIdPrefix}%`))
 		},
 		inspector
 	}

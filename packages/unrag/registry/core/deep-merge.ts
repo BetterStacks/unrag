@@ -15,13 +15,17 @@ export function mergeDeep<T extends Record<string, unknown>>(
 	base: T,
 	overrides: DeepPartial<T> | undefined
 ): T {
-	if (!overrides) return base
+	if (!overrides) {
+		return base
+	}
 
 	const out = (Array.isArray(base) ? [...base] : {...base}) as T
 
 	for (const key of Object.keys(overrides) as Array<keyof T>) {
 		const nextVal = overrides[key as keyof typeof overrides]
-		if (nextVal === undefined) continue
+		if (nextVal === undefined) {
+			continue
+		}
 
 		const baseVal = base[key]
 

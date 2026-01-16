@@ -57,7 +57,9 @@ export function Sparkline({
 
 	// Format min/max values
 	const formatMs = (ms: number) => {
-		if (ms >= 1000) return `${(ms / 1000).toFixed(1)}s`
+		if (ms >= 1000) {
+			return `${(ms / 1000).toFixed(1)}s`
+		}
 		return `${ms.toFixed(0)}ms`
 	}
 	const fmt = format ?? formatMs

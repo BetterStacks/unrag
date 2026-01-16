@@ -12,13 +12,17 @@ import {useMemo} from 'react'
 function wrapLine(line: string, width: number): string[] {
 	const out: string[] = []
 	let s = String(line ?? '')
-	if (width <= 1) return [s.slice(0, 1)]
+	if (width <= 1) {
+		return [s.slice(0, 1)]
+	}
 
 	while (s.length > width) {
 		// Prefer breaking on whitespace within the width.
 		const slice = s.slice(0, width + 1)
 		let cut = Math.max(slice.lastIndexOf(' '), slice.lastIndexOf('\t'))
-		if (cut <= 0) cut = width // hard break
+		if (cut <= 0) {
+			cut = width // hard break
+		}
 		out.push(s.slice(0, cut).trimEnd())
 		s = s.slice(cut).trimStart()
 	}
@@ -33,7 +37,9 @@ function wrapText(text: string, width: number, maxLines = 4000): string[] {
 	for (const line of lines) {
 		for (const w of wrapLine(line, width)) {
 			out.push(w)
-			if (out.length >= maxLines) return out
+			if (out.length >= maxLines) {
+				return out
+			}
 		}
 	}
 	return out
@@ -65,7 +71,9 @@ export function ScrollableText({
 
 	const wrapped = useMemo(() => {
 		const s = String(text ?? '').trimEnd()
-		if (!s) return []
+		if (!s) {
+			return []
+		}
 		return wrapText(s, safeWidth)
 	}, [text, safeWidth])
 
@@ -78,10 +86,14 @@ export function ScrollableText({
 		: safeHeight
 	const slice = wrapped.slice(top, top + contentLines)
 	const padded = [...slice]
-	while (padded.length < contentLines) padded.push('')
+	while (padded.length < contentLines) {
+		padded.push('')
+	}
 
 	const statusLine = (() => {
-		if (!showStatusLine) return ''
+		if (!showStatusLine) {
+			return ''
+		}
 		return `${top + 1}-${Math.min(top + contentLines, wrapped.length)} of ${wrapped.length} · ^u/^d scroll`
 	})()
 

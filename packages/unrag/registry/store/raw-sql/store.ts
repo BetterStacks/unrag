@@ -2,7 +2,9 @@ import type {Chunk, DeleteInput, VectorStore} from '@registry/core/types'
 import type {Pool, PoolClient} from 'pg'
 
 const sanitizeMetadata = (metadata: unknown) => {
-	if (metadata === undefined) return null
+	if (metadata === undefined) {
+		return null
+	}
 	try {
 		return JSON.parse(JSON.stringify(metadata))
 	} catch {
@@ -81,14 +83,18 @@ export const createRawSqlVectorStore = (
 			const values: unknown[] = []
 			let whereSql = ''
 			if (prefix) {
-				values.push(prefix + '%')
+				values.push(`${prefix}%`)
 				whereSql = `where d.source_id like $${values.length}`
 			}
 
 			values.push(limit)
 			values.push(offset)
 
-			const rows = await pool.query(
+			const rows = await pool.query<{
+				source_id: string
+				created_at: unknown
+				chunk_count: number
+			}>(
 				`
         select
           d.source_id as source_id,
@@ -108,8 +114,8 @@ export const createRawSqlVectorStore = (
 			const totalValues: unknown[] = []
 			let totalWhereSql = ''
 			if (prefix) {
-				totalValues.push(prefix + '%')
-				totalWhereSql = `where d.source_id like $1`
+				totalValues.push(`${prefix}%`)
+				totalWhereSql = 'where d.source_id like $1'
 			}
 			const totalRes = await pool.query<{total: number}>(
 				`
@@ -122,13 +128,13 @@ export const createRawSqlVectorStore = (
 
 			return {
 				documents: rows.rows.map((r) => ({
-					sourceId: String((r as any).source_id),
-					chunkCount: Number((r as any).chunk_count),
+					sourceId: String(r.source_id),
+					chunkCount: Number(r.chunk_count),
 					createdAt:
-						(r as any).created_at instanceof Date
-							? (r as any).created_at.toISOString()
-							: (r as any).created_at
-								? String((r as any).created_at)
+						r.created_at instanceof Date
+							? r.created_at.toISOString()
+							: r.created_at
+								? String(r.created_at)
 								: undefined
 				})),
 				total: Number(totalRes.rows[0]?.total ?? 0)
@@ -151,7 +157,9 @@ export const createRawSqlVectorStore = (
 			)
 
 			const doc = docRes.rows[0]
-			if (!doc?.id) return {document: undefined}
+			if (!doc?.id) {
+				return {document: undefined}
+			}
 
 			const chunkRes = await pool.query<{
 				id: string
@@ -173,12 +181,9 @@ export const createRawSqlVectorStore = (
 					sourceId: String(doc.source_id),
 					chunks: chunkRes.rows.map((r) => ({
 						id: String(r.id),
-						content: String((r as any).content ?? ''),
-						sequence: Number((r as any).idx),
-						metadata: ((r as any).metadata ?? {}) as Record<
-							string,
-							unknown
-						>
+						content: String(r.content ?? ''),
+						sequence: Number(r.idx),
+						metadata: (r.metadata ?? {}) as Record<string, unknown>
 					})),
 					metadata: (doc.metadata ?? {}) as Record<string, unknown>
 				}
@@ -188,12 +193,12 @@ export const createRawSqlVectorStore = (
 		deleteDocument: async (input: DeleteInput) => {
 			const res = await pool.query(
 				'sourceId' in input
-					? `delete from documents where source_id = $1 returning 1 as one`
-					: `delete from documents where source_id like $1 returning 1 as one`,
+					? 'delete from documents where source_id = $1 returning 1 as one'
+					: 'delete from documents where source_id like $1 returning 1 as one',
 				[
 					'sourceId' in input
 						? input.sourceId
-						: input.sourceIdPrefix + '%'
+						: `${input.sourceIdPrefix}%`
 				]
 			)
 			return {deletedCount: res.rowCount ?? res.rows.length}
@@ -201,9 +206,11 @@ export const createRawSqlVectorStore = (
 
 		deleteChunks: async ({chunkIds}) => {
 			const ids = Array.isArray(chunkIds) ? chunkIds.filter(Boolean) : []
-			if (ids.length === 0) return {deletedCount: 0}
+			if (ids.length === 0) {
+				return {deletedCount: 0}
+			}
 			const res = await pool.query(
-				`delete from chunks where id = any($1::uuid[]) returning 1 as one`,
+				'delete from chunks where id = any($1::uuid[]) returning 1 as one',
 				[ids]
 			)
 			return {deletedCount: res.rowCount ?? res.rows.length}
@@ -260,7 +267,10 @@ export const createRawSqlVectorStore = (
 			}
 
 			return await withTx(pool, async (client) => {
-				const head = chunkItems[0]!
+				const head = chunkItems[0]
+				if (!head) {
+					throw new Error('upsert() requires at least one chunk')
+				}
 				const documentMetadata = sanitizeMetadata(head.metadata)
 
 				// Upsert document by source_id (requires UNIQUE constraint on documents.source_id).
@@ -290,7 +300,7 @@ export const createRawSqlVectorStore = (
 				// Delete all existing chunks for this document (they will be replaced).
 				// Cascades to embeddings via FK constraint.
 				await client.query(
-					`delete from chunks where document_id = $1`,
+					'delete from chunks where document_id = $1',
 					[canonicalDocumentId]
 				)
 
@@ -314,7 +324,9 @@ export const createRawSqlVectorStore = (
 						]
 					)
 
-					if (!chunk.embedding) continue
+					if (!chunk.embedding) {
+						continue
+					}
 
 					const embeddingLiteral = toVectorLiteral(chunk.embedding)
 					await client.query(
@@ -339,7 +351,7 @@ export const createRawSqlVectorStore = (
 			if (scope.sourceId) {
 				// Interpret scope.sourceId as a prefix so callers can namespace content
 				// (e.g. `tenant:acme:`) without needing separate tables.
-				values.push(scope.sourceId + '%')
+				values.push(`${scope.sourceId}%`)
 				where.push(`c.source_id like $${values.length}`)
 			}
 
@@ -382,15 +394,15 @@ export const createRawSqlVectorStore = (
 			await withTx(pool, async (client) => {
 				if ('sourceId' in input) {
 					await client.query(
-						`delete from documents where source_id = $1`,
+						'delete from documents where source_id = $1',
 						[input.sourceId]
 					)
 					return
 				}
 
 				await client.query(
-					`delete from documents where source_id like $1`,
-					[input.sourceIdPrefix + '%']
+					'delete from documents where source_id like $1',
+					[`${input.sourceIdPrefix}%`]
 				)
 			})
 		},

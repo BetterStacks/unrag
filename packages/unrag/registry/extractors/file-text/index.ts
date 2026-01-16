@@ -26,13 +26,23 @@ const isTextish = (
 	filename: string | undefined
 ) => {
 	const mt = normalizeMediaType(mediaType)
-	if (mt?.startsWith('text/')) return true
-	if (mt === 'application/json') return true
-	if (mt === 'application/xml') return true
-	if (mt === 'application/xhtml+xml') return true
+	if (mt?.startsWith('text/')) {
+		return true
+	}
+	if (mt === 'application/json') {
+		return true
+	}
+	if (mt === 'application/xml') {
+		return true
+	}
+	if (mt === 'application/xhtml+xml') {
+		return true
+	}
 
 	const ext = extFromFilename(filename)
-	if (!ext) return false
+	if (!ext) {
+		return false
+	}
 	return (
 		ext === 'txt' ||
 		ext === 'md' ||
@@ -50,8 +60,12 @@ export function createFileTextExtractor(): AssetExtractor {
 	return {
 		name: 'file:text',
 		supports: ({asset, ctx}) => {
-			if (asset.kind !== 'file') return false
-			if (!ctx.assetProcessing.file.text.enabled) return false
+			if (asset.kind !== 'file') {
+				return false
+			}
+			if (!ctx.assetProcessing.file.text.enabled) {
+				return false
+			}
 			const filename =
 				asset.data.kind === 'bytes'
 					? asset.data.filename
@@ -89,7 +103,9 @@ export function createFileTextExtractor(): AssetExtractor {
 			}
 
 			text = text.trim()
-			if (text.length < cfg.minChars) return {texts: []}
+			if (text.length < cfg.minChars) {
+				return {texts: []}
+			}
 
 			return {
 				texts: [

@@ -8,7 +8,9 @@ import type {
 
 const oneChunker: ResolvedContextEngineConfig['chunker'] = (content) => {
 	const text = String(content ?? '').trim()
-	if (!text) return []
+	if (!text) {
+		return []
+	}
 	return [
 		{
 			index: 0,

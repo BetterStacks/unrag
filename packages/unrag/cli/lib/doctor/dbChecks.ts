@@ -153,7 +153,9 @@ export async function runDbChecks(
 			]
 		})
 	} finally {
-		if (end) await end().catch(() => {})
+		if (end) {
+			await end().catch(() => {})
+		}
 	}
 
 	return results
@@ -627,7 +629,7 @@ async function checkSourceIdUniqueness(
 				status: 'pass',
 				summary: 'UNIQUE constraint exists on documents.source_id.',
 				details: [
-					`Constraint: ${uniqueConstraintResult.rows[0]!.constraint_name}`
+					`Constraint: ${uniqueConstraintResult.rows[0]?.constraint_name}`
 				]
 			}
 		}
@@ -657,7 +659,7 @@ async function checkSourceIdUniqueness(
 				title: 'documents.source_id uniqueness',
 				status: 'pass',
 				summary: 'UNIQUE index exists on documents.source_id.',
-				details: [`Index: ${uniqueIndexResult.rows[0]!.indexname}`]
+				details: [`Index: ${uniqueIndexResult.rows[0]?.indexname}`]
 			}
 		}
 
@@ -758,9 +760,9 @@ async function checkDuplicateSourceIds(
 			].filter(Boolean),
 			fixHints: [
 				'-- Find all duplicates:',
-				`SELECT source_id, COUNT(*), array_agg(id) as document_ids`,
+				'SELECT source_id, COUNT(*), array_agg(id) as document_ids',
 				`FROM ${schema}.${tableNames.documents}`,
-				`GROUP BY source_id HAVING COUNT(*) > 1;`,
+				'GROUP BY source_id HAVING COUNT(*) > 1;',
 				'',
 				'-- Resolve duplicates by deleting extra rows for a given source_id.',
 				'-- (Exact strategy depends on your app; pick which document_id to keep and delete the rest.)'
@@ -944,7 +946,7 @@ async function checkDimensionConsistency(
 
 		const nullDimResult = await client.query<{count: string}>(
 			nullDimSql,
-			scope ? [scope + '%'] : []
+			scope ? [`${scope}%`] : []
 		)
 		const nullCount = Number.parseInt(
 			nullDimResult.rows[0]?.count ?? '0',
@@ -982,7 +984,7 @@ async function checkDimensionConsistency(
 		const dimResult = await client.query<{
 			embedding_dimension: number
 			count: string
-		}>(dimSql, scope ? [scope + '%'] : [])
+		}>(dimSql, scope ? [`${scope}%`] : [])
 
 		const dimensions = dimResult.rows
 

@@ -60,7 +60,9 @@ export function useHotkeysLock(active: boolean): void {
 	const releaseRef = useRef<null | (() => void)>(null)
 
 	useEffect(() => {
-		if (!ctx) return
+		if (!ctx) {
+			return
+		}
 		if (active && !releaseRef.current) {
 			releaseRef.current = ctx.acquire()
 		} else if (!active && releaseRef.current) {

@@ -83,7 +83,9 @@ export function createPdfLlmExtractor(): AssetExtractor {
 			})
 
 			const text = (result.text ?? '').trim()
-			if (!text) return {texts: [], diagnostics: {model: llm.model}}
+			if (!text) {
+				return {texts: [], diagnostics: {model: llm.model}}
+			}
 
 			const capped = capText(text, llm.maxOutputChars)
 

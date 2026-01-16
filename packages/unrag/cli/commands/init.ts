@@ -173,7 +173,6 @@ const parseInitArgs = (args: string[]): ParsedInitArgs => {
 		}
 		if (a === '--no-install') {
 			out.noInstall = true
-			continue
 		}
 	}
 
@@ -308,9 +307,12 @@ export async function initCommand(args: string[]) {
 					message: 'Install directory',
 					initialValue: defaults.installDir,
 					validate: (v) => {
-						if (!v.trim()) return 'Install directory is required'
-						if (v.startsWith('/'))
+						if (!v.trim()) {
+							return 'Install directory is required'
+						}
+						if (v.startsWith('/')) {
 							return 'Use a project-relative path'
+						}
 						return
 					}
 				})
@@ -356,12 +358,18 @@ export async function initCommand(args: string[]) {
 					initialValue: defaults.aliasBase,
 					validate: (v) => {
 						const s = v.trim()
-						if (!s) return 'Alias is required'
-						if (s.includes(' '))
+						if (!s) {
+							return 'Alias is required'
+						}
+						if (s.includes(' ')) {
 							return 'Alias must not contain spaces'
-						if (!s.startsWith('@'))
+						}
+						if (!s.startsWith('@')) {
 							return 'Alias should start with "@" (e.g. "@unrag")'
-						if (s.endsWith('/')) return 'Alias must not end with /'
+						}
+						if (s.endsWith('/')) {
+							return 'Alias must not end with /'
+						}
 						return
 					}
 				})
@@ -462,7 +470,7 @@ export async function initCommand(args: string[]) {
 						options: extractorOptions.reduce<Record<string, any[]>>(
 							(acc, opt) => {
 								acc[opt.group] ??= []
-								acc[opt.group]!.push({
+								acc[opt.group]?.push({
 									value: opt.value,
 									label: opt.label,
 									...(opt.hint ? {hint: opt.hint} : {})
@@ -678,7 +686,9 @@ export async function initCommand(args: string[]) {
 		await writeFile(absPath, content, 'utf8')
 	}
 	const writeIfMissing = async (absPath: string, content: string) => {
-		if (await exists(absPath)) return false
+		if (await exists(absPath)) {
+			return false
+		}
 		await writeTextFile(absPath, content)
 		return true
 	}
@@ -690,11 +700,11 @@ export async function initCommand(args: string[]) {
 
 		await writeIfMissing(
 			datasetAbs,
-			JSON.stringify(EVAL_SAMPLE_DATASET_V1, null, 2) + '\n'
+			`${JSON.stringify(EVAL_SAMPLE_DATASET_V1, null, 2)}\n`
 		)
 		await writeIfMissing(
 			evalConfigAbs,
-			JSON.stringify(EVAL_CONFIG_DEFAULT, null, 2) + '\n'
+			`${JSON.stringify(EVAL_CONFIG_DEFAULT, null, 2)}\n`
 		)
 		await writeIfMissing(scriptAbs, renderEvalRunnerScript({aliasBase}))
 
@@ -831,7 +841,7 @@ export async function initCommand(args: string[]) {
 			'',
 			`- Code: ${path.join(installDir)}`,
 			`- Docs: ${path.join(installDir, 'unrag.md')}`,
-			`- Config: unrag.config.ts`,
+			'- Config: unrag.config.ts',
 			`- Imports: ${aliasBase}/* and ${aliasBase}/config`,
 			'',
 			`- Rich media: ${richMediaEnabled ? 'enabled' : 'disabled'}`,
@@ -840,11 +850,11 @@ export async function initCommand(args: string[]) {
 				? `- Extractors: ${selectedExtractors.length > 0 ? selectedExtractors.join(', ') : 'none'}`
 				: '',
 			richMediaEnabled
-				? `  Tip: you can tweak extractors + assetProcessing flags in unrag.config.ts later.`
-				: `  Tip: re-run \`unrag init --rich-media\` (or edit unrag.config.ts) to enable rich media later.`,
+				? '  Tip: you can tweak extractors + assetProcessing flags in unrag.config.ts later.'
+				: '  Tip: re-run `unrag init --rich-media` (or edit unrag.config.ts) to enable rich media later.',
 			tsconfigResult.changed
 				? `- TypeScript: updated ${tsconfigResult.file} (added aliases)`
-				: `- TypeScript: no tsconfig changes needed`,
+				: '- TypeScript: no tsconfig changes needed',
 			'',
 			merged.changes.length > 0
 				? `Added deps: ${merged.changes.map((c) => c.name).join(', ')}`

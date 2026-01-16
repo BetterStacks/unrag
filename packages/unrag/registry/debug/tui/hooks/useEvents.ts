@@ -47,7 +47,9 @@ export function useFilteredEvents(
 	events: DebugEvent[],
 	filter: string | null
 ): DebugEvent[] {
-	if (!filter) return events
+	if (!filter) {
+		return events
+	}
 	return events.filter((e) => e.type.startsWith(filter))
 }
 

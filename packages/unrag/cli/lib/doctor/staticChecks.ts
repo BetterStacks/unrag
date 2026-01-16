@@ -108,9 +108,15 @@ async function runInstallChecks(
 		)
 
 		const missingDirs: string[] = []
-		if (!coreExists) missingDirs.push('core/')
-		if (!storeExists) missingDirs.push('store/')
-		if (!embeddingExists) missingDirs.push('embedding/')
+		if (!coreExists) {
+			missingDirs.push('core/')
+		}
+		if (!storeExists) {
+			missingDirs.push('store/')
+		}
+		if (!embeddingExists) {
+			missingDirs.push('embedding/')
+		}
 
 		if (state.installDirExists && missingDirs.length === 0) {
 			results.push({
@@ -130,7 +136,7 @@ async function runInstallChecks(
 				id: 'install-dir',
 				title: 'Install directory',
 				status: 'warn',
-				summary: `Install directory exists but is incomplete.`,
+				summary: 'Install directory exists but is incomplete.',
 				details: [`Missing: ${missingDirs.join(', ')}`],
 				fixHints: ['Run `unrag init` to reinstall missing files']
 			})
@@ -142,7 +148,7 @@ async function runInstallChecks(
 				summary: `Install directory not found at ${state.installDir}`,
 				fixHints: [
 					'Run `unrag init` to install Unrag files',
-					`Or use --install-dir to specify a different location`
+					'Or use --install-dir to specify a different location'
 				]
 			})
 		}
@@ -231,7 +237,9 @@ async function checkDependencies(
 		const missingDeps: string[] = []
 
 		for (const dep of adapterDeps.required) {
-			if (!allDeps[dep]) missingDeps.push(dep)
+			if (!allDeps[dep]) {
+				missingDeps.push(dep)
+			}
 		}
 
 		if (missingDeps.length === 0) {
@@ -253,7 +261,7 @@ async function checkDependencies(
 	}
 
 	// Check for ai SDK (required for all setups)
-	if (!allDeps['ai']) {
+	if (!allDeps.ai) {
 		results.push({
 			id: 'deps-ai',
 			title: 'AI SDK',
@@ -333,10 +341,14 @@ async function runEnvChecks(
 			const missingOptional: string[] = []
 
 			for (const envVar of providerEnv.required) {
-				if (!process.env[envVar]) missingRequired.push(envVar)
+				if (!process.env[envVar]) {
+					missingRequired.push(envVar)
+				}
 			}
 			for (const envVar of providerEnv.optional) {
-				if (!process.env[envVar]) missingOptional.push(envVar)
+				if (!process.env[envVar]) {
+					missingOptional.push(envVar)
+				}
 			}
 
 			if (missingRequired.length === 0) {
@@ -413,11 +425,15 @@ async function checkConnectorEnvVars(
 	}
 
 	const envVars = connectorEnvVars[connector]
-	if (!envVars) return results
+	if (!envVars) {
+		return results
+	}
 
 	const missingRequired: string[] = []
 	for (const envVar of envVars.required) {
-		if (!process.env[envVar]) missingRequired.push(envVar)
+		if (!process.env[envVar]) {
+			missingRequired.push(envVar)
+		}
 	}
 
 	if (envVars.required.length === 0) {
@@ -552,14 +568,18 @@ async function checkExtractorDependencies(
 	const results: CheckResult[] = []
 
 	const pkgJsonPath = path.join(state.projectRoot, 'package.json')
-	if (!(await exists(pkgJsonPath))) return results
+	if (!(await exists(pkgJsonPath))) {
+		return results
+	}
 
 	const pkgJson = await readJsonFile<{
 		dependencies?: Record<string, string>
 		devDependencies?: Record<string, string>
 	}>(pkgJsonPath)
 
-	if (!pkgJson) return results
+	if (!pkgJson) {
+		return results
+	}
 
 	const allDeps = {
 		...(pkgJson.dependencies ?? {}),
@@ -577,7 +597,9 @@ async function checkExtractorDependencies(
 
 	for (const extractor of state.installedExtractors) {
 		const deps = extractorDeps[extractor]
-		if (!deps || deps.length === 0) continue
+		if (!deps || deps.length === 0) {
+			continue
+		}
 
 		const missingDeps = deps.filter((d) => !allDeps[d])
 		if (missingDeps.length > 0) {

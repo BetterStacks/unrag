@@ -31,7 +31,9 @@ function canQuery(connection: DebugConnection): boolean {
 }
 
 function fmt(n: number | undefined): string {
-	if (n === undefined || !Number.isFinite(n)) return '—'
+	if (n === undefined || !Number.isFinite(n)) {
+		return '—'
+	}
 	return n.toFixed(3)
 }
 
@@ -75,7 +77,9 @@ export function Eval({connection}: EvalProps) {
 	}
 
 	useEffect(() => {
-		if (connection.status !== 'connected') return
+		if (connection.status !== 'connected') {
+			return
+		}
 		// no auto-run (avoid accidental deletes/ingest)
 	}, [connection.status])
 
@@ -101,7 +105,9 @@ export function Eval({connection}: EvalProps) {
 			return
 		}
 
-		if (!evalCapable) return
+		if (!evalCapable) {
+			return
+		}
 
 		if (input === 'e') {
 			setMode('editingDataset')

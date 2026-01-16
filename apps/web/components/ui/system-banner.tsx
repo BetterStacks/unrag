@@ -18,7 +18,9 @@ export default function SystemBanner({
 	size = 'xs',
 	show = true
 }: SystemBannerProps) {
-	if (!show) return null
+	if (!show) {
+		return null
+	}
 	return (
 		<div
 			className={`

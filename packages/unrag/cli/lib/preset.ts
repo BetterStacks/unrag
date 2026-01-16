@@ -17,24 +17,38 @@ export type PresetPayloadV1 = {
 }
 
 function isPresetPayloadV1(x: unknown): x is PresetPayloadV1 {
-	if (!x || typeof x !== 'object') return false
+	if (!x || typeof x !== 'object') {
+		return false
+	}
 	const o = x as any
-	if (o.version !== 1) return false
-	if (!o.install || typeof o.install !== 'object') return false
-	if (!o.modules || typeof o.modules !== 'object') return false
-	if (typeof o.install.installDir !== 'string') return false
+	if (o.version !== 1) {
+		return false
+	}
+	if (!o.install || typeof o.install !== 'object') {
+		return false
+	}
+	if (!o.modules || typeof o.modules !== 'object') {
+		return false
+	}
+	if (typeof o.install.installDir !== 'string') {
+		return false
+	}
 	if (
 		!['drizzle', 'prisma', 'raw-sql'].includes(
 			String(o.install.storeAdapter)
 		)
-	)
+	) {
 		return false
-	if (typeof o.install.aliasBase !== 'string') return false
+	}
+	if (typeof o.install.aliasBase !== 'string') {
+		return false
+	}
 	if (
 		!Array.isArray(o.modules.extractors) ||
 		!Array.isArray(o.modules.connectors)
-	)
+	) {
 		return false
+	}
 	if (
 		'batteries' in o.modules &&
 		o.modules.batteries != null &&
@@ -50,7 +64,9 @@ function toPresetUrl(input: string): string {
 	if (!s) {
 		throw new Error('Missing preset id/url')
 	}
-	if (s.startsWith('http://') || s.startsWith('https://')) return s
+	if (s.startsWith('http://') || s.startsWith('https://')) {
+		return s
+	}
 
 	// Treat it as an id.
 	// Prefer docsUrl() so UNRAG_SITE_URL overrides work (e.g. staging).

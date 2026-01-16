@@ -56,12 +56,16 @@ export async function loadEnvFilesFromList(options: {
 
 	for (const rel of options.files) {
 		// Skip empty strings (can happen with ${NODE_ENV} interpolation when NODE_ENV is empty)
-		if (!rel.trim()) continue
+		if (!rel.trim()) {
+			continue
+		}
 
 		const abs = path.isAbsolute(rel)
 			? rel
 			: path.join(options.projectRoot, rel)
-		if (!(await exists(abs))) continue
+		if (!(await exists(abs))) {
+			continue
+		}
 
 		try {
 			const raw = await readFile(abs, 'utf8')
@@ -96,7 +100,9 @@ function parseDotenv(raw: string): Record<string, string> {
 
 	for (const line of raw.split(/\r?\n/)) {
 		const trimmed = line.trim()
-		if (!trimmed || trimmed.startsWith('#')) continue
+		if (!trimmed || trimmed.startsWith('#')) {
+			continue
+		}
 
 		// Support `export KEY=...`
 		const l = trimmed.startsWith('export ')
@@ -104,17 +110,23 @@ function parseDotenv(raw: string): Record<string, string> {
 			: trimmed
 
 		const eq = l.indexOf('=')
-		if (eq <= 0) continue
+		if (eq <= 0) {
+			continue
+		}
 
 		const key = l.slice(0, eq).trim()
-		if (!key) continue
+		if (!key) {
+			continue
+		}
 
 		let value = l.slice(eq + 1).trim()
 
 		// Strip inline comment for unquoted values: KEY=value # comment
 		if (!value.startsWith('"') && !value.startsWith("'")) {
 			const hash = value.indexOf(' #')
-			if (hash >= 0) value = value.slice(0, hash).trim()
+			if (hash >= 0) {
+				value = value.slice(0, hash).trim()
+			}
 		}
 
 		// Unquote

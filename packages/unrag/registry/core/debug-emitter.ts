@@ -90,7 +90,7 @@ export function resetDebugEmitter(): void {
  */
 function createDebugEmitter(): DebugEmitter {
 	const enabled = process.env.UNRAG_DEBUG === 'true'
-	const port = Number.parseInt(process.env.UNRAG_DEBUG_PORT ?? '3847', 10)
+	const _port = Number.parseInt(process.env.UNRAG_DEBUG_PORT ?? '3847', 10)
 	const maxBufferSize = Number.parseInt(
 		process.env.UNRAG_DEBUG_BUFFER_SIZE ?? '1000',
 		10
@@ -103,7 +103,9 @@ function createDebugEmitter(): DebugEmitter {
 
 	return {
 		emit: (payload: DebugEventInput): void => {
-			if (!enabled) return
+			if (!enabled) {
+				return
+			}
 
 			const event: DebugEvent = {
 				...payload,

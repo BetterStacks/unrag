@@ -8,7 +8,7 @@ const workspaceTmpRoot = path.join(process.cwd(), 'tmp', 'test-runs')
 
 async function writeJson(filePath: string, data: unknown) {
 	await mkdir(path.dirname(filePath), {recursive: true})
-	await writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf8')
+	await writeFile(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8')
 }
 
 describe('eval runner thresholds', () => {

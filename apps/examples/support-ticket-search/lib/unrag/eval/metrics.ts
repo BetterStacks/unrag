@@ -10,8 +10,12 @@ export function uniqueSourceIdsInOrder(sourceIds: string[]): string[] {
 	const seen = new Set<string>()
 	const out: string[] = []
 	for (const id of sourceIds) {
-		if (!id) continue
-		if (seen.has(id)) continue
+		if (!id) {
+			continue
+		}
+		if (seen.has(id)) {
+			continue
+		}
 		seen.add(id)
 		out.push(id)
 	}
@@ -36,7 +40,9 @@ export function computeMetricsAtK(args: {
 		const sid = ranked[i]!
 		if (relevant.has(sid)) {
 			hits++
-			if (firstRelevantRank === null) firstRelevantRank = i + 1 // 1-indexed
+			if (firstRelevantRank === null) {
+				firstRelevantRank = i + 1 // 1-indexed
+			}
 		}
 	}
 
@@ -69,7 +75,9 @@ function computeNdcgAtK(args: {
 	let dcg = 0
 	for (let i = 0; i < ranked.length; i++) {
 		const rel = args.relevant.has(ranked[i]!) ? 1 : 0
-		if (rel === 0) continue
+		if (rel === 0) {
+			continue
+		}
 		// rank position is (i+1); discount uses log2(i+2)
 		dcg += rel / Math.log2(i + 2)
 	}
@@ -81,6 +89,8 @@ function computeNdcgAtK(args: {
 		idcg += 1 / Math.log2(i + 2)
 	}
 
-	if (idcg === 0) return 0
+	if (idcg === 0) {
+		return 0
+	}
 	return dcg / idcg
 }

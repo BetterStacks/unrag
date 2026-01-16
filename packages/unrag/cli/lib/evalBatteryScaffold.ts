@@ -41,8 +41,10 @@ export const EVAL_CONFIG_DEFAULT = {
 } as const
 
 export const EVAL_PACKAGE_JSON_SCRIPTS: Record<string, string> = {
-	'unrag:eval': `bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json`,
-	'unrag:eval:ci': `bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json --ci`
+	'unrag:eval':
+		'bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json',
+	'unrag:eval:ci':
+		'bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json --ci'
 } as const
 
 export function renderEvalRunnerScript(opts: {aliasBase: string}): string {

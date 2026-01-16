@@ -16,7 +16,9 @@ function maxLineWidth(lines: string[]): number {
 }
 
 function downsampleLine(line: string, xFactor: number): string {
-	if (xFactor <= 1) return line
+	if (xFactor <= 1) {
+		return line
+	}
 	let out = ''
 	for (let i = 0; i < line.length; i += xFactor) {
 		const chunk = line.slice(i, i + xFactor)
@@ -46,17 +48,23 @@ function renderPixels(line: string, accentHex: string): string {
 	let runLen = 0
 
 	const flush = () => {
-		if (!runChar || runLen <= 0) return
-		if (runChar === 'g') out += chalk.hex(accentHex)('█'.repeat(runLen))
-		else out += ' '.repeat(runLen)
+		if (!runChar || runLen <= 0) {
+			return
+		}
+		if (runChar === 'g') {
+			out += chalk.hex(accentHex)('█'.repeat(runLen))
+		} else {
+			out += ' '.repeat(runLen)
+		}
 		runChar = null
 		runLen = 0
 	}
 
 	for (const ch of line) {
 		const c = ch === 'g' ? 'g' : 'u'
-		if (runChar === c) runLen++
-		else {
+		if (runChar === c) {
+			runLen++
+		} else {
 			flush()
 			runChar = c
 			runLen = 1
@@ -72,9 +80,13 @@ function findNearestLogoTxt(): string | null {
 	// can still pick up a repo-root `logo.txt`.
 	for (let i = 0; i < 8; i++) {
 		const p = join(dir, 'logo.txt')
-		if (existsSync(p)) return p
+		if (existsSync(p)) {
+			return p
+		}
 		const parent = dirname(dir)
-		if (parent === dir) break
+		if (parent === dir) {
+			break
+		}
 		dir = parent
 	}
 	return null
@@ -83,18 +95,24 @@ function findNearestLogoTxt(): string | null {
 function loadLogoFromFs(): string[] | null {
 	try {
 		const p = findNearestLogoTxt()
-		if (!p) return null
+		if (!p) {
+			return null
+		}
 		const raw = readFileSync(p, 'utf8')
 		const lines = raw
 			.split(/\r?\n/g)
 			.map((s) => s.trimEnd())
 			.filter((s) => s.length > 0)
 
-		if (lines.length === 0) return null
+		if (lines.length === 0) {
+			return null
+		}
 
 		// Validate: only accept g/u pixel art to avoid rendering random files.
 		for (const line of lines) {
-			if (!/^[gu]+$/.test(line)) return null
+			if (!/^[gu]+$/.test(line)) {
+				return null
+			}
 		}
 		return lines
 	} catch {

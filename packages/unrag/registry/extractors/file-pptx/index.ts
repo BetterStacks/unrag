@@ -42,8 +42,12 @@ export function createFilePptxExtractor(): AssetExtractor {
 	return {
 		name: 'file:pptx',
 		supports: ({asset, ctx}) => {
-			if (asset.kind !== 'file') return false
-			if (!ctx.assetProcessing.file.pptx.enabled) return false
+			if (asset.kind !== 'file') {
+				return false
+			}
+			if (!ctx.assetProcessing.file.pptx.enabled) {
+				return false
+			}
 			const filename =
 				asset.data.kind === 'bytes'
 					? asset.data.filename
@@ -85,9 +89,11 @@ export function createFilePptxExtractor(): AssetExtractor {
 			let totalChars = 0
 
 			for (const slidePath of slidePaths) {
-				if (totalChars >= cfg.maxOutputChars) break
+				if (totalChars >= cfg.maxOutputChars) {
+					break
+				}
 
-				const xml = await zip.files[slidePath]!.async('string')
+				const xml = await zip.files[slidePath]?.async('string')
 				const parts: string[] = []
 				const re = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g
 				let m: RegExpExecArray | null
@@ -95,11 +101,15 @@ export function createFilePptxExtractor(): AssetExtractor {
 					const t = decodeXmlEntities(String(m[1] ?? ''))
 						.replace(/\s+/g, ' ')
 						.trim()
-					if (t) parts.push(t)
+					if (t) {
+						parts.push(t)
+					}
 				}
 
 				const slideText = parts.join(' ').trim()
-				if (!slideText) continue
+				if (!slideText) {
+					continue
+				}
 
 				const slideNum = Number(
 					slidePath.match(/slide(\d+)\.xml$/)?.[1] ?? 0
@@ -108,7 +118,9 @@ export function createFilePptxExtractor(): AssetExtractor {
 					slideText,
 					cfg.maxOutputChars - totalChars
 				)
-				if (!capped) continue
+				if (!capped) {
+					continue
+				}
 
 				texts.push({
 					label: `slide-${slideNum || texts.length + 1}`,
@@ -118,7 +130,9 @@ export function createFilePptxExtractor(): AssetExtractor {
 			}
 
 			const joinedChars = texts.reduce((n, t) => n + t.content.length, 0)
-			if (joinedChars < cfg.minChars) return {texts: []}
+			if (joinedChars < cfg.minChars) {
+				return {texts: []}
+			}
 
 			return {
 				texts: texts.map((t) => ({label: t.label, content: t.content}))

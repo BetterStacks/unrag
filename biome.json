@@ -42,6 +42,7 @@
 			".source",
 			".git",
 			".cache",
+			"tmp",
 			"coverage",
 			"out",
 			"*.min.js",

@@ -31,7 +31,7 @@ function parseDebugArgs(args: string[]): ParsedDebugArgs {
 		} else if (arg === '--port' || arg === '-p') {
 			const portStr = args[++i] ?? ''
 			out.port = Number.parseInt(portStr, 10)
-			if (isNaN(out.port)) {
+			if (Number.isNaN(out.port)) {
 				throw new Error(`Invalid port: ${portStr}`)
 			}
 		} else if (arg === '--help' || arg === '-h') {
@@ -90,7 +90,9 @@ function getTuiModulePath(): string {
 	const devPath = join(__dirname, '..', 'debug-tui', 'index.dev.js')
 	const prodPath = join(__dirname, '..', 'debug-tui', 'index.js')
 	if (dev) {
-		if (existsSync(devPath)) return devPath
+		if (existsSync(devPath)) {
+			return devPath
+		}
 		throw new Error(
 			'UNRAG_DEBUG_TUI_DEV=1 was set but dev TUI bundle was not found. Rebuild unrag with: `bun run build:debug-tui:dev`'
 		)

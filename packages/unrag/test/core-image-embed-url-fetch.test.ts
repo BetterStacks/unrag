@@ -182,9 +182,9 @@ describe('image embedding URL hardening', () => {
 			expect(result.warnings).toEqual([])
 			expect(embedImageCalls).toBe(1)
 			expect(fetchCalls.length).toBe(1)
-			expect(fetchCalls[0]!.url).toBe('https://example.com/a.png')
+			expect(fetchCalls[0]?.url).toBe('https://example.com/a.png')
 
-			const rawHeaders = fetchCalls[0]!.init?.headers ?? {}
+			const rawHeaders = fetchCalls[0]?.init?.headers ?? {}
 			const headers =
 				rawHeaders instanceof Headers
 					? Object.fromEntries(rawHeaders.entries())

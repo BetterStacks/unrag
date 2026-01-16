@@ -77,9 +77,9 @@ describe('core rerank - missing reranker handling', () => {
 
 		// Should return original order
 		expect(result.chunks.length).toBe(3)
-		expect(result.chunks[0]!.id).toBe('chunk-0')
-		expect(result.chunks[1]!.id).toBe('chunk-1')
-		expect(result.chunks[2]!.id).toBe('chunk-2')
+		expect(result.chunks[0]?.id).toBe('chunk-0')
+		expect(result.chunks[1]?.id).toBe('chunk-1')
+		expect(result.chunks[2]?.id).toBe('chunk-2')
 	})
 
 	test('returns warning when skipping due to missing reranker', async () => {
@@ -110,8 +110,8 @@ describe('core rerank - missing reranker handling', () => {
 		})
 
 		expect(result.chunks.length).toBe(2)
-		expect(result.chunks[0]!.id).toBe('chunk-0')
-		expect(result.chunks[1]!.id).toBe('chunk-1')
+		expect(result.chunks[0]?.id).toBe('chunk-0')
+		expect(result.chunks[1]?.id).toBe('chunk-1')
 	})
 
 	test("sets rerankerName to 'none' when skipping", async () => {

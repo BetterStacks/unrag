@@ -301,7 +301,7 @@ function checkExtractorCoherence(
 				'Assets of this type will be skipped during ingestion.'
 			],
 			fixHints: [
-				`Import and add to extractors array:`,
+				'Import and add to extractors array:',
 				`  import { ${factoryName} } from "${importPath}";`,
 				`  engine: { extractors: [${factoryName}()] }`
 			],

@@ -22,8 +22,12 @@ export function createFileDocxExtractor(): AssetExtractor {
 	return {
 		name: 'file:docx',
 		supports: ({asset, ctx}) => {
-			if (asset.kind !== 'file') return false
-			if (!ctx.assetProcessing.file.docx.enabled) return false
+			if (asset.kind !== 'file') {
+				return false
+			}
+			if (!ctx.assetProcessing.file.docx.enabled) {
+				return false
+			}
 			const filename =
 				asset.data.kind === 'bytes'
 					? asset.data.filename
@@ -54,7 +58,9 @@ export function createFileDocxExtractor(): AssetExtractor {
 			const res = await mammoth.extractRawText({arrayBuffer})
 
 			const text = String(res?.value ?? '').trim()
-			if (text.length < cfg.minChars) return {texts: []}
+			if (text.length < cfg.minChars) {
+				return {texts: []}
+			}
 
 			return {
 				texts: [

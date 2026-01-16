@@ -60,7 +60,7 @@ async function ingest() {
 		}
 	}
 
-	console.log(`\n\nIngest completed!`)
+	console.log('\n\nIngest completed!')
 	console.log(`  Success: ${successCount}`)
 	console.log(`  Errors: ${errorCount}`)
 

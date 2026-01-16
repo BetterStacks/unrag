@@ -59,13 +59,13 @@ type EvalReportLike = {
 		aggregates: RunEvalResult extends {summary?: infer S}
 			? S extends {aggregates: infer A}
 				? A
-				: any
-			: any
+				: unknown
+			: unknown
 		timings: RunEvalResult extends {summary?: infer S}
 			? S extends {timings: infer T}
 				? T
-				: any
-			: any
+				: unknown
+			: unknown
 	}
 }
 
@@ -172,9 +172,8 @@ async function handleRunEval(command: {
 		// Load eval runner lazily so bundlers don't require the module to exist.
 		// Relative to `debug/commands.ts`, eval lives at `../eval`.
 		const evalModulePath = ['..', 'eval'].join('/')
-		const evalMod = (await import(evalModulePath)) as any
-		const runEvalFn: ((args: any) => Promise<any>) | undefined =
-			evalMod?.runEval
+		const evalMod: unknown = await import(evalModulePath)
+		const runEvalFn = (evalMod as {runEval?: unknown} | null)?.runEval
 		if (typeof runEvalFn !== 'function') {
 			return {
 				type: 'run-eval',
@@ -185,7 +184,7 @@ async function handleRunEval(command: {
 			}
 		}
 
-		const out = await runEvalFn({
+		const out = await (runEvalFn as (args: unknown) => Promise<unknown>)({
 			engine: runtime.engine,
 			datasetPath,
 			mode: command.mode,
@@ -200,7 +199,7 @@ async function handleRunEval(command: {
 			confirmedDangerousDelete: command.confirmedDangerousDelete
 		})
 
-		const r = out.report as EvalReportLike
+		const r = (out as {report?: unknown} | null)?.report as EvalReportLike
 		const queries: EvalQueryLike[] = r.results.queries ?? []
 		const retrievedRecall = queries.map(
 			(q) => q.retrieved.metrics.recallAtK
@@ -310,62 +309,64 @@ async function handleDoctor(
 		NonNullable<NonNullable<DoctorResult['info']>['runtime']>['engineInfo']
 	>
 	let engineInfo: DoctorEngineInfo | undefined
-	if (rt?.engine && typeof (rt.engine as any).getDebugInfo === 'function') {
-		const info = (rt.engine as any).getDebugInfo() as {
-			embedding: {
-				name: string
-				dimensions?: number
-				supportsBatch: boolean
-				supportsImage: boolean
+	const engine = rt?.engine as unknown as {getDebugInfo?: () => unknown} | undefined
+	if (engine && typeof engine.getDebugInfo === 'function') {
+		const raw = engine.getDebugInfo()
+		if (raw && typeof raw === 'object') {
+			const info = raw as {
+				embedding: {
+					name: string
+					dimensions?: number
+					supportsBatch: boolean
+					supportsImage: boolean
+				}
+				storage: {storeChunkContent: boolean; storeDocumentContent: boolean}
+				defaults: {chunkSize: number; chunkOverlap: number}
+				extractorsCount: number
+				reranker?: {name: string}
 			}
-			storage: {storeChunkContent: boolean; storeDocumentContent: boolean}
-			defaults: {chunkSize: number; chunkOverlap: number}
-			extractorsCount: number
-			reranker?: {name: string}
+			engineInfo = {
+				embedding: info.embedding,
+				storage: info.storage,
+				defaults: info.defaults,
+				extractorsCount: info.extractorsCount,
+				rerankerName: info.reranker?.name
+			}
+
+			checks.push({
+				id: 'engine.storage.chunkContent',
+				label: 'Chunk content stored',
+				status: info.storage.storeChunkContent ? 'ok' : 'warn',
+				detail: info.storage.storeChunkContent
+					? 'storeChunkContent=true'
+					: 'storeChunkContent=false',
+				fix: info.storage.storeChunkContent
+					? undefined
+					: 'Enable `storage.storeChunkContent=true` to see `chunk.content` in retrieval + rerank diagnostics.'
+			})
+
+			checks.push({
+				id: 'engine.storage.documentContent',
+				label: 'Document content stored',
+				status: info.storage.storeDocumentContent ? 'ok' : 'warn',
+				detail: info.storage.storeDocumentContent
+					? 'storeDocumentContent=true'
+					: 'storeDocumentContent=false',
+				fix: info.storage.storeDocumentContent
+					? undefined
+					: 'Enable `storage.storeDocumentContent=true` to keep the original document body in the store.'
+			})
+
+			checks.push({
+				id: 'engine.reranker',
+				label: 'Reranker configured',
+				status: info.reranker ? 'ok' : 'warn',
+				detail: info.reranker ? `reranker=${info.reranker.name}` : 'no reranker',
+				fix: info.reranker
+					? undefined
+					: 'Install and wire the reranker battery: `unrag add battery reranker`, then set `engine.reranker` in config.'
+			})
 		}
-		engineInfo = {
-			embedding: info.embedding,
-			storage: info.storage,
-			defaults: info.defaults,
-			extractorsCount: info.extractorsCount,
-			rerankerName: info.reranker?.name
-		}
-
-		checks.push({
-			id: 'engine.storage.chunkContent',
-			label: 'Chunk content stored',
-			status: info.storage.storeChunkContent ? 'ok' : 'warn',
-			detail: info.storage.storeChunkContent
-				? 'storeChunkContent=true'
-				: 'storeChunkContent=false',
-			fix: info.storage.storeChunkContent
-				? undefined
-				: 'Enable `storage.storeChunkContent=true` to see `chunk.content` in retrieval + rerank diagnostics.'
-		})
-
-		checks.push({
-			id: 'engine.storage.documentContent',
-			label: 'Document content stored',
-			status: info.storage.storeDocumentContent ? 'ok' : 'warn',
-			detail: info.storage.storeDocumentContent
-				? 'storeDocumentContent=true'
-				: 'storeDocumentContent=false',
-			fix: info.storage.storeDocumentContent
-				? undefined
-				: 'Enable `storage.storeDocumentContent=true` to keep the original document body in the store.'
-		})
-
-		checks.push({
-			id: 'engine.reranker',
-			label: 'Reranker configured',
-			status: info.reranker ? 'ok' : 'warn',
-			detail: info.reranker
-				? `reranker=${info.reranker.name}`
-				: 'no reranker',
-			fix: info.reranker
-				? undefined
-				: 'Install and wire the reranker battery: `unrag add battery reranker`, then set `engine.reranker` in config.'
-		})
 	}
 
 	return {
@@ -497,8 +498,9 @@ async function handleIngest(command: {
 	}
 
 	const sourceId = (command.sourceId ?? '').trim()
-	if (!sourceId)
+	if (!sourceId) {
 		return {type: 'ingest', success: false, error: 'Missing sourceId.'}
+	}
 
 	let content = (command.content ?? '').toString()
 	const contentPath = (command.contentPath ?? '').trim()
@@ -507,10 +509,8 @@ async function handleIngest(command: {
 		try {
 			// Keep this as a dynamic import so bundlers don't pull node:fs into the TUI bundle.
 			const fsModulePath = ['node:fs', 'promises'].join('/')
-			const fs = (await import(fsModulePath)) as any
-			const readFile:
-				| ((p: string, enc: string) => Promise<string>)
-				| undefined = fs?.readFile
+			const fsMod: unknown = await import(fsModulePath)
+			const readFile = (fsMod as {readFile?: unknown} | null)?.readFile
 			if (typeof readFile !== 'function') {
 				return {
 					type: 'ingest',
@@ -518,7 +518,10 @@ async function handleIngest(command: {
 					error: 'Unable to read files in this runtime.'
 				}
 			}
-			content = await readFile(contentPath, 'utf8')
+			content = await (readFile as (p: string, enc: string) => Promise<string>)(
+				contentPath,
+				'utf8'
+			)
 
 			const maxBytes = 5 * 1024 * 1024
 			if (Buffer.byteLength(content, 'utf8') > maxBytes) {
@@ -560,13 +563,17 @@ async function handleIngest(command: {
 			chunkCount: res.chunkCount,
 			embeddingModel: res.embeddingModel,
 			durations: res.durations,
-			warnings: (res.warnings ?? []).map((w: any) => ({
-				code: String(w?.code ?? 'unknown'),
-				message: String(w?.message ?? ''),
-				assetId: w?.assetId ? String(w.assetId) : undefined,
-				assetKind: w?.assetKind ? String(w.assetKind) : undefined,
-				stage: w?.stage ? String(w.stage) : undefined
-			}))
+			warnings: (res.warnings ?? []).map((w: unknown) => {
+				const warn =
+					w && typeof w === 'object' ? (w as Record<string, unknown>) : {}
+				return {
+					code: String(warn.code ?? 'unknown'),
+					message: String(warn.message ?? ''),
+					assetId: warn.assetId ? String(warn.assetId) : undefined,
+					assetKind: warn.assetKind ? String(warn.assetKind) : undefined,
+					stage: warn.stage ? String(warn.stage) : undefined
+				}
+			})
 		}
 	} catch (err) {
 		return {
@@ -708,9 +715,12 @@ async function handleDeleteDocument(_command: {
 		}
 	}
 
-	const input = hasSourceId
-		? ({sourceId: _command.sourceId!} as const)
-		: ({sourceIdPrefix: _command.sourceIdPrefix!} as const)
+	const input = (() => {
+		if (hasSourceId) {
+			return {sourceId: _command.sourceId} as const
+		}
+		return {sourceIdPrefix: _command.sourceIdPrefix} as const
+	})()
 
 	// Prefer inspector (can optionally return counts).
 	if (runtime?.storeInspector) {

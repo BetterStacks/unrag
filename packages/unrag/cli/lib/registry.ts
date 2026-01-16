@@ -57,7 +57,9 @@ const rewriteRegistryAliasImports = (content: string, aliasBase: string) => {
 	// The registry sources are authored against an internal monorepo alias `@registry/*`.
 	// When we vendor these sources into a user repo we must rewrite them to the user's configured
 	// alias base (e.g. `@unrag/*` or `@rag/*`) so TS path mapping works.
-	if (!content.includes('@registry')) return content
+	if (!content.includes('@registry')) {
+		return content
+	}
 	// Most imports are `@registry/...`. Rewrite that form (and also handles `@registry/*`).
 	return content.replaceAll('@registry/', `${aliasBase}/`)
 }
@@ -92,11 +94,11 @@ const EXTRACTOR_FLAG_KEYS: Record<ExtractorName, string[]> = {
 	'file-xlsx': ['file_xlsx']
 }
 
-const ALL_FLAG_KEYS = Array.from(
+const _ALL_FLAG_KEYS = Array.from(
 	new Set(Object.values(EXTRACTOR_FLAG_KEYS).flat())
 ).sort()
 
-const indentBlock = (text: string, spaces: number) => {
+const _indentBlock = (text: string, spaces: number) => {
 	const pad = ' '.repeat(spaces)
 	return text
 		.split('\n')
@@ -121,7 +123,7 @@ const renderObjectLiteral = (
 	return `{\n${inner}\n${' '.repeat(Math.max(0, indent - 2))}}`
 }
 
-const replaceBetweenMarkers = (
+const _replaceBetweenMarkers = (
 	content: string,
 	startMarker: string,
 	endMarker: string,
@@ -129,7 +131,9 @@ const replaceBetweenMarkers = (
 ) => {
 	const startIdx = content.indexOf(startMarker)
 	const endIdx = content.indexOf(endMarker)
-	if (startIdx < 0 || endIdx < 0 || endIdx < startIdx) return content
+	if (startIdx < 0 || endIdx < 0 || endIdx < startIdx) {
+		return content
+	}
 
 	// Expand to whole lines so we don't leave indentation behind.
 	const startLineStart = content.lastIndexOf('\n', startIdx)
@@ -172,16 +176,16 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 			`import { Pool } from "pg";`
 		)
 		storeCreateLines.push(
-			`  const databaseUrl = process.env.DATABASE_URL;`,
+			'  const databaseUrl = process.env.DATABASE_URL;',
 			`  if (!databaseUrl) throw new Error("DATABASE_URL is required");`,
-			``,
-			`  const pool = (globalThis as any).__unragPool ?? new Pool({ connectionString: databaseUrl });`,
-			`  (globalThis as any).__unragPool = pool;`,
-			``,
-			`  const db = (globalThis as any).__unragDrizzleDb ?? drizzle(pool);`,
-			`  (globalThis as any).__unragDrizzleDb = db;`,
-			``,
-			`  const store = createDrizzleVectorStore(db);`
+			'',
+			'  const pool = (globalThis as any).__unragPool ?? new Pool({ connectionString: databaseUrl });',
+			'  (globalThis as any).__unragPool = pool;',
+			'',
+			'  const db = (globalThis as any).__unragDrizzleDb ?? drizzle(pool);',
+			'  (globalThis as any).__unragDrizzleDb = db;',
+			'',
+			'  const store = createDrizzleVectorStore(db);'
 		)
 	} else if (selection.storeAdapter === 'raw-sql') {
 		storeImports.push(
@@ -189,13 +193,13 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 			`import { Pool } from "pg";`
 		)
 		storeCreateLines.push(
-			`  const databaseUrl = process.env.DATABASE_URL;`,
+			'  const databaseUrl = process.env.DATABASE_URL;',
 			`  if (!databaseUrl) throw new Error("DATABASE_URL is required");`,
-			``,
-			`  const pool = (globalThis as any).__unragPool ?? new Pool({ connectionString: databaseUrl });`,
-			`  (globalThis as any).__unragPool = pool;`,
-			``,
-			`  const store = createRawSqlVectorStore(pool);`
+			'',
+			'  const pool = (globalThis as any).__unragPool ?? new Pool({ connectionString: databaseUrl });',
+			'  (globalThis as any).__unragPool = pool;',
+			'',
+			'  const store = createRawSqlVectorStore(pool);'
 		)
 	} else {
 		storeImports.push(
@@ -203,9 +207,9 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 			`import { PrismaClient } from "@prisma/client";`
 		)
 		storeCreateLines.push(
-			`  const prisma = (globalThis as any).__unragPrisma ?? new PrismaClient();`,
-			`  (globalThis as any).__unragPrisma = prisma;`,
-			`  const store = createPrismaVectorStore(prisma);`
+			'  const prisma = (globalThis as any).__unragPrisma ?? new PrismaClient();',
+			'  (globalThis as any).__unragPrisma = prisma;',
+			'  const store = createPrismaVectorStore(prisma);'
 		)
 	}
 
@@ -226,11 +230,11 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 	].join('\n')
 
 	const createEngineBlock = [
-		`export function createUnragEngine() {`,
+		'export function createUnragEngine() {',
 		...storeCreateLines,
-		``,
-		`  return unrag.createEngine({ store });`,
-		`}`
+		'',
+		'  return unrag.createEngine({ store });',
+		'}'
 	].join('\n')
 
 	let out = content
@@ -320,7 +324,9 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 	})()
 
 	const normalizeModelForProvider = (model: string) => {
-		if (embeddingProvider === 'ai') return model
+		if (embeddingProvider === 'ai') {
+			return model
+		}
 		const prefix = `${embeddingProvider}/`
 		return model.startsWith(prefix) ? model.slice(prefix.length) : model
 	}
@@ -338,7 +344,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 			!out.includes('type: "text"')
 		) {
 			out = out.replace(
-				`config: {\n      model:`,
+				'config: {\n      model:',
 				`config: {\n      type: "multimodal",\n      model:`
 			)
 		} else {
@@ -983,12 +989,18 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
 	const overwritePolicy = selection.overwrite ?? 'skip'
 
 	const shouldWrite = async (src: string, dest: string): Promise<boolean> => {
-		if (!(await exists(dest))) return true
+		if (!(await exists(dest))) {
+			return true
+		}
 
-		if (overwritePolicy === 'force') return true
+		if (overwritePolicy === 'force') {
+			return true
+		}
 
 		// In non-interactive mode we never overwrite existing files.
-		if (nonInteractive) return false
+		if (nonInteractive) {
+			return false
+		}
 
 		// If the contents are identical, don't prompt.
 		try {
@@ -1000,7 +1012,9 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
 				srcRaw,
 				selection.aliasBase
 			)
-			if (nextSrc === destRaw) return false
+			if (nextSrc === destRaw) {
+				return false
+			}
 		} catch {
 			// If reads fail for any reason, fall back to prompting.
 		}
@@ -1024,7 +1038,9 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
 
 		const rel = path.relative(extractorRegistryAbs, src)
 		const dest = path.join(destRootAbs, rel)
-		if (!(await shouldWrite(src, dest))) continue
+		if (!(await shouldWrite(src, dest))) {
+			continue
+		}
 
 		const raw = await readText(src)
 		const content = rewriteRegistryAliasImports(raw, selection.aliasBase)
@@ -1039,7 +1055,9 @@ export async function copyExtractorFiles(selection: ExtractorSelection) {
 
 		const rel = path.relative(sharedRegistryAbs, src)
 		const dest = path.join(sharedDestRootAbs, rel)
-		if (!(await shouldWrite(src, dest))) continue
+		if (!(await shouldWrite(src, dest))) {
+			continue
+		}
 
 		const raw = await readText(src)
 		const content = rewriteRegistryAliasImports(raw, selection.aliasBase)
@@ -1086,7 +1104,9 @@ export async function copyBatteryFiles(selection: BatterySelection) {
 			const rel = path
 				.relative(batteryRegistryAbs, abs)
 				.replace(/\\/g, '/')
-			if (rel === 'tui' || rel.startsWith('tui/')) return false
+			if (rel === 'tui' || rel.startsWith('tui/')) {
+				return false
+			}
 		}
 		return true
 	})
@@ -1097,12 +1117,18 @@ export async function copyBatteryFiles(selection: BatterySelection) {
 	const overwritePolicy = selection.overwrite ?? 'skip'
 
 	const shouldWrite = async (src: string, dest: string): Promise<boolean> => {
-		if (!(await exists(dest))) return true
+		if (!(await exists(dest))) {
+			return true
+		}
 
-		if (overwritePolicy === 'force') return true
+		if (overwritePolicy === 'force') {
+			return true
+		}
 
 		// In non-interactive mode we never overwrite existing files.
-		if (nonInteractive) return false
+		if (nonInteractive) {
+			return false
+		}
 
 		// If the contents are identical, don't prompt.
 		try {
@@ -1114,7 +1140,9 @@ export async function copyBatteryFiles(selection: BatterySelection) {
 				srcRaw,
 				selection.aliasBase
 			)
-			if (nextSrc === destRaw) return false
+			if (nextSrc === destRaw) {
+				return false
+			}
 		} catch {
 			// If reads fail for any reason, fall back to prompting.
 		}
@@ -1138,7 +1166,9 @@ export async function copyBatteryFiles(selection: BatterySelection) {
 
 		const rel = path.relative(batteryRegistryAbs, src)
 		const dest = path.join(destRootAbs, rel)
-		if (!(await shouldWrite(src, dest))) continue
+		if (!(await shouldWrite(src, dest))) {
+			continue
+		}
 
 		const raw = await readText(src)
 		const content = rewriteRegistryAliasImports(raw, selection.aliasBase)

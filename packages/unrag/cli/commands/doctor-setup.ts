@@ -66,7 +66,6 @@ function parseSetupArgs(args: string[]): ParsedSetupArgs {
 				out.configPath = v
 				i++
 			}
-			continue
 		}
 	}
 
@@ -149,9 +148,12 @@ export async function doctorSetupCommand(args: string[]): Promise<void> {
 					message: 'Config file path',
 					initialValue: DEFAULT_CONFIG_PATH,
 					validate: (v) => {
-						if (!v.trim()) return 'Config path is required'
-						if (!v.endsWith('.json'))
+						if (!v.trim()) {
+							return 'Config path is required'
+						}
+						if (!v.endsWith('.json')) {
 							return 'Config file must be .json'
+						}
 						return
 					}
 				})
@@ -193,7 +195,9 @@ export async function doctorSetupCommand(args: string[]): Promise<void> {
 				message: 'Unrag install directory',
 				initialValue: state.installDir ?? 'lib/unrag',
 				validate: (v) => {
-					if (!v.trim()) return 'Install directory is required'
+					if (!v.trim()) {
+						return 'Install directory is required'
+					}
 					return
 				}
 			})
@@ -246,9 +250,12 @@ export async function doctorSetupCommand(args: string[]): Promise<void> {
 				message: 'Database URL environment variable name',
 				initialValue: dbEnvVarDefault,
 				validate: (v) => {
-					if (!v.trim()) return 'Env var name is required'
-					if (!/^[A-Z_][A-Z0-9_]*$/i.test(v))
+					if (!v.trim()) {
+						return 'Env var name is required'
+					}
+					if (!/^[A-Z_][A-Z0-9_]*$/i.test(v)) {
 						return 'Invalid env var name'
+					}
 					return
 				}
 			})
@@ -468,9 +475,12 @@ export async function doctorSetupCommand(args: string[]): Promise<void> {
 					message: `New script name for ${scriptName}`,
 					initialValue: `${scriptName}:new`,
 					validate: (v) => {
-						if (!v.trim()) return 'Script name is required'
-						if (v in existingScripts || v in scriptsToAdd)
+						if (!v.trim()) {
+							return 'Script name is required'
+						}
+						if (v in existingScripts || v in scriptsToAdd) {
 							return 'Script name already exists'
+						}
 						return
 					}
 				})
@@ -540,8 +550,12 @@ function buildCiScript(
 	strict: boolean
 ): string {
 	const parts = ['unrag doctor', `--config ${configPath}`]
-	if (includeDb) parts.push('--db')
-	if (strict) parts.push('--strict')
+	if (includeDb) {
+		parts.push('--db')
+	}
+	if (strict) {
+		parts.push('--strict')
+	}
 	parts.push('--json')
 	return parts.join(' ')
 }

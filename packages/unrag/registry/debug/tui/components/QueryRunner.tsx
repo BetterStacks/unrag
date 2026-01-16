@@ -35,7 +35,7 @@ export function QueryRunner({connection}: QueryRunnerProps) {
 	const [mode, setMode] = useState<Mode>('idle')
 	useHotkeysLock(mode === 'editing')
 	const [query, setQuery] = useState('how does unrag ingest work?')
-	const [scope, setScope] = useState('')
+	const [scope, _setScope] = useState('')
 	const [topK, setTopK] = useState(8)
 	const [result, setResult] = useState<DebugCommandResult | null>(null)
 	const [selectedIndex, setSelectedIndex] = useState(0)
@@ -49,12 +49,16 @@ export function QueryRunner({connection}: QueryRunnerProps) {
 	const queryCapable = canQuery(connection)
 
 	const chunks = useMemo(() => {
-		if (result?.type !== 'query' || !result.success) return []
+		if (result?.type !== 'query' || !result.success) {
+			return []
+		}
 		return result.chunks ?? []
 	}, [result])
 
 	const durations = useMemo(() => {
-		if (result?.type !== 'query' || !result.success) return undefined
+		if (result?.type !== 'query' || !result.success) {
+			return undefined
+		}
 		return result.durations
 	}, [result])
 
@@ -103,7 +107,9 @@ export function QueryRunner({connection}: QueryRunnerProps) {
 	}
 
 	useInput((input, key) => {
-		if (!queryCapable) return
+		if (!queryCapable) {
+			return
+		}
 
 		if (mode === 'editing') {
 			// Inline editor: type freely; Esc / Ctrl+X exits.
@@ -149,13 +155,19 @@ export function QueryRunner({connection}: QueryRunnerProps) {
 			return
 		}
 
-		if (input === '+') setTopK((k) => Math.min(50, k + 1))
-		if (input === '-') setTopK((k) => Math.max(1, k - 1))
+		if (input === '+') {
+			setTopK((k) => Math.min(50, k + 1))
+		}
+		if (input === '-') {
+			setTopK((k) => Math.max(1, k - 1))
+		}
 
-		if (key.upArrow || input === 'k')
+		if (key.upArrow || input === 'k') {
 			setSelectedIndex((p) => Math.max(0, p - 1))
-		if (key.downArrow || input === 'j')
+		}
+		if (key.downArrow || input === 'j') {
 			setSelectedIndex((p) => Math.min(maxIndex, p + 1))
+		}
 	})
 
 	return (

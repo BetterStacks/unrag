@@ -65,10 +65,11 @@ export function normalizeGoogleDriveAuth(
 	}
 
 	if (isGoogleAuth(auth)) {
-		if (!auth.auth)
+		if (!auth.auth) {
 			throw new Error(
 				'Google Drive auth.kind="google_auth" requires auth'
 			)
+		}
 		return {kind: 'google_auth', auth: auth.auth}
 	}
 
@@ -124,7 +125,9 @@ export function normalizeGoogleDriveAuth(
 }
 
 const asMessage = (err: unknown) => {
-	if (err instanceof Error) return err.message
+	if (err instanceof Error) {
+		return err.message
+	}
 	try {
 		return typeof err === 'string' ? err : JSON.stringify(err)
 	} catch {

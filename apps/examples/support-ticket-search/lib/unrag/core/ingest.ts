@@ -17,7 +17,9 @@ import type {
 const now = () => performance.now()
 
 const asMessage = (err: unknown) => {
-	if (err instanceof Error) return err.message
+	if (err instanceof Error) {
+		return err.message
+	}
 	try {
 		return typeof err === 'string' ? err : JSON.stringify(err)
 	} catch {
@@ -39,8 +41,14 @@ const mapWithConcurrency = async <T, R>(
 		async () => {
 			while (true) {
 				const i = nextIdx++
-				if (i >= items.length) break
-				results[i] = await fn(items[i]!, i)
+				if (i >= items.length) {
+					break
+				}
+				const item = items[i]
+				if (item === undefined) {
+					continue
+				}
+				results[i] = await fn(item, i)
 			}
 		}
 	)
@@ -226,7 +234,9 @@ export const ingest = async (
 					errorMessage: asMessage(err)
 				})
 
-				if (assetProcessing.onError === 'fail') throw err
+				if (assetProcessing.onError === 'fail') {
+					throw err
+				}
 				outWarnings.push({
 					code: 'asset_processing_error',
 					message: `Asset processing failed but was skipped due to onError="skip": ${asMessage(err)}`,
@@ -518,7 +528,10 @@ export const ingest = async (
 	let nextIndex = baseTextChunks.length
 	for (const r of assetResults) {
 		for (let i = 0; i < r.specs.length; i++) {
-			const spec = r.specs[i]!
+			const spec = r.specs[i]
+			if (!spec) {
+				continue
+			}
 			prepared.push({
 				chunk: {
 					id: config.idGenerator(),
@@ -568,7 +581,11 @@ export const ingest = async (
 	}> = []
 
 	for (let i = 0; i < prepared.length; i++) {
-		const {chunk, embed} = prepared[i]!
+		const preparedItem = prepared[i]
+		if (!preparedItem) {
+			continue
+		}
+		const {chunk, embed} = preparedItem
 		if (embed.kind === 'image') {
 			imageSpecs.push({
 				idx: i,
@@ -609,7 +626,7 @@ export const ingest = async (
 				1,
 				Math.floor(config.embeddingProcessing.batchSize || 1)
 			)
-			const batches: Array<typeof textSpecs> = []
+			const batches: (typeof textSpecs)[] = []
 			for (let i = 0; i < textSpecs.length; i += batchSize) {
 				batches.push(textSpecs.slice(i, i + batchSize))
 			}
@@ -635,12 +652,23 @@ export const ingest = async (
 
 			let batchIdx = 0
 			for (const batch of batches) {
-				const embeddings = batchEmbeddings[batchIdx++]!
+				const embeddings = batchEmbeddings[batchIdx]
+				batchIdx++
+				if (!embeddings) {
+					throw new Error('Internal error: missing embedding batch')
+				}
 				for (let i = 0; i < batch.length; i++) {
-					const spec = batch[i]!
+					const spec = batch[i]
+					if (!spec) {
+						continue
+					}
+					const embedding = embeddings[i]
+					if (!embedding) {
+						throw new Error('Internal error: missing embedding for chunk')
+					}
 					embeddedChunks[spec.idx] = {
 						...spec.chunk,
-						embedding: embeddings[i]!
+						embedding
 					}
 				}
 			}
@@ -651,10 +679,17 @@ export const ingest = async (
 				async (spec) => config.embedding.embed(spec.input)
 			)
 			for (let i = 0; i < textSpecs.length; i++) {
-				const spec = textSpecs[i]!
+				const spec = textSpecs[i]
+				if (!spec) {
+					continue
+				}
+				const embedding = embeddings[i]
+				if (!embedding) {
+					throw new Error('Internal error: missing embedding for chunk')
+				}
 				embeddedChunks[spec.idx] = {
 					...spec.chunk,
-					embedding: embeddings[i]!
+					embedding
 				}
 			}
 		}
@@ -675,10 +710,17 @@ export const ingest = async (
 			async (spec) => embedImage(spec.input)
 		)
 		for (let i = 0; i < imageSpecs.length; i++) {
-			const spec = imageSpecs[i]!
+			const spec = imageSpecs[i]
+			if (!spec) {
+				continue
+			}
+			const embedding = embeddings[i]
+			if (!embedding) {
+				throw new Error('Internal error: missing embedding for chunk')
+			}
 			embeddedChunks[spec.idx] = {
 				...spec.chunk,
-				embedding: embeddings[i]!
+				embedding
 			}
 		}
 	}

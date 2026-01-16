@@ -52,7 +52,9 @@ export function createImageOcrExtractor(): AssetExtractor {
 			})
 
 			const text = (result.text ?? '').trim()
-			if (!text) return {texts: [], diagnostics: {model: cfg.model}}
+			if (!text) {
+				return {texts: [], diagnostics: {model: cfg.model}}
+			}
 
 			return {
 				texts: [

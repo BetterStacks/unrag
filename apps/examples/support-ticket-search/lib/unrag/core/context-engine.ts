@@ -99,7 +99,9 @@ export const defineUnragConfig = <T extends DefineUnragConfigInput>(
 	let embeddingProvider: EmbeddingProvider | undefined
 
 	const getEmbeddingProvider = () => {
-		if (embeddingProvider) return embeddingProvider
+		if (embeddingProvider) {
+			return embeddingProvider
+		}
 
 		if (config.embedding.provider === 'ai') {
 			embeddingProvider = createAiEmbeddingProvider(

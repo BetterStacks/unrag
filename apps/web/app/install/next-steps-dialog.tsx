@@ -20,10 +20,12 @@ import type {
 function adapterDocHref(
 	storeAdapter: WizardStateV1['install']['storeAdapter']
 ) {
-	if (storeAdapter === 'drizzle')
+	if (storeAdapter === 'drizzle') {
 		return '/docs/adapters/drizzle-postgres-pgvector'
-	if (storeAdapter === 'prisma')
+	}
+	if (storeAdapter === 'prisma') {
 		return '/docs/adapters/prisma-postgres-pgvector'
+	}
 	return '/docs/adapters/raw-sql-postgres-pgvector'
 }
 
@@ -243,7 +245,9 @@ const results = await engine.retrieve({
 		} catch {}
 	}
 
-	if (!open) return null
+	if (!open) {
+		return null
+	}
 
 	return (
 		<div className="fixed inset-0 z-50">

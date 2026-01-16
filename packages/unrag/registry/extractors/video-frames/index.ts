@@ -25,7 +25,9 @@ const run = async (cmd: string, args: string[], opts: {cwd: string}) => {
 			child.stderr.on('data', (d) => (stderr += d.toString()))
 			child.on('error', reject)
 			child.on('close', (code) => {
-				if (code === 0) return resolve({stdout, stderr})
+				if (code === 0) {
+					return resolve({stdout, stderr})
+				}
 				reject(
 					new Error(
 						`${cmd} exited with code ${code}\n${stderr}`.trim()
@@ -99,8 +101,12 @@ export function createVideoFramesExtractor(): AssetExtractor {
 				let totalChars = 0
 
 				for (const f of frames) {
-					if (texts.length >= maxFrames) break
-					if (totalChars >= cfg.maxOutputChars) break
+					if (texts.length >= maxFrames) {
+						break
+					}
+					if (totalChars >= cfg.maxOutputChars) {
+						break
+					}
 
 					const imgBytes = await readFile(path.join(tmpDir, f))
 					const result = await generateText({
@@ -122,16 +128,22 @@ export function createVideoFramesExtractor(): AssetExtractor {
 					})
 
 					const t = (result.text ?? '').trim()
-					if (!t) continue
+					if (!t) {
+						continue
+					}
 
 					const capped = capText(t, cfg.maxOutputChars - totalChars)
-					if (!capped) continue
+					if (!capped) {
+						continue
+					}
 
 					texts.push({label: f, content: capped})
 					totalChars += capped.length
 				}
 
-				if (texts.length === 0) return {texts: []}
+				if (texts.length === 0) {
+					return {texts: []}
+				}
 
 				return {
 					texts: texts.map((t) => ({

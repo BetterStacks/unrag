@@ -37,7 +37,9 @@ export function EventList({events}: EventListProps) {
 	const {columns, rows} = useTerminalSize()
 
 	const filteredEvents = useMemo(() => {
-		if (filter === 'all') return events
+		if (filter === 'all') {
+			return events
+		}
 		return events.filter((e) => e.type.startsWith(filter))
 	}, [events, filter])
 

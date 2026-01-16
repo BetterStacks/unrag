@@ -11,8 +11,9 @@ export function PackageInstall(props: {pkg: string; installCmd?: string}) {
 
 	useEffect(() => {
 		return () => {
-			if (resetTimerRef.current)
+			if (resetTimerRef.current) {
 				window.clearTimeout(resetTimerRef.current)
+			}
 		}
 	}, [])
 
@@ -21,8 +22,9 @@ export function PackageInstall(props: {pkg: string; installCmd?: string}) {
 			await navigator.clipboard.writeText(text)
 			setCopied(true)
 
-			if (resetTimerRef.current)
+			if (resetTimerRef.current) {
 				window.clearTimeout(resetTimerRef.current)
+			}
 			resetTimerRef.current = window.setTimeout(() => {
 				setCopied(false)
 				resetTimerRef.current = null

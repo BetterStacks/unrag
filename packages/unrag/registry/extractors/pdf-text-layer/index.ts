@@ -41,7 +41,9 @@ async function getPdfJsAssetUrls(): Promise<{
 	standardFontDataUrl: string
 	cMapUrl: string
 }> {
-	if (cachedPdfJsAssetUrls) return cachedPdfJsAssetUrls
+	if (cachedPdfJsAssetUrls) {
+		return cachedPdfJsAssetUrls
+	}
 
 	// Lazily resolve pdfjs-dist asset dirs at runtime (Node-only).
 	const {createRequire} = await import('node:module')
@@ -163,10 +165,14 @@ export function createPdfTextLayerExtractor(): AssetExtractor {
 				)
 
 				for (const pageText of texts) {
-					if (!pageText) continue
+					if (!pageText) {
+						continue
+					}
 					out += (out ? '\n\n' : '') + pageText
 					// No need to parse more pages than we can return.
-					if (out.length >= cfg.maxOutputChars) break outer
+					if (out.length >= cfg.maxOutputChars) {
+						break outer
+					}
 				}
 			}
 

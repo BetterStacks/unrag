@@ -66,10 +66,16 @@ const toAssetKind = (notionType: string): AssetKind | null => {
 }
 
 const pickUrl = (payload: BlockPayload | undefined): string | undefined => {
-	if (!payload) return undefined
+	if (!payload) {
+		return undefined
+	}
 	const type = String(payload.type ?? '')
-	if (type === 'external') return asString(payload.external?.url)
-	if (type === 'file') return asString(payload.file?.url)
+	if (type === 'external') {
+		return asString(payload.external?.url)
+	}
+	if (type === 'file') {
+		return asString(payload.file?.url)
+	}
 	return undefined
 }
 
@@ -82,7 +88,9 @@ const inferMediaType = (
 	assetKind: AssetKind,
 	payload: BlockPayload | undefined
 ): string | undefined => {
-	if (assetKind === 'pdf') return 'application/pdf'
+	if (assetKind === 'pdf') {
+		return 'application/pdf'
+	}
 	// Notion does not consistently include media types; keep it optional.
 	return asString(payload?.media_type) || undefined
 }
@@ -101,7 +109,9 @@ export function extractNotionAssets(
 	const out: AssetInput[] = []
 
 	const walk = (node: NotionBlockNode, depth: number) => {
-		if (depth > maxDepth) return
+		if (depth > maxDepth) {
+			return
+		}
 		const b = node.block
 		const kind = toAssetKind(String(b.type ?? ''))
 		if (kind) {
@@ -130,7 +140,9 @@ export function extractNotionAssets(
 		}
 	}
 
-	for (const n of nodes) walk(n, 0)
+	for (const n of nodes) {
+		walk(n, 0)
+	}
 	return out
 }
 
@@ -142,56 +154,77 @@ export function renderNotionBlocksToText(
 	const lines: string[] = []
 
 	const walk = (node: NotionBlockNode, depth: number, listDepth: number) => {
-		if (depth > maxDepth) return
+		if (depth > maxDepth) {
+			return
+		}
 		const b = node.block
 		const t = b.type
 
 		if (t === 'paragraph') {
 			const payload = getBlockPayload(b, 'paragraph')
 			const text = rt(payload?.rich_text)
-			if (text.trim()) lines.push(text)
+			if (text.trim()) {
+				lines.push(text)
+			}
 		} else if (t === 'heading_1') {
 			const payload = getBlockPayload(b, 'heading_1')
 			const text = rt(payload?.rich_text)
-			if (text.trim()) lines.push(`# ${text}`)
+			if (text.trim()) {
+				lines.push(`# ${text}`)
+			}
 		} else if (t === 'heading_2') {
 			const payload = getBlockPayload(b, 'heading_2')
 			const text = rt(payload?.rich_text)
-			if (text.trim()) lines.push(`## ${text}`)
+			if (text.trim()) {
+				lines.push(`## ${text}`)
+			}
 		} else if (t === 'heading_3') {
 			const payload = getBlockPayload(b, 'heading_3')
 			const text = rt(payload?.rich_text)
-			if (text.trim()) lines.push(`### ${text}`)
+			if (text.trim()) {
+				lines.push(`### ${text}`)
+			}
 		} else if (t === 'bulleted_list_item') {
 			const payload = getBlockPayload(b, 'bulleted_list_item')
 			const text = rt(payload?.rich_text)
-			if (text.trim()) lines.push(`${indent(listDepth)}- ${text}`)
+			if (text.trim()) {
+				lines.push(`${indent(listDepth)}- ${text}`)
+			}
 		} else if (t === 'numbered_list_item') {
 			const payload = getBlockPayload(b, 'numbered_list_item')
 			const text = rt(payload?.rich_text)
-			if (text.trim()) lines.push(`${indent(listDepth)}- ${text}`)
+			if (text.trim()) {
+				lines.push(`${indent(listDepth)}- ${text}`)
+			}
 		} else if (t === 'to_do') {
 			const payload = getBlockPayload(b, 'to_do')
 			const text = rt(payload?.rich_text)
 			const checked = Boolean(payload?.checked)
-			if (text.trim())
+			if (text.trim()) {
 				lines.push(
 					`${indent(listDepth)}- [${checked ? 'x' : ' '}] ${text}`
 				)
+			}
 		} else if (t === 'quote') {
 			const payload = getBlockPayload(b, 'quote')
 			const text = rt(payload?.rich_text)
-			if (text.trim()) lines.push(`> ${text}`)
+			if (text.trim()) {
+				lines.push(`> ${text}`)
+			}
 		} else if (t === 'callout') {
 			const payload = getBlockPayload(b, 'callout')
 			const text = rt(payload?.rich_text)
-			if (text.trim()) lines.push(text)
+			if (text.trim()) {
+				lines.push(text)
+			}
 		} else if (t === 'code') {
 			const payload = getBlockPayload(b, 'code')
 			const text = rt(payload?.rich_text)
 			const lang = String(payload?.language ?? '').trim()
-			lines.push('```' + lang)
-			if (text.trim()) lines.push(text)
+			lines.push(`\`\`\`${lang}`)
+			if (text.trim()) {
+				lines.push(text)
+			}
 			lines.push('```')
 		} else if (t === 'divider') {
 			lines.push('---')

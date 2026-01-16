@@ -3,8 +3,23 @@ import {type InferPageType, loader} from 'fumadocs-core/source'
 import {lucideIconsPlugin} from 'fumadocs-core/source/lucide-icons'
 import React from 'react'
 
-function ensureKeyedIcon(node: any) {
-	const icon = node?.icon
+type PageTreeNode = {icon?: React.ReactNode; name?: React.ReactNode} &
+	Record<string, unknown>
+
+function unwrapStorageData(input: unknown): Record<string, unknown> {
+	if (!input || typeof input !== 'object') {
+		return {}
+	}
+	const obj = input as Record<string, unknown>
+	const data = obj.data
+	if (data && typeof data === 'object') {
+		return data as Record<string, unknown>
+	}
+	return obj
+}
+
+function ensureKeyedIcon(node: PageTreeNode) {
+	const icon = node.icon
 	if (React.isValidElement(icon) && icon.key == null) {
 		node.icon = React.cloneElement(icon, {key: 'unrag-icon'})
 	}
@@ -18,27 +33,33 @@ export const source = loader({
 		lucideIconsPlugin(),
 		{
 			transformPageTree: {
-				folder(node, _folderPath, metaPath) {
-					if (!metaPath) return node
+				folder(node: PageTreeNode, _folderPath, metaPath) {
+					if (!metaPath) {
+						return node
+					}
 
-					const original = this.storage.read(metaPath) as any
-					const data = original?.data ?? original
+					const original = this.storage.read(metaPath) as unknown
+					const data = unwrapStorageData(original)
 
 					const badge =
-						typeof data?.badge === 'string'
+						typeof data.badge === 'string'
 							? data.badge
-							: data?.new === true
+							: data.new === true
 								? 'New'
 								: undefined
 
-					if (!badge) return node
-					const currentName = (node as any).name
-					if (currentName == null) return node
+					if (!badge) {
+						return node
+					}
+					const currentName = node.name
+					if (currentName == null) {
+						return node
+					}
 
 					// Fumadocs UI renders folder triggers/links as an array literal:
 					// `[item.icon, item.name]`. Arrays of React elements require keys.
-					ensureKeyedIcon(node as any)
-					;(node as any).name = React.createElement(
+					ensureKeyedIcon(node)
+					node.name = React.createElement(
 						'span',
 						{className: 'unrag-nav-label', key: 'unrag-name'},
 						React.createElement(
@@ -55,31 +76,37 @@ export const source = loader({
 
 					return node
 				},
-				file(node, file) {
-					if (!file) return node
+				file(node: PageTreeNode, file) {
+					if (!file) {
+						return node
+					}
 
 					// `file` is an internal storage key. The storage read returns the original,
 					// unfiltered file data (including our custom frontmatter/meta fields).
-					const original = this.storage.read(file) as any
-					const data = original?.data ?? original
+					const original = this.storage.read(file) as unknown
+					const data = unwrapStorageData(original)
 
 					const badge =
-						typeof data?.badge === 'string'
+						typeof data.badge === 'string'
 							? data.badge
-							: data?.new === true
+							: data.new === true
 								? 'New'
 								: undefined
 
 					// Keep default rendering unless a badge is explicitly set.
-					if (!badge) return node
-					const currentName = (node as any).name
-					if (currentName == null) return node
+					if (!badge) {
+						return node
+					}
+					const currentName = node.name
+					if (currentName == null) {
+						return node
+					}
 
-					ensureKeyedIcon(node as any)
+					ensureKeyedIcon(node)
 
 					// We decorate the `name` with a badge node, but keep it hidden outside the
 					// sidebar via CSS rules in `app/global.css`.
-					;(node as any).name = React.createElement(
+					node.name = React.createElement(
 						'span',
 						{className: 'unrag-nav-label', key: 'unrag-name'},
 						React.createElement(

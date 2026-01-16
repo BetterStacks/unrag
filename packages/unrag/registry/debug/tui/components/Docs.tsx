@@ -9,7 +9,7 @@ import {useTerminalSize} from '@registry/debug/tui/hooks/useTerminalSize'
 import {chars, clamp, theme, truncate} from '@registry/debug/tui/theme'
 import type {DebugCommandResult, DebugConnection} from '@registry/debug/types'
 import {Box, Text, useInput} from 'ink'
-import {useEffect, useMemo, useRef, useState} from 'react'
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react'
 
 type DocsProps = {
 	connection: DebugConnection
@@ -27,7 +27,9 @@ function canDocs(connection: DebugConnection): boolean {
 
 function approxTokens(text: string): number {
 	const s = (text ?? '').trim()
-	if (!s) return 0
+	if (!s) {
+		return 0
+	}
 	return s.split(/\s+/g).length
 }
 
@@ -36,7 +38,13 @@ function histogram(
 	buckets: number[]
 ): Array<{label: string; count: number}> {
 	const sorted = [...buckets].sort((a, b) => a - b)
-	if (sorted.length === 0) return []
+	if (sorted.length === 0) {
+		return []
+	}
+	const first = sorted[0]
+	if (first === undefined) {
+		return []
+	}
 	const counts = new Array(sorted.length + 1).fill(0)
 	for (const v of values) {
 		const i = sorted.findIndex((b) => v < b)
@@ -44,9 +52,20 @@ function histogram(
 	}
 	const labels: string[] = []
 	for (let i = 0; i < sorted.length + 1; i++) {
-		if (i === 0) labels.push(`<${sorted[0]!}`)
-		else if (i === sorted.length) labels.push(`${sorted[i - 1]!}+`)
-		else labels.push(`${sorted[i - 1]!}–${sorted[i]! - 1}`)
+		if (i === 0) {
+			labels.push(`<${first}`)
+		} else if (i === sorted.length) {
+			const prev = sorted[i - 1]
+			if (prev !== undefined) {
+				labels.push(`${prev}+`)
+			}
+		} else {
+			const prev = sorted[i - 1]
+			const curr = sorted[i]
+			if (prev !== undefined && curr !== undefined) {
+				labels.push(`${prev}–${curr - 1}`)
+			}
+		}
 	}
 	return labels.map((label, i) => ({label, count: counts[i] ?? 0}))
 }
@@ -104,12 +123,16 @@ export function Docs({connection}: DocsProps) {
 	const pendingDeleteChunkIdRef = useRef<string | null>(null)
 
 	const documents = useMemo(() => {
-		if (docsRes?.type !== 'list-documents' || !docsRes.success) return []
+		if (docsRes?.type !== 'list-documents' || !docsRes.success) {
+			return []
+		}
 		return docsRes.documents ?? []
 	}, [docsRes])
 
 	const total = useMemo(() => {
-		if (docsRes?.type !== 'list-documents' || !docsRes.success) return 0
+		if (docsRes?.type !== 'list-documents' || !docsRes.success) {
+			return 0
+		}
 		return docsRes.total ?? 0
 	}, [docsRes])
 
@@ -118,7 +141,9 @@ export function Docs({connection}: DocsProps) {
 	const selectedSourceId = selectedDoc?.sourceId ?? null
 
 	const doc = useMemo(() => {
-		if (docRes?.type !== 'get-document' || !docRes.success) return undefined
+		if (docRes?.type !== 'get-document' || !docRes.success) {
+			return undefined
+		}
 		return docRes.document
 	}, [docRes])
 
@@ -158,7 +183,7 @@ export function Docs({connection}: DocsProps) {
 		setContentScrollTop(0)
 	}, [selectedChunk?.id, selectedSourceId])
 
-	const refreshList = async () => {
+	const refreshList = useCallback(async () => {
 		setDocsRes(null)
 		const res = await connection.sendCommand({
 			type: 'list-documents',
@@ -167,46 +192,55 @@ export function Docs({connection}: DocsProps) {
 			offset
 		})
 		setDocsRes(res)
-	}
+	}, [connection, limit, offset, prefix])
 
-	const refreshStats = async () => {
+	const refreshStats = useCallback(async () => {
 		setStatsRes(null)
 		const res = await connection.sendCommand({type: 'store-stats'})
 		setStatsRes(res)
-	}
+	}, [connection])
 
-	const refreshDocument = async (sourceId: string) => {
-		setDocRes(null)
-		const res = await connection.sendCommand({
-			type: 'get-document',
-			sourceId
-		})
-		setDocRes(res)
-	}
+	const refreshDocument = useCallback(
+		async (sourceId: string) => {
+			setDocRes(null)
+			const res = await connection.sendCommand({
+				type: 'get-document',
+				sourceId
+			})
+			setDocRes(res)
+		},
+		[connection]
+	)
 
 	// Initial load (and refresh when paging/filter changes)
 	useEffect(() => {
-		if (!docsCapable) return
+		if (!docsCapable) {
+			return
+		}
 		void refreshStats()
 		void refreshList()
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [docsCapable, limit, offset, prefix])
+	}, [docsCapable, refreshList, refreshStats])
 
 	// Load selected doc details
 	useEffect(() => {
-		if (!docsCapable) return
-		if (!selectedSourceId) return
+		if (!docsCapable) {
+			return
+		}
+		if (!selectedSourceId) {
+			return
+		}
 		setSelectedChunkIndex(0)
 		void refreshDocument(selectedSourceId)
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [docsCapable, selectedSourceId])
+	}, [docsCapable, refreshDocument, selectedSourceId])
 
 	useEffect(() => {
 		setSelectedDocIndex(0)
 	}, [offset, prefix])
 
 	useInput((input, key) => {
-		if (!docsCapable) return
+		if (!docsCapable) {
+			return
+		}
 
 		if (mode === 'confirmDeleteDoc') {
 			if (input === 'y') {
@@ -246,8 +280,9 @@ export function Docs({connection}: DocsProps) {
 						})
 						await refreshStats()
 						await refreshList()
-						if (selectedSourceId)
+						if (selectedSourceId) {
 							await refreshDocument(selectedSourceId)
+						}
 					})()
 				}
 				return
@@ -306,7 +341,9 @@ export function Docs({connection}: DocsProps) {
 		if (input === 'r') {
 			void refreshStats()
 			void refreshList()
-			if (selectedSourceId) void refreshDocument(selectedSourceId)
+			if (selectedSourceId) {
+				void refreshDocument(selectedSourceId)
+			}
 			return
 		}
 
@@ -333,7 +370,9 @@ export function Docs({connection}: DocsProps) {
 
 		const up = key.upArrow || input === 'k'
 		const down = key.downArrow || input === 'j'
-		if (!up && !down) return
+		if (!up && !down) {
+			return
+		}
 
 		if (focus === 'docs') {
 			const max = Math.max(0, documents.length - 1)
@@ -382,7 +421,9 @@ export function Docs({connection}: DocsProps) {
 
 	const formatCreatedAt = (iso: string | undefined) => {
 		const s = String(iso ?? '').trim()
-		if (!s) return ''
+		if (!s) {
+			return ''
+		}
 		// ISO: 2026-01-14T07:19:20.123Z → 2026-01-14 07:19
 		const t = s.replace('T', ' ')
 		return t.length >= 16 ? t.slice(0, 16) : t

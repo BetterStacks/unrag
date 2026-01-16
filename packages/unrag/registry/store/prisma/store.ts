@@ -3,7 +3,9 @@ import {empty, sqltag as sql} from '@prisma/client/runtime/library'
 import type {Chunk, DeleteInput, VectorStore} from '@registry/core/types'
 
 const sanitizeMetadata = (metadata: unknown) => {
-	if (metadata === undefined) return null
+	if (metadata === undefined) {
+		return null
+	}
 	try {
 		return JSON.parse(JSON.stringify(metadata))
 	} catch {
@@ -58,7 +60,7 @@ export const createPrismaVectorStore = (
 	const inspector: DebugStoreInspector = {
 		listDocuments: async ({prefix, limit = 50, offset = 0}) => {
 			const whereSql = prefix
-				? sql`where d.source_id like ${prefix + '%'}`
+				? sql`where d.source_id like ${`${prefix}%`}`
 				: empty
 
 			const rows = (await prisma.$queryRaw(
@@ -117,7 +119,9 @@ export const createPrismaVectorStore = (
 			)) as Array<{id: unknown; source_id: unknown; metadata: unknown}>
 
 			const doc = docs[0]
-			if (!doc?.id) return {document: undefined}
+			if (!doc?.id) {
+				return {document: undefined}
+			}
 
 			const chunkRows = (await prisma.$queryRaw(
 				sql`
@@ -151,19 +155,23 @@ export const createPrismaVectorStore = (
 			const rows = (await prisma.$queryRaw(
 				'sourceId' in input
 					? sql`delete from documents where source_id = ${input.sourceId} returning 1 as one`
-					: sql`delete from documents where source_id like ${input.sourceIdPrefix + '%'} returning 1 as one`
+					: sql`delete from documents where source_id like ${`${input.sourceIdPrefix}%`} returning 1 as one`
 			)) as Array<{one: unknown}>
 			return {deletedCount: rows.length}
 		},
 
 		deleteChunks: async ({chunkIds}) => {
 			const ids = Array.isArray(chunkIds) ? chunkIds.filter(Boolean) : []
-			if (ids.length === 0) return {deletedCount: 0}
+			if (ids.length === 0) {
+				return {deletedCount: 0}
+			}
 
 			// Prisma SQL templating here doesn't include a safe "IN list" helper.
 			// Keep this safe by only accepting UUID-like strings and using a tightly scoped unsafe query.
 			const safe = ids.filter((id) => /^[0-9a-fA-F-]{36}$/.test(id))
-			if (safe.length === 0) return {deletedCount: 0}
+			if (safe.length === 0) {
+				return {deletedCount: 0}
+			}
 
 			const inList = safe.map((id) => `'${id}'::uuid`).join(', ')
 			const q = `delete from chunks where id in (${inList}) returning 1 as one`
@@ -273,7 +281,9 @@ export const createPrismaVectorStore = (
           `
 						)
 
-						if (!chunk.embedding) continue
+						if (!chunk.embedding) {
+							continue
+						}
 						const embeddingLiteral = toVectorLiteral(
 							chunk.embedding
 						)
@@ -310,7 +320,7 @@ export const createPrismaVectorStore = (
 			const whereSql = scope.sourceId
 				? // Interpret scope.sourceId as a prefix so callers can namespace content
 					// (e.g. `tenant:acme:`) without needing separate tables.
-					sql`where c.source_id like ${scope.sourceId + '%'}`
+					sql`where c.source_id like ${`${scope.sourceId}%`}`
 				: empty
 
 			const rows = (await prisma.$queryRaw(
@@ -354,7 +364,7 @@ export const createPrismaVectorStore = (
 			}
 
 			await prisma.$executeRaw(
-				sql`delete from documents where source_id like ${input.sourceIdPrefix + '%'}`
+				sql`delete from documents where source_id like ${`${input.sourceIdPrefix}%`}`
 			)
 		},
 		inspector
