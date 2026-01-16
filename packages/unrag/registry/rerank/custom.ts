@@ -4,8 +4,8 @@
  * Use this to bring your own reranking logic or integrate with other providers.
  */
 
-import type { Reranker } from "@registry/core/types";
-import type { CustomRerankerConfig } from "@registry/rerank/types";
+import type {Reranker} from '@registry/core/types'
+import type {CustomRerankerConfig} from '@registry/rerank/types'
 
 /**
  * Create a custom reranker with your own implementation.
@@ -52,9 +52,11 @@ import type { CustomRerankerConfig } from "@registry/rerank/types";
  * });
  * ```
  */
-export const createCustomReranker = (config: CustomRerankerConfig): Reranker => {
-  return {
-    name: config.name,
-    rerank: config.rerank,
-  };
-};
+export const createCustomReranker = (
+	config: CustomRerankerConfig
+): Reranker => {
+	return {
+		name: config.name,
+		rerank: config.rerank
+	}
+}

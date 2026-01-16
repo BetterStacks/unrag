@@ -1,7 +1,4 @@
 {
-  "title": "Embedding",
-  "pages": [
-    "multimodal-embeddings",
-    "model-selection"
-  ]
+	"title": "Embedding",
+	"pages": ["multimodal-embeddings", "model-selection"]
 }

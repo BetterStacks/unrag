@@ -1,12 +1,10 @@
 {
-  "title": "Examples",
-  "pages": [
-    "docs-search",
-    "tenant-scoped-search",
-    "admin-reingest",
-    "notion-rich-media",
-    "pdf-knowledge-base"
-  ]
+	"title": "Examples",
+	"pages": [
+		"docs-search",
+		"tenant-scoped-search",
+		"admin-reingest",
+		"notion-rich-media",
+		"pdf-knowledge-base"
+	]
 }
-
-

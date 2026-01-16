@@ -7,54 +7,56 @@
  * These are intentionally minimal and typed as `any` to avoid implying API stability.
  */
 
+// biome-ignore lint/suspicious/noExplicitAny: these are optional-dependency shims; `any` avoids implying API stability.
+type ShimAny = any
+
 // ---------------------------------------------------------------------------
 // Google Drive connector (optional)
 // ---------------------------------------------------------------------------
-declare module "google-auth-library" {
-  export const OAuth2Client: any;
-  export const OAuth2: any;
-  export const GoogleAuth: any;
-  export const JWT: any;
+declare module 'google-auth-library' {
+	export const OAuth2Client: ShimAny
+	export const OAuth2: ShimAny
+	export const GoogleAuth: ShimAny
+	export const JWT: ShimAny
 }
 
-declare module "googleapis" {
-  export const google: any;
+declare module 'googleapis' {
+	export const google: ShimAny
 }
 
 // ---------------------------------------------------------------------------
 // Notion connector (optional)
 // ---------------------------------------------------------------------------
-declare module "@notionhq/client" {
-  export type ClientOptions = any;
-  export class Client {
-    constructor(options?: any);
-    pages: any;
-    blocks: any;
-  }
-  export const isFullPage: (x: unknown) => boolean;
+declare module '@notionhq/client' {
+	export type ClientOptions = ShimAny
+	export class Client {
+		constructor(options?: ShimAny)
+		pages: ShimAny
+		blocks: ShimAny
+	}
+	export const isFullPage: (x: unknown) => boolean
 }
 
-declare module "@notionhq/client/build/src/api-endpoints" {
-  export type GetPageResponse = any;
-  export type ListBlockChildrenResponse = any;
-  export type RichTextItemResponse = any;
+declare module '@notionhq/client/build/src/api-endpoints' {
+	export type GetPageResponse = ShimAny
+	export type ListBlockChildrenResponse = ShimAny
+	export type RichTextItemResponse = ShimAny
 }
 
 // ---------------------------------------------------------------------------
 // File extractors (optional)
 // ---------------------------------------------------------------------------
-declare module "mammoth" {
-  const mammoth: any;
-  export = mammoth;
+declare module 'mammoth' {
+	const mammoth: ShimAny
+	export = mammoth
 }
 
-declare module "jszip" {
-  const JSZip: any;
-  export = JSZip;
+declare module 'jszip' {
+	const JSZip: ShimAny
+	export = JSZip
 }
 
-declare module "xlsx" {
-  const XLSX: any;
-  export = XLSX;
+declare module 'xlsx' {
+	const XLSX: ShimAny
+	export = XLSX
 }
-

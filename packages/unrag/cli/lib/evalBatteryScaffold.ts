@@ -1,52 +1,56 @@
 export const EVAL_SAMPLE_DATASET_V1 = {
-  version: "1",
-  id: "sample",
-  description: "Tiny dataset to validate retrieval changes.",
-  defaults: {
-    topK: 10,
-    scopePrefix: "eval:sample:",
-    mode: "retrieve",
-    thresholds: { min: { recallAtK: 0.75 } },
-  },
-  documents: [
-    {
-      sourceId: "eval:sample:doc:refund-policy",
-      content: "Refunds are available within 30 days of purchase, provided you have a receipt.",
-    },
-    {
-      sourceId: "eval:sample:doc:contact-support",
-      content: "Contact support by emailing support@example.com. Response times are typically under 24 hours.",
-    },
-  ],
-  queries: [
-    {
-      id: "q_refund_window",
-      query: "How long do I have to request a refund?",
-      relevant: { sourceIds: ["eval:sample:doc:refund-policy"] },
-    },
-    {
-      id: "q_contact_support",
-      query: "How do I contact support?",
-      relevant: { sourceIds: ["eval:sample:doc:contact-support"] },
-    },
-  ],
-} as const;
+	version: '1',
+	id: 'sample',
+	description: 'Tiny dataset to validate retrieval changes.',
+	defaults: {
+		topK: 10,
+		scopePrefix: 'eval:sample:',
+		mode: 'retrieve',
+		thresholds: {min: {recallAtK: 0.75}}
+	},
+	documents: [
+		{
+			sourceId: 'eval:sample:doc:refund-policy',
+			content:
+				'Refunds are available within 30 days of purchase, provided you have a receipt.'
+		},
+		{
+			sourceId: 'eval:sample:doc:contact-support',
+			content:
+				'Contact support by emailing support@example.com. Response times are typically under 24 hours.'
+		}
+	],
+	queries: [
+		{
+			id: 'q_refund_window',
+			query: 'How long do I have to request a refund?',
+			relevant: {sourceIds: ['eval:sample:doc:refund-policy']}
+		},
+		{
+			id: 'q_contact_support',
+			query: 'How do I contact support?',
+			relevant: {sourceIds: ['eval:sample:doc:contact-support']}
+		}
+	]
+} as const
 
 export const EVAL_CONFIG_DEFAULT = {
-  thresholds: { min: { recallAtK: 0.75 } },
-  cleanup: "none",
-  ingest: true,
-} as const;
+	thresholds: {min: {recallAtK: 0.75}},
+	cleanup: 'none',
+	ingest: true
+} as const
 
 export const EVAL_PACKAGE_JSON_SCRIPTS: Record<string, string> = {
-  "unrag:eval": `bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json`,
-  "unrag:eval:ci": `bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json --ci`,
-} as const;
+	'unrag:eval':
+		'bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json',
+	'unrag:eval:ci':
+		'bun run scripts/unrag-eval.ts -- --dataset .unrag/eval/datasets/sample.json --ci'
+} as const
 
-export function renderEvalRunnerScript(opts: { aliasBase: string }): string {
-  const aliasBase = String(opts.aliasBase ?? "").trim() || "@unrag";
+export function renderEvalRunnerScript(opts: {aliasBase: string}): string {
+	const aliasBase = String(opts.aliasBase ?? '').trim() || '@unrag'
 
-  return `/**
+	return `/**
  * Unrag eval runner entrypoint (generated).
  *
  * You own this file — customize it freely.
@@ -303,6 +307,5 @@ main().catch((err) => {
   console.error(\`[unrag:eval] Error: \${msg}\`);
   process.exitCode = 2;
 });
-`;
+`
 }
-

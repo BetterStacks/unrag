@@ -1,23 +1,23 @@
 {
-  "root": true,
-  "title": "Unrag Docs",
-  "description": "Small RAG primitives",
-  "pages": [
-    "index",
-    "changelog",
-    "getting-started",
-    "concepts",
-    "adapters",
-    "providers",
-    "embedding",
-    "extractors",
-    "connectors",
-    "batteries",
-    "debugging",
-    "eval",
-    "frameworks",
-    "guides",
-    "examples",
-    "reference"
-  ]
+	"root": true,
+	"title": "Unrag Docs",
+	"description": "Small RAG primitives",
+	"pages": [
+		"index",
+		"changelog",
+		"getting-started",
+		"concepts",
+		"adapters",
+		"providers",
+		"embedding",
+		"extractors",
+		"connectors",
+		"batteries",
+		"debugging",
+		"eval",
+		"frameworks",
+		"guides",
+		"examples",
+		"reference"
+	]
 }

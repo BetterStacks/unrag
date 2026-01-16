@@ -1,12 +1,4 @@
 {
-  "title": "File",
-  "pages": [
-    "index",
-    "text",
-    "docx",
-    "pptx",
-    "xlsx"
-  ]
+	"title": "File",
+	"pages": ["index", "text", "docx", "pptx", "xlsx"]
 }
-
-

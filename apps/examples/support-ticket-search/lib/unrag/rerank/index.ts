@@ -26,14 +26,14 @@
  */
 
 // Factories
-export { createCohereReranker } from "./cohere";
-export { createCustomReranker } from "./custom";
+export {createCohereReranker} from './cohere'
+export {createCustomReranker} from './custom'
 
 // Types
 export type {
-  Reranker,
-  RerankerRerankArgs,
-  RerankerRerankResult,
-  CohereRerankerConfig,
-  CustomRerankerConfig,
-} from "./types";
+	Reranker,
+	RerankerRerankArgs,
+	RerankerRerankResult,
+	CohereRerankerConfig,
+	CustomRerankerConfig
+} from './types'

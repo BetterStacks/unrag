@@ -1,10 +1,4 @@
 {
-  "title": "Video",
-  "pages": [
-    "index",
-    "transcribe",
-    "frames"
-  ]
+	"title": "Video",
+	"pages": ["index", "transcribe", "frames"]
 }
-
-

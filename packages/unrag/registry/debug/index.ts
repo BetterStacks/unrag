@@ -22,72 +22,79 @@
  */
 
 // Server exports (for user's app)
-export { startDebugServer, stopDebugServer, getDebugServer } from "@registry/debug/server";
+export {
+	startDebugServer,
+	stopDebugServer,
+	getDebugServer
+} from '@registry/debug/server'
 
 // Client exports (for debug TUI)
-export { connectDebugClient, createAutoReconnectClient } from "@registry/debug/client";
+export {
+	connectDebugClient,
+	createAutoReconnectClient
+} from '@registry/debug/client'
 
 // Runtime registration (for interactive commands)
-export { registerUnragDebug, getUnragDebugRuntime } from "@registry/debug/runtime";
-export type { StoreInspector, UnragDebugRuntime } from "@registry/debug/runtime";
+export {registerUnragDebug, getUnragDebugRuntime} from '@registry/debug/runtime'
+export type {StoreInspector, UnragDebugRuntime} from '@registry/debug/runtime'
 
 // Type exports
 export type {
-  // Server types
-  DebugServerConfig,
-  DebugServer,
-  // Client types
-  DebugClientConfig,
-  DebugConnection,
-  DebugConnectionStatus,
-  // Command types
-  DebugCommand,
-  DebugCommandType,
-  QueryCommand,
-  ListDocumentsCommand,
-  GetDocumentCommand,
-  DeleteDocumentCommand,
-  StoreStatsCommand,
-  PingCommand,
-  ClearBufferCommand,
-  GetBufferCommand,
-  // Result types
-  DebugCommandResult,
-  QueryResult,
-  ListDocumentsResult,
-  GetDocumentResult,
-  DeleteDocumentResult,
-  StoreStatsResult,
-  PingResult,
-  ClearBufferResult,
-  GetBufferResult,
-  // Message types
-  ServerMessage,
-  ClientMessage,
-  // Protocol
-  DebugCapability,
-  DebugServerInfo,
-} from "@registry/debug/types";
+	// Server types
+	DebugServerConfig,
+	DebugServer,
+	// Client types
+	DebugClientConfig,
+	DebugConnection,
+	DebugConnectionStatus,
+	// Command types
+	DebugCommand,
+	DebugCommandType,
+	QueryCommand,
+	ListDocumentsCommand,
+	GetDocumentCommand,
+	DeleteDocumentCommand,
+	StoreStatsCommand,
+	PingCommand,
+	ClearBufferCommand,
+	GetBufferCommand,
+	// Result types
+	DebugCommandResult,
+	QueryResult,
+	ListDocumentsResult,
+	GetDocumentResult,
+	DeleteDocumentResult,
+	StoreStatsResult,
+	PingResult,
+	ClearBufferResult,
+	GetBufferResult,
+	// Message types
+	ServerMessage,
+	ClientMessage,
+	// Protocol
+	DebugCapability,
+	DebugServerInfo
+} from '@registry/debug/types'
 
 // Re-export event types for user reference
 export type {
-  DebugEvent,
-  DebugEventType,
-  DebugEventBase,
-  IngestStartEvent,
-  IngestChunkingCompleteEvent,
-  IngestEmbeddingStartEvent,
-  IngestEmbeddingBatchEvent,
-  IngestEmbeddingCompleteEvent,
-  IngestStorageCompleteEvent,
-  IngestCompleteEvent,
-  IngestErrorEvent,
-  RetrieveStartEvent,
-  RetrieveEmbeddingCompleteEvent,
-  RetrieveDatabaseQueryCompleteEvent,
-  RetrieveCompleteEvent,
-  RerankStartEvent,
-  RerankCompleteEvent,
-  DeleteStartEvent,
-  DeleteCompleteEvent,
-} from "@registry/core/debug-events";
+	DebugEvent,
+	DebugEventType,
+	DebugEventBase,
+	IngestStartEvent,
+	IngestChunkingCompleteEvent,
+	IngestEmbeddingStartEvent,
+	IngestEmbeddingBatchEvent,
+	IngestEmbeddingCompleteEvent,
+	IngestStorageCompleteEvent,
+	IngestCompleteEvent,
+	IngestErrorEvent,
+	RetrieveStartEvent,
+	RetrieveEmbeddingCompleteEvent,
+	RetrieveDatabaseQueryCompleteEvent,
+	RetrieveCompleteEvent,
+	RerankStartEvent,
+	RerankCompleteEvent,
+	DeleteStartEvent,
+	DeleteCompleteEvent
+} from '@registry/core/debug-events'
