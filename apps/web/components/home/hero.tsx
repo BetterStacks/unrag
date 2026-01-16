@@ -60,6 +60,13 @@ function HeroImageFrame({ className, imageClassName }: { className?: string; ima
 }
 
 export function HeroSection() {
+  const testimonialLogos = [
+    { src: '/logos/letraz.svg', alt: 'Letraz logo', width: 88, height: 13, className: 'h-5' },
+    { src: '/logos/propsoch.svg', alt: 'Propsoch logo', width: 72, height: 20 },
+    { src: '/logos/rize.svg', alt: 'Rize logo', width: 96, height: 42 },
+    { src: '/logos/stacks.svg', alt: 'Stacks logo', width: 96, height: 24 },
+  ];
+
   return (
     <HeroLeftAlignedWithDemo
       id="hero"
@@ -91,102 +98,21 @@ export function HeroSection() {
       }
       footer={
         <LogoGrid>
-          <Logo>
-            <img
-              src="https://assets.tailwindplus.com/logos/9.svg?color=black&height=32"
-              className="dark:hidden"
-              alt=""
-              width={51}
-              height={32}
-            />
-            <img
-              src="https://assets.tailwindplus.com/logos/9.svg?color=white&height=32"
-              className="bg-black/75 not-dark:hidden"
-              alt=""
-              width={51}
-              height={32}
-            />
-          </Logo>
-          <Logo>
-            <img
-              src="https://assets.tailwindplus.com/logos/10.svg?color=black&height=32"
-              className="dark:hidden"
-              alt=""
-              width={70}
-              height={32}
-            />
-            <img
-              src="https://assets.tailwindplus.com/logos/10.svg?color=white&height=32"
-              className="bg-black/75 not-dark:hidden"
-              alt=""
-              width={70}
-              height={32}
-            />
-          </Logo>
-          <Logo>
-            <img
-              src="https://assets.tailwindplus.com/logos/11.svg?color=black&height=32"
-              className="dark:hidden"
-              alt=""
-              width={100}
-              height={32}
-            />
-            <img
-              src="https://assets.tailwindplus.com/logos/11.svg?color=white&height=32"
-              className="bg-black/75 not-dark:hidden"
-              alt=""
-              width={100}
-              height={32}
-            />
-          </Logo>
-          <Logo>
-            <img
-              src="https://assets.tailwindplus.com/logos/12.svg?color=black&height=32"
-              className="dark:hidden"
-              alt=""
-              width={85}
-              height={32}
-            />
-            <img
-              src="https://assets.tailwindplus.com/logos/12.svg?color=white&height=32"
-              className="bg-black/75 not-dark:hidden"
-              alt=""
-              width={85}
-              height={32}
-            />
-          </Logo>
-          <Logo>
-            <img
-              src="https://assets.tailwindplus.com/logos/13.svg?color=black&height=32"
-              className="dark:hidden"
-              alt=""
-              width={75}
-              height={32}
-            />
-            <img
-              src="https://assets.tailwindplus.com/logos/13.svg?color=white&height=32"
-              className="bg-black/75 not-dark:hidden"
-              alt=""
-              width={75}
-              height={32}
-            />
-          </Logo>
-          <Logo>
-            <img
-              src="https://assets.tailwindplus.com/logos/8.svg?color=black&height=32"
-              className="dark:hidden"
-              alt=""
-              width={85}
-              height={32}
-            />
-            <img
-              src="https://assets.tailwindplus.com/logos/8.svg?color=white&height=32"
-              className="bg-black/75 not-dark:hidden"
-              alt=""
-              width={85}
-              height={32}
-            />
-          </Logo>
+          {testimonialLogos.map((logo) => (
+            <Logo key={logo.src}>
+              <img
+                src={logo.src}
+                alt={logo.alt}
+                width={logo.width}
+                height={logo.height}
+                className={clsx(
+                  'h-7 w-auto brightness-0 saturate-0 dark:invert',
+                  logo.className,
+                )}
+                loading="lazy"
+              />
+            </Logo>
+          ))}
         </LogoGrid>
       }
     />
