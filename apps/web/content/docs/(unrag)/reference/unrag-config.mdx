@@ -7,7 +7,7 @@ The `unrag.config.ts` file is the central place to configure Unrag. It's generat
 
 ## Structure overview
 
-The generated config varies based on your choices during `init`. Here's what a basic text-only setup looks like (the default when you don't enable rich media):
+The generated config is **minimal by default** and grows as you add modules. Here's what a basic text-only setup looks like (the default when you don't enable rich media):
 
 ```ts
 import { defineUnragConfig } from "./lib/unrag/core";
@@ -39,12 +39,6 @@ export const unrag = defineUnragConfig({
       storeDocumentContent: true,
     },
     extractors: [],
-  assetProcessing: {
-    // All extraction disabled by default for cost safety
-    onUnsupportedAsset: "skip",
-    onError: "skip",
-    // ...
-  },
   },
 } as const);
 
@@ -64,7 +58,39 @@ export function createUnragEngine() {
 }
 ```
 
-If you ran `init --rich-media`, the config includes additional extractor imports, a populated `extractors` array, and enabled `assetProcessing` flags for your selected extractors. Note that multimodal embedding is configured separately—see [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) to enable it.
+Notice that `assetProcessing` is **omitted entirely** in the minimal config. The library uses sensible defaults internally, and you only need to add `assetProcessing` overrides when you install extractors.
+
+### Config grows with modules
+
+When you run `unrag add extractor <name>`, the CLI automatically:
+- Adds the extractor import
+- Registers it in the `extractors` array
+- Adds minimal `assetProcessing` overrides (only the `enabled: true` flags needed for that extractor)
+
+For example, after running `unrag add extractor pdf-text-layer`, your config will include:
+
+```ts
+import { createPdfTextLayerExtractor } from "./lib/unrag/extractors/pdf-text-layer";
+// ...
+export const unrag = defineUnragConfig({
+  // ...
+  engine: {
+    // ...
+    extractors: [
+      createPdfTextLayerExtractor(),
+    ],
+    assetProcessing: {
+      pdf: {
+        textLayer: {
+          enabled: true,
+        },
+      },
+    },
+  },
+} as const);
+```
+
+The config only includes the minimal overrides needed—not the full verbose `assetProcessing` tree. If you ran `init --rich-media` and selected extractors, the same minimal overrides are generated during initialization. Note that multimodal embedding is configured separately—see [Multimodal Embeddings](/docs/embedding/multimodal-embeddings) to enable it.
 
 ## The unrag config
 
@@ -294,12 +320,12 @@ Controls how PDFs, images, and other rich media are processed during ingestion. 
 />
 
 <Callout>
-The generated template sets all `assetProcessing` flags to `false` by default for cost safety. When you run `init --rich-media` and select extractors, the CLI enables the corresponding flags (e.g. `pdf.llmExtraction.enabled: true` if you select `pdf-llm`). If no extractor is registered for an enabled flag, ingestion emits warnings so you don't miss content silently.
+For minimal installs, `assetProcessing` is omitted entirely and the library uses internal defaults. When you run `init --rich-media` and select extractors, or when you run `unrag add extractor <name>`, the CLI automatically adds minimal `assetProcessing` overrides with only the `enabled: true` flags needed for your selected extractors. If no extractor is registered for an enabled flag, ingestion emits warnings so you don't miss content silently.
 </Callout>
 
 ### extractors
 
-The `extractors` array holds extractor module instances that process rich media assets. Extractors are installed via the CLI and then registered here.
+The `extractors` array holds extractor module instances that process rich media assets. Extractors are installed via the CLI and automatically registered in your config.
 
 ```ts
 import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";
@@ -324,7 +350,13 @@ Use the CLI to install extractor modules:
 bunx unrag@latest add extractor pdf-llm
 ```
 
-This copies the extractor source to `lib/unrag/extractors/pdf-llm/` and adds dependencies.
+This:
+- Copies the extractor source to `lib/unrag/extractors/pdf-llm/`
+- Adds dependencies to your `package.json`
+- **Automatically patches `unrag.config.ts`** to:
+  - Add the extractor import
+  - Register it in the `extractors` array
+  - Enable the corresponding `assetProcessing` flags (minimal overrides only)
 
 #### Available extractors
 

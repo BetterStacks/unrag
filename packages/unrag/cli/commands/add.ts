@@ -1,5 +1,5 @@
 import { cancel, confirm, isCancel, outro, select, text } from "@clack/prompts";
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ensureDir, exists, findUp, tryFindProjectRoot } from "../lib/fs";
@@ -43,6 +43,263 @@ const writeTextFile = async (absPath: string, content: string) => {
   await ensureDir(path.dirname(absPath));
   await writeFile(absPath, content, "utf8");
 };
+
+const renderObjectLiteral = (value: Record<string, any>, indent: number): string => {
+  const pad = " ".repeat(indent);
+  const inner = Object.entries(value)
+    .map(([key, val]) => {
+      if (val && typeof val === "object" && !Array.isArray(val)) {
+        return `${pad}${key}: ${renderObjectLiteral(val, indent + 2)},`;
+      }
+      return `${pad}${key}: ${JSON.stringify(val)},`;
+    })
+    .join("\n");
+
+  return `{\n${inner}\n${" ".repeat(Math.max(0, indent - 2))}}`;
+};
+
+// Map extractor id to factory function name (matches registry.ts)
+const EXTRACTOR_FACTORY: Record<ExtractorName, string> = {
+  "pdf-llm": "createPdfLlmExtractor",
+  "pdf-text-layer": "createPdfTextLayerExtractor",
+  "pdf-ocr": "createPdfOcrExtractor",
+  "image-ocr": "createImageOcrExtractor",
+  "image-caption-llm": "createImageCaptionLlmExtractor",
+  "audio-transcribe": "createAudioTranscribeExtractor",
+  "video-transcribe": "createVideoTranscribeExtractor",
+  "video-frames": "createVideoFramesExtractor",
+  "file-text": "createFileTextExtractor",
+  "file-docx": "createFileDocxExtractor",
+  "file-pptx": "createFilePptxExtractor",
+  "file-xlsx": "createFileXlsxExtractor",
+};
+
+// Map extractor id to flag keys (matches registry.ts)
+const EXTRACTOR_FLAG_KEYS: Record<ExtractorName, string[]> = {
+  "pdf-text-layer": ["pdf_textLayer"],
+  "pdf-llm": ["pdf_llmExtraction"],
+  "pdf-ocr": ["pdf_ocr"],
+  "image-ocr": ["image_ocr"],
+  "image-caption-llm": ["image_captionLlm"],
+  "audio-transcribe": ["audio_transcription"],
+  "video-transcribe": ["video_transcription"],
+  "video-frames": ["video_frames"],
+  "file-text": ["file_text"],
+  "file-docx": ["file_docx"],
+  "file-pptx": ["file_pptx"],
+  "file-xlsx": ["file_xlsx"],
+};
+
+/**
+ * Patch unrag.config.ts to add extractor import, registration, and enable flags.
+ * Returns true if the file was modified, false if already patched or if patching failed.
+ */
+async function patchUnragConfig(args: {
+  projectRoot: string;
+  installDir: string;
+  extractor: ExtractorName;
+  extractors: ExtractorName[];
+}): Promise<boolean> {
+  const configPath = path.join(args.projectRoot, "unrag.config.ts");
+  
+  if (!(await exists(configPath))) {
+    // Config file doesn't exist - user might need to run init first
+    return false;
+  }
+
+  try {
+    const content = await readFile(configPath, "utf8");
+    const factoryName = EXTRACTOR_FACTORY[args.extractor];
+    const allFlagKeys = args.extractors.flatMap(
+      (ex) => EXTRACTOR_FLAG_KEYS[ex] ?? []
+    );
+    const installImportBase = `./${args.installDir.replace(/\\/g, "/")}`;
+    const importLine = `import { ${factoryName} } from "${installImportBase}/extractors/${args.extractor}";`;
+    const extractorCall = `${factoryName}()`;
+
+    let modified = false;
+    let newContent = content;
+
+    // 1. Add import if not present
+    if (
+      importLine &&
+      !content.includes(importLine) &&
+      !content.includes(`from "${installImportBase}/extractors/${args.extractor}"`)
+    ) {
+      // Find the imports section (after __UNRAG_IMPORTS__ marker or after existing imports)
+      const importMarker = "// __UNRAG_IMPORTS__";
+      if (content.includes(importMarker)) {
+        // Insert after the marker
+        newContent = newContent.replace(
+          importMarker,
+          `${importMarker}\n${importLine}`
+        );
+      } else {
+        // Try to find where imports end (before "export const unrag")
+        const exportMatch = newContent.match(/^(import .+?\n)+/m);
+        if (exportMatch) {
+          newContent = newContent.replace(
+            exportMatch[0],
+            exportMatch[0] + importLine + "\n"
+          );
+        } else {
+          // Fallback: add at the top after @ts-nocheck
+          newContent = newContent.replace(
+            /\/\/ @ts-nocheck\n/,
+            `// @ts-nocheck\n\n${importLine}\n`
+          );
+        }
+      }
+      modified = true;
+    }
+
+    // 2. Add extractor to extractors array if not present
+    const extractorArrayMarker = "// __UNRAG_EXTRACTORS__";
+    if (newContent.includes(extractorArrayMarker)) {
+      // Replace the marker with the extractor call
+      if (extractorCall) {
+        newContent = newContent.replace(
+          extractorArrayMarker,
+          `      ${extractorCall},`
+        );
+      }
+      modified = true;
+    } else if (extractorCall && !newContent.includes(extractorCall)) {
+      // Try to find the extractors array and add to it
+      const extractorsArrayRegex = /extractors:\s*\[([^\]]*)\]/s;
+      const match = newContent.match(extractorsArrayRegex);
+      if (match) {
+        const existing = match[1].trim();
+        const newArrayContent = existing
+          ? `${existing}\n      ${extractorCall},`
+          : `      ${extractorCall},`;
+        newContent = newContent.replace(
+          extractorsArrayRegex,
+          `extractors: [\n${newArrayContent}\n    ]`
+        );
+        modified = true;
+      }
+    }
+
+    // 3. Add/merge minimal assetProcessing override
+    if (allFlagKeys.length > 0) {
+      const minimalOverrides: Record<string, any> = {};
+
+      for (const flagKey of allFlagKeys) {
+        // Map short flag keys to nested paths
+        if (flagKey === "pdf_textLayer") {
+          minimalOverrides.pdf = minimalOverrides.pdf || {};
+          minimalOverrides.pdf.textLayer = { enabled: true };
+        } else if (flagKey === "pdf_llmExtraction") {
+          minimalOverrides.pdf = minimalOverrides.pdf || {};
+          minimalOverrides.pdf.llmExtraction = { enabled: true };
+        } else if (flagKey === "pdf_ocr") {
+          minimalOverrides.pdf = minimalOverrides.pdf || {};
+          minimalOverrides.pdf.ocr = { enabled: true };
+        } else if (flagKey === "image_ocr") {
+          minimalOverrides.image = minimalOverrides.image || {};
+          minimalOverrides.image.ocr = { enabled: true };
+        } else if (flagKey === "image_captionLlm") {
+          minimalOverrides.image = minimalOverrides.image || {};
+          minimalOverrides.image.captionLlm = { enabled: true };
+        } else if (flagKey === "audio_transcription") {
+          minimalOverrides.audio = minimalOverrides.audio || {};
+          minimalOverrides.audio.transcription = { enabled: true };
+        } else if (flagKey === "video_transcription") {
+          minimalOverrides.video = minimalOverrides.video || {};
+          minimalOverrides.video.transcription = { enabled: true };
+        } else if (flagKey === "video_frames") {
+          minimalOverrides.video = minimalOverrides.video || {};
+          minimalOverrides.video.frames = { enabled: true };
+        } else if (flagKey === "file_text") {
+          minimalOverrides.file = minimalOverrides.file || {};
+          minimalOverrides.file.text = { enabled: true };
+        } else if (flagKey === "file_docx") {
+          minimalOverrides.file = minimalOverrides.file || {};
+          minimalOverrides.file.docx = { enabled: true };
+        } else if (flagKey === "file_pptx") {
+          minimalOverrides.file = minimalOverrides.file || {};
+          minimalOverrides.file.pptx = { enabled: true };
+        } else if (flagKey === "file_xlsx") {
+          minimalOverrides.file = minimalOverrides.file || {};
+          minimalOverrides.file.xlsx = { enabled: true };
+        }
+      }
+
+      if (Object.keys(minimalOverrides).length > 0) {
+        const body = renderObjectLiteral(minimalOverrides, 4);
+        const bodyLines = body.split("\n");
+        bodyLines.splice(
+          bodyLines.length - 1,
+          0,
+          "    // __UNRAG_ASSET_PROCESSING_OVERRIDES__"
+        );
+        const bodyWithMarker = bodyLines.join("\n");
+        const assetProcessingBlock = `  assetProcessing: ${bodyWithMarker},\n`;
+
+        const assetProcessingMarker = "// __UNRAG_ASSET_PROCESSING_OVERRIDES__";
+        const autoBlockRegex =
+          /assetProcessing:\s*\{[\s\S]*?\/\/ __UNRAG_ASSET_PROCESSING_OVERRIDES__\s*\n\s*\},/;
+
+        if (autoBlockRegex.test(newContent)) {
+          // Replace the auto-managed block with the refreshed minimal overrides
+          newContent = newContent.replace(
+            autoBlockRegex,
+            assetProcessingBlock.trimEnd()
+          );
+          modified = true;
+        } else if (newContent.includes(assetProcessingMarker)) {
+          // Marker exists (fresh minimal install) - replace it
+          newContent = newContent.replace(
+            assetProcessingMarker,
+            assetProcessingBlock.trimEnd()
+          );
+          modified = true;
+        } else {
+          // Neither marker nor auto-managed block exists - insert if no assetProcessing
+          const existingAssetProcessingMatch = newContent.match(
+            /assetProcessing:\s*\{[\s\S]*?\n\s*\}/s
+          );
+          if (!existingAssetProcessingMatch) {
+            // Insert after extractors array
+            const extractorsArrayEnd = newContent.lastIndexOf("    ],");
+            if (extractorsArrayEnd > 0) {
+              newContent =
+                newContent.slice(0, extractorsArrayEnd + 5) +
+                "\n" +
+                assetProcessingBlock.trimEnd() +
+                newContent.slice(extractorsArrayEnd + 5);
+              modified = true;
+            } else {
+              // Fallback: find engine closing brace
+              const engineClosingBrace = newContent.lastIndexOf("  },");
+              if (engineClosingBrace > 0) {
+                newContent =
+                  newContent.slice(0, engineClosingBrace) +
+                  assetProcessingBlock +
+                  newContent.slice(engineClosingBrace);
+                modified = true;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (modified) {
+      await writeFile(configPath, newContent, "utf8");
+      return true;
+    }
+
+    return false;
+  } catch (err) {
+    // Fail soft - don't block extractor installation if config patching fails
+    console.warn(
+      `[unrag:add] Could not patch unrag.config.ts: ${err instanceof Error ? err.message : String(err)}`
+    );
+    return false;
+  }
+}
 
 const shouldWriteFile = async (
   absPath: string,
@@ -817,11 +1074,22 @@ main().catch((err) => {
 
   await writeJsonFile(configPath, { ...config, extractors });
 
+  // Patch unrag.config.ts to wire the extractor
+  const configPatched = await patchUnragConfig({
+    projectRoot: root,
+    installDir: config.installDir,
+    extractor,
+    extractors,
+  });
+
   outro(
     [
       `Installed extractor: ${extractor}.`,
       "",
       `- Code: ${path.join(config.installDir, "extractors", extractor)}`,
+      configPatched
+        ? `- Config: updated unrag.config.ts (imported, registered, and enabled)`
+        : `- Config: unrag.config.ts not found or could not be patched automatically`,
       "",
       merged.changes.length > 0
         ? `Added deps: ${merged.changes.map((c) => c.name).join(", ")}`
@@ -831,8 +1099,9 @@ main().catch((err) => {
         : merged.changes.length > 0 && noInstall
           ? "Dependencies not installed (skipped)."
           : "",
-      "",
-      `Next: import the extractor and pass it to createContextEngine({ extractors: [...] }).`,
+      !configPatched
+        ? "\nNext: import the extractor and add it to engine.extractors in unrag.config.ts"
+        : "",
     ]
       .filter(Boolean)
       .join("\n")
