@@ -1,0 +1,223 @@
+---
+title: Handling Upgrade Conflicts
+description: Strategies for resolving merge conflicts when both you and Unrag modified the same code.
+---
+
+Conflicts happen when the three-way merge can't automatically combine changes. This typically occurs when both you and Unrag modified the same lines of code. While conflicts require manual intervention, they're not as scary as they might seem—especially if you approach them systematically.
+
+## Understanding conflict markers
+
+When a conflict occurs, the affected file contains markers showing both versions:
+
+```ts
+const chunkConfig = {
+<<<<<<< OURS
+  maxSize: 500,
+  overlap: 100,
+  tokenizer: "custom-tokenizer",
+=======
+  maxSize: 400,
+  overlap: 50,
+  tokenizer: "cl100k_base",
+>>>>>>> THEIRS
+};
+```
+
+The structure is:
+- `<<<<<<< OURS` — Start of your version
+- Your code
+- `=======` — Separator
+- Upstream code
+- `>>>>>>> THEIRS` — End of conflict
+
+Everything between `<<<<<<< OURS` and `=======` is what you had. Everything between `=======` and `>>>>>>> THEIRS` is what the new Unrag version provides.
+
+## Basic resolution workflow
+
+Resolving a conflict means choosing what the final code should look like. You have three options:
+
+**Keep yours** — Delete the markers and the THEIRS section, keeping only your code:
+
+```ts
+const chunkConfig = {
+  maxSize: 500,
+  overlap: 100,
+  tokenizer: "custom-tokenizer",
+};
+```
+
+**Take theirs** — Delete the markers and the OURS section, taking the upstream changes:
+
+```ts
+const chunkConfig = {
+  maxSize: 400,
+  overlap: 50,
+  tokenizer: "cl100k_base",
+};
+```
+
+**Combine both** — Manually merge the changes, taking the best of each:
+
+```ts
+const chunkConfig = {
+  maxSize: 500,            // Keep your larger size
+  overlap: 50,             // Take the new default overlap
+  tokenizer: "cl100k_base", // Take the new tokenizer
+};
+```
+
+The third option is often the right answer. You modified a value for a reason, and the upstream change might be improving something different. Review both versions and construct the result that makes sense.
+
+## Finding conflicts after upgrade
+
+The upgrade command tells you how many conflicts occurred:
+
+```
+Upgrade plan:
+- conflicts: 3
+```
+
+After the upgrade completes, find all files with conflicts:
+
+```bash
+grep -r "<<<<<<< OURS" lib/unrag/
+```
+
+Or use your IDE's search to find conflict markers. Most editors highlight conflict markers or have dedicated merge conflict views.
+
+## IDE-assisted resolution
+
+Most modern IDEs have built-in conflict resolution tools:
+
+**VS Code** — When you open a file with conflicts, VS Code shows clickable options above each conflict: "Accept Current Change", "Accept Incoming Change", "Accept Both Changes", or "Compare Changes". The "Compare Changes" option opens a side-by-side diff view.
+
+**JetBrains IDEs** — IntelliJ, WebStorm, and others have a dedicated merge tool accessible via right-click → Git → Resolve Conflicts. It shows three columns (OURS, BASE, THEIRS) and lets you click to accept specific changes.
+
+**Neovim/Vim** — Plugins like `vim-conflicted` or built-in diff mode (`vimdiff`) help navigate and resolve conflicts.
+
+Using IDE tools is often faster than manual editing, especially for files with multiple conflicts.
+
+## Conflict resolution strategies
+
+Different situations call for different approaches:
+
+### When you made intentional customizations
+
+If you deliberately changed behavior (like adjusting chunk sizes, modifying embedding logic, or adding custom metadata handling), carefully review what the upstream change is trying to achieve.
+
+Ask yourself:
+- Does the upstream change fix a bug that affects my customization?
+- Does it improve performance in a way I'd want?
+- Does my customization depend on internals that changed?
+
+Often the right answer is to keep your customization's intent while incorporating any structural improvements from upstream.
+
+### When you made minor tweaks
+
+If your changes were small tweaks (like adjusting a timeout or changing a default value), and upstream made significant structural changes, it might be easier to:
+
+1. Accept the upstream version entirely
+2. Reapply your tweaks to the new code
+
+This is especially true if the file was substantially refactored—trying to merge your tweaks into old structure onto new structure can be error-prone.
+
+### When upstream fixed bugs
+
+If the upstream change looks like a bug fix in code you also modified, carefully trace through the fix. You might need to apply the same fix to your customized version.
+
+Check the changelog or commit history to understand what problems the fix addresses.
+
+### When you're not sure
+
+If you're uncertain why something changed or what the right resolution is:
+
+1. Accept upstream temporarily
+2. Run your tests
+3. If tests pass and behavior seems correct, you might be done
+4. If something breaks, investigate and adjust
+
+Tests are your safety net here. Good test coverage lets you experiment with resolutions and verify correctness.
+
+## Preventing future conflicts
+
+Some practices reduce conflict frequency:
+
+**Extend rather than modify** — When possible, add your customizations as new functions or configuration rather than editing existing code. If upstream changes the function you're extending, you're less likely to conflict.
+
+```ts
+// Instead of modifying ingest() directly
+// Add a wrapper that calls the original
+export async function myIngest(input: IngestInput) {
+  // Your pre-processing
+  const result = await originalIngest(input);
+  // Your post-processing
+  return result;
+}
+```
+
+**Use configuration** — Prefer changing behavior via `unrag.config.ts` rather than editing implementation files. Configuration is yours to control; implementation files are more likely to change upstream.
+
+**Isolate customizations** — If you have extensive changes, consider putting them in separate files that import from the Unrag modules. Then upstream changes won't touch your files directly.
+
+**Upgrade frequently** — Smaller version jumps mean smaller diffs and fewer conflicts. Waiting years between upgrades makes conflicts more likely and harder to resolve.
+
+## Handling many conflicts
+
+If an upgrade produces numerous conflicts, you have several options:
+
+**Resolve them one at a time** — Methodically work through each conflict. This is tedious but ensures nothing is missed.
+
+**Prioritize by importance** — Start with core files (`context-engine.ts`, `ingest.ts`, `retrieve.ts`) that affect fundamental behavior. Less critical files (utilities, types) can wait.
+
+**Consider a fresh install** — If you've heavily customized a file that's been completely rewritten upstream, sometimes it's easier to:
+
+1. Save your customized version somewhere
+2. Accept upstream entirely
+3. Re-implement your customizations on the new structure
+
+**Defer less important files** — You can leave conflict markers in files you don't immediately need. TypeScript will complain, but if you're not using that code path, you can resolve it later.
+
+## After resolving
+
+Once you've resolved all conflicts:
+
+1. **Remove all markers** — Search for `<<<<<<<` to ensure no markers remain
+2. **Check TypeScript** — Run `tsc --noEmit` to catch any type errors
+3. **Run tests** — Make sure your test suite passes
+4. **Manual verification** — Test the specific functionality you customized
+
+If everything works, commit your resolution:
+
+```bash
+git add -A
+git commit -m "resolve upgrade conflicts"
+```
+
+## Conflict markers in production
+
+<Callout type="warn">
+Never deploy code with conflict markers. The markers are invalid syntax and will cause runtime errors. Always resolve all conflicts before running or deploying your application.
+</Callout>
+
+If you accidentally started your application with unresolved conflicts, you'll see parse errors. Stop, resolve the conflicts, and restart.
+
+## Getting help
+
+If you're stuck on a specific conflict:
+
+- Check the Unrag changelog for context on why something changed
+- Look at the git history of the upstream file
+- Ask in discussions if you're unsure what the right resolution is
+
+Conflicts are normal in any system that combines multiple sources of changes. With practice, resolving them becomes routine.
+
+## Next steps
+
+<Cards>
+  <Card title="How It Works" href="/docs/upgrade/how-it-works">
+    Understand the merge algorithm in detail
+  </Card>
+  <Card title="CLI Reference" href="/docs/reference/cli">
+    All upgrade command options
+  </Card>
+</Cards>
