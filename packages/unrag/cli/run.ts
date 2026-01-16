@@ -1,10 +1,25 @@
+import path from 'node:path'
+import {fileURLToPath} from 'node:url'
 import {intro, outro} from '@clack/prompts'
 import {addCommand} from './commands/add'
 import {debugCommand} from './commands/debug'
 import {doctorCommand} from './commands/doctor'
 import {initCommand} from './commands/init'
 import {upgradeCommand} from './commands/upgrade'
+import {readCliPackageVersion} from './lib/cliVersion'
 import {UNRAG_GITHUB_REPO_URL, docsUrl} from './lib/constants'
+import {findUp} from './lib/fs'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
+async function printVersion() {
+	const cliPackageRoot = await findUp(__dirname, 'package.json')
+	const version = cliPackageRoot
+		? await readCliPackageVersion(cliPackageRoot)
+		: 'unknown'
+	process.stdout.write(`${version}\n`)
+}
 
 function renderHelp() {
 	return [
@@ -77,6 +92,11 @@ function renderHelp() {
 
 export async function run(argv: string[]) {
 	const [, , command, ...rest] = argv
+
+	if (command === '--version' || command === '-v' || command === 'version') {
+		await printVersion()
+		return
+	}
 
 	intro('unrag')
 
