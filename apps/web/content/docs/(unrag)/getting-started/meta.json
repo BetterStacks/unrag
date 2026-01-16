@@ -1,13 +1,11 @@
 {
-  "title": "Getting Started",
-  "pages": [
-    "introduction",
-    "installation",
-    "supported-runtimes",
-    "database",
-    "quickstart",
-    "first-retrieval"
-  ]
+	"title": "Getting Started",
+	"pages": [
+		"introduction",
+		"installation",
+		"supported-runtimes",
+		"database",
+		"quickstart",
+		"first-retrieval"
+	]
 }
-
-

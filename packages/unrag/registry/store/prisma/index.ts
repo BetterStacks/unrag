@@ -1,3 +1,1 @@
-export { createPrismaVectorStore } from "@registry/store/prisma/store";
-
-
+export {createPrismaVectorStore} from '@registry/store/prisma/store'

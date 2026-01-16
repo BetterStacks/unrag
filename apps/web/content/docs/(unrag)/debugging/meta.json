@@ -1,21 +1,21 @@
 {
-    "title": "Debugging",
-    "badge": "Experimental",
-    "description": "Real-time debugging tools for RAG operations",
-    "pages": [
-        "index",
-        "getting-started",
-        "debug-events",
-        "best-practices",
-        "programmatic-api",
-        "---Panels---",
-        "panels/dashboard",
-        "panels/events",
-        "panels/traces",
-        "panels/query",
-        "panels/docs",
-        "panels/ingest",
-        "panels/doctor",
-        "panels/eval"
-    ]
+	"title": "Debugging",
+	"badge": "Experimental",
+	"description": "Real-time debugging tools for RAG operations",
+	"pages": [
+		"index",
+		"getting-started",
+		"debug-events",
+		"best-practices",
+		"programmatic-api",
+		"---Panels---",
+		"panels/dashboard",
+		"panels/events",
+		"panels/traces",
+		"panels/query",
+		"panels/docs",
+		"panels/ingest",
+		"panels/doctor",
+		"panels/eval"
+	]
 }

@@ -1,12 +1,10 @@
 {
-  "title": "Reference",
-  "pages": [
-    "cli",
-    "unrag-config",
-    "core-types",
-    "asset-processing",
-    "store-interface"
-  ]
+	"title": "Reference",
+	"pages": [
+		"cli",
+		"unrag-config",
+		"core-types",
+		"asset-processing",
+		"store-interface"
+	]
 }
-
-

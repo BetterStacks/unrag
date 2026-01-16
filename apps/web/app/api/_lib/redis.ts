@@ -1,4 +1,4 @@
-import { Redis } from "@upstash/redis";
+import {Redis} from '@upstash/redis'
 
 /**
  * Server-side Upstash Redis client (HTTP/REST).
@@ -7,6 +7,4 @@ import { Redis } from "@upstash/redis";
  * - UPSTASH_REDIS_REST_URL
  * - UPSTASH_REDIS_REST_TOKEN
  */
-export const redis = Redis.fromEnv();
-
-
+export const redis = Redis.fromEnv()

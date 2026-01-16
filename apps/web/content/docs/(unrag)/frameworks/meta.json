@@ -1,11 +1,4 @@
 {
-  "title": "Frameworks",
-  "pages": [
-    "nextjs",
-    "express",
-    "hono",
-    "node-scripts"
-  ]
+	"title": "Frameworks",
+	"pages": ["nextjs", "express", "hono", "node-scripts"]
 }
-
-

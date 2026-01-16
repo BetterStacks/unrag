@@ -9,55 +9,56 @@
  * when UNRAG_DEBUG=true.
  */
 
-import type { ContextEngine } from "@registry/core/context-engine";
-import type { DeleteInput } from "@registry/core/types";
+import type {ContextEngine} from '@registry/core/context-engine'
+import type {DeleteInput} from '@registry/core/types'
 import type {
-  DeleteChunksCommand,
-  GetDocumentCommand,
-  GetDocumentResult,
-  ListDocumentsCommand,
-  ListDocumentsResult,
-  StoreStatsResult,
-} from "@registry/debug/types";
+	DeleteChunksCommand,
+	GetDocumentCommand,
+	GetDocumentResult,
+	ListDocumentsCommand,
+	ListDocumentsResult,
+	StoreStatsResult
+} from '@registry/debug/types'
 
 export type StoreInspector = {
-  listDocuments: (
-    args: Pick<ListDocumentsCommand, "prefix" | "limit" | "offset">
-  ) => Promise<Omit<ListDocumentsResult, "type" | "success" | "error">>;
-  getDocument: (
-    args: Pick<GetDocumentCommand, "sourceId">
-  ) => Promise<Omit<GetDocumentResult, "type" | "success" | "error">>;
-  deleteDocument: (input: DeleteInput) => Promise<{ deletedCount?: number }>;
-  deleteChunks: (
-    args: Pick<DeleteChunksCommand, "chunkIds">
-  ) => Promise<{ deletedCount?: number }>;
-  storeStats: () => Promise<Omit<StoreStatsResult, "type" | "success" | "error">>;
-};
+	listDocuments: (
+		args: Pick<ListDocumentsCommand, 'prefix' | 'limit' | 'offset'>
+	) => Promise<Omit<ListDocumentsResult, 'type' | 'success' | 'error'>>
+	getDocument: (
+		args: Pick<GetDocumentCommand, 'sourceId'>
+	) => Promise<Omit<GetDocumentResult, 'type' | 'success' | 'error'>>
+	deleteDocument: (input: DeleteInput) => Promise<{deletedCount?: number}>
+	deleteChunks: (
+		args: Pick<DeleteChunksCommand, 'chunkIds'>
+	) => Promise<{deletedCount?: number}>
+	storeStats: () => Promise<
+		Omit<StoreStatsResult, 'type' | 'success' | 'error'>
+	>
+}
 
 export type UnragDebugRuntime = {
-  engine: ContextEngine;
-  storeInspector?: StoreInspector;
-  registeredAt: number;
-};
+	engine: ContextEngine
+	storeInspector?: StoreInspector
+	registeredAt: number
+}
 
-let globalRuntime: UnragDebugRuntime | null = null;
+let globalRuntime: UnragDebugRuntime | null = null
 
 export function registerUnragDebug(args: {
-  engine: ContextEngine;
-  storeInspector?: StoreInspector;
+	engine: ContextEngine
+	storeInspector?: StoreInspector
 }): void {
-  globalRuntime = {
-    engine: args.engine,
-    storeInspector: args.storeInspector,
-    registeredAt: Date.now(),
-  };
+	globalRuntime = {
+		engine: args.engine,
+		storeInspector: args.storeInspector,
+		registeredAt: Date.now()
+	}
 }
 
 export function getUnragDebugRuntime(): UnragDebugRuntime | null {
-  return globalRuntime;
+	return globalRuntime
 }
 
 export function resetUnragDebugRuntime(): void {
-  globalRuntime = null;
+	globalRuntime = null
 }
-

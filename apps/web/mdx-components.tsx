@@ -1,32 +1,32 @@
-import defaultMdxComponents from 'fumadocs-ui/mdx';
-import { Step, Steps } from 'fumadocs-ui/components/steps';
-import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
-import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
-import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
-import { File, Folder, Files } from 'fumadocs-ui/components/files';
-import { TypeTable } from 'fumadocs-ui/components/type-table';
-import { Banner } from 'fumadocs-ui/components/banner';
-import type { MDXComponents } from 'mdx/types';
-import { Mermaid } from './components/mdx/mermaid';
-import { PackageInstall } from './components/mdx/package-install';
+import defaultMdxComponents from 'fumadocs-ui/mdx'
+import {Step, Steps} from 'fumadocs-ui/components/steps'
+import {Tab, Tabs} from 'fumadocs-ui/components/tabs'
+import {ImageZoom} from 'fumadocs-ui/components/image-zoom'
+import {Accordion, Accordions} from 'fumadocs-ui/components/accordion'
+import {File, Folder, Files} from 'fumadocs-ui/components/files'
+import {TypeTable} from 'fumadocs-ui/components/type-table'
+import {Banner} from 'fumadocs-ui/components/banner'
+import type {MDXComponents} from 'mdx/types'
+import {Mermaid} from './components/mdx/mermaid'
+import {PackageInstall} from './components/mdx/package-install'
 
 export function getMDXComponents(components?: MDXComponents): MDXComponents {
-  return {
-    ...defaultMdxComponents,
-    Step,
-    Steps,
-    Tab,
-    Tabs,
-    Accordion,
-    Accordions,
-    File,
-    Folder,
-    Files,
-    TypeTable,
-    Banner,
-    Mermaid,
-    PackageInstall,
-    img: (props) => <ImageZoom {...(props as any)} />,
-    ...components,
-  };
+	return {
+		...defaultMdxComponents,
+		Step,
+		Steps,
+		Tab,
+		Tabs,
+		Accordion,
+		Accordions,
+		File,
+		Folder,
+		Files,
+		TypeTable,
+		Banner,
+		Mermaid,
+		PackageInstall,
+		img: (props) => <ImageZoom {...(props as any)} />,
+		...components
+	}
 }

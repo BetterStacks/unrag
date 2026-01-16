@@ -1,169 +1,180 @@
-import { defineConfig, resolveConfig } from "@registry/core/config";
-import { deleteDocuments } from "@registry/core/delete";
-import { ingest, planIngest } from "@registry/core/ingest";
-import { rerank } from "@registry/core/rerank";
-import { retrieve } from "@registry/core/retrieve";
-import { createAiEmbeddingProvider } from "@registry/embedding/ai";
-import { createOpenAiEmbeddingProvider } from "@registry/embedding/openai";
-import { createGoogleEmbeddingProvider } from "@registry/embedding/google";
-import { createOpenRouterEmbeddingProvider } from "@registry/embedding/openrouter";
-import { createAzureEmbeddingProvider } from "@registry/embedding/azure";
-import { createVertexEmbeddingProvider } from "@registry/embedding/vertex";
-import { createBedrockEmbeddingProvider } from "@registry/embedding/bedrock";
-import { createCohereEmbeddingProvider } from "@registry/embedding/cohere";
-import { createMistralEmbeddingProvider } from "@registry/embedding/mistral";
-import { createTogetherEmbeddingProvider } from "@registry/embedding/together";
-import { createOllamaEmbeddingProvider } from "@registry/embedding/ollama";
-import { createVoyageEmbeddingProvider } from "@registry/embedding/voyage";
+import {defineConfig, resolveConfig} from '@registry/core/config'
+import {deleteDocuments} from '@registry/core/delete'
+import {ingest, planIngest} from '@registry/core/ingest'
+import {rerank} from '@registry/core/rerank'
+import {retrieve} from '@registry/core/retrieve'
+import {createAiEmbeddingProvider} from '@registry/embedding/ai'
+import {createOpenAiEmbeddingProvider} from '@registry/embedding/openai'
+import {createGoogleEmbeddingProvider} from '@registry/embedding/google'
+import {createOpenRouterEmbeddingProvider} from '@registry/embedding/openrouter'
+import {createAzureEmbeddingProvider} from '@registry/embedding/azure'
+import {createVertexEmbeddingProvider} from '@registry/embedding/vertex'
+import {createBedrockEmbeddingProvider} from '@registry/embedding/bedrock'
+import {createCohereEmbeddingProvider} from '@registry/embedding/cohere'
+import {createMistralEmbeddingProvider} from '@registry/embedding/mistral'
+import {createTogetherEmbeddingProvider} from '@registry/embedding/together'
+import {createOllamaEmbeddingProvider} from '@registry/embedding/ollama'
+import {createVoyageEmbeddingProvider} from '@registry/embedding/voyage'
 import type {
-  AssetExtractor,
-  ContextEngineConfig,
-  DeleteInput,
-  DefineUnragConfigInput,
-  EmbeddingProvider,
-  IngestInput,
-  IngestResult,
-  IngestPlanResult,
-  RerankInput,
-  RerankResult,
-  ResolvedContextEngineConfig,
-  RetrieveInput,
-  RetrieveResult,
-  UnragCreateEngineRuntime,
-} from "@registry/core/types";
+	AssetExtractor,
+	ContextEngineConfig,
+	DeleteInput,
+	DefineUnragConfigInput,
+	EmbeddingProvider,
+	IngestInput,
+	IngestResult,
+	IngestPlanResult,
+	RerankInput,
+	RerankResult,
+	ResolvedContextEngineConfig,
+	RetrieveInput,
+	RetrieveResult,
+	UnragCreateEngineRuntime
+} from '@registry/core/types'
 
 export class ContextEngine {
-  private readonly config: ResolvedContextEngineConfig;
+	private readonly config: ResolvedContextEngineConfig
 
-  constructor(config: ContextEngineConfig) {
-    this.config = resolveConfig(config);
+	constructor(config: ContextEngineConfig) {
+		this.config = resolveConfig(config)
 
-    // Auto-start debug server when UNRAG_DEBUG=true
-    if (process.env.UNRAG_DEBUG === "true") {
-      this.initDebugServer();
-    }
-  }
+		// Auto-start debug server when UNRAG_DEBUG=true
+		if (process.env.UNRAG_DEBUG === 'true') {
+			this.initDebugServer()
+		}
+	}
 
-  /**
-   * Initialize the debug WebSocket server.
-   * This is done asynchronously to avoid blocking engine creation.
-   */
-  private initDebugServer(): void {
-    Promise.all([import("@registry/debug/server"), import("@registry/debug/runtime")])
-      .then(async ([{ startDebugServer }, { registerUnragDebug }]) => {
-        // Auto-register runtime so interactive TUI features (Query/Docs/Eval) work out of the box
-        // when the debug battery is installed.
-        try {
-          const storeInspector = (this.config.store as any)?.inspector;
-          registerUnragDebug({
-            engine: this,
-            ...(storeInspector ? { storeInspector } : {}),
-          });
-        } catch {
-          // Best effort only.
-        }
+	/**
+	 * Initialize the debug WebSocket server.
+	 * This is done asynchronously to avoid blocking engine creation.
+	 */
+	private initDebugServer(): void {
+		Promise.all([
+			import('@registry/debug/server'),
+			import('@registry/debug/runtime')
+		])
+			.then(async ([{startDebugServer}, {registerUnragDebug}]) => {
+				// Auto-register runtime so interactive TUI features (Query/Docs/Eval) work out of the box
+				// when the debug battery is installed.
+				try {
+					const storeInspector = (this.config.store as any)?.inspector
+					registerUnragDebug({
+						engine: this,
+						...(storeInspector ? {storeInspector} : {})
+					})
+				} catch {
+					// Best effort only.
+				}
 
-        startDebugServer().catch((err) => {
-          console.warn(
-            "[unrag:debug] Failed to start debug server:",
-            err instanceof Error ? err.message : String(err)
-          );
-        });
-      })
-      .catch(() => {
-        // Debug battery not installed - silently ignore
-      });
-  }
+				startDebugServer().catch((err) => {
+					console.warn(
+						'[unrag:debug] Failed to start debug server:',
+						err instanceof Error ? err.message : String(err)
+					)
+				})
+			})
+			.catch(() => {
+				// Debug battery not installed - silently ignore
+			})
+	}
 
-  async ingest(input: IngestInput): Promise<IngestResult> {
-    return ingest(this.config, input);
-  }
+	async ingest(input: IngestInput): Promise<IngestResult> {
+		return ingest(this.config, input)
+	}
 
-  /**
-   * Dry-run for ingestion. Returns which assets would be processed and by which extractors,
-   * without calling external services.
-   *
-   * Note: chunk counts/embeddings are not produced in dry-run.
-   */
-  async planIngest(input: IngestInput): Promise<IngestPlanResult> {
-    return planIngest(this.config, input);
-  }
+	/**
+	 * Dry-run for ingestion. Returns which assets would be processed and by which extractors,
+	 * without calling external services.
+	 *
+	 * Note: chunk counts/embeddings are not produced in dry-run.
+	 */
+	async planIngest(input: IngestInput): Promise<IngestPlanResult> {
+		return planIngest(this.config, input)
+	}
 
-  async retrieve(input: RetrieveInput): Promise<RetrieveResult> {
-    return retrieve(this.config, input);
-  }
+	async retrieve(input: RetrieveInput): Promise<RetrieveResult> {
+		return retrieve(this.config, input)
+	}
 
-  /**
-   * Rerank retrieved candidates using the configured reranker.
-   *
-   * This is an explicit second-stage ranking step that can improve precision
-   * by reordering candidates based on a more expensive relevance model.
-   *
-   * @example
-   * ```ts
-   * const retrieved = await engine.retrieve({ query, topK: 30 });
-   * const reranked = await engine.rerank({
-   *   query,
-   *   candidates: retrieved.chunks,
-   *   topK: 8,
-   * });
-   * ```
-   */
-  async rerank(input: RerankInput): Promise<RerankResult> {
-    return rerank(this.config, input);
-  }
+	/**
+	 * Rerank retrieved candidates using the configured reranker.
+	 *
+	 * This is an explicit second-stage ranking step that can improve precision
+	 * by reordering candidates based on a more expensive relevance model.
+	 *
+	 * @example
+	 * ```ts
+	 * const retrieved = await engine.retrieve({ query, topK: 30 });
+	 * const reranked = await engine.rerank({
+	 *   query,
+	 *   candidates: retrieved.chunks,
+	 *   topK: 8,
+	 * });
+	 * ```
+	 */
+	async rerank(input: RerankInput): Promise<RerankResult> {
+		return rerank(this.config, input)
+	}
 
-  async delete(input: DeleteInput): Promise<void> {
-    return deleteDocuments(this.config, input);
-  }
+	async delete(input: DeleteInput): Promise<void> {
+		return deleteDocuments(this.config, input)
+	}
 
-  /**
-   * Minimal, safe-to-expose debug info for the debug panel "Doctor" tab.
-   * Avoids leaking secrets while still enabling actionable diagnostics.
-   */
-  getDebugInfo(): {
-    embedding: {
-      name: string;
-      dimensions?: number;
-      supportsBatch: boolean;
-      supportsImage: boolean;
-    };
-    storage: {
-      storeChunkContent: boolean;
-      storeDocumentContent: boolean;
-    };
-    defaults: {
-      chunkSize: number;
-      chunkOverlap: number;
-    };
-    extractorsCount: number;
-    reranker?: { name: string };
-  } {
-    return {
-      embedding: {
-        name: this.config.embedding.name,
-        dimensions: this.config.embedding.dimensions,
-        supportsBatch: typeof this.config.embedding.embedMany === "function",
-        supportsImage: typeof this.config.embedding.embedImage === "function",
-      },
-      storage: {
-        storeChunkContent: Boolean(this.config.storage.storeChunkContent),
-        storeDocumentContent: Boolean(this.config.storage.storeDocumentContent),
-      },
-      defaults: {
-        chunkSize: this.config.defaults.chunkSize,
-        chunkOverlap: this.config.defaults.chunkOverlap,
-      },
-      extractorsCount: this.config.extractors.length,
-      reranker: this.config.reranker ? { name: this.config.reranker.name } : undefined,
-    };
-  }
+	/**
+	 * Minimal, safe-to-expose debug info for the debug panel "Doctor" tab.
+	 * Avoids leaking secrets while still enabling actionable diagnostics.
+	 */
+	getDebugInfo(): {
+		embedding: {
+			name: string
+			dimensions?: number
+			supportsBatch: boolean
+			supportsImage: boolean
+		}
+		storage: {
+			storeChunkContent: boolean
+			storeDocumentContent: boolean
+		}
+		defaults: {
+			chunkSize: number
+			chunkOverlap: number
+		}
+		extractorsCount: number
+		reranker?: {name: string}
+	} {
+		return {
+			embedding: {
+				name: this.config.embedding.name,
+				dimensions: this.config.embedding.dimensions,
+				supportsBatch:
+					typeof this.config.embedding.embedMany === 'function',
+				supportsImage:
+					typeof this.config.embedding.embedImage === 'function'
+			},
+			storage: {
+				storeChunkContent: Boolean(
+					this.config.storage.storeChunkContent
+				),
+				storeDocumentContent: Boolean(
+					this.config.storage.storeDocumentContent
+				)
+			},
+			defaults: {
+				chunkSize: this.config.defaults.chunkSize,
+				chunkOverlap: this.config.defaults.chunkOverlap
+			},
+			extractorsCount: this.config.extractors.length,
+			reranker: this.config.reranker
+				? {name: this.config.reranker.name}
+				: undefined
+		}
+	}
 }
 
 export const createContextEngine = (config: ContextEngineConfig) =>
-  new ContextEngine(config);
+	new ContextEngine(config)
 
-export { defineConfig };
+export {defineConfig}
 
 /**
  * Ergonomic, higher-level config wrapper.
@@ -171,108 +182,137 @@ export { defineConfig };
  * This helps keep `unrag.config.ts` as a single source of truth while still
  * allowing runtime wiring (DB client/store, optional extractors).
  */
-export const defineUnragConfig = <T extends DefineUnragConfigInput>(config: T) => {
-  let embeddingProvider: EmbeddingProvider | undefined;
+export const defineUnragConfig = <T extends DefineUnragConfigInput>(
+	config: T
+) => {
+	let embeddingProvider: EmbeddingProvider | undefined
 
-  const getEmbeddingProvider = () => {
-    if (embeddingProvider) return embeddingProvider;
+	const getEmbeddingProvider = () => {
+		if (embeddingProvider) return embeddingProvider
 
-    if (config.embedding.provider === "ai") {
-      embeddingProvider = createAiEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'ai') {
+			embeddingProvider = createAiEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    if (config.embedding.provider === "openai") {
-      embeddingProvider = createOpenAiEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'openai') {
+			embeddingProvider = createOpenAiEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    if (config.embedding.provider === "google") {
-      embeddingProvider = createGoogleEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'google') {
+			embeddingProvider = createGoogleEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    if (config.embedding.provider === "openrouter") {
-      embeddingProvider = createOpenRouterEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'openrouter') {
+			embeddingProvider = createOpenRouterEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    if (config.embedding.provider === "azure") {
-      embeddingProvider = createAzureEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'azure') {
+			embeddingProvider = createAzureEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    if (config.embedding.provider === "vertex") {
-      embeddingProvider = createVertexEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'vertex') {
+			embeddingProvider = createVertexEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    if (config.embedding.provider === "bedrock") {
-      embeddingProvider = createBedrockEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'bedrock') {
+			embeddingProvider = createBedrockEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    if (config.embedding.provider === "cohere") {
-      embeddingProvider = createCohereEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'cohere') {
+			embeddingProvider = createCohereEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    if (config.embedding.provider === "mistral") {
-      embeddingProvider = createMistralEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'mistral') {
+			embeddingProvider = createMistralEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    if (config.embedding.provider === "together") {
-      embeddingProvider = createTogetherEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'together') {
+			embeddingProvider = createTogetherEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    if (config.embedding.provider === "ollama") {
-      embeddingProvider = createOllamaEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'ollama') {
+			embeddingProvider = createOllamaEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    if (config.embedding.provider === "voyage") {
-      embeddingProvider = createVoyageEmbeddingProvider(config.embedding.config);
-      return embeddingProvider;
-    }
+		if (config.embedding.provider === 'voyage') {
+			embeddingProvider = createVoyageEmbeddingProvider(
+				config.embedding.config
+			)
+			return embeddingProvider
+		}
 
-    embeddingProvider = config.embedding.create();
-    return embeddingProvider;
-  };
+		embeddingProvider = config.embedding.create()
+		return embeddingProvider
+	}
 
-  const defaults = {
-    chunking: config.defaults?.chunking ?? {},
-    embedding: config.defaults?.embedding ?? {},
-    retrieval: {
-      topK: config.defaults?.retrieval?.topK ?? 8,
-    },
-  } as const;
+	const defaults = {
+		chunking: config.defaults?.chunking ?? {},
+		embedding: config.defaults?.embedding ?? {},
+		retrieval: {
+			topK: config.defaults?.retrieval?.topK ?? 8
+		}
+	} as const
 
-  const createEngineConfig = (runtime: UnragCreateEngineRuntime): ContextEngineConfig => {
-    const baseExtractors = (config.engine?.extractors ?? []) as AssetExtractor[];
-    const extractors =
-      typeof runtime.extractors === "function"
-        ? runtime.extractors(baseExtractors)
-        : runtime.extractors ?? baseExtractors;
+	const createEngineConfig = (
+		runtime: UnragCreateEngineRuntime
+	): ContextEngineConfig => {
+		const baseExtractors = (config.engine?.extractors ??
+			[]) as AssetExtractor[]
+		const extractors =
+			typeof runtime.extractors === 'function'
+				? runtime.extractors(baseExtractors)
+				: (runtime.extractors ?? baseExtractors)
 
-    return defineConfig({
-      ...(config.engine ?? {}),
-      defaults: defaults.chunking,
-      embeddingProcessing: {
-        ...(defaults.embedding ?? {}),
-        ...(config.engine?.embeddingProcessing ?? {}),
-      },
-      embedding: getEmbeddingProvider(),
-      store: runtime.store,
-      extractors,
-    });
-  };
+		return defineConfig({
+			...(config.engine ?? {}),
+			defaults: defaults.chunking,
+			embeddingProcessing: {
+				...(defaults.embedding ?? {}),
+				...(config.engine?.embeddingProcessing ?? {})
+			},
+			embedding: getEmbeddingProvider(),
+			store: runtime.store,
+			extractors
+		})
+	}
 
-  return {
-    defaults,
-    createEngineConfig,
-    createEngine: (runtime: UnragCreateEngineRuntime) =>
-      new ContextEngine(createEngineConfig(runtime)),
-  };
-};
+	return {
+		defaults,
+		createEngineConfig,
+		createEngine: (runtime: UnragCreateEngineRuntime) =>
+			new ContextEngine(createEngineConfig(runtime))
+	}
+}
