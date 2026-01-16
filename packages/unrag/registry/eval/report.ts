@@ -218,7 +218,7 @@ export async function readEvalReportFromFile(
 			`[unrag:eval] Invalid report JSON (${reportPath}): must be an object`
 		)
 	}
-	const r = json as any
+	const r = json as Record<string, unknown>
 	if (r.version !== '1') {
 		throw new Error(
 			`[unrag:eval] Unsupported report version (${reportPath}): ${String(r.version)}`
@@ -248,8 +248,14 @@ function quantile(sorted: number[], q: number): number {
 	const pos = (sorted.length - 1) * q
 	const base = Math.floor(pos)
 	const rest = pos - base
-	const a = sorted[base]!
-	const b = sorted[Math.min(base + 1, sorted.length - 1)]!
+	const a = sorted[base]
+	if (a === undefined) {
+		return 0
+	}
+	const b = sorted[Math.min(base + 1, sorted.length - 1)]
+	if (b === undefined) {
+		return a
+	}
 	return a + rest * (b - a)
 }
 

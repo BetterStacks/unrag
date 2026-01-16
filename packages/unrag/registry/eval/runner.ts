@@ -282,7 +282,8 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
 				if (mode !== 'retrieve+rerank') {
 					return {}
 				}
-				const rerankTopK = args.rerankTopK ?? dataset.defaults.rerankTopK
+				const rerankTopK =
+					args.rerankTopK ?? dataset.defaults.rerankTopK
 				if (rerankTopK === undefined) {
 					return {}
 				}

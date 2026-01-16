@@ -58,8 +58,8 @@ function inferOpName(e: DebugEvent): string {
 }
 
 function inferLabel(opName: string, events: DebugEvent[]): string {
-	const byType = (type: string) =>
-		events.find((e) => e.type === type) as any | undefined
+	const byType = <T extends DebugEvent['type']>(type: T) =>
+		events.find((e): e is Extract<DebugEvent, {type: T}> => e.type === type)
 
 	if (opName === 'ingest') {
 		const start = byType('ingest:start')
@@ -91,23 +91,15 @@ function computeStages(
 	opName: string,
 	events: DebugEvent[]
 ): {totalMs?: number; stages: Stage[]} {
-	const find = (type: string) =>
-		events.find((e) => e.type === type) as any | undefined
+	const find = <T extends DebugEvent['type']>(type: T) =>
+		events.find((e): e is Extract<DebugEvent, {type: T}> => e.type === type)
 	const stages: Stage[] = []
 
 	if (opName === 'ingest') {
-		const chunking = find('ingest:chunking-complete')?.durationMs as
-			| number
-			| undefined
-		const embedding = find('ingest:embedding-complete')?.durationMs as
-			| number
-			| undefined
-		const storage = find('ingest:storage-complete')?.durationMs as
-			| number
-			| undefined
-		const total = find('ingest:complete')?.totalDurationMs as
-			| number
-			| undefined
+		const chunking = find('ingest:chunking-complete')?.durationMs
+		const embedding = find('ingest:embedding-complete')?.durationMs
+		const storage = find('ingest:storage-complete')?.durationMs
+		const total = find('ingest:complete')?.totalDurationMs
 
 		if (typeof chunking === 'number') {
 			stages.push({
@@ -138,9 +130,9 @@ function computeStages(
 
 	if (opName === 'retrieve') {
 		const complete = find('retrieve:complete')
-		const total = complete?.totalDurationMs as number | undefined
-		const embedding = complete?.embeddingMs as number | undefined
-		const retrieval = complete?.retrievalMs as number | undefined
+		const total = complete?.totalDurationMs
+		const embedding = complete?.embeddingMs
+		const retrieval = complete?.retrievalMs
 		if (typeof embedding === 'number') {
 			stages.push({
 				id: 'embedding',
@@ -162,8 +154,8 @@ function computeStages(
 
 	if (opName === 'rerank') {
 		const complete = find('rerank:complete')
-		const total = complete?.totalMs as number | undefined
-		const rerankMs = complete?.rerankMs as number | undefined
+		const total = complete?.totalMs
+		const rerankMs = complete?.rerankMs
 		if (typeof rerankMs === 'number') {
 			stages.push({
 				id: 'rerank',
@@ -177,7 +169,7 @@ function computeStages(
 
 	if (opName === 'delete') {
 		const complete = find('delete:complete')
-		const total = complete?.durationMs as number | undefined
+		const total = complete?.durationMs
 		if (typeof total === 'number') {
 			stages.push({
 				id: 'delete',
@@ -207,8 +199,12 @@ function computeTraces(events: DebugEvent[]): Trace[] {
 	const traces: Trace[] = []
 	for (const [opId, evs] of map) {
 		evs.sort((a, b) => a.timestamp - b.timestamp)
-		const startAt = evs[0]?.timestamp ?? 0
-		const opName = inferOpName(evs[0] ?? ({} as any))
+		const first = evs[0]
+		if (!first) {
+			continue
+		}
+		const startAt = first.timestamp
+		const opName = inferOpName(first)
 		const {totalMs, stages} = computeStages(opName, evs)
 		const hasError = evs.some((e) => e.type.includes('error'))
 		traces.push({

@@ -89,6 +89,22 @@ export function ScrollableText({
 	while (padded.length < contentLines) {
 		padded.push('')
 	}
+	const keyedPadded = (() => {
+		const counts = new Map<string, number>()
+		return padded.map((line) => {
+			const n = counts.get(line) ?? 0
+			counts.set(line, n + 1)
+			return {line, key: `${line}:${n}`}
+		})
+	})()
+	const padKeys = useMemo(
+		() =>
+			Array.from(
+				{length: Math.max(0, safeHeight - 1)},
+				(_, idx) => `pad-${idx}`
+			),
+		[safeHeight]
+	)
 
 	const statusLine = (() => {
 		if (!showStatusLine) {
@@ -111,15 +127,15 @@ export function ScrollableText({
 						<Text color={theme.muted}>
 							{truncate(placeholder, safeWidth)}
 						</Text>
-						{Array.from({length: safeHeight - 1}).map((_, i) => (
-							<Text key={`pad-${i}`} color={theme.muted}>
+						{padKeys.map((k) => (
+							<Text key={k} color={theme.muted}>
 								{' '}
 							</Text>
 						))}
 					</>
 				) : (
-					padded.map((line, i) => (
-						<Text key={`line-${i}`} color={theme.fg}>
+					keyedPadded.map(({line, key}) => (
+						<Text key={key} color={theme.fg}>
 							{truncate(line, safeWidth).padEnd(safeWidth)}
 						</Text>
 					))

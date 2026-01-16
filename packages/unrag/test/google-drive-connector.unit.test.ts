@@ -7,8 +7,8 @@ import {
 	classifyDriveMimeType,
 	getNativeExportPlan
 } from '@registry/connectors/google-drive/mime'
-import type {GoogleDriveAuth} from '@registry/connectors/google-drive/types'
 import {buildGoogleDriveFileIngestInput} from '@registry/connectors/google-drive/sync'
+import type {GoogleDriveAuth} from '@registry/connectors/google-drive/types'
 
 describe('google-drive connector: mime routing', () => {
 	test('classifyDriveMimeType recognizes folders and google-native types', () => {
@@ -89,15 +89,18 @@ describe('google-drive connector: auth normalization', () => {
 	test('oauth: accepts oauthClient escape hatch', () => {
 		const dummy = {any: 'thing'}
 		expect(
-			normalizeGoogleDriveAuth(
-				{kind: 'oauth', oauthClient: dummy} as unknown as GoogleDriveAuth
-			)
+			normalizeGoogleDriveAuth({
+				kind: 'oauth',
+				oauthClient: dummy
+			} as unknown as GoogleDriveAuth)
 		).toEqual({kind: 'oauth_client', oauthClient: dummy})
 	})
 
 	test('oauth: validates required config fields', () => {
 		expect(() =>
-			normalizeGoogleDriveAuth({kind: 'oauth'} as unknown as GoogleDriveAuth)
+			normalizeGoogleDriveAuth({
+				kind: 'oauth'
+			} as unknown as GoogleDriveAuth)
 		).toThrow()
 
 		expect(
@@ -143,14 +146,15 @@ describe('google-drive connector: auth normalization', () => {
 
 	test('google_auth: requires auth instance', () => {
 		expect(() =>
-			normalizeGoogleDriveAuth(
-				{kind: 'google_auth'} as unknown as GoogleDriveAuth
-			)
+			normalizeGoogleDriveAuth({
+				kind: 'google_auth'
+			} as unknown as GoogleDriveAuth)
 		).toThrow()
 		expect(
-			normalizeGoogleDriveAuth(
-				{kind: 'google_auth', auth: {x: 1}} as unknown as GoogleDriveAuth
-			)
+			normalizeGoogleDriveAuth({
+				kind: 'google_auth',
+				auth: {x: 1}
+			} as unknown as GoogleDriveAuth)
 		).toEqual({kind: 'google_auth', auth: {x: 1}})
 	})
 })

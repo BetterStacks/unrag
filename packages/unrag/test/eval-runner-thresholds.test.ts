@@ -199,7 +199,8 @@ describe('eval runner thresholds', () => {
 					input && typeof input === 'object'
 						? (input as Record<string, unknown>).topK
 						: undefined
-				observedRerankTopK = typeof rerankTopK === 'number' ? rerankTopK : null
+				observedRerankTopK =
+					typeof rerankTopK === 'number' ? rerankTopK : null
 				return {
 					chunks: [candidates[4], candidates[0]].filter(Boolean), // promote relevant
 					ranking: [],

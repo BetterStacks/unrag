@@ -35,7 +35,11 @@ function downsample(
 	const out: string[] = []
 	const yf = Math.max(1, yFactor)
 	for (let y = 0; y < lines.length; y += yf) {
-		out.push(downsampleLine(lines[y]!, xFactor))
+		const line = lines[y]
+		if (line === undefined) {
+			continue
+		}
+		out.push(downsampleLine(line, xFactor))
 	}
 	return out
 }
@@ -152,12 +156,19 @@ export function Logo({columns, rows}: LogoProps) {
 
 	return (
 		<Box flexDirection="column">
-			{lines.map((line, idx) => (
-				<Text key={idx}>
-					{' '.repeat(leftPad)}
-					{renderPixels(line, accentHex)}
-				</Text>
-			))}
+			{(() => {
+				const counts = new Map<string, number>()
+				return lines.map((line) => {
+					const n = counts.get(line) ?? 0
+					counts.set(line, n + 1)
+					return (
+						<Text key={`${line}:${n}`}>
+							{' '.repeat(leftPad)}
+							{renderPixels(line, accentHex)}
+						</Text>
+					)
+				})
+			})()}
 		</Box>
 	)
 }

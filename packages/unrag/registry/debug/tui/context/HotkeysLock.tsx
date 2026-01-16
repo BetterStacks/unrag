@@ -38,7 +38,7 @@ export function HotkeysLockProvider({children}: {children: React.ReactNode}) {
 
 	const value = useMemo<HotkeysLockContextValue>(() => {
 		return {locked: locksRef.current.size > 0, acquire}
-	}, [acquire, locksRef.current.size])
+	}, [acquire])
 
 	return (
 		<HotkeysLockContext.Provider value={value}>

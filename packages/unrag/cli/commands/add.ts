@@ -48,15 +48,25 @@ const writeTextFile = async (absPath: string, content: string) => {
 	await writeFile(absPath, content, 'utf8')
 }
 
+const _ensureObject = (obj: Record<string, unknown>, key: string) => {
+	const existing = obj[key]
+	if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
+		return existing as Record<string, unknown>
+	}
+	const next: Record<string, unknown> = {}
+	obj[key] = next
+	return next
+}
+
 const renderObjectLiteral = (
-	value: Record<string, any>,
+	value: Record<string, unknown>,
 	indent: number
 ): string => {
 	const pad = ' '.repeat(indent)
 	const inner = Object.entries(value)
 		.map(([key, val]) => {
 			if (val && typeof val === 'object' && !Array.isArray(val)) {
-				return `${pad}${key}: ${renderObjectLiteral(val, indent + 2)},`
+				return `${pad}${key}: ${renderObjectLiteral(val as Record<string, unknown>, indent + 2)},`
 			}
 			return `${pad}${key}: ${JSON.stringify(val)},`
 		})
@@ -192,46 +202,46 @@ async function patchUnragConfig(args: {
 
 		// 3. Add/merge minimal assetProcessing override
 		if (allFlagKeys.length > 0) {
-			const minimalOverrides: Record<string, any> = {}
+			const minimalOverrides: Record<string, unknown> = {}
 
 			for (const flagKey of allFlagKeys) {
 				// Map short flag keys to nested paths
 				if (flagKey === 'pdf_textLayer') {
-					minimalOverrides.pdf = minimalOverrides.pdf || {}
-					minimalOverrides.pdf.textLayer = {enabled: true}
+					const pdf = _ensureObject(minimalOverrides, 'pdf')
+					pdf.textLayer = {enabled: true}
 				} else if (flagKey === 'pdf_llmExtraction') {
-					minimalOverrides.pdf = minimalOverrides.pdf || {}
-					minimalOverrides.pdf.llmExtraction = {enabled: true}
+					const pdf = _ensureObject(minimalOverrides, 'pdf')
+					pdf.llmExtraction = {enabled: true}
 				} else if (flagKey === 'pdf_ocr') {
-					minimalOverrides.pdf = minimalOverrides.pdf || {}
-					minimalOverrides.pdf.ocr = {enabled: true}
+					const pdf = _ensureObject(minimalOverrides, 'pdf')
+					pdf.ocr = {enabled: true}
 				} else if (flagKey === 'image_ocr') {
-					minimalOverrides.image = minimalOverrides.image || {}
-					minimalOverrides.image.ocr = {enabled: true}
+					const image = _ensureObject(minimalOverrides, 'image')
+					image.ocr = {enabled: true}
 				} else if (flagKey === 'image_captionLlm') {
-					minimalOverrides.image = minimalOverrides.image || {}
-					minimalOverrides.image.captionLlm = {enabled: true}
+					const image = _ensureObject(minimalOverrides, 'image')
+					image.captionLlm = {enabled: true}
 				} else if (flagKey === 'audio_transcription') {
-					minimalOverrides.audio = minimalOverrides.audio || {}
-					minimalOverrides.audio.transcription = {enabled: true}
+					const audio = _ensureObject(minimalOverrides, 'audio')
+					audio.transcription = {enabled: true}
 				} else if (flagKey === 'video_transcription') {
-					minimalOverrides.video = minimalOverrides.video || {}
-					minimalOverrides.video.transcription = {enabled: true}
+					const video = _ensureObject(minimalOverrides, 'video')
+					video.transcription = {enabled: true}
 				} else if (flagKey === 'video_frames') {
-					minimalOverrides.video = minimalOverrides.video || {}
-					minimalOverrides.video.frames = {enabled: true}
+					const video = _ensureObject(minimalOverrides, 'video')
+					video.frames = {enabled: true}
 				} else if (flagKey === 'file_text') {
-					minimalOverrides.file = minimalOverrides.file || {}
-					minimalOverrides.file.text = {enabled: true}
+					const file = _ensureObject(minimalOverrides, 'file')
+					file.text = {enabled: true}
 				} else if (flagKey === 'file_docx') {
-					minimalOverrides.file = minimalOverrides.file || {}
-					minimalOverrides.file.docx = {enabled: true}
+					const file = _ensureObject(minimalOverrides, 'file')
+					file.docx = {enabled: true}
 				} else if (flagKey === 'file_pptx') {
-					minimalOverrides.file = minimalOverrides.file || {}
-					minimalOverrides.file.pptx = {enabled: true}
+					const file = _ensureObject(minimalOverrides, 'file')
+					file.pptx = {enabled: true}
 				} else if (flagKey === 'file_xlsx') {
-					minimalOverrides.file = minimalOverrides.file || {}
-					minimalOverrides.file.xlsx = {enabled: true}
+					const file = _ensureObject(minimalOverrides, 'file')
+					file.xlsx = {enabled: true}
 				}
 			}
 
@@ -403,7 +413,10 @@ const addPackageJsonScripts = async (args: {
 					return {added: [], kept: Object.keys(desired)}
 				}
 				const nextName = String(newName).trim()
-				const value = toAdd[scriptName]!
+				const value = toAdd[scriptName]
+				if (value === undefined) {
+					continue
+				}
 				delete toAdd[scriptName]
 				toAdd[nextName] = value
 			}

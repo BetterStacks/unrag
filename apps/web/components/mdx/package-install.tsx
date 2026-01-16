@@ -52,6 +52,7 @@ export function PackageInstall(props: {pkg: string; installCmd?: string}) {
 						viewBox="0 0 24 24"
 						stroke="currentColor"
 					>
+						<title>Copied</title>
 						<path
 							strokeLinecap="round"
 							strokeLinejoin="round"
@@ -66,6 +67,7 @@ export function PackageInstall(props: {pkg: string; installCmd?: string}) {
 						viewBox="0 0 24 24"
 						stroke="currentColor"
 					>
+						<title>Copy</title>
 						<path
 							strokeLinecap="round"
 							strokeLinejoin="round"

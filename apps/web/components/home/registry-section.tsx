@@ -208,7 +208,10 @@ type RegistryManifest = {
 	}>
 }
 
-const connectorLogoById: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
+const connectorLogoById: Record<
+	string,
+	ComponentType<SVGProps<SVGSVGElement>>
+> = {
 	notion: Notion,
 	'google-drive': GoogleDrive,
 	github: GitHubDark,

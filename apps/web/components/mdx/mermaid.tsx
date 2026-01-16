@@ -15,11 +15,24 @@ type MermaidModule = {
 let mermaidPromise: Promise<MermaidModule> | null = null
 let mermaidInitialized = false
 
+function isMermaidModule(x: unknown): x is MermaidModule {
+	if (!x) {
+		return false
+	}
+	const o = x as {initialize?: unknown; render?: unknown}
+	return typeof o.initialize === 'function' && typeof o.render === 'function'
+}
+
 async function getMermaid(): Promise<MermaidModule> {
 	if (!mermaidPromise) {
-		mermaidPromise = import('mermaid').then(
-			(m) => (m as any).default ?? (m as any)
-		)
+		mermaidPromise = import('mermaid').then((m: unknown) => {
+			const mod = m as {default?: unknown}
+			const candidate = mod.default ?? m
+			if (!isMermaidModule(candidate)) {
+				throw new Error('Failed to load Mermaid module')
+			}
+			return candidate
+		})
 	}
 	const mermaid = await mermaidPromise
 
@@ -93,17 +106,19 @@ export function Mermaid({
 	}, [mermaidId, normalizedChart])
 
 	useEffect(() => {
-		if (!svg) {
-			return
-		}
-		if (!bind) {
-			return
-		}
 		const el = containerRef.current
 		if (!el) {
 			return
 		}
-		bind(el)
+		if (!svg) {
+			el.replaceChildren()
+			return
+		}
+		// Mermaid returns an SVG string. `securityLevel: 'strict'` is set during initialization.
+		el.innerHTML = svg
+		if (bind) {
+			bind(el)
+		}
 	}, [svg, bind])
 
 	if (error) {
@@ -138,7 +153,6 @@ export function Mermaid({
 					<div
 						ref={containerRef}
 						className="flex justify-center [&>svg]:h-auto [&>svg]:max-w-full"
-						dangerouslySetInnerHTML={{__html: svg}}
 					/>
 				) : (
 					<div className="text-sm text-[var(--color-fd-muted-foreground)]">

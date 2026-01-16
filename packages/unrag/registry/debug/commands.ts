@@ -309,7 +309,9 @@ async function handleDoctor(
 		NonNullable<NonNullable<DoctorResult['info']>['runtime']>['engineInfo']
 	>
 	let engineInfo: DoctorEngineInfo | undefined
-	const engine = rt?.engine as unknown as {getDebugInfo?: () => unknown} | undefined
+	const engine = rt?.engine as unknown as
+		| {getDebugInfo?: () => unknown}
+		| undefined
 	if (engine && typeof engine.getDebugInfo === 'function') {
 		const raw = engine.getDebugInfo()
 		if (raw && typeof raw === 'object') {
@@ -320,7 +322,10 @@ async function handleDoctor(
 					supportsBatch: boolean
 					supportsImage: boolean
 				}
-				storage: {storeChunkContent: boolean; storeDocumentContent: boolean}
+				storage: {
+					storeChunkContent: boolean
+					storeDocumentContent: boolean
+				}
 				defaults: {chunkSize: number; chunkOverlap: number}
 				extractorsCount: number
 				reranker?: {name: string}
@@ -361,7 +366,9 @@ async function handleDoctor(
 				id: 'engine.reranker',
 				label: 'Reranker configured',
 				status: info.reranker ? 'ok' : 'warn',
-				detail: info.reranker ? `reranker=${info.reranker.name}` : 'no reranker',
+				detail: info.reranker
+					? `reranker=${info.reranker.name}`
+					: 'no reranker',
 				fix: info.reranker
 					? undefined
 					: 'Install and wire the reranker battery: `unrag add battery reranker`, then set `engine.reranker` in config.'
@@ -518,10 +525,9 @@ async function handleIngest(command: {
 					error: 'Unable to read files in this runtime.'
 				}
 			}
-			content = await (readFile as (p: string, enc: string) => Promise<string>)(
-				contentPath,
-				'utf8'
-			)
+			content = await (
+				readFile as (p: string, enc: string) => Promise<string>
+			)(contentPath, 'utf8')
 
 			const maxBytes = 5 * 1024 * 1024
 			if (Buffer.byteLength(content, 'utf8') > maxBytes) {
@@ -565,12 +571,16 @@ async function handleIngest(command: {
 			durations: res.durations,
 			warnings: (res.warnings ?? []).map((w: unknown) => {
 				const warn =
-					w && typeof w === 'object' ? (w as Record<string, unknown>) : {}
+					w && typeof w === 'object'
+						? (w as Record<string, unknown>)
+						: {}
 				return {
 					code: String(warn.code ?? 'unknown'),
 					message: String(warn.message ?? ''),
 					assetId: warn.assetId ? String(warn.assetId) : undefined,
-					assetKind: warn.assetKind ? String(warn.assetKind) : undefined,
+					assetKind: warn.assetKind
+						? String(warn.assetKind)
+						: undefined,
 					stage: warn.stage ? String(warn.stage) : undefined
 				}
 			})

@@ -72,8 +72,8 @@ export function HelpOverlay({onClose}: HelpOverlayProps) {
 						<Text color={theme.fg} bold>
 							{group.section}
 						</Text>
-						{group.items.map((s, i) => (
-							<Box key={i}>
+						{group.items.map((s) => (
+							<Box key={`${group.section}:${s.keys}`}>
 								<Text
 									backgroundColor={theme.border}
 									color={theme.fg}

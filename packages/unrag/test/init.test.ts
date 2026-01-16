@@ -167,7 +167,9 @@ describe('unrag@latest init', () => {
 			'--no-install'
 		])
 
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		expect(tsconfig.compilerOptions.baseUrl).toBe('.')
 		expect(tsconfig.compilerOptions.paths['@unrag/*']).toEqual([
 			'./lib/unrag/*'
@@ -195,7 +197,9 @@ describe('unrag@latest init', () => {
 			'--no-install'
 		])
 
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		expect(tsconfig.compilerOptions.baseUrl).toBe('.')
 		expect(tsconfig.compilerOptions.paths['@unrag/*']).toEqual([
 			'./lib/unrag/*'
@@ -233,7 +237,9 @@ describe('unrag@latest init', () => {
 			'--no-install'
 		])
 
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		expect(tsconfig.compilerOptions.baseUrl).toBe('.')
 		expect(tsconfig.compilerOptions.paths['@/*']).toEqual(['./*'])
 		expect(tsconfig.compilerOptions.paths['@unrag/*']).toEqual([
@@ -274,7 +280,9 @@ describe('unrag@latest init', () => {
 			'--no-install'
 		])
 
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		expect(tsconfig.compilerOptions.paths['@rag/*']).toEqual([
 			'./lib/unrag/*'
 		])
@@ -398,7 +406,9 @@ describe('unrag@latest init', () => {
 		expect(pdfTextLayer).not.toContain('@registry/')
 		expect(pdfTextLayer).toContain('from "@unrag/')
 
-		const unragJson = await readJson<UnragJson>(path.join(runDir, 'unrag.json'))
+		const unragJson = await readJson<UnragJson>(
+			path.join(runDir, 'unrag.json')
+		)
 		expect(unragJson.extractors).toEqual(['file-text', 'pdf-text-layer'])
 
 		const pkg = await readJson<{
@@ -526,10 +536,14 @@ describe('unrag@latest init', () => {
 			await pathExists(path.join(runDir, 'scripts/unrag-eval.ts'))
 		).toBe(true)
 
-		const unragJson = await readJson<UnragJson>(path.join(runDir, 'unrag.json'))
+		const unragJson = await readJson<UnragJson>(
+			path.join(runDir, 'unrag.json')
+		)
 		expect(unragJson.batteries).toEqual(['eval'])
 
-		const pkg = await readJson<PackageJson>(path.join(runDir, 'package.json'))
+		const pkg = await readJson<PackageJson>(
+			path.join(runDir, 'package.json')
+		)
 		expect(pkg.scripts?.['unrag:eval']).toBeTruthy()
 		expect(pkg.scripts?.['unrag:eval:ci']).toBeTruthy()
 	})
@@ -580,7 +594,9 @@ describe('unrag init - TypeScript import alias (non-Next.js)', () => {
 			'--no-install'
 		])
 
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		expect(tsconfig.compilerOptions.baseUrl).toBe('.')
 		expect(tsconfig.compilerOptions.paths['@unrag/*']).toEqual([
 			'./lib/unrag/*'
@@ -612,7 +628,9 @@ describe('unrag init - TypeScript import alias (non-Next.js)', () => {
 		])
 
 		expect(await pathExists(path.join(runDir, 'tsconfig.json'))).toBe(true)
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		expect(tsconfig.compilerOptions.baseUrl).toBe('.')
 		expect(tsconfig.compilerOptions.paths['@unrag/*']).toEqual([
 			'./lib/unrag/*'
@@ -655,7 +673,9 @@ describe('unrag init - TypeScript import alias (non-Next.js)', () => {
 			'--no-install'
 		])
 
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		// Existing paths preserved
 		expect(tsconfig.compilerOptions.paths['@/*']).toEqual(['./src/*'])
 		expect(tsconfig.compilerOptions.paths['@utils/*']).toEqual([
@@ -693,7 +713,9 @@ describe('unrag init - TypeScript import alias (non-Next.js)', () => {
 			'--no-install'
 		])
 
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		expect(tsconfig.compilerOptions.paths['@unrag/*']).toEqual([
 			'./src/lib/rag/*'
 		])
@@ -722,7 +744,9 @@ describe('unrag init - TypeScript import alias (non-Next.js)', () => {
 			'--no-install'
 		])
 
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		expect(tsconfig.compilerOptions.paths['@myrag/*']).toEqual([
 			'./lib/unrag/*'
 		])
@@ -792,7 +816,9 @@ describe('unrag init - TypeScript import alias (non-Next.js)', () => {
 			'--no-install'
 		])
 
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		expect(tsconfig.compilerOptions.baseUrl).toBe('.')
 		expect(tsconfig.compilerOptions.paths['@unrag/*']).toEqual([
 			'./lib/unrag/*'
@@ -826,7 +852,9 @@ describe('unrag init - TypeScript import alias (non-Next.js)', () => {
 			'--no-install'
 		])
 
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		expect(tsconfig.compilerOptions.baseUrl).toBe('.')
 		expect(tsconfig.compilerOptions.paths['@unrag/*']).toEqual([
 			'./lib/unrag/*'
@@ -853,7 +881,9 @@ describe('unrag init - TypeScript import alias (non-Next.js)', () => {
 
 		// Should create tsconfig and patch it
 		expect(await pathExists(path.join(runDir, 'tsconfig.json'))).toBe(true)
-		const tsconfig = await readJson<TsConfigJson>(path.join(runDir, 'tsconfig.json'))
+		const tsconfig = await readJson<TsConfigJson>(
+			path.join(runDir, 'tsconfig.json')
+		)
 		expect(tsconfig.compilerOptions.paths['@unrag/*']).toEqual([
 			'./lib/unrag/*'
 		])

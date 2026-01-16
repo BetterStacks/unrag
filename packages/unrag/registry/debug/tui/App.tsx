@@ -41,6 +41,17 @@ type AppProps = {
 	url?: string
 }
 
+const TABS: Tab[] = [
+	'dashboard',
+	'events',
+	'traces',
+	'query',
+	'docs',
+	'ingest',
+	'doctor',
+	'eval'
+]
+
 export function App({url}: AppProps) {
 	const [activeTab, setActiveTab] = useState<Tab>('dashboard')
 	const [showHelp, setShowHelp] = useState(false)
@@ -51,26 +62,14 @@ export function App({url}: AppProps) {
 	const connection = useConnection(url)
 	const events = useEvents(connection)
 
-	// Tab navigation
-	const tabs: Tab[] = [
-		'dashboard',
-		'events',
-		'traces',
-		'query',
-		'docs',
-		'ingest',
-		'doctor',
-		'eval'
-	]
-
 	const cycleTab = useCallback(
 		(direction: 1 | -1) => {
-			const currentIndex = tabs.indexOf(activeTab)
+			const currentIndex = TABS.indexOf(activeTab)
 			const newIndex =
-				(currentIndex + direction + tabs.length) % tabs.length
-			setActiveTab(tabs[newIndex] ?? 'dashboard')
+				(currentIndex + direction + TABS.length) % TABS.length
+			setActiveTab(TABS[newIndex] ?? 'dashboard')
 		},
-		[activeTab, tabs]
+		[activeTab]
 	)
 
 	// Keyboard handling
@@ -202,7 +201,10 @@ export function runDebugTui(options?: RunOptions) {
 	// Best-effort: ensure raw mode is enabled so single-key shortcuts (e.g. `q`) work.
 	// Some runtimes/launchers can leave stdin in cooked mode, which causes Ink to only
 	// receive input after Enter and makes keys echo on screen.
-	const stdin = process.stdin as any
+	type StdinLike = NodeJS.ReadStream & {
+		setRawMode?: (enabled: boolean) => void
+	}
+	const stdin = process.stdin as StdinLike
 	try {
 		if (stdin?.isTTY && typeof stdin.setRawMode === 'function') {
 			stdin.setRawMode(true)

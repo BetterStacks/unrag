@@ -297,7 +297,7 @@ export function Ingest({connection}: IngestProps) {
 		if (hasWarnings) {
 			setWarningsScrollTop(0)
 		}
-	}, [hasWarnings, out?.warnings?.length])
+	}, [hasWarnings])
 
 	const detailsHeight = Math.max(6, Math.min(14, rows - 18))
 	const detailsWidth = Math.max(30, columns - 8)

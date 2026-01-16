@@ -196,13 +196,13 @@ export const createPrismaVectorStore = (
 				embeddings_count: unknown
 				embedding_dimension: unknown
 			}>
-			const row = rows[0] ?? ({} as any)
-			const documentsCount = Number(row.documents_count ?? 0)
-			const chunksCount = Number(row.chunks_count ?? 0)
-			const embeddingsCount = Number(row.embeddings_count ?? 0)
+			const row = rows[0]
+			const documentsCount = Number(row?.documents_count ?? 0)
+			const chunksCount = Number(row?.chunks_count ?? 0)
+			const embeddingsCount = Number(row?.embeddings_count ?? 0)
 			const embeddingDimension =
-				row.embedding_dimension === null ||
-				row.embedding_dimension === undefined
+				row?.embedding_dimension === null ||
+				row?.embedding_dimension === undefined
 					? undefined
 					: Number(row.embedding_dimension)
 			return {
@@ -226,7 +226,10 @@ export const createPrismaVectorStore = (
 				throw new Error('upsert() requires at least one chunk')
 			}
 
-			const head = chunkItems[0]!
+			const head = chunkItems[0]
+			if (!head) {
+				throw new Error('upsert() requires at least one chunk')
+			}
 			const documentMetadata = sanitizeMetadata(head.metadata)
 
 			return await prisma.$transaction(

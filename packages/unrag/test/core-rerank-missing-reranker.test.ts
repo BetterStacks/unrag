@@ -26,14 +26,15 @@ const createCandidates = (texts: string[]): RerankCandidate[] =>
 const createConfigWithoutReranker = (): ResolvedContextEngineConfig =>
 	({
 		reranker: undefined,
-		embedding: {} as any,
-		store: {} as any,
+		embedding: {} as unknown as ResolvedContextEngineConfig['embedding'],
+		store: {} as unknown as ResolvedContextEngineConfig['store'],
 		defaults: {chunkSize: 200, chunkOverlap: 40},
 		chunker: () => [],
 		idGenerator: () => crypto.randomUUID(),
 		extractors: [],
 		storage: {storeChunkContent: true, storeDocumentContent: true},
-		assetProcessing: {} as any,
+		assetProcessing:
+			{} as unknown as ResolvedContextEngineConfig['assetProcessing'],
 		embeddingProcessing: {concurrency: 4, batchSize: 32}
 	}) as ResolvedContextEngineConfig
 

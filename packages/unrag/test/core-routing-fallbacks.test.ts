@@ -3,6 +3,7 @@ import {defaultAssetProcessingConfig} from '@registry/core/config'
 import {ingest} from '@registry/core/ingest'
 import type {
 	AssetExtractor,
+	Chunk,
 	ResolvedContextEngineConfig
 } from '@registry/core/types'
 
@@ -20,8 +21,11 @@ const oneChunker: ResolvedContextEngineConfig['chunker'] = (content) => {
 	]
 }
 
-function baseConfig(): {config: ResolvedContextEngineConfig; upserted: any[]} {
-	const upserted: any[] = []
+function baseConfig(): {
+	config: ResolvedContextEngineConfig
+	upserted: Chunk[]
+} {
+	const upserted: Chunk[] = []
 	const assetProcessing = structuredClone(defaultAssetProcessingConfig)
 
 	const config: ResolvedContextEngineConfig = {

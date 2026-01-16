@@ -106,7 +106,7 @@ function SectionHeader({title}: {title: string}) {
 	)
 }
 
-export function Dashboard({events, connection}: DashboardProps) {
+export function Dashboard({events}: DashboardProps) {
 	const stats = useMemo(() => computeStats(events), [events])
 	const recentEvents = useMemo(() => events.slice(-10).reverse(), [events])
 

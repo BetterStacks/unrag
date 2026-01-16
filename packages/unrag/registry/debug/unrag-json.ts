@@ -32,7 +32,8 @@ export function isUnragBatteryInstalled(
 	cwd: string = process.cwd()
 ): boolean {
 	const info = readUnragJson(cwd)
-	const batteries = Array.isArray(info?.batteries) ? info?.batteries! : []
+	const batteriesRaw = info?.batteries
+	const batteries = Array.isArray(batteriesRaw) ? batteriesRaw : []
 	return batteries.includes(name)
 }
 

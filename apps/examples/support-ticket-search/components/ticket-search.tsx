@@ -54,7 +54,9 @@ const exampleQueries = [
 	}
 ]
 
-export function TicketSearch({initialTickets: _initialTickets}: TicketSearchProps) {
+export function TicketSearch({
+	initialTickets: _initialTickets
+}: TicketSearchProps) {
 	const [query, setQuery] = React.useState('')
 	const [results, setResults] = React.useState<SearchResult[] | null>(null)
 	const [isSearching, setIsSearching] = React.useState(false)

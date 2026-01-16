@@ -7,6 +7,7 @@ import {Tab, Tabs} from 'fumadocs-ui/components/tabs'
 import {TypeTable} from 'fumadocs-ui/components/type-table'
 import defaultMdxComponents from 'fumadocs-ui/mdx'
 import type {MDXComponents} from 'mdx/types'
+import type {ComponentProps} from 'react'
 import {Mermaid} from './components/mdx/mermaid'
 import {PackageInstall} from './components/mdx/package-install'
 
@@ -26,7 +27,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
 		Banner,
 		Mermaid,
 		PackageInstall,
-		img: (props) => <ImageZoom {...(props as any)} />,
+		img: (props) => <ImageZoom {...(props as ComponentProps<'img'>)} />,
 		...components
 	}
 }

@@ -1,6 +1,9 @@
 import {describe, expect, test} from 'bun:test'
 import {deleteDocuments} from '@registry/core/delete'
-import type {DeleteInput, ResolvedContextEngineConfig} from '@registry/core/types'
+import type {
+	DeleteInput,
+	ResolvedContextEngineConfig
+} from '@registry/core/types'
 import {createRawSqlVectorStore} from '@registry/store/raw-sql/store'
 import type {Pool, PoolClient} from 'pg'
 
@@ -26,10 +29,10 @@ describe('core deleteDocuments', () => {
 		} as unknown as ResolvedContextEngineConfig
 
 		await expect(
-			deleteDocuments(
-				config,
-				{sourceId: 'a', sourceIdPrefix: 'b'} as unknown as DeleteInput
-			)
+			deleteDocuments(config, {
+				sourceId: 'a',
+				sourceIdPrefix: 'b'
+			} as unknown as DeleteInput)
 		).rejects.toThrow(
 			'Provide exactly one of "sourceId" or "sourceIdPrefix".'
 		)
@@ -139,9 +142,9 @@ describe('raw-sql store adapter', () => {
 		const pool = {
 			connect: async () =>
 				({
-				query: async () => ({rows: []}),
-				release: () => {}
-			}) as unknown as PoolClient
+					query: async () => ({rows: []}),
+					release: () => {}
+				}) as unknown as PoolClient
 		} as unknown as Pool
 
 		const store = createRawSqlVectorStore(pool)

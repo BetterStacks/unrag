@@ -20,41 +20,44 @@ function isPresetPayloadV1(x: unknown): x is PresetPayloadV1 {
 	if (!x || typeof x !== 'object') {
 		return false
 	}
-	const o = x as any
+	const o = x as Record<string, unknown>
 	if (o.version !== 1) {
 		return false
 	}
-	if (!o.install || typeof o.install !== 'object') {
+	const install = o.install
+	if (!install || typeof install !== 'object') {
 		return false
 	}
-	if (!o.modules || typeof o.modules !== 'object') {
+	const modules = o.modules
+	if (!modules || typeof modules !== 'object') {
 		return false
 	}
-	if (typeof o.install.installDir !== 'string') {
+	const installObj = install as Record<string, unknown>
+	const modulesObj = modules as Record<string, unknown>
+	if (typeof installObj.installDir !== 'string') {
 		return false
 	}
 	if (
 		!['drizzle', 'prisma', 'raw-sql'].includes(
-			String(o.install.storeAdapter)
+			String(installObj.storeAdapter)
 		)
 	) {
 		return false
 	}
-	if (typeof o.install.aliasBase !== 'string') {
+	if (typeof installObj.aliasBase !== 'string') {
 		return false
 	}
 	if (
-		!Array.isArray(o.modules.extractors) ||
-		!Array.isArray(o.modules.connectors)
+		!Array.isArray(modulesObj.extractors) ||
+		!Array.isArray(modulesObj.connectors)
 	) {
 		return false
 	}
-	if (
-		'batteries' in o.modules &&
-		o.modules.batteries != null &&
-		!Array.isArray(o.modules.batteries)
-	) {
-		return false
+	if ('batteries' in modulesObj) {
+		const batteries = modulesObj.batteries
+		if (batteries != null && !Array.isArray(batteries)) {
+			return false
+		}
 	}
 	return true
 }

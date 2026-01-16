@@ -96,8 +96,11 @@ export function createFilePptxExtractor(): AssetExtractor {
 				const xml = await zip.files[slidePath]?.async('string')
 				const parts: string[] = []
 				const re = /<a:t[^>]*>([\s\S]*?)<\/a:t>/g
-				let m: RegExpExecArray | null
-				while ((m = re.exec(xml))) {
+				while (true) {
+					const m = re.exec(xml)
+					if (!m) {
+						break
+					}
 					const t = decodeXmlEntities(String(m[1] ?? ''))
 						.replace(/\s+/g, ' ')
 						.trim()

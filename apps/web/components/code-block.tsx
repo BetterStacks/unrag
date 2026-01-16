@@ -112,23 +112,28 @@ export function CodeBlock({
 	highlight
 }: {code: string; highlight?: number[]}) {
 	const lines = code.split('\n')
+	const counts = new Map<string, number>()
 	return (
 		<pre className="text-xs leading-relaxed overflow-x-auto text-left font-mono">
-			{lines.map((line, i) => (
-				<div
-					key={i}
-					className={
-						highlight?.includes(i)
-							? 'bg-olive-950/[0.04] dark:bg-white/[0.04] -mx-3 px-3'
-							: ''
-					}
-				>
-					<span className="text-olive-600/50 dark:text-white/25 select-none w-6 inline-block text-right mr-3">
-						{i + 1}
-					</span>
-					<HighlightedLine line={line} />
-				</div>
-			))}
+			{lines.map((line, i) => {
+				const n = counts.get(line) ?? 0
+				counts.set(line, n + 1)
+				return (
+					<div
+						key={`${line}:${n}`}
+						className={
+							highlight?.includes(i)
+								? 'bg-olive-950/[0.04] dark:bg-white/[0.04] -mx-3 px-3'
+								: ''
+						}
+					>
+						<span className="text-olive-600/50 dark:text-white/25 select-none w-6 inline-block text-right mr-3">
+							{i + 1}
+						</span>
+						<HighlightedLine line={line} />
+					</div>
+				)
+			})}
 		</pre>
 	)
 }

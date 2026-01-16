@@ -360,8 +360,12 @@ describe('image embedding URL hardening', () => {
 
 			expect(embedImageCalls).toBe(0)
 			expect(result.warnings.length).toBe(1)
-			expect(result.warnings[0]?.code).toBe('asset_processing_error')
-			expect((result.warnings[0] as any).stage).toBe('fetch')
+			const w = result.warnings[0]
+			expect(w?.code).toBe('asset_processing_error')
+			if (w?.code !== 'asset_processing_error') {
+				throw new Error('Expected asset_processing_error warning')
+			}
+			expect(w.stage).toBe('fetch')
 		} finally {
 			globalThis.fetch = originalFetch
 		}

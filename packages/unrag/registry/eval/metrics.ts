@@ -37,7 +37,10 @@ export function computeMetricsAtK(args: {
 	let hits = 0
 	let firstRelevantRank: number | null = null
 	for (let i = 0; i < ranked.length; i++) {
-		const sid = ranked[i]!
+		const sid = ranked[i]
+		if (sid === undefined) {
+			continue
+		}
 		if (relevant.has(sid)) {
 			hits++
 			if (firstRelevantRank === null) {
@@ -74,7 +77,8 @@ function computeNdcgAtK(args: {
 	// Binary relevance DCG
 	let dcg = 0
 	for (let i = 0; i < ranked.length; i++) {
-		const rel = args.relevant.has(ranked[i]!) ? 1 : 0
+		const sid = ranked[i]
+		const rel = sid !== undefined && args.relevant.has(sid) ? 1 : 0
 		if (rel === 0) {
 			continue
 		}

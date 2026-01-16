@@ -252,7 +252,9 @@ const results = await engine.retrieve({
 	return (
 		<div className="fixed inset-0 z-50">
 			{/* Backdrop */}
-			<div
+			<button
+				type="button"
+				aria-label="Close dialog"
 				className="absolute inset-0 bg-olive-950/60 dark:bg-black/70 backdrop-blur-sm"
 				onClick={() => onOpenChange(false)}
 			/>

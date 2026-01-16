@@ -6,10 +6,18 @@ type TerminalSize = {
 	rows: number
 }
 
-function readSize(stdout: any): TerminalSize {
-	const columns =
-		Number(stdout?.columns ?? process.stdout?.columns ?? 80) || 80
-	const rows = Number(stdout?.rows ?? process.stdout?.rows ?? 24) || 24
+type StdoutLike = {
+	columns?: unknown
+	rows?: unknown
+	on?: (event: 'resize', listener: () => void) => void
+	off?: (event: 'resize', listener: () => void) => void
+	removeListener?: (event: 'resize', listener: () => void) => void
+}
+
+function readSize(stdout: unknown): TerminalSize {
+	const out = stdout as StdoutLike
+	const columns = Number(out?.columns ?? process.stdout?.columns ?? 80) || 80
+	const rows = Number(out?.rows ?? process.stdout?.rows ?? 24) || 24
 	return {columns, rows}
 }
 
@@ -29,7 +37,7 @@ export function useTerminalSize(): TerminalSize {
 	useEffect(() => {
 		setSize(get())
 
-		const out: any = stdout ?? process.stdout
+		const out = (stdout ?? process.stdout) as StdoutLike
 		const onResize = () => setSize(get())
 
 		// Node stdout emits "resize" when TTY size changes.

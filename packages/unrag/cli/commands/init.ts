@@ -482,7 +482,11 @@ export async function initCommand(args: string[]) {
 						options: extractorOptions.reduce<
 							Record<
 								string,
-								Array<{value: ExtractorName; label: string; hint?: string}>
+								Array<{
+									value: ExtractorName
+									label: string
+									hint?: string
+								}>
 							>
 						>((acc, opt) => {
 							acc[opt.group] ??= []
@@ -725,7 +729,9 @@ export async function initCommand(args: string[]) {
 		await writeIfMissing(scriptAbs, renderEvalRunnerScript({aliasBase}))
 
 		// Add package.json scripts, non-destructively.
-		type PackageJsonWithScripts = Awaited<ReturnType<typeof readPackageJson>> & {
+		type PackageJsonWithScripts = Awaited<
+			ReturnType<typeof readPackageJson>
+		> & {
 			scripts?: Record<string, string>
 		}
 		const pkg2 = (await readPackageJson(root)) as PackageJsonWithScripts

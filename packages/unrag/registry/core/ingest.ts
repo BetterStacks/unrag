@@ -757,7 +757,9 @@ export const ingest = async (
 					}
 					const embedding = embeddings[i]
 					if (!embedding) {
-						throw new Error('Internal error: missing embedding for chunk')
+						throw new Error(
+							'Internal error: missing embedding for chunk'
+						)
 					}
 					embeddedChunks[spec.idx] = {
 						...spec.chunk,
@@ -778,7 +780,9 @@ export const ingest = async (
 				}
 				const embedding = embeddings[i]
 				if (!embedding) {
-					throw new Error('Internal error: missing embedding for chunk')
+					throw new Error(
+						'Internal error: missing embedding for chunk'
+					)
 				}
 				embeddedChunks[spec.idx] = {
 					...spec.chunk,

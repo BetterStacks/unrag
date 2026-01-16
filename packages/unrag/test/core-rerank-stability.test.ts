@@ -72,7 +72,8 @@ const createConfig = (reranker: Reranker): ResolvedContextEngineConfig =>
 		idGenerator: () => crypto.randomUUID(),
 		extractors: [],
 		storage: {storeChunkContent: true, storeDocumentContent: true},
-		assetProcessing: {} as unknown as ResolvedContextEngineConfig['assetProcessing'],
+		assetProcessing:
+			{} as unknown as ResolvedContextEngineConfig['assetProcessing'],
 		embeddingProcessing: {concurrency: 4, batchSize: 32}
 	}) as ResolvedContextEngineConfig
 

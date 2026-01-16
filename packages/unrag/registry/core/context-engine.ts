@@ -57,7 +57,14 @@ export class ContextEngine {
 				// Auto-register runtime so interactive TUI features (Query/Docs/Eval) work out of the box
 				// when the debug battery is installed.
 				try {
-					const storeInspector = (this.config.store as any)?.inspector
+					type StoreInspector = import(
+						'@registry/debug/runtime'
+					).StoreInspector
+					const storeInspector = (
+						this.config.store as unknown as {
+							inspector?: StoreInspector
+						}
+					)?.inspector
 					registerUnragDebug({
 						engine: this,
 						...(storeInspector ? {storeInspector} : {})

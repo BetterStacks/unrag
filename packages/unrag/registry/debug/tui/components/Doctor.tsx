@@ -11,7 +11,7 @@ import type {
 	DoctorCheck
 } from '@registry/debug/types'
 import {Box, Text, useInput} from 'ink'
-import {useEffect, useMemo, useState} from 'react'
+import {useCallback, useEffect, useMemo, useState} from 'react'
 
 type DoctorProps = {
 	connection: DebugConnection
@@ -45,7 +45,7 @@ export function Doctor({connection}: DoctorProps) {
 	const [loading, setLoading] = useState(false)
 	const [selectedIndex, setSelectedIndex] = useState(0)
 
-	const run = async () => {
+	const run = useCallback(async () => {
 		setLoading(true)
 		try {
 			const r = await connection.sendCommand({type: 'doctor'})
@@ -53,15 +53,14 @@ export function Doctor({connection}: DoctorProps) {
 		} finally {
 			setLoading(false)
 		}
-	}
+	}, [connection])
 
 	useEffect(() => {
 		if (connection.status !== 'connected') {
 			return
 		}
 		void run()
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [connection.status])
+	}, [connection.status, run])
 
 	const doctor = useMemo(() => {
 		if (res?.type !== 'doctor') {

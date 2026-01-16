@@ -78,9 +78,11 @@ export function QueryRunner({connection}: QueryRunnerProps) {
 
 	useEffect(() => {
 		// keep selection in bounds when result changes
+		void chunks.length
 		setSelectedIndex(0)
 	}, [chunks.length])
 	useEffect(() => {
+		void selected?.id
 		setContentScrollTop(0)
 	}, [selected?.id])
 

@@ -997,7 +997,17 @@ async function checkDimensionConsistency(
 				details: scope ? [`Scope: ${scope}*`] : undefined
 			})
 		} else if (dimensions.length === 1) {
-			const dim = dimensions[0]!
+			const dim = dimensions[0]
+			if (!dim) {
+				results.push({
+					id: 'db-dim-consistency',
+					title: 'Dimension consistency',
+					status: 'pass',
+					summary: 'No embeddings found to check.',
+					details: scope ? [`Scope: ${scope}*`] : undefined
+				})
+				return results
+			}
 			results.push({
 				id: 'db-dim-consistency',
 				title: 'Dimension consistency',

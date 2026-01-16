@@ -13,7 +13,7 @@ type TabBarProps = {
 	onSelect: (tabId: string) => void
 }
 
-export function TabBar({tabs, activeTab, onSelect}: TabBarProps) {
+export function TabBar({tabs, activeTab}: TabBarProps) {
 	return (
 		<Box paddingX={1} paddingY={1} gap={2}>
 			{tabs.map((tab) => {

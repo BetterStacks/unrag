@@ -15,8 +15,12 @@ const run = async (cmd: string, args: string[], opts: {cwd: string}) => {
 			})
 			let stdout = ''
 			let stderr = ''
-			child.stdout.on('data', (d) => (stdout += d.toString()))
-			child.stderr.on('data', (d) => (stderr += d.toString()))
+			child.stdout.on('data', (d) => {
+				stdout += d.toString()
+			})
+			child.stderr.on('data', (d) => {
+				stderr += d.toString()
+			})
 			child.on('error', reject)
 			child.on('close', (code) => {
 				if (code === 0) {

@@ -113,7 +113,14 @@ export const createVoyageEmbeddingProvider = (
 							...(abortSignal ? {abortSignal} : {})
 						})
 					: await embed({
-							model: textEmbeddingModel!,
+							model: (() => {
+								if (!textEmbeddingModel) {
+									throw new Error(
+										'Voyage text embedding model is unavailable'
+									)
+								}
+								return textEmbeddingModel
+							})(),
 							value: text,
 							...(abortSignal ? {abortSignal} : {})
 						})
@@ -138,7 +145,14 @@ export const createVoyageEmbeddingProvider = (
 							...(abortSignal ? {abortSignal} : {})
 						})
 					: await embedMany({
-							model: textEmbeddingModel!,
+							model: (() => {
+								if (!textEmbeddingModel) {
+									throw new Error(
+										'Voyage text embedding model is unavailable'
+									)
+								}
+								return textEmbeddingModel
+							})(),
 							values: inputs.map((i) => i.text),
 							...(abortSignal ? {abortSignal} : {})
 						})

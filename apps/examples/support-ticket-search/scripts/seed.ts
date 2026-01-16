@@ -26,9 +26,9 @@ async function seed() {
 	)
 
 	console.log('Tickets by category:')
-	Object.entries(categories).forEach(([category, count]) => {
+	for (const [category, count] of Object.entries(categories)) {
 		console.log(`  ${category}: ${count}`)
-	})
+	}
 
 	// Print summary by status
 	const statuses = mockTickets.reduce(
@@ -40,9 +40,9 @@ async function seed() {
 	)
 
 	console.log('\nTickets by status:')
-	Object.entries(statuses).forEach(([status, count]) => {
+	for (const [status, count] of Object.entries(statuses)) {
 		console.log(`  ${status}: ${count}`)
-	})
+	}
 
 	console.log('\nSeed completed successfully!')
 }

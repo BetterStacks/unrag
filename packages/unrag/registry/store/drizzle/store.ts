@@ -142,7 +142,9 @@ export const createDrizzleVectorStore = (
 				chunk_count: unknown
 			}>
 
-			const totalRows = getExecuteRows(totalRes) as Array<{total: unknown}>
+			const totalRows = getExecuteRows(totalRes) as Array<{
+				total: unknown
+			}>
 
 			const total =
 				typeof totalRows[0]?.total === 'number'
@@ -269,7 +271,7 @@ export const createDrizzleVectorStore = (
 				embedding_dimension?: unknown
 			}
 
-			const rows = getExecuteRows(res) as Array<StoreStatsRow>
+			const rows = getExecuteRows(res) as StoreStatsRow[]
 			const row: StoreStatsRow = rows[0] ?? {}
 
 			const documentsCount = Number(row.documents_count ?? 0)

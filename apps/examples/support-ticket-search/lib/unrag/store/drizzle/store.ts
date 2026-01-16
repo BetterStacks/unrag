@@ -58,7 +58,10 @@ export const createDrizzleVectorStore = (db: DrizzleDb): VectorStore => ({
 		}
 
 		await db.transaction(async (tx) => {
-			const head = chunkItems[0]!
+			const head = chunkItems[0]
+			if (!head) {
+				throw new Error('upsert() requires at least one chunk')
+			}
 			const documentRow = toDocumentRow(head)
 
 			// Replace-by-sourceId: delete any previously stored document(s) for this logical id.

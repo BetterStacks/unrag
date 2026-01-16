@@ -180,6 +180,8 @@ export function Docs({connection}: DocsProps) {
 	})
 	const [contentScrollTop, setContentScrollTop] = useState(0)
 	useEffect(() => {
+		void selectedChunk?.id
+		void selectedSourceId
 		setContentScrollTop(0)
 	}, [selectedChunk?.id, selectedSourceId])
 
@@ -234,6 +236,8 @@ export function Docs({connection}: DocsProps) {
 	}, [docsCapable, refreshDocument, selectedSourceId])
 
 	useEffect(() => {
+		void offset
+		void prefix
 		setSelectedDocIndex(0)
 	}, [offset, prefix])
 

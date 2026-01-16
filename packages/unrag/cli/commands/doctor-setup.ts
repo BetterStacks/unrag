@@ -490,7 +490,10 @@ export async function doctorSetupCommand(args: string[]): Promise<void> {
 					return
 				}
 
-				const value = scriptsToAdd[scriptName]!
+				const value = scriptsToAdd[scriptName]
+				if (value === undefined) {
+					continue
+				}
 				delete scriptsToAdd[scriptName]
 				scriptsToAdd[String(newName)] = value
 			}

@@ -123,6 +123,13 @@ function mergeThresholds(
 	}
 }
 
+function sanitizeThresholds(v: unknown): Partial<EvalThresholds> {
+	if (!v || typeof v !== 'object') {
+		return {}
+	}
+	return v as Partial<EvalThresholds>
+}
+
 function parseArgs(argv: string[]): CliArgs {
 	const out: CliArgs = {}
 	const thresholds: Partial<EvalThresholds>[] = []
@@ -202,28 +209,34 @@ function printHelp() {
 	)
 }
 
-async function readConfigFile(projectRoot: string): Promise<any | null> {
+async function readConfigFile(
+	projectRoot: string
+): Promise<Record<string, unknown> | null> {
 	const abs = path.join(projectRoot, '.unrag/eval/config.json')
 	if (!(await fileExists(abs))) {
 		return null
 	}
 	const raw = await readFile(abs, 'utf8')
 	try {
-		return JSON.parse(raw)
+		const parsed: unknown = JSON.parse(raw)
+		if (!parsed || typeof parsed !== 'object') {
+			return null
+		}
+		return parsed as Record<string, unknown>
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e)
 		throw new Error(`Failed to parse .unrag/eval/config.json: ${msg}`)
 	}
 }
 
-function sanitizeMode(v: any): EvalMode | undefined {
+function sanitizeMode(v: unknown): EvalMode | undefined {
 	if (v === 'retrieve' || v === 'retrieve+rerank') {
 		return v
 	}
 	return undefined
 }
 
-function sanitizeCleanup(v: any): EvalCleanupPolicy | undefined {
+function sanitizeCleanup(v: unknown): EvalCleanupPolicy | undefined {
 	if (v === 'none' || v === 'on-success' || v === 'always') {
 		return v
 	}
@@ -238,7 +251,9 @@ async function main() {
 	const cfg = await readConfigFile(projectRoot)
 
 	const datasetPath =
-		cli.dataset ?? cfg?.dataset ?? '.unrag/eval/datasets/sample.json'
+		cli.dataset ??
+		(typeof cfg?.dataset === 'string' ? cfg.dataset : undefined) ??
+		'.unrag/eval/datasets/sample.json'
 	if (!datasetPath) {
 		throw new Error('--dataset is required')
 	}
@@ -246,7 +261,7 @@ async function main() {
 	const engine = createUnragEngine()
 
 	const thresholds: Partial<EvalThresholds> = mergeThresholds(
-		cfg?.thresholds ?? {},
+		sanitizeThresholds(cfg?.thresholds),
 		cli.thresholds ?? {}
 	)
 
@@ -279,14 +294,16 @@ async function main() {
 	const ts = new Date().toISOString().replace(/[:.]/g, '-')
 	const outputDir =
 		cli.outputDir ??
-		cfg?.outputDir ??
+		(typeof cfg?.outputDir === 'string' ? cfg.outputDir : undefined) ??
 		path.join('.unrag/eval/runs', `${ts}-${result.report.dataset.id}`)
 
 	const reportPath = await writeEvalReport(outputDir, result.report)
 	const summaryPath = await writeEvalSummaryMd(outputDir, result.report)
 
 	let diffPaths: {json: string; md: string} | null = null
-	const baselinePath = cli.baseline ?? cfg?.baseline
+	const baselinePath =
+		cli.baseline ??
+		(typeof cfg?.baseline === 'string' ? cfg.baseline : undefined)
 	if (baselinePath) {
 		const baseline = await readEvalReportFromFile(baselinePath)
 		const diff = diffEvalReports({
