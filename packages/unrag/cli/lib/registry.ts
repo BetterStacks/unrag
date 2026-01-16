@@ -251,6 +251,9 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 		.replace('// __UNRAG_IMPORTS__', importsBlock)
 		.replace('// __UNRAG_CREATE_ENGINE__', createEngineBlock)
 
+	// Remove `// @ts-nocheck` from user generated project
+	out = out.replace(/^\s*\/\/\s*@ts-nocheck\s*\n+/m, '')
+
 	// Apply preset defaults (chunking + retrieval) if provided.
 	const presetChunkSize = preset?.defaults?.chunking?.chunkSize
 	const presetChunkOverlap = preset?.defaults?.chunking?.chunkOverlap

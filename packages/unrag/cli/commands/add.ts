@@ -162,11 +162,17 @@ async function patchUnragConfig(args: {
 						`${exportMatch[0] + importLine}\n`
 					)
 				} else {
-					// Fallback: add at the top after @ts-nocheck
-					newContent = newContent.replace(
-						/\/\/ @ts-nocheck\n/,
-						`// @ts-nocheck\n\n${importLine}\n`
+					// Fallback: add near the top (after any leading doc comment), otherwise prepend.
+					const headerDocComment = newContent.match(
+						/^\s*\/\*\*[\s\S]*?\*\/\s*\n/
 					)
+					if (headerDocComment?.[0]) {
+						newContent = `${headerDocComment[0]}${importLine}\n${newContent.slice(
+							headerDocComment[0].length
+						)}`
+					} else {
+						newContent = `${importLine}\n${newContent}`
+					}
 				}
 			}
 			modified = true

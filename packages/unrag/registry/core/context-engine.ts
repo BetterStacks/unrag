@@ -49,36 +49,67 @@ export class ContextEngine {
 	 * This is done asynchronously to avoid blocking engine creation.
 	 */
 	private initDebugServer(): void {
+		// Importing the debug battery must be optional at *build* time too.
+		// We use a dynamic importer via `new Function` so bundlers/tsc won't
+		// treat it as a hard dependency when the debug battery isn't installed.
+		const importOptionalModule = (() => {
+			let fn: ((m: string) => Promise<unknown>) | null = null
+			return (m: string) => {
+				fn ??= new Function('m', 'return import(m)') as (
+					m: string
+				) => Promise<unknown>
+				return fn(m)
+			}
+		})()
+
+		const debugServerModule: string = '@registry/debug/server'
+		const debugRuntimeModule: string = '@registry/debug/runtime'
+
 		Promise.all([
-			import('@registry/debug/server'),
-			import('@registry/debug/runtime')
+			importOptionalModule(debugServerModule),
+			importOptionalModule(debugRuntimeModule)
 		])
-			.then(async ([{startDebugServer}, {registerUnragDebug}]) => {
+			.then(([serverMod, runtimeMod]) => {
+				const startDebugServer = (
+					serverMod as {
+						startDebugServer?: () => Promise<unknown>
+					}
+				)?.startDebugServer
+				const registerUnragDebug = (
+					runtimeMod as {
+						registerUnragDebug?: (args: {
+							engine: ContextEngine
+							storeInspector?: unknown
+						}) => void
+					}
+				)?.registerUnragDebug
+
 				// Auto-register runtime so interactive TUI features (Query/Docs/Eval) work out of the box
 				// when the debug battery is installed.
-				try {
-					type StoreInspector = import(
-						'@registry/debug/runtime'
-					).StoreInspector
-					const storeInspector = (
-						this.config.store as unknown as {
-							inspector?: StoreInspector
-						}
-					)?.inspector
-					registerUnragDebug({
-						engine: this,
-						...(storeInspector ? {storeInspector} : {})
-					})
-				} catch {
-					// Best effort only.
+				if (typeof registerUnragDebug === 'function') {
+					try {
+						const storeInspector = (
+							this.config.store as unknown as {
+								inspector?: unknown
+							}
+						)?.inspector
+						registerUnragDebug({
+							engine: this,
+							...(storeInspector ? {storeInspector} : {})
+						})
+					} catch {
+						// Best effort only.
+					}
 				}
 
-				startDebugServer().catch((err) => {
-					console.warn(
-						'[unrag:debug] Failed to start debug server:',
-						err instanceof Error ? err.message : String(err)
-					)
-				})
+				if (typeof startDebugServer === 'function') {
+					startDebugServer().catch((err: unknown) => {
+						console.warn(
+							'[unrag:debug] Failed to start debug server:',
+							err instanceof Error ? err.message : String(err)
+						)
+					})
+				}
 			})
 			.catch(() => {
 				// Debug battery not installed - silently ignore

@@ -11,8 +11,6 @@
  * treated like vendored source code.
  */
 
-// @ts-nocheck
-
 import {drizzle} from 'drizzle-orm/node-postgres'
 import {Pool} from 'pg'
 import {defineUnragConfig} from './lib/unrag/core'
