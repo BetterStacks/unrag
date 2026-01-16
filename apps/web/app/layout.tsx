@@ -30,10 +30,14 @@ export default function Layout({ children }: LayoutProps<'/'>) {
       className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       suppressHydrationWarning
     >
-      <body className="flex flex-col min-h-screen dark">
+      <body className="flex flex-col min-h-screen">
         <RootProvider
           theme={{
-            enabled: false,
+            enabled: true,
+            attribute: 'class',
+            defaultTheme: 'system',
+            enableSystem: true,
+            disableTransitionOnChange: true,
           }}
         >
           <NuqsAdapter>{children}</NuqsAdapter>

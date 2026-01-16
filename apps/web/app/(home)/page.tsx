@@ -1,5 +1,4 @@
 import { Main } from '@/components/elements';
-import { HomeNavbar } from '@/components/navbar';
 import { HeroSection } from '@/components/home/hero';
 import { FeaturesSection } from '@/components/home/features';
 import { StatsSection } from '@/components/home/stats';
@@ -43,7 +42,6 @@ export const metadata: Metadata = {
 export default function Page() {
   return (
     <>
-      <HomeNavbar />
       <Main>
         <HeroSection />
         <FeaturesSection />

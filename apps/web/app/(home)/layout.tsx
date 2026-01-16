@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Instrument_Serif, Inter } from 'next/font/google';
+import {HomeNavbar} from "@/components/navbar";
 
 const inter = Inter({
   subsets: ['latin'],
@@ -17,8 +18,9 @@ const instrumentSerif = Instrument_Serif({
 export default function HomeLayout({ children }: { children: ReactNode }) {
   return (
     <div
-      className={`unrag-theme font-sans ${inter.variable} ${instrumentSerif.variable} min-h-screen bg-lemon-100 text-olive-950 dark:bg-lemon-950 dark:text-white`}
+      className={`unrag-theme font-sans ${inter.variable} ${instrumentSerif.variable} min-h-screen bg-lemon-50 text-olive-950 dark:bg-lemon-950 dark:text-white`}
     >
+      <HomeNavbar />
       {children}
     </div>
   );

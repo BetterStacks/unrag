@@ -27,15 +27,15 @@ export default function RAGHandbookBanner() {
             className="group-hover:rotate-3 transition-all"
         />
 
-        <p className="text-xs font-semibold tracking-wide text-lime-500 uppercase">
+        <p className="text-xs font-semibold tracking-wide text-lemon-600 dark:text-lemon-400 uppercase">
           Free comprehensive guide
         </p>
 
-        <h3 className="text-xl font-bold leading-tight text-[#f5f5f5] -mt-1">
+        <h3 className="text-xl font-bold leading-tight text-slate-900 dark:text-[#f5f5f5] -mt-1">
           Complete RAG Handbook
         </h3>
 
-        <p className="text-xs leading-relaxed text-[#d1d5db] opacity-80 my-1">
+        <p className="text-xs leading-relaxed text-slate-600 dark:text-[#d1d5db] opacity-80 my-1">
           Learn RAG from first principles to production operations. Tackle decisions, tradeoffs and failure modes in production RAG operations
         </p>
 

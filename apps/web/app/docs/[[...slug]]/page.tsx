@@ -23,11 +23,13 @@ export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
     slug[0] === 'debugging'
     || (slug[0] === 'batteries' && slug[1] === 'debug');
 
+  const showRagHandbookBanner = slug[0] !== 'changelog' && slug[0] !== 'rag';
+
   return (
-    <DocsPage 
+    <DocsPage
       toc={page.data.toc} full={page.data.full}
       tableOfContent={{
-        footer: <RAGHandbookBanner />,
+        footer: showRagHandbookBanner ? <RAGHandbookBanner /> : null,
       }}
     >
       <SystemBanner

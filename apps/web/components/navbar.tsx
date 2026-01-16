@@ -48,7 +48,7 @@ function NavbarWithLinksActionsAndCenteredLogo({
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className={clsx('sticky top-0 z-10 bg-lemon-100 dark:bg-lemon-950', className)} {...props}>
+    <header className={clsx('sticky top-0 z-10 bg-lemon-50 dark:bg-lemon-950', className)} {...props}>
       <style>{`:root { --scroll-padding-top: 3.5rem }`}</style>
       <nav>
         <div className="mx-auto flex h-(--scroll-padding-top) max-w-7xl items-center gap-4 px-6 lg:px-10">
