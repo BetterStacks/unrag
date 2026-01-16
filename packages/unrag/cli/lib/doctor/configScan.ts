@@ -197,42 +197,42 @@ function detectEnabledFlags(content: string): string[] {
   // Build patterns for each flag path
   const flagPatterns: Record<string, RegExp[]> = {
     "assetProcessing.pdf.llmExtraction.enabled": [
-      /pdf\s*:\s*\{[^}]*llmExtraction\s*:\s*\{[^}]*enabled\s*:\s*true/is,
-      /llmExtraction\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?pdf["']?\s*:\s*\{[^}]*["']?llmExtraction["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?llmExtraction["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
     "assetProcessing.pdf.textLayer.enabled": [
-      /pdf\s*:\s*\{[^}]*textLayer\s*:\s*\{[^}]*enabled\s*:\s*true/is,
-      /textLayer\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?pdf["']?\s*:\s*\{[^}]*["']?textLayer["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?textLayer["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
     "assetProcessing.pdf.ocr.enabled": [
-      /pdf\s*:\s*\{[^}]*ocr\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?pdf["']?\s*:\s*\{[^}]*["']?ocr["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
     "assetProcessing.image.ocr.enabled": [
-      /image\s*:\s*\{[^}]*ocr\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?image["']?\s*:\s*\{[^}]*["']?ocr["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
     "assetProcessing.image.captionLlm.enabled": [
-      /image\s*:\s*\{[^}]*captionLlm\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?image["']?\s*:\s*\{[^}]*["']?captionLlm["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
     "assetProcessing.audio.transcription.enabled": [
-      /audio\s*:\s*\{[^}]*transcription\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?audio["']?\s*:\s*\{[^}]*["']?transcription["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
     "assetProcessing.video.transcription.enabled": [
-      /video\s*:\s*\{[^}]*transcription\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?video["']?\s*:\s*\{[^}]*["']?transcription["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
     "assetProcessing.video.frames.enabled": [
-      /video\s*:\s*\{[^}]*frames\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?video["']?\s*:\s*\{[^}]*["']?frames["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
     "assetProcessing.file.text.enabled": [
-      /file\s*:\s*\{[^}]*text\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?file["']?\s*:\s*\{[^}]*["']?text["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
     "assetProcessing.file.docx.enabled": [
-      /file\s*:\s*\{[^}]*docx\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?file["']?\s*:\s*\{[^}]*["']?docx["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
     "assetProcessing.file.pptx.enabled": [
-      /file\s*:\s*\{[^}]*pptx\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?file["']?\s*:\s*\{[^}]*["']?pptx["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
     "assetProcessing.file.xlsx.enabled": [
-      /file\s*:\s*\{[^}]*xlsx\s*:\s*\{[^}]*enabled\s*:\s*true/is,
+      /["']?file["']?\s*:\s*\{[^}]*["']?xlsx["']?\s*:\s*\{[^}]*enabled\s*:\s*true/is,
     ],
   };
 

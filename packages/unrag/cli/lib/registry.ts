@@ -97,6 +97,20 @@ const indentBlock = (text: string, spaces: number) => {
     .join("\n");
 };
 
+const renderObjectLiteral = (value: Record<string, any>, indent: number): string => {
+  const pad = " ".repeat(indent);
+  const inner = Object.entries(value)
+    .map(([key, val]) => {
+      if (val && typeof val === "object" && !Array.isArray(val)) {
+        return `${pad}${key}: ${renderObjectLiteral(val, indent + 2)},`;
+      }
+      return `${pad}${key}: ${JSON.stringify(val)},`;
+    })
+    .join("\n");
+
+  return `{\n${inner}\n${" ".repeat(Math.max(0, indent - 2))}}`;
+};
+
 const replaceBetweenMarkers = (
   content: string,
   startMarker: string,
@@ -338,42 +352,88 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
     );
   }
 
-  // Asset processing: if preset provides a full object, replace the whole block.
+  // Asset processing: generate minimal overrides only when extractors are enabled.
+  // If preset provides a full object, use it. Otherwise, omit assetProcessing entirely
+  // for minimal installs, or generate minimal enable-only overrides when extractors are selected.
   const assetProcessingOverride = preset?.engine?.assetProcessing;
-  if (assetProcessingOverride && typeof assetProcessingOverride === "object") {
-    const json = JSON.stringify(assetProcessingOverride, null, 2);
-    const block = `  assetProcessing: ${indentBlock(json, 2).trimStart()},\n`;
-    out = replaceBetweenMarkers(
-      out,
-      "__UNRAG_ASSET_PROCESSING_BLOCK_START__",
-      "__UNRAG_ASSET_PROCESSING_BLOCK_END__",
-      block
-    );
-  } else {
-    // Strip the marker lines if we keep the template block.
-    out = out
-      .replace("// __UNRAG_ASSET_PROCESSING_BLOCK_START__", "")
-      .replace("// __UNRAG_ASSET_PROCESSING_BLOCK_END__", "");
-  }
+  let assetProcessingBlock = "";
 
-  // Enable/disable assetProcessing flags (only when not overriding the whole block).
-  if (!(assetProcessingOverride && typeof assetProcessingOverride === "object")) {
-  const enabledFlagKeys = new Set<string>();
-  if (richMedia.enabled) {
+  if (assetProcessingOverride && typeof assetProcessingOverride === "object") {
+    // Preset provides full override - use it as-is
+    const body = renderObjectLiteral(assetProcessingOverride as Record<string, any>, 4);
+    const bodyLines = body.split("\n");
+    bodyLines.splice(
+      bodyLines.length - 1,
+      0,
+      "    // __UNRAG_ASSET_PROCESSING_OVERRIDES__"
+    );
+    const bodyWithMarker = bodyLines.join("\n");
+    assetProcessingBlock = `  assetProcessing: ${bodyWithMarker},\n`;
+  } else if (richMedia.enabled && selectedExtractors.length > 0) {
+    // Generate minimal enable-only overrides for selected extractors
+    const minimalOverrides: Record<string, any> = {};
+    
     for (const ex of selectedExtractors) {
-      for (const k of EXTRACTOR_FLAG_KEYS[ex] ?? []) {
-        enabledFlagKeys.add(k);
+      const flagKeys = EXTRACTOR_FLAG_KEYS[ex] ?? [];
+      for (const flagKey of flagKeys) {
+        // Map short flag keys to nested paths
+        // e.g., "pdf_textLayer" -> { pdf: { textLayer: { enabled: true } } }
+        if (flagKey === "pdf_textLayer") {
+          minimalOverrides.pdf = minimalOverrides.pdf || {};
+          minimalOverrides.pdf.textLayer = { enabled: true };
+        } else if (flagKey === "pdf_llmExtraction") {
+          minimalOverrides.pdf = minimalOverrides.pdf || {};
+          minimalOverrides.pdf.llmExtraction = { enabled: true };
+        } else if (flagKey === "pdf_ocr") {
+          minimalOverrides.pdf = minimalOverrides.pdf || {};
+          minimalOverrides.pdf.ocr = { enabled: true };
+        } else if (flagKey === "image_ocr") {
+          minimalOverrides.image = minimalOverrides.image || {};
+          minimalOverrides.image.ocr = { enabled: true };
+        } else if (flagKey === "image_captionLlm") {
+          minimalOverrides.image = minimalOverrides.image || {};
+          minimalOverrides.image.captionLlm = { enabled: true };
+        } else if (flagKey === "audio_transcription") {
+          minimalOverrides.audio = minimalOverrides.audio || {};
+          minimalOverrides.audio.transcription = { enabled: true };
+        } else if (flagKey === "video_transcription") {
+          minimalOverrides.video = minimalOverrides.video || {};
+          minimalOverrides.video.transcription = { enabled: true };
+        } else if (flagKey === "video_frames") {
+          minimalOverrides.video = minimalOverrides.video || {};
+          minimalOverrides.video.frames = { enabled: true };
+        } else if (flagKey === "file_text") {
+          minimalOverrides.file = minimalOverrides.file || {};
+          minimalOverrides.file.text = { enabled: true };
+        } else if (flagKey === "file_docx") {
+          minimalOverrides.file = minimalOverrides.file || {};
+          minimalOverrides.file.docx = { enabled: true };
+        } else if (flagKey === "file_pptx") {
+          minimalOverrides.file = minimalOverrides.file || {};
+          minimalOverrides.file.pptx = { enabled: true };
+        } else if (flagKey === "file_xlsx") {
+          minimalOverrides.file = minimalOverrides.file || {};
+          minimalOverrides.file.xlsx = { enabled: true };
+        }
       }
     }
-  }
 
-  for (const k of ALL_FLAG_KEYS) {
-    out = out.replace(
-      `enabled: false, // __UNRAG_FLAG_${k}__`,
-      `enabled: ${enabledFlagKeys.has(k) ? "true" : "false"},`
-    );
+    if (Object.keys(minimalOverrides).length > 0) {
+      const body = renderObjectLiteral(minimalOverrides, 4);
+      const bodyLines = body.split("\n");
+      bodyLines.splice(
+        bodyLines.length - 1,
+        0,
+        "    // __UNRAG_ASSET_PROCESSING_OVERRIDES__"
+      );
+      const bodyWithMarker = bodyLines.join("\n");
+      assetProcessingBlock = `  assetProcessing: ${bodyWithMarker},\n`;
     }
   }
+  // If no extractors and no preset override, assetProcessingBlock remains empty (omitted)
+
+  // Replace the marker with the generated block (or empty string to omit)
+  out = out.replace("  // __UNRAG_ASSET_PROCESSING_OVERRIDES__", assetProcessingBlock);
 
   // Inject extractor list (or remove placeholder) without leaving marker comments.
   const extractorLines =
