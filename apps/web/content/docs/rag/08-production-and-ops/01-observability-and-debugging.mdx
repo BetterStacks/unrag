@@ -19,6 +19,8 @@ Think of the trace as a replay log. Given a trace, you should be able to underst
 
 Traces should be structured data, not just log lines. You want to query them: show me all traces where the top-3 retrieval results had similarity below 0.7, or where generation took more than 2 seconds, or where a specific document ID was retrieved. This requires a schema that's consistent across requests.
 
+**With Unrag**: The [debug battery](/docs/debugging) provides real-time observability with a terminal UI that shows traces, timing breakdowns, and chunk details for each ingest and retrieve operation.
+
 ## What to capture at each stage
 
 At the **query stage**, capture the raw user query, any preprocessing applied (lowercasing, expansion, rewriting), and the query embedding or a stable identifier for it. If you're doing multi-query retrieval, capture all generated sub-queries.

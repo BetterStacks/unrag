@@ -175,3 +175,8 @@ The engine is designed to be created once and reused. The store adapter maintain
 
 In Next.js or similar frameworks with hot reloading, the generated `createUnragEngine()` uses a singleton pattern (via `globalThis`) to prevent connection pool exhaustion during development. In production, the engine is created once and reused for the lifetime of the process.
 
+## Related
+
+- [Build a search endpoint](/docs/guides/build-a-search-endpoint) - Complete guide to building production search
+- [Reranker battery](/docs/batteries/reranker) - Add two-stage retrieval for improved precision
+- [Performance](/docs/concepts/performance) - Understanding and optimizing ingest/retrieve timing

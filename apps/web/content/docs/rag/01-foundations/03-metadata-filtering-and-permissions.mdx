@@ -67,6 +67,8 @@ Think about what operations you'll need to support:
 
 Start with the metadata you know you need and add more as requirements emerge. Metadata is easier to add than to remove, so err on the side of capturing information even if you're not sure you'll use it.
 
+**With Unrag**: Attach metadata via `engine.ingest({ metadata: {...} })` and filter via `engine.retrieve({ scope: {...} })`. See [metadata and scoping](/docs/concepts/metadata-and-scoping) for patterns, and the [multi-tenant guide](/docs/guides/multi-tenant) for tenant isolation.
+
 ## Next
 
 With metadata enabling filtering and permissions, the next chapter explains how vector indexes work and how to tune them for your performance requirements.
