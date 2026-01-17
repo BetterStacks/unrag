@@ -7,20 +7,20 @@
  * project-local script (e.g. `scripts/unrag-eval.ts`) so users can audit and customize.
  */
 
-export {readEvalDatasetFromFile, parseEvalDataset} from './dataset'
+export {readEvalDatasetFromFile, parseEvalDataset} from '@unrag/eval/dataset'
 export type {
 	EvalDatasetV1,
 	EvalDatasetDocument,
 	EvalDatasetQuery,
 	EvalMode,
 	EvalThresholds
-} from './dataset'
+} from '@unrag/eval/dataset'
 
-export {computeMetricsAtK, uniqueSourceIdsInOrder} from './metrics'
-export type {EvalMetricsAtK} from './metrics'
+export {computeMetricsAtK, uniqueSourceIdsInOrder} from '@unrag/eval/metrics'
+export type {EvalMetricsAtK} from '@unrag/eval/metrics'
 
-export {runEval} from './runner'
-export type {EvalRunArgs, EvalRunOutput} from './runner'
+export {runEval} from '@unrag/eval/runner'
+export type {EvalRunArgs, EvalRunOutput} from '@unrag/eval/runner'
 
 export {
 	readEvalReportFromFile,
@@ -29,10 +29,11 @@ export {
 	diffEvalReports,
 	writeEvalDiffJson,
 	writeEvalDiffMd
-} from './report'
+} from '@unrag/eval/report'
 export type {
 	EvalReportV1,
 	EvalQueryResult,
 	EvalCleanupPolicy,
 	EvalDiffV1
-} from './report'
+} from '@unrag/eval/report'
+

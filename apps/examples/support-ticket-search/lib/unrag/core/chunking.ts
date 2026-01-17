@@ -1,4 +1,4 @@
-import type {ChunkText, Chunker, ChunkingOptions} from './types'
+import type {ChunkText, Chunker, ChunkingOptions} from '@unrag/core/types'
 
 const DEFAULT_CHUNK_SIZE = 200
 const DEFAULT_CHUNK_OVERLAP = 40

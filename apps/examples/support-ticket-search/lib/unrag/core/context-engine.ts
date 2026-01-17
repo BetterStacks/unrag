@@ -1,20 +1,13 @@
-import {createAiEmbeddingProvider} from '../embedding/ai'
-import {createAzureEmbeddingProvider} from '../embedding/azure'
-import {createBedrockEmbeddingProvider} from '../embedding/bedrock'
-import {createCohereEmbeddingProvider} from '../embedding/cohere'
-import {createGoogleEmbeddingProvider} from '../embedding/google'
-import {createMistralEmbeddingProvider} from '../embedding/mistral'
-import {createOllamaEmbeddingProvider} from '../embedding/ollama'
-import {createOpenAiEmbeddingProvider} from '../embedding/openai'
-import {createOpenRouterEmbeddingProvider} from '../embedding/openrouter'
-import {createTogetherEmbeddingProvider} from '../embedding/together'
-import {createVertexEmbeddingProvider} from '../embedding/vertex'
-import {createVoyageEmbeddingProvider} from '../embedding/voyage'
-import {defineConfig, resolveConfig} from './config'
-import {deleteDocuments} from './delete'
-import {ingest, planIngest} from './ingest'
-import {rerank} from './rerank'
-import {retrieve} from './retrieve'
+import {defineConfig, resolveConfig} from '@unrag/core/config'
+import {
+	type RunConnectorStreamOptions,
+	type RunConnectorStreamResult,
+	runConnectorStream
+} from '@unrag/core/connectors'
+import {deleteDocuments} from '@unrag/core/delete'
+import {ingest, planIngest} from '@unrag/core/ingest'
+import {rerank} from '@unrag/core/rerank'
+import {retrieve} from '@unrag/core/retrieve'
 import type {
 	AssetExtractor,
 	ContextEngineConfig,
@@ -30,13 +23,102 @@ import type {
 	RetrieveInput,
 	RetrieveResult,
 	UnragCreateEngineRuntime
-} from './types'
+} from '@unrag/core/types'
+import {createAiEmbeddingProvider} from '@unrag/embedding/ai'
+import {createAzureEmbeddingProvider} from '@unrag/embedding/azure'
+import {createBedrockEmbeddingProvider} from '@unrag/embedding/bedrock'
+import {createCohereEmbeddingProvider} from '@unrag/embedding/cohere'
+import {createGoogleEmbeddingProvider} from '@unrag/embedding/google'
+import {createMistralEmbeddingProvider} from '@unrag/embedding/mistral'
+import {createOllamaEmbeddingProvider} from '@unrag/embedding/ollama'
+import {createOpenAiEmbeddingProvider} from '@unrag/embedding/openai'
+import {createOpenRouterEmbeddingProvider} from '@unrag/embedding/openrouter'
+import {createTogetherEmbeddingProvider} from '@unrag/embedding/together'
+import {createVertexEmbeddingProvider} from '@unrag/embedding/vertex'
+import {createVoyageEmbeddingProvider} from '@unrag/embedding/voyage'
 
 export class ContextEngine {
 	private readonly config: ResolvedContextEngineConfig
 
 	constructor(config: ContextEngineConfig) {
 		this.config = resolveConfig(config)
+
+		// Auto-start debug server when UNRAG_DEBUG=true
+		if (process.env.UNRAG_DEBUG === 'true') {
+			this.initDebugServer()
+		}
+	}
+
+	/**
+	 * Initialize the debug WebSocket server.
+	 * This is done asynchronously to avoid blocking engine creation.
+	 */
+	private initDebugServer(): void {
+		// Importing the debug battery must be optional.
+		// We use a dynamic importer via `new Function` so bundlers/tsc won't
+		// treat it as a hard dependency when the debug battery isn't installed.
+		const importOptionalModule = (() => {
+			let fn: ((m: string) => Promise<unknown>) | null = null
+			return (m: string) => {
+				fn ??= new Function('m', 'return import(m)') as (
+					m: string
+				) => Promise<unknown>
+				return fn(m)
+			}
+		})()
+
+		const debugServerModule: string = '@unrag/debug/server'
+		const debugRuntimeModule: string = '@unrag/debug/runtime'
+
+		Promise.all([
+			importOptionalModule(debugServerModule),
+			importOptionalModule(debugRuntimeModule)
+		])
+			.then(([serverMod, runtimeMod]) => {
+				const startDebugServer = (
+					serverMod as {
+						startDebugServer?: () => Promise<unknown>
+					}
+				)?.startDebugServer
+				const registerUnragDebug = (
+					runtimeMod as {
+						registerUnragDebug?: (args: {
+							engine: ContextEngine
+							storeInspector?: unknown
+						}) => void
+					}
+				)?.registerUnragDebug
+
+				// Auto-register runtime so interactive TUI features (Query/Docs/Eval) work out of the box
+				// when the debug battery is installed.
+				if (typeof registerUnragDebug === 'function') {
+					try {
+						const storeInspector = (
+							this.config.store as unknown as {
+								inspector?: unknown
+							}
+						)?.inspector
+						registerUnragDebug({
+							engine: this,
+							...(storeInspector ? {storeInspector} : {})
+						})
+					} catch {
+						// Best effort only.
+					}
+				}
+
+				if (typeof startDebugServer === 'function') {
+					startDebugServer().catch((err: unknown) => {
+						console.warn(
+							'[unrag:debug] Failed to start debug server:',
+							err instanceof Error ? err.message : String(err)
+						)
+					})
+				}
+			})
+			.catch(() => {
+				// Debug battery not installed - silently ignore
+			})
 	}
 
 	async ingest(input: IngestInput): Promise<IngestResult> {
@@ -79,6 +161,71 @@ export class ContextEngine {
 
 	async delete(input: DeleteInput): Promise<void> {
 		return deleteDocuments(this.config, input)
+	}
+
+	/**
+	 * Consume a connector stream and apply its events to this engine.
+	 *
+	 * This is a convenience wrapper around `runConnectorStream(...)` so callers
+	 * can use `engine.runConnectorStream({ stream, ... })` directly.
+	 */
+	async runConnectorStream<TCheckpoint = unknown>(
+		options: Omit<RunConnectorStreamOptions<TCheckpoint>, 'engine'>
+	): Promise<RunConnectorStreamResult<TCheckpoint>> {
+		return runConnectorStream({
+			engine: this,
+			...options
+		})
+	}
+
+	/**
+	 * Minimal, safe-to-expose debug info for the debug panel "Doctor" tab.
+	 * Avoids leaking secrets while still enabling actionable diagnostics.
+	 */
+	getDebugInfo(): {
+		embedding: {
+			name: string
+			dimensions?: number
+			supportsBatch: boolean
+			supportsImage: boolean
+		}
+		storage: {
+			storeChunkContent: boolean
+			storeDocumentContent: boolean
+		}
+		defaults: {
+			chunkSize: number
+			chunkOverlap: number
+		}
+		extractorsCount: number
+		reranker?: {name: string}
+	} {
+		return {
+			embedding: {
+				name: this.config.embedding.name,
+				dimensions: this.config.embedding.dimensions,
+				supportsBatch:
+					typeof this.config.embedding.embedMany === 'function',
+				supportsImage:
+					typeof this.config.embedding.embedImage === 'function'
+			},
+			storage: {
+				storeChunkContent: Boolean(
+					this.config.storage.storeChunkContent
+				),
+				storeDocumentContent: Boolean(
+					this.config.storage.storeDocumentContent
+				)
+			},
+			defaults: {
+				chunkSize: this.config.defaults.chunkSize,
+				chunkOverlap: this.config.defaults.chunkOverlap
+			},
+			extractorsCount: this.config.extractors.length,
+			reranker: this.config.reranker
+				? {name: this.config.reranker.name}
+				: undefined
+		}
 	}
 }
 
@@ -229,3 +376,4 @@ export const defineUnragConfig = <T extends DefineUnragConfigInput>(
 			new ContextEngine(createEngineConfig(runtime))
 	}
 }
+

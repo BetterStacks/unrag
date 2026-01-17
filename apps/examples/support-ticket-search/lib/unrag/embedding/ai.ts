@@ -1,5 +1,5 @@
+import type {EmbeddingProvider} from '@unrag/core/types'
 import {embed, embedMany} from 'ai'
-import type {EmbeddingProvider} from '../core/types'
 
 type BaseConfig = {
 	/**
