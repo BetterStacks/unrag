@@ -1,5 +1,11 @@
 # unrag
 
+## 0.3.1
+
+### Patch Changes
+
+- Fixed a bug in OneDrive connector causing indefinite polling after successful ingestion
+
 ## 0.3.0
 
 ### Minor Changes
@@ -17,9 +23,10 @@
 ### Migration Guide
 
 **Before:**
+
 ```ts
 await notionConnector.syncPages({
-  engine
+  engine,
   token,
   pageIds,
   onProgress: (event) => console.log(event),
@@ -27,6 +34,7 @@ await notionConnector.syncPages({
 ```
 
 **After:**
+
 ```ts
 const stream = notionConnector.streamPages({
   token,

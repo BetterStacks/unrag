@@ -409,9 +409,14 @@ export async function* streamFolder(
 
 		const deltaLink = data['@odata.deltaLink']
 		const next = data['@odata.nextLink']
-		nextLink = next ?? deltaLink ?? ''
 
-		if (nextLink) {
+		// Graph delta semantics:
+		// - While paging, you get `@odata.nextLink`
+		// - When complete, you get `@odata.deltaLink` (a resumable cursor)
+		//
+		// A single `streamFolder(...)` call should NOT keep polling after receiving
+		// a deltaLink; callers can persist the checkpoint and resume later.
+		if (next || deltaLink) {
 			yield {
 				type: 'checkpoint',
 				checkpoint: {
@@ -422,6 +427,13 @@ export async function* streamFolder(
 				}
 			}
 		}
+
+		if (next) {
+			nextLink = next
+			continue
+		}
+
+		break
 	}
 }
 
