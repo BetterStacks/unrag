@@ -92,13 +92,12 @@ If your app has users connecting their own Google accounts:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
-import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+import { googleDriveConnector } from "@unrag/connectors/google-drive";
 
 export async function syncUserDriveFiles(userRefreshToken: string, fileIds: string[]) {
   const engine = createUnragEngine();
 
-  return await syncGoogleDriveFiles({
-    engine,
+  const stream = googleDriveConnector.streamFiles({
     auth: {
       kind: "oauth",
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -108,6 +107,8 @@ export async function syncUserDriveFiles(userRefreshToken: string, fileIds: stri
     },
     fileIds,
   });
+
+  return await engine.runConnectorStream({ stream });
 }
 ```
 
@@ -117,19 +118,20 @@ For server-to-server access where files are shared with the service account:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
-import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+import { googleDriveConnector } from "@unrag/connectors/google-drive";
 
 export async function syncSharedDriveFiles(fileIds: string[]) {
   const engine = createUnragEngine();
 
-  return await syncGoogleDriveFiles({
-    engine,
+  const stream = googleDriveConnector.streamFiles({
     auth: {
       kind: "service_account",
       credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
     },
     fileIds,
   });
+
+  return await engine.runConnectorStream({ stream });
 }
 ```
 
@@ -138,8 +140,7 @@ export async function syncSharedDriveFiles(fileIds: string[]) {
 If you've set up DWD in your Workspace admin console, you can impersonate users to access their files without explicit sharing:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth: {
     kind: "service_account",
     credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
@@ -147,6 +148,8 @@ await syncGoogleDriveFiles({
   },
   fileIds,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 ## Server-only usage
@@ -169,6 +172,66 @@ The connector attaches metadata including the `connector` name (`"google-drive"`
 
 The `sourceId` is stable by file ID (`gdrive:file:<fileId>`), so repeated runs update the same logical document rather than creating duplicates.
 
+## Observability and progress tracking
+
+The streaming model makes it easy to track progress and log what's happening:
+
+```ts
+const stream = googleDriveConnector.streamFiles({
+  auth,
+  fileIds,
+});
+
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "progress" && event.message === "file:start") {
+      console.log(`Processing file ${event.current}/${event.total}...`);
+    }
+    if (event.type === "progress" && event.message === "file:success") {
+      console.log(`✓ Synced ${event.sourceId}`);
+    }
+    if (event.type === "warning") {
+      console.warn(`⚠ [${event.code}] ${event.message}`);
+    }
+  },
+});
+
+console.log(`Done: ${result.upserts} synced, ${result.warnings} warnings`);
+```
+
+## Resumable syncs with checkpoints
+
+For large file lists or serverless environments with timeouts, persist checkpoints to resume interrupted syncs:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { googleDriveConnector } from "@unrag/connectors/google-drive";
+
+export async function syncDriveResumable(tenantId: string, fileIds: string[]) {
+  const engine = createUnragEngine();
+  const lastCheckpoint = await loadCheckpoint(tenantId);
+
+  const stream = googleDriveConnector.streamFiles({
+    auth: {
+      kind: "service_account",
+      credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
+    },
+    fileIds,
+    checkpoint: lastCheckpoint,
+  });
+
+  const result = await engine.runConnectorStream({
+    stream,
+    onCheckpoint: async (checkpoint) => {
+      await saveCheckpoint(tenantId, checkpoint);
+    },
+  });
+
+  return result;
+}
+```
+
 ## Where to go next
 
 If you want to understand the surface area and copy-paste patterns, start with the [API](/docs/connectors/google-drive/api) page.
@@ -176,4 +239,3 @@ If you want to understand the surface area and copy-paste patterns, start with t
 After that, the [Best practices](/docs/connectors/google-drive/best-practices) page is a good read before you run this on a schedule in production.
 
 If you hit permission or authentication issues, the [Troubleshooting](/docs/connectors/google-drive/troubleshooting) page covers the common failure modes.
-

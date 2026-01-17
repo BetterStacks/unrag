@@ -691,6 +691,10 @@ export async function copyRegistryFiles(
 			dest: path.join(installBaseAbs, 'core/types.ts')
 		},
 		{
+			src: path.join(selection.registryRoot, 'core/connectors.ts'),
+			dest: path.join(installBaseAbs, 'core/connectors.ts')
+		},
+		{
 			src: path.join(selection.registryRoot, 'core/chunking.ts'),
 			dest: path.join(installBaseAbs, 'core/chunking.ts')
 		},

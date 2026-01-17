@@ -45,7 +45,7 @@ await engine.ingest({
 
 Unrag processes both the text and the assets, creating chunks from each. The resulting chunks all live in the same embedding space, so a text query can retrieve content from the PDF.
 
-## Don’t miss skipped assets (warnings)
+## Don't miss skipped assets (warnings)
 
 If an asset is skipped (unsupported kind, extraction disabled, or best-effort error with `onError: "skip"`), Unrag emits **structured warnings** in the ingest result.
 
@@ -195,24 +195,30 @@ For production on Vercel, run extraction in a background job (QStash/BullMQ/Inng
 
 ## Working with connectors
 
-When using connectors like Notion or Google Drive, you don't need to build the `assets` array yourself. The connector extracts assets from the content automatically:
+When using connectors like Notion or Google Drive, you don't need to build the `assets` array yourself. The connector extracts assets from the content automatically and includes them in the events it yields:
 
 ```ts
-import { syncNotionPages } from "@unrag/connectors/notion";
+import { createUnragEngine } from "@unrag/config";
+import { notionConnector } from "@unrag/connectors/notion";
 
-await syncNotionPages({
-  engine,
+const engine = createUnragEngine();
+
+const stream = notionConnector.streamPages({
   token: process.env.NOTION_TOKEN!,
   pageIds: ["..."],
   // Assets are extracted from Notion blocks automatically
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 ```ts
-import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+import { createUnragEngine } from "@unrag/config";
+import { googleDriveConnector } from "@unrag/connectors/google-drive";
 
-await syncGoogleDriveFiles({
-  engine,
+const engine = createUnragEngine();
+
+const stream = googleDriveConnector.streamFiles({
   auth: {
     kind: "service_account",
     credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
@@ -220,9 +226,11 @@ await syncGoogleDriveFiles({
   fileIds: ["..."],
   // PDFs, images, and other files are emitted as assets automatically
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
-Notion blocks like `image`, `pdf`, `file`, `audio`, and `video` are converted to `AssetInput` objects and included in the ingest call. Google Drive files are downloaded and emitted based on their MIME type—PDFs become `kind: "pdf"`, images become `kind: "image"`, and so on.
+Notion blocks like `image`, `pdf`, `file`, `audio`, and `video` are converted to `AssetInput` objects and included in the upsert events. Google Drive files are downloaded and emitted based on their MIME type—PDFs become `kind: "pdf"`, images become `kind: "image"`, and so on.
 
 ## Building assets manually
 
@@ -396,4 +404,3 @@ for (const chunk of result.chunks) {
   console.log("resolved image bytes", bytes.length);
 }
 ```
-

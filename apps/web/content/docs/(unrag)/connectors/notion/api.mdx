@@ -6,60 +6,51 @@ description: Method reference for the vendored Notion connector module.
 The connector ships as vendored code inside your Unrag install directory at `<installDir>/connectors/notion/**`. In application code you typically import from your alias base:
 
 ```ts
-import { syncNotionPages } from "@unrag/connectors/notion";
+import { notionConnector } from "@unrag/connectors/notion";
 ```
 
 ## Primary API
 
-### `syncNotionPages(input)`
+### `notionConnector.streamPages(input)`
 
-This is the "happy path" entry point. It fetches each page, renders a text representation, and ingests the result into your Unrag store using a stable `sourceId` per page.
-
-At a high level, you pass an engine, a token, and the pages you care about:
+This is the main entry point for syncing Notion pages. It returns an async iterable that yields connector events—upserts, warnings, progress updates, and checkpoints. You consume this stream via `engine.runConnectorStream(...)`.
 
 ```ts
-await syncNotionPages({
-  engine,
+const stream = notionConnector.streamPages({
   token: process.env.NOTION_TOKEN!,
   pageIds: ["b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab"],
 });
+
+const result = await engine.runConnectorStream({ stream });
 ```
 
-The function returns a summary object so you can log results or surface them in an admin UI:
+The runner applies each event to your engine and returns a summary:
 
 <TypeTable
   type={{
-    pageCount: {
-      description: 'Total number of pages that were processed.',
+    upserts: {
+      description: 'Number of documents successfully ingested.',
       type: 'number',
     },
-    succeeded: {
-      description: 'Number of pages successfully synced.',
+    deletes: {
+      description: 'Number of documents deleted (when deleteOnNotFound is enabled).',
       type: 'number',
     },
-    failed: {
-      description: 'Number of pages that failed to sync.',
+    warnings: {
+      description: 'Number of warning events (failed pages, not-found pages, etc.).',
       type: 'number',
     },
-    deleted: {
-      description: 'Number of documents deleted (when deleteOnNotFound is true).',
-      type: 'number',
-    },
-    errors: {
-      description: 'Array of error details for failed pages, each with pageId and message.',
-      type: 'Array<{ pageId: string; message: string }>',
+    lastCheckpoint: {
+      description: 'The final checkpoint emitted by the stream, if any.',
+      type: 'NotionCheckpoint | undefined',
     },
   }}
 />
 
-### syncNotionPages input
+### streamPages input
 
 <TypeTable
   type={{
-    engine: {
-      description: 'A ContextEngine from createUnragEngine(). This is where the connector ingests content.',
-      type: 'ContextEngine',
-    },
     token: {
       description: 'Your Notion integration token, usually read from an environment variable.',
       type: 'string',
@@ -78,9 +69,14 @@ The function returns a summary object so you can log results or surface them in 
       type: 'boolean',
       default: 'false',
     },
-    onProgress: {
-      description: 'Callback that receives events as each page is processed. Use for logging, progress bars, or retry instrumentation.',
-      type: '(event: NotionSyncProgressEvent) => void',
+    maxDepth: {
+      description: 'How deeply to recurse into nested blocks. Increase if your pages have heavily nested content.',
+      type: 'number',
+      default: '4',
+    },
+    checkpoint: {
+      description: 'Optional checkpoint to resume from. Pass the last persisted checkpoint to continue an interrupted sync.',
+      type: 'NotionCheckpoint',
       default: 'undefined',
     },
   }}
@@ -89,28 +85,71 @@ The function returns a summary object so you can log results or surface them in 
 `sourceIdPrefix` prepends a namespace to every `sourceId`. This is useful for multi-tenant apps where you want to partition content by tenant:
 
 ```ts
-await syncNotionPages({
-  engine,
+const stream = notionConnector.streamPages({
   token: process.env.NOTION_TOKEN!,
   pageIds: ["b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab"],
   sourceIdPrefix: `tenant:${tenantId}:`,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 With a prefix, the resulting source IDs look like `tenant:acme:notion:page:<pageId>`. You can then retrieve with `scope: { sourceId: "tenant:acme:" }` to search only that tenant's content.
 
-`deleteOnNotFound` tells the connector to delete the previously ingested document if a page is not found or inaccessible. This is useful when you keep a static list of page IDs and want your index to reflect reality after permissions change or a page is deleted:
+`deleteOnNotFound` tells the connector to emit a delete event if a page is not found or inaccessible. This is useful when you keep a static list of page IDs and want your index to reflect reality after permissions change or a page is deleted:
 
 ```ts
-await syncNotionPages({
-  engine,
+const stream = notionConnector.streamPages({
   token: process.env.NOTION_TOKEN!,
   pageIds: ["b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab"],
   deleteOnNotFound: true,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
-`onProgress` is a callback that receives events as each page is processed. Use it for logging, progress bars, or retry instrumentation.
+## Consuming the stream
+
+The recommended way to consume a connector stream is via `engine.runConnectorStream(...)`, which handles all event types automatically:
+
+```ts
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    // Called for every event (progress, warning, upsert, delete, checkpoint)
+    console.log(event.type, event);
+  },
+  onCheckpoint: async (checkpoint) => {
+    // Called specifically for checkpoint events
+    await persistCheckpoint(checkpoint);
+  },
+  signal: abortController.signal, // Optional: abort early
+});
+```
+
+<TypeTable
+  type={{
+    stream: {
+      description: 'The connector stream to consume.',
+      type: 'ConnectorStream<NotionCheckpoint>',
+    },
+    onEvent: {
+      description: 'Callback for every event. Use for logging, metrics, or progress UI.',
+      type: '(event: ConnectorEvent) => void | Promise<void>',
+      default: 'undefined',
+    },
+    onCheckpoint: {
+      description: 'Callback for checkpoint events. Use for persisting resumable state.',
+      type: '(checkpoint: NotionCheckpoint) => void | Promise<void>',
+      default: 'undefined',
+    },
+    signal: {
+      description: 'AbortSignal to stop consumption early.',
+      type: 'AbortSignal',
+      default: 'undefined',
+    },
+  }}
+/>
 
 ### `loadNotionPageDocument(args)`
 
@@ -129,7 +168,7 @@ This lower-level helper loads a single page and returns a normalized document sh
     maxDepth: {
       description: 'How deeply to recurse into nested blocks. Increase if your pages have heavily nested content.',
       type: 'number',
-      default: '6',
+      default: '4',
     },
     sourceIdPrefix: {
       description: 'Optional namespace prefix for the generated sourceId.',
@@ -173,7 +212,7 @@ export async function ingestWithCustomMetadata() {
   });
 
   // If assets are skipped (unsupported kinds, PDF extraction disabled, etc.),
-  // Unrag emits structured warnings so you don’t silently miss content.
+  // Unrag emits structured warnings so you don't silently miss content.
   if (result.warnings.length > 0) {
     console.warn("unrag ingest warnings", result.warnings);
   }
@@ -219,11 +258,11 @@ Each result includes `id`, `url`, `properties`, `last_edited_time`, and other No
 
 ### Syncing all accessible pages
 
-Combine the listing with `syncNotionPages` to ingest everything your integration can see:
+Combine the listing with the connector stream to ingest everything your integration can see:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
-import { createNotionClient, syncNotionPages } from "@unrag/connectors/notion";
+import { createNotionClient, notionConnector } from "@unrag/connectors/notion";
 
 export async function syncAllAccessiblePages() {
   const engine = createUnragEngine();
@@ -248,13 +287,16 @@ export async function syncAllAccessiblePages() {
   const pageIds = pages.map((p) => p.id);
   console.log(`Found ${pageIds.length} accessible pages`);
 
-  // 2. Sync them all
-  return await syncNotionPages({
-    engine,
+  // 2. Stream sync them all
+  const stream = notionConnector.streamPages({
     token: process.env.NOTION_TOKEN!,
     pageIds,
-    onProgress: (event) => {
-      if (event.type === "page:success") {
+  });
+
+  return await engine.runConnectorStream({
+    stream,
+    onEvent: (event) => {
+      if (event.type === "progress" && event.message === "page:success") {
         console.log(`✓ Synced ${event.sourceId}`);
       }
     },
@@ -328,61 +370,74 @@ This enables safe re-runs (idempotent ingest), scoped retrieval via `scope.sourc
 
 The examples below cover common integration patterns. They assume you've already set up your Notion integration and have `NOTION_TOKEN` available as an environment variable.
 
-### Logging progress with `onProgress`
+### Logging progress with onEvent
 
-The `onProgress` callback fires for each page as it's processed. This is useful for logging, progress indicators, or instrumenting failures:
+The `onEvent` callback fires for each event as the stream progresses. This is useful for logging, progress indicators, or instrumenting failures:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
-import { syncNotionPages } from "@unrag/connectors/notion";
+import { notionConnector } from "@unrag/connectors/notion";
 
-const result = await syncNotionPages({
-  engine: createUnragEngine(),
+const engine = createUnragEngine();
+
+const stream = notionConnector.streamPages({
   token: process.env.NOTION_TOKEN!,
   pageIds: [
     "b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab",
     "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
     "11112222333344445555666677778888",
   ],
-  onProgress: (event) => {
-    if (event.status === "success") {
-      console.log(`✓ Synced "${event.title}" (${event.pageId})`);
-    } else if (event.status === "not_found") {
-      console.warn(`⊘ Page not found: ${event.pageId}`);
-    } else if (event.status === "error") {
-      console.error(`✗ Failed ${event.pageId}:`, event.error);
+});
+
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "progress" && event.message === "page:success") {
+      console.log(`✓ Synced ${event.sourceId}`);
+    } else if (event.type === "warning" && event.code === "page_not_found") {
+      console.warn(`⊘ Page not found: ${event.data?.pageId}`);
+    } else if (event.type === "warning") {
+      console.error(`✗ Failed: ${event.message}`);
     }
   },
 });
 
-console.log(`Done: ${result.succeeded}/${result.pageCount} succeeded`);
+console.log(`Done: ${result.upserts} succeeded, ${result.warnings} warnings`);
 ```
 
-### Inspecting results and handling errors
+### Inspecting results and handling warnings
 
-The sync function returns a summary object. Use it to detect partial failures and decide whether to retry or alert:
+The runner returns a summary. Use it to detect issues and decide whether to retry or alert:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
-import { syncNotionPages } from "@unrag/connectors/notion";
+import { notionConnector } from "@unrag/connectors/notion";
 
-const result = await syncNotionPages({
-  engine: createUnragEngine(),
+const engine = createUnragEngine();
+const warnings: Array<{ code: string; message: string; data?: unknown }> = [];
+
+const stream = notionConnector.streamPages({
   token: process.env.NOTION_TOKEN!,
   pageIds: getPageIdsFromConfig(),
 });
 
-if (result.failed > 0) {
-  console.error(`Sync completed with ${result.failed} failures:`);
-  for (const err of result.errors) {
-    console.error(`  - ${err.pageId}: ${err.message}`);
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "warning") {
+      warnings.push({ code: event.code, message: event.message, data: event.data });
+    }
+  },
+});
+
+if (warnings.length > 0) {
+  console.error(`Sync completed with ${warnings.length} warnings:`);
+  for (const w of warnings) {
+    console.error(`  - [${w.code}] ${w.message}`);
   }
-  // Optionally: send to error tracking, schedule retry, etc.
 }
 
-if (result.deleted > 0) {
-  console.log(`Cleaned up ${result.deleted} stale documents`);
-}
+console.log(`Synced ${result.upserts} documents, deleted ${result.deletes}`);
 ```
 
 ### End-to-end: sync, retrieve, and use in a prompt
@@ -391,21 +446,22 @@ Here's a complete flow that syncs Notion content, then uses it to answer a quest
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
-import { syncNotionPages } from "@unrag/connectors/notion";
+import { notionConnector } from "@unrag/connectors/notion";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
-// 1. Sync your knowledge base pages
 const engine = createUnragEngine();
 
-await syncNotionPages({
-  engine,
+// 1. Sync your knowledge base pages
+const stream = notionConnector.streamPages({
   token: process.env.NOTION_TOKEN!,
   pageIds: [
     "b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab", // Product FAQ
     "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6", // Pricing docs
   ],
 });
+
+await engine.runConnectorStream({ stream });
 
 // 2. Retrieve relevant chunks for a user question
 const question = "What's the pricing for the Pro plan?";
@@ -436,21 +492,30 @@ In a Next.js app, run sync from a server action. This keeps the token server-sid
 "use server";
 
 import { createUnragEngine } from "@/lib/unrag/config";
-import { syncNotionPages } from "@/lib/unrag/connectors/notion";
+import { notionConnector } from "@/lib/unrag/connectors/notion";
 
 export async function syncNotionAction(pageIds: string[]) {
   const engine = createUnragEngine();
+  const warnings: string[] = [];
 
-  const result = await syncNotionPages({
-    engine,
+  const stream = notionConnector.streamPages({
     token: process.env.NOTION_TOKEN!,
     pageIds,
   });
 
+  const result = await engine.runConnectorStream({
+    stream,
+    onEvent: (event) => {
+      if (event.type === "warning") {
+        warnings.push(`[${event.code}] ${event.message}`);
+      }
+    },
+  });
+
   return {
-    succeeded: result.succeeded,
-    failed: result.failed,
-    errors: result.errors.map((e) => ({ pageId: e.pageId, message: e.message })),
+    upserts: result.upserts,
+    deletes: result.deletes,
+    warnings,
   };
 }
 ```
@@ -469,10 +534,10 @@ export function SyncButton() {
       "b5f3e3e9c6ea4ce5a1c3e0d6a9d2f1ab",
     ]);
     
-    if (result.failed > 0) {
-      alert(`Sync had ${result.failed} failures`);
+    if (result.warnings.length > 0) {
+      alert(`Sync had ${result.warnings.length} warnings`);
     } else {
-      alert(`Synced ${result.succeeded} pages`);
+      alert(`Synced ${result.upserts} pages`);
     }
   };
 
@@ -486,29 +551,30 @@ For larger page lists, batch your calls and add pauses to stay within Notion's r
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
-import { syncNotionPages } from "@unrag/connectors/notion";
+import { notionConnector } from "@unrag/connectors/notion";
 
 const allPageIds = getPageIdsFromDatabase(); // e.g., 200 pages
 const BATCH_SIZE = 20;
 const PAUSE_MS = 2000;
 
 const engine = createUnragEngine();
-let totalSucceeded = 0;
-let totalFailed = 0;
+let totalUpserts = 0;
+let totalWarnings = 0;
 
 for (let i = 0; i < allPageIds.length; i += BATCH_SIZE) {
   const batch = allPageIds.slice(i, i + BATCH_SIZE);
 
-  const result = await syncNotionPages({
-    engine,
+  const stream = notionConnector.streamPages({
     token: process.env.NOTION_TOKEN!,
     pageIds: batch,
   });
 
-  totalSucceeded += result.succeeded;
-  totalFailed += result.failed;
+  const result = await engine.runConnectorStream({ stream });
 
-  console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${result.succeeded} ok, ${result.failed} failed`);
+  totalUpserts += result.upserts;
+  totalWarnings += result.warnings;
+
+  console.log(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${result.upserts} synced, ${result.warnings} warnings`);
 
   // Pause before next batch (skip on last batch)
   if (i + BATCH_SIZE < allPageIds.length) {
@@ -516,7 +582,7 @@ for (let i = 0; i < allPageIds.length; i += BATCH_SIZE) {
   }
 }
 
-console.log(`Total: ${totalSucceeded} succeeded, ${totalFailed} failed`);
+console.log(`Total: ${totalUpserts} synced, ${totalWarnings} warnings`);
 ```
 
 ### Wiping a namespace before re-sync
@@ -525,7 +591,7 @@ If you want a clean slate—ensuring that pages no longer in your list are remov
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
-import { syncNotionPages } from "@unrag/connectors/notion";
+import { notionConnector } from "@unrag/connectors/notion";
 
 const engine = createUnragEngine();
 const tenantId = "acme";
@@ -535,12 +601,13 @@ const prefix = `tenant:${tenantId}:`;
 await engine.delete({ sourceIdPrefix: prefix });
 
 // 2. Re-sync the current set of pages
-await syncNotionPages({
-  engine,
+const stream = notionConnector.streamPages({
   token: process.env.NOTION_TOKEN!,
   pageIds: getCurrentPageIdsForTenant(tenantId),
   sourceIdPrefix: prefix,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 This pattern is useful when tenants can remove pages from their list—without the wipe, those old pages would remain in the index.
@@ -552,7 +619,7 @@ For content that changes over time, run sync on a schedule. Here's a simple Node
 ```ts
 // scripts/sync-notion-cron.ts
 import { createUnragEngine } from "../lib/unrag/config";
-import { syncNotionPages } from "../lib/unrag/connectors/notion";
+import { notionConnector } from "../lib/unrag/connectors/notion";
 
 async function main() {
   console.log(`[${new Date().toISOString()}] Starting Notion sync...`);
@@ -560,16 +627,17 @@ async function main() {
   const engine = createUnragEngine();
   const pageIds = await fetchPageIdsFromConfig();
 
-  const result = await syncNotionPages({
-    engine,
+  const stream = notionConnector.streamPages({
     token: process.env.NOTION_TOKEN!,
     pageIds,
     deleteOnNotFound: true, // Clean up pages that were removed
   });
 
-  console.log(`Completed: ${result.succeeded} synced, ${result.deleted} deleted, ${result.failed} failed`);
+  const result = await engine.runConnectorStream({ stream });
 
-  if (result.failed > 0) {
+  console.log(`Completed: ${result.upserts} synced, ${result.deletes} deleted, ${result.warnings} warnings`);
+
+  if (result.warnings > 0) {
     process.exitCode = 1; // Signal failure to cron/scheduler
   }
 }

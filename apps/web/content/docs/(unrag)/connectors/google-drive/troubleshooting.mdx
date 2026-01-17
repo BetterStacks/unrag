@@ -13,15 +13,13 @@ You passed `undefined` or an empty object as the `auth` parameter. Make sure you
 
 ```ts
 // Wrong: undefined auth
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth: undefined, // This will throw
   fileIds,
 });
 
 // Correct: provide auth credentials
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth: {
     kind: "service_account",
     credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
@@ -144,7 +142,9 @@ const files = await drive.files.list({
 });
 
 const fileIds = files.data.files?.map((f: any) => f.id) ?? [];
-await syncGoogleDriveFiles({ engine, auth, fileIds });
+
+const stream = googleDriveConnector.streamFiles({ auth, fileIds });
+await engine.runConnectorStream({ stream });
 ```
 
 ### "Skipping Google-native file type because it has no supported export plan"
@@ -163,14 +163,15 @@ Other Google-native types are skipped. If you need to ingest them, you'll need t
 The file is larger than the configured limit (default 15MB). You can increase the limit:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth,
   fileIds,
   options: {
     maxBytesPerFile: 50 * 1024 * 1024, // 50MB
   },
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 Be aware that very large files may cause memory issues or timeouts. Consider whether you actually need to ingest them.
@@ -192,8 +193,7 @@ Some Slides presentations with complex layouts don't export cleanly to plain tex
 If you want strict text-only export (fail instead of falling back), set `strictNativeExport`:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth,
   fileIds,
   options: {
@@ -216,7 +216,9 @@ const PAUSE_MS = 2000;
 
 for (let i = 0; i < fileIds.length; i += BATCH_SIZE) {
   const batch = fileIds.slice(i, i + BATCH_SIZE);
-  await syncGoogleDriveFiles({ engine, auth, fileIds: batch });
+
+  const stream = googleDriveConnector.streamFiles({ auth, fileIds: batch });
+  await engine.runConnectorStream({ stream });
   
   if (i + BATCH_SIZE < fileIds.length) {
     await new Promise((r) => setTimeout(r, PAUSE_MS));
@@ -253,16 +255,14 @@ The `subject` email you're trying to impersonate isn't valid. This could mean:
 
 ## Debugging tips
 
-### Enable verbose logging
+### Enable verbose logging with onEvent
 
-Use the `onProgress` callback to see what's happening:
+Use the `onEvent` callback to see what's happening:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
-  auth,
-  fileIds,
-  onProgress: (event) => {
+await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
     console.log(JSON.stringify(event, null, 2));
   },
 });
@@ -273,12 +273,12 @@ await syncGoogleDriveFiles({
 Before syncing many files, test with one file you know is accessible:
 
 ```ts
-const result = await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth,
   fileIds: ["known-accessible-file-id"],
 });
 
+const result = await engine.runConnectorStream({ stream });
 console.log(result);
 ```
 
@@ -313,4 +313,3 @@ console.log(file.data);
 ```
 
 This helps diagnose whether the issue is permissions, file type, or something else.
-

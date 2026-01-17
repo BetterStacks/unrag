@@ -8,6 +8,7 @@ export {renderNotionBlocksToText} from '@registry/connectors/notion/render'
 export {
 	buildNotionPageIngestInput,
 	loadNotionPageDocument,
-	syncNotionPages
+	notionConnector,
+	streamPages
 } from '@registry/connectors/notion/sync'
 export * from '@registry/connectors/notion/types'

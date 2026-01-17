@@ -1,9 +1,4 @@
-import type {
-	AssetInput,
-	ContextEngine,
-	IngestInput,
-	Metadata
-} from '@registry/core'
+import type {AssetInput, IngestInput, Metadata} from '@registry/core'
 
 /**
  * Service account credentials structure.
@@ -92,27 +87,16 @@ export type GoogleDriveAuth =
 	| GoogleDriveServiceAccountAuth
 	| GoogleDriveGoogleAuthAuth
 
-export type GoogleDriveSyncProgressEvent =
-	| {type: 'file:start'; fileId: string; sourceId: string}
-	| {
-			type: 'file:success'
-			fileId: string
-			sourceId: string
-			chunkCount: number
-	  }
-	| {
-			type: 'file:skipped'
-			fileId: string
-			sourceId: string
-			reason:
-				| 'is_folder'
-				| 'unsupported_google_mime'
-				| 'too_large'
-				| 'shortcut_unresolved'
-			message: string
-	  }
-	| {type: 'file:not-found'; fileId: string; sourceId: string}
-	| {type: 'file:error'; fileId: string; sourceId: string; error: unknown}
+/**
+ * Opaque, JSON-serializable checkpoint for resuming a Google Drive stream.
+ * Store this in your DB/KV and pass it back to `streamFiles`.
+ */
+export type GoogleDriveCheckpoint = {
+	/** Next index to process (0-based). */
+	index: number
+	/** Helpful for debugging/resume sanity checks. */
+	fileId?: string
+}
 
 export type GoogleDriveFileDocument = {
 	sourceId: string
@@ -131,8 +115,7 @@ export type BuildGoogleDriveFileIngestInputArgs = {
 
 export type BuildGoogleDriveFileIngestInputResult = IngestInput
 
-export type SyncGoogleDriveFilesInput = {
-	engine: ContextEngine
+export type StreamGoogleDriveFilesInput = {
 	auth: GoogleDriveAuth
 	/** Explicit Drive file IDs (Notion-like v1 behavior). */
 	fileIds: string[]
@@ -146,13 +129,15 @@ export type SyncGoogleDriveFilesInput = {
 	 * document for that file (exact sourceId).
 	 */
 	deleteOnNotFound?: boolean
-	/** Optional progress callback. */
-	onProgress?: (event: GoogleDriveSyncProgressEvent) => void
 	/** Optional connector-level knobs. */
-	options?: SyncGoogleDriveFilesOptions
+	options?: StreamGoogleDriveFilesOptions
+	/**
+	 * Optional checkpoint to resume from.
+	 */
+	checkpoint?: GoogleDriveCheckpoint
 }
 
-export type SyncGoogleDriveFilesOptions = {
+export type StreamGoogleDriveFilesOptions = {
 	/** Max bytes to download/export per file. Default: 15MB. */
 	maxBytesPerFile?: number
 	/**

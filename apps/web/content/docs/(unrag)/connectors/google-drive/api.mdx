@@ -6,63 +6,54 @@ description: Method reference for the vendored Google Drive connector module.
 The connector ships as vendored code inside your Unrag install directory at `<installDir>/connectors/google-drive/**`. In application code you typically import from your alias base:
 
 ```ts
-import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+import { googleDriveConnector } from "@unrag/connectors/google-drive";
 ```
 
 ## Primary API
 
-### `syncGoogleDriveFiles(input)`
+### `googleDriveConnector.streamFiles(input)`
 
-This is the "happy path" entry point. It fetches each file, determines the best way to extract content, and ingests the result into your Unrag store using a stable `sourceId` per file.
-
-At a high level, you pass an engine, auth credentials, and the files you care about:
+This is the main entry point for syncing Google Drive files. It returns an async iterable that yields connector events—upserts, warnings, progress updates, and checkpoints. You consume this stream via `engine.runConnectorStream(...)`.
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth: {
     kind: "service_account",
     credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
   },
   fileIds: ["1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs"],
 });
+
+const result = await engine.runConnectorStream({ stream });
 ```
 
-The function returns a summary object so you can log results or surface them in an admin UI:
+The runner applies each event to your engine and returns a summary:
 
 <TypeTable
   type={{
-    fileCount: {
-      description: 'Total number of files that were processed.',
+    upserts: {
+      description: 'Number of files successfully ingested.',
       type: 'number',
     },
-    succeeded: {
-      description: 'Number of files successfully synced.',
+    deletes: {
+      description: 'Number of documents deleted (when deleteOnNotFound is enabled).',
       type: 'number',
     },
-    failed: {
-      description: 'Number of files that failed to sync.',
+    warnings: {
+      description: 'Number of warning events (failed files, not-found files, skipped files, etc.).',
       type: 'number',
     },
-    deleted: {
-      description: 'Number of documents deleted (when deleteOnNotFound is true).',
-      type: 'number',
-    },
-    errors: {
-      description: 'Array of error details for failed files, each with fileId and error.',
-      type: 'Array<{ fileId: string; error: unknown }>',
+    lastCheckpoint: {
+      description: 'The final checkpoint emitted by the stream, if any.',
+      type: 'GoogleDriveCheckpoint | undefined',
     },
   }}
 />
 
-### syncGoogleDriveFiles input
+### streamFiles input
 
 <TypeTable
   type={{
-    engine: {
-      description: 'A ContextEngine from createUnragEngine(). This is where the connector ingests content.',
-      type: 'ContextEngine',
-    },
     auth: {
       description: 'A GoogleDriveAuth object describing how to authenticate. See Auth patterns below.',
       type: 'GoogleDriveAuth',
@@ -81,14 +72,14 @@ The function returns a summary object so you can log results or surface them in 
       type: 'boolean',
       default: 'false',
     },
-    onProgress: {
-      description: 'Callback that receives events as each file is processed. Use for logging or progress bars.',
-      type: '(event: GoogleDriveSyncProgressEvent) => void',
+    checkpoint: {
+      description: 'Optional checkpoint to resume from. Pass the last persisted checkpoint to continue an interrupted sync.',
+      type: 'GoogleDriveCheckpoint',
       default: 'undefined',
     },
     options: {
       description: 'Additional configuration for connector behavior (maxBytesPerFile, treatForbiddenAsNotFound, strictNativeExport).',
-      type: 'SyncOptions',
+      type: 'StreamGoogleDriveFilesOptions',
       default: 'undefined',
     },
   }}
@@ -97,34 +88,33 @@ The function returns a summary object so you can log results or surface them in 
 `sourceIdPrefix` prepends a namespace to every `sourceId`. This is useful for multi-tenant apps where you want to partition content by tenant:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth,
   fileIds: ["1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs"],
   sourceIdPrefix: `tenant:${tenantId}:`,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 With a prefix, the resulting source IDs look like `tenant:acme:gdrive:file:<fileId>`. You can then retrieve with `scope: { sourceId: "tenant:acme:" }` to search only that tenant's content.
 
-`deleteOnNotFound` tells the connector to delete the previously ingested document if a file is not found or inaccessible. This is useful when you keep a static list of file IDs and want your index to reflect reality after permissions change or a file is deleted:
+`deleteOnNotFound` tells the connector to emit a delete event if a file is not found or inaccessible. This is useful when you keep a static list of file IDs and want your index to reflect reality after permissions change or a file is deleted:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth,
   fileIds: ["1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs"],
   deleteOnNotFound: true,
 });
-```
 
-`onProgress` is a callback that receives events as each file is processed. Use it for logging, progress bars, or retry instrumentation.
+await engine.runConnectorStream({ stream });
+```
 
 `options` provides additional knobs for controlling connector behavior:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth,
   fileIds,
   options: {
@@ -133,6 +123,8 @@ await syncGoogleDriveFiles({
     strictNativeExport: false,         // Default: fall back to binary export if text export fails
   },
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 <TypeTable
@@ -154,6 +146,25 @@ await syncGoogleDriveFiles({
     },
   }}
 />
+
+## Consuming the stream
+
+The recommended way to consume a connector stream is via `engine.runConnectorStream(...)`, which handles all event types automatically:
+
+```ts
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    // Called for every event (progress, warning, upsert, delete, checkpoint)
+    console.log(event.type, event);
+  },
+  onCheckpoint: async (checkpoint) => {
+    // Called specifically for checkpoint events
+    await persistCheckpoint(checkpoint);
+  },
+  signal: abortController.signal, // Optional: abort early
+});
+```
 
 ### `loadGoogleDriveFileDocument(args)`
 
@@ -239,11 +250,12 @@ import { OAuth2Client } from "google-auth-library";
 const oauthClient = new OAuth2Client(clientId, clientSecret, redirectUri);
 oauthClient.setCredentials({ refresh_token: userRefreshToken });
 
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth: { kind: "oauth", oauthClient },
   fileIds,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 ### OAuth2 from credentials
@@ -251,8 +263,7 @@ await syncGoogleDriveFiles({
 If you have the OAuth credentials and a refresh token but no client instance, the connector will construct one:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth: {
     kind: "oauth",
     clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -263,6 +274,8 @@ await syncGoogleDriveFiles({
   },
   fileIds,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 ### Service account (direct access)
@@ -270,8 +283,7 @@ await syncGoogleDriveFiles({
 For files explicitly shared with the service account:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth: {
     kind: "service_account",
     credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
@@ -279,6 +291,8 @@ await syncGoogleDriveFiles({
   },
   fileIds,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 ### Service account with domain-wide delegation
@@ -286,8 +300,7 @@ await syncGoogleDriveFiles({
 For Workspace organizations with DWD configured, add `subject` to impersonate a user:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth: {
     kind: "service_account",
     credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
@@ -295,6 +308,8 @@ await syncGoogleDriveFiles({
   },
   fileIds,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 The service account will access Drive as if it were that user, seeing all files the user can access.
@@ -310,11 +325,12 @@ const customAuth = new GoogleAuth({
   // Your custom configuration
 });
 
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth: { kind: "google_auth", auth: customAuth },
   fileIds,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 ## Utilities
@@ -377,14 +393,14 @@ export async function listAccessibleFiles(auth: any) {
 }
 ```
 
-Once you have a list of IDs, you can pass them straight into `syncGoogleDriveFiles({ fileIds })`.
+Once you have a list of IDs, you can pass them straight into `googleDriveConnector.streamFiles({ fileIds })`.
 
 ### Listing files from a folder
 
 If you want folder-based syncing, list the folder contents first and then sync those IDs:
 
 ```ts
-import { createGoogleDriveClient, syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+import { createGoogleDriveClient, googleDriveConnector } from "@unrag/connectors/google-drive";
 
 export async function syncDriveFolder(args: {
   engine: any;
@@ -411,15 +427,16 @@ export async function syncDriveFolder(args: {
     if (!pageToken) break;
   }
 
-  return await syncGoogleDriveFiles({
-    engine: args.engine,
+  const stream = googleDriveConnector.streamFiles({
     auth: args.auth,
     fileIds,
   });
+
+  return await args.engine.runConnectorStream({ stream });
 }
 ```
 
-This is a good fit when your users connect a single “knowledge base folder” and you want sync to pick up newly added files automatically.
+This is a good fit when your users connect a single "knowledge base folder" and you want sync to pick up newly added files automatically.
 
 ### Listing files shared with the authenticated user
 
@@ -472,45 +489,22 @@ The connector uses a stable scheme for `sourceId` values:
 
 This enables safe re-runs (idempotent ingest), scoped retrieval via `scope.sourceId` prefixes, and deletion per file or per tenant namespace.
 
-## Progress events
+## Event types
 
-The `onProgress` callback receives events with a `type` field:
+The stream yields various event types that you can observe via `onEvent`:
 
-```ts
-type GoogleDriveSyncProgressEvent =
-  | { type: "file:start"; fileId: string; sourceId: string }
-  | { type: "file:success"; fileId: string; sourceId: string; chunkCount: number }
-  | { type: "file:skipped"; fileId: string; sourceId: string; reason: string; message: string }
-  | { type: "file:not-found"; fileId: string; sourceId: string }
-  | { type: "file:error"; fileId: string; sourceId: string; error: unknown };
-```
+| Event Type | Description |
+|------------|-------------|
+| `progress` (file:start) | Processing begins for a file |
+| `progress` (file:success) | File successfully ingested |
+| `warning` (file_not_found) | File not found or inaccessible |
+| `warning` (file_skipped) | File skipped due to folder, size, or unsupported type |
+| `warning` (file_error) | File processing failed with an error |
+| `upsert` | Document ready for ingestion |
+| `delete` | Document should be deleted (when deleteOnNotFound is true) |
+| `checkpoint` | Resumable position marker |
 
-<TypeTable
-  type={{
-    'file:start': {
-      description: 'Emitted when processing begins for a file. Includes fileId and sourceId.',
-      type: 'object',
-    },
-    'file:success': {
-      description: 'Emitted when a file is successfully synced. Includes chunkCount for the ingested content.',
-      type: 'object',
-    },
-    'file:skipped': {
-      description: 'Emitted when a file is skipped. Includes reason and message explaining why.',
-      type: 'object',
-    },
-    'file:not-found': {
-      description: 'Emitted when a file cannot be found or accessed (404/403).',
-      type: 'object',
-    },
-    'file:error': {
-      description: 'Emitted when file processing fails with an error.',
-      type: 'object',
-    },
-  }}
-/>
-
-The `file:skipped` event's `reason` field can be:
+The `file_skipped` warning includes a `reason` field:
 
 | Reason | Description |
 |--------|-------------|
@@ -525,16 +519,17 @@ The `file:skipped` event's `reason` field can be:
 
 The examples below cover common integration patterns. They assume you've already set up Google Cloud credentials and have the appropriate environment variables available.
 
-### Logging progress with `onProgress`
+### Logging progress with onEvent
 
-The `onProgress` callback fires for each file as it's processed. This is useful for logging, progress indicators, or instrumenting failures:
+The `onEvent` callback fires for each event as the stream progresses. This is useful for logging, progress indicators, or instrumenting failures:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
-import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+import { googleDriveConnector } from "@unrag/connectors/google-drive";
 
-const result = await syncGoogleDriveFiles({
-  engine: createUnragEngine(),
+const engine = createUnragEngine();
+
+const stream = googleDriveConnector.streamFiles({
   auth: {
     kind: "service_account",
     credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
@@ -544,49 +539,24 @@ const result = await syncGoogleDriveFiles({
     "1CyiMVs0XRA5nFMdKvBdBZjgmUUqptlbs",
     "1DziMVs0XRA5nFMdKvBdBZjgmUUqptlbs",
   ],
-  onProgress: (event) => {
-    if (event.type === "file:success") {
-      console.log(`✓ Synced ${event.fileId} (${event.chunkCount} chunks)`);
-    } else if (event.type === "file:not-found") {
-      console.warn(`⊘ File not found: ${event.fileId}`);
-    } else if (event.type === "file:skipped") {
-      console.log(`⊘ Skipped ${event.fileId}: ${event.message}`);
-    } else if (event.type === "file:error") {
-      console.error(`✗ Failed ${event.fileId}:`, event.error);
+});
+
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "progress" && event.message === "file:success") {
+      console.log(`✓ Synced ${event.entityId}`);
+    } else if (event.type === "warning" && event.code === "file_not_found") {
+      console.warn(`⊘ File not found: ${event.data?.fileId}`);
+    } else if (event.type === "warning" && event.code === "file_skipped") {
+      console.log(`⊘ Skipped: ${event.message}`);
+    } else if (event.type === "warning") {
+      console.error(`✗ Failed: ${event.message}`);
     }
   },
 });
 
-console.log(`Done: ${result.succeeded}/${result.fileCount} succeeded`);
-```
-
-### Inspecting results and handling errors
-
-The sync function returns a summary object. Use it to detect partial failures and decide whether to retry or alert:
-
-```ts
-import { createUnragEngine } from "@unrag/config";
-import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
-
-const result = await syncGoogleDriveFiles({
-  engine: createUnragEngine(),
-  auth: {
-    kind: "service_account",
-    credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
-  },
-  fileIds: getFileIdsFromConfig(),
-});
-
-if (result.failed > 0) {
-  console.error(`Sync completed with ${result.failed} failures:`);
-  for (const err of result.errors) {
-    console.error(`  - ${err.fileId}: ${String(err.error)}`);
-  }
-}
-
-if (result.deleted > 0) {
-  console.log(`Cleaned up ${result.deleted} stale documents`);
-}
+console.log(`Done: ${result.upserts} synced, ${result.warnings} warnings`);
 ```
 
 ### End-to-end: sync, retrieve, and use in a prompt
@@ -595,15 +565,14 @@ Here's a complete flow that syncs Drive content, then uses it to answer a questi
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
-import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+import { googleDriveConnector } from "@unrag/connectors/google-drive";
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 
 const engine = createUnragEngine();
 
 // 1. Sync your knowledge base files
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth: {
     kind: "service_account",
     credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
@@ -613,6 +582,8 @@ await syncGoogleDriveFiles({
     "1CyiMVs0XRA5nFMdKvBdBZjgmUUqptlbs", // Pricing sheet
   ],
 });
+
+await engine.runConnectorStream({ stream });
 
 // 2. Retrieve relevant chunks for a user question
 const question = "What's the pricing for the Pro plan?";
@@ -634,69 +605,13 @@ const { text } = await generateText({
 console.log(text);
 ```
 
-### Next.js server action
-
-In a Next.js app, run sync from a server action. This keeps credentials server-side and lets you trigger sync from an admin UI:
-
-```ts
-// app/actions/sync-drive.ts
-"use server";
-
-import { createUnragEngine } from "@/lib/unrag/config";
-import { syncGoogleDriveFiles } from "@/lib/unrag/connectors/google-drive";
-
-export async function syncDriveAction(fileIds: string[]) {
-  const engine = createUnragEngine();
-
-  const result = await syncGoogleDriveFiles({
-    engine,
-    auth: {
-      kind: "service_account",
-      credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
-    },
-    fileIds,
-  });
-
-  return {
-    succeeded: result.succeeded,
-    failed: result.failed,
-    errors: result.errors.map((e) => ({ fileId: e.fileId, message: String(e.error) })),
-  };
-}
-```
-
-Then call it from a client component:
-
-```tsx
-// app/admin/sync-button.tsx
-"use client";
-
-import { syncDriveAction } from "@/app/actions/sync-drive";
-
-export function SyncButton() {
-  const handleSync = async () => {
-    const result = await syncDriveAction([
-      "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs",
-    ]);
-    
-    if (result.failed > 0) {
-      alert(`Sync had ${result.failed} failures`);
-    } else {
-      alert(`Synced ${result.succeeded} files`);
-    }
-  };
-
-  return <button onClick={handleSync}>Sync Drive</button>;
-}
-```
-
 ### Multi-tenant sync with namespace prefixes
 
 For SaaS apps where each tenant has their own Drive files:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
-import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
+import { googleDriveConnector } from "@unrag/connectors/google-drive";
 
 export async function syncTenantDriveFiles(
   tenantId: string,
@@ -705,8 +620,7 @@ export async function syncTenantDriveFiles(
 ) {
   const engine = createUnragEngine();
 
-  return await syncGoogleDriveFiles({
-    engine,
+  const stream = googleDriveConnector.streamFiles({
     auth: {
       kind: "oauth",
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -717,6 +631,8 @@ export async function syncTenantDriveFiles(
     fileIds,
     sourceIdPrefix: `tenant:${tenantId}:`,
   });
+
+  return await engine.runConnectorStream({ stream });
 }
 
 // Later, retrieve only that tenant's content:
@@ -729,12 +645,12 @@ const { chunks } = await engine.retrieve({
 
 ### Scheduled sync with a cron job
 
-For content that changes over time, run sync on a schedule. Here's a simple Node script you can trigger with cron or a job runner:
+For content that changes over time, run sync on a schedule:
 
 ```ts
 // scripts/sync-drive-cron.ts
 import { createUnragEngine } from "../lib/unrag/config";
-import { syncGoogleDriveFiles } from "../lib/unrag/connectors/google-drive";
+import { googleDriveConnector } from "../lib/unrag/connectors/google-drive";
 
 async function main() {
   console.log(`[${new Date().toISOString()}] Starting Drive sync...`);
@@ -742,8 +658,7 @@ async function main() {
   const engine = createUnragEngine();
   const fileIds = await fetchFileIdsFromConfig();
 
-  const result = await syncGoogleDriveFiles({
-    engine,
+  const stream = googleDriveConnector.streamFiles({
     auth: {
       kind: "service_account",
       credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
@@ -752,9 +667,11 @@ async function main() {
     deleteOnNotFound: true,
   });
 
-  console.log(`Completed: ${result.succeeded} synced, ${result.deleted} deleted, ${result.failed} failed`);
+  const result = await engine.runConnectorStream({ stream });
 
-  if (result.failed > 0) {
+  console.log(`Completed: ${result.upserts} synced, ${result.deletes} deleted, ${result.warnings} warnings`);
+
+  if (result.warnings > 0) {
     process.exitCode = 1;
   }
 }
@@ -764,37 +681,3 @@ main().catch((err) => {
   process.exitCode = 1;
 });
 ```
-
-Run it with cron (e.g., every night at 2 AM):
-
-```bash
-0 2 * * * cd /path/to/project && npx tsx scripts/sync-drive-cron.ts >> /var/log/drive-sync.log 2>&1
-```
-
-### Wiping a namespace before re-sync
-
-If you want a clean slate—ensuring that files no longer in your list are removed from the index—wipe the namespace first:
-
-```ts
-import { createUnragEngine } from "@unrag/config";
-import { syncGoogleDriveFiles } from "@unrag/connectors/google-drive";
-
-const engine = createUnragEngine();
-const tenantId = "acme";
-const prefix = `tenant:${tenantId}:`;
-
-// 1. Wipe all existing content for this tenant
-await engine.delete({ sourceIdPrefix: prefix });
-
-// 2. Re-sync the current set of files
-await syncGoogleDriveFiles({
-  engine,
-  auth: {
-    kind: "service_account",
-    credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
-  },
-  fileIds: getCurrentFileIdsForTenant(tenantId),
-  sourceIdPrefix: prefix,
-});
-```
-

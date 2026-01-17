@@ -68,28 +68,40 @@ export const unrag = defineUnragConfig({
 
 ```ts
 // scripts/sync-notion.ts
-import { syncNotionPages } from "./lib/unrag/connectors/notion";
 import { createUnragEngine } from "../unrag.config";
+import { notionConnector } from "./lib/unrag/connectors/notion";
 
 async function main() {
   const engine = createUnragEngine();
 
   console.log("Syncing Notion pages with rich media...\n");
 
-  const result = await syncNotionPages({
-    engine,
+  const stream = notionConnector.streamPages({
     token: process.env.NOTION_TOKEN!,
     pageIds: [
       // Your page IDs
       "abc123...",
       "def456...",
     ],
-    // Or sync a whole database:
-    // databaseId: "your-database-id",
   });
 
-  console.log(`\n✓ Synced ${result.pageCount} pages`);
-  console.log(`  - ${result.chunkCount} total chunks created`);
+  let pageCount = 0;
+  let chunkCount = 0;
+
+  const result = await engine.runConnectorStream({
+    stream,
+    onEvent: (event) => {
+      if (event.type === "progress" && event.message === "page:success") {
+        pageCount++;
+        console.log(`✓ Synced ${event.sourceId}`);
+      }
+      if (event.type === "warning") {
+        console.warn(`⚠ [${event.code}] ${event.message}`);
+      }
+    },
+  });
+
+  console.log(`\n✓ Synced ${result.upserts} pages`);
 }
 
 main().catch(console.error);
@@ -135,23 +147,34 @@ Now a query like "architecture diagram" can find actual diagrams, not just pages
 
 ## Handling sync errors
 
-The Notion API can be flaky, and asset fetching can fail. Handle this gracefully:
+The streaming model makes error handling natural. Warnings are emitted as events rather than throwing exceptions:
 
 ```ts
-try {
-  await syncNotionPages({ engine, token, pageIds });
-} catch (error) {
-  if (error.code === "object_not_found") {
-    console.error("Page not found—check your integration access");
-  } else if (error.message.includes("fetch failed")) {
-    console.error("Network error—retrying may help");
-  } else {
-    throw error;
+const warnings: Array<{ code: string; message: string }> = [];
+
+const stream = notionConnector.streamPages({
+  token: process.env.NOTION_TOKEN!,
+  pageIds,
+});
+
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "warning") {
+      warnings.push({ code: event.code, message: event.message });
+    }
+  },
+});
+
+if (warnings.length > 0) {
+  console.error("Sync completed with warnings:");
+  for (const w of warnings) {
+    console.error(`  [${w.code}] ${w.message}`);
   }
 }
 ```
 
-With `onError: "skip"`, individual asset failures won't stop the sync. Check your logs for skipped assets.
+With `onError: "skip"` in your asset processing config, individual asset failures won't stop the sync. Check your logs for skipped assets.
 
 ## Querying the results
 
@@ -172,37 +195,42 @@ for (const chunk of result.chunks) {
 }
 ```
 
-## Incremental sync
+## Incremental sync with checkpoints
 
-For production, sync incrementally based on Notion's `last_edited_time`:
+For production, persist checkpoints so interrupted syncs can resume:
 
 ```ts
-import { getNotionPagesUpdatedSince, syncNotionPages } from "./lib/unrag/connectors/notion";
+import { createUnragEngine } from "../unrag.config";
+import { notionConnector } from "./lib/unrag/connectors/notion";
 
-async function incrementalSync(since: Date) {
+async function incrementalSync(tenantId: string, pageIds: string[]) {
   const engine = createUnragEngine();
-  
-  // Get pages updated since last sync
-  const updatedPages = await getNotionPagesUpdatedSince({
+  const lastCheckpoint = await loadCheckpoint(tenantId);
+
+  const stream = notionConnector.streamPages({
     token: process.env.NOTION_TOKEN!,
-    databaseId: "your-database-id",
-    since,
+    pageIds,
+    checkpoint: lastCheckpoint,
   });
 
-  if (updatedPages.length === 0) {
-    console.log("No pages updated since last sync");
-    return;
-  }
-
-  console.log(`Found ${updatedPages.length} updated pages`);
-
-  await syncNotionPages({
-    engine,
-    token: process.env.NOTION_TOKEN!,
-    pageIds: updatedPages.map((p) => p.id),
+  const result = await engine.runConnectorStream({
+    stream,
+    onCheckpoint: async (checkpoint) => {
+      await saveCheckpoint(tenantId, checkpoint);
+    },
+    onEvent: (event) => {
+      if (event.type === "progress" && event.message === "page:success") {
+        console.log(`✓ ${event.sourceId}`);
+      }
+    },
   });
+
+  console.log(`Synced ${result.upserts} pages`);
+  return result;
 }
 ```
+
+If the sync times out, the next invocation picks up exactly where it left off.
 
 ## Cost optimization
 
@@ -214,23 +242,35 @@ PDF extraction uses LLM API calls. For large workspaces:
 
 ```ts
 // Selective extraction based on page properties
-const importantPages = pages.filter((p) => p.properties.Status === "Published");
+const importantPageIds = pages
+  .filter((p) => p.properties.Status === "Published")
+  .map((p) => p.id);
 
-await syncNotionPages({
-  engine,
-  token,
-  pageIds: importantPages.map((p) => p.id),
+const stream = notionConnector.streamPages({
+  token: process.env.NOTION_TOKEN!,
+  pageIds: importantPageIds,
   // PDF extraction enabled in config
 });
 
-// Bulk sync for other pages without PDF extraction
-const otherPages = pages.filter((p) => p.properties.Status !== "Published");
+await engine.runConnectorStream({ stream });
 
-for (const page of otherPages) {
+// Bulk sync for other pages without PDF extraction
+const otherPageIds = pages
+  .filter((p) => p.properties.Status !== "Published")
+  .map((p) => p.id);
+
+// Use loadNotionPageDocument for fine-grained control
+for (const pageId of otherPageIds) {
+  const doc = await loadNotionPageDocument({
+    notion: createNotionClient({ token: process.env.NOTION_TOKEN! }),
+    pageIdOrUrl: pageId,
+  });
+
   await engine.ingest({
-    sourceId: `notion:${page.id}`,
-    content: page.content,
-    assets: page.assets,
+    sourceId: doc.sourceId,
+    content: doc.content,
+    assets: doc.assets,
+    metadata: doc.metadata,
     assetProcessing: {
       pdf: { llmExtraction: { enabled: false } },
     },
@@ -251,4 +291,3 @@ for (const page of otherPages) {
     Create an API to search your synced content
   </Card>
 </Cards>
-

@@ -23,11 +23,12 @@ OAuth refresh tokens can expire or be revoked. When a user's token stops working
 
 ```ts
 try {
-  await syncGoogleDriveFiles({
-    engine,
+  const stream = googleDriveConnector.streamFiles({
     auth: { kind: "oauth", clientId, clientSecret, redirectUri, refreshToken },
     fileIds,
   });
+
+  await engine.runConnectorStream({ stream });
 } catch (err) {
   if (isTokenExpiredError(err)) {
     // Prompt user to re-authenticate
@@ -45,12 +46,13 @@ Service account credentials don't expire in the same way, but the JSON key can b
 If your application serves multiple tenants, use `sourceIdPrefix` to partition content:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth,
   fileIds,
   sourceIdPrefix: `tenant:${tenantId}:`,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 This makes retrieval scoping simple and prevents accidental cross-tenant data leakage. When a tenant disconnects or deletes their account, you can cleanly wipe their content:
@@ -74,7 +76,7 @@ For larger or dynamic sets, store file IDs in your database. When users add file
 If you need folder-level syncing, use the Drive API to list files in a folder before syncing:
 
 ```ts
-import { createGoogleDriveClient } from "@unrag/connectors/google-drive";
+import { createGoogleDriveClient, googleDriveConnector } from "@unrag/connectors/google-drive";
 
 const { drive } = await createGoogleDriveClient({ auth });
 
@@ -95,40 +97,64 @@ do {
   pageToken = res.data.nextPageToken ?? undefined;
 } while (pageToken);
 
-await syncGoogleDriveFiles({ engine, auth, fileIds: files });
+const stream = googleDriveConnector.streamFiles({ auth, fileIds: files });
+await engine.runConnectorStream({ stream });
 ```
 
-## Enable `deleteOnNotFound` for full sync
+## Enable deleteOnNotFound for full sync
 
 If you maintain a list of file IDs and want your index to stay in sync when files are deleted or permissions are revoked, enable `deleteOnNotFound`:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth,
   fileIds: getCurrentFileIds(),
   deleteOnNotFound: true,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
-When the connector can't access a file (404 or 403), it removes the corresponding document from your store. This keeps your index clean without requiring manual cleanup.
+When the connector can't access a file (404 or 403), it emits a delete event that removes the corresponding document from your store. This keeps your index clean without requiring manual cleanup.
 
 ## Set appropriate file size limits
 
 The default `maxBytesPerFile` is 15MB, which is reasonable for most documents. If you're ingesting large PDFs or media files, you might want to increase it:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
+const stream = googleDriveConnector.streamFiles({
   auth,
   fileIds,
   options: {
     maxBytesPerFile: 50 * 1024 * 1024, // 50MB
   },
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 But be thoughtful about this. Large files take longer to download, cost more to process (especially for LLM extraction), and may produce many chunks. Consider whether you actually need to ingest huge files, or whether a size limit that skips them is the right behavior.
+
+## Persist checkpoints for large syncs
+
+For syncs with many files—especially in serverless environments with timeout limits—persist checkpoints so you can resume if interrupted:
+
+```ts
+const stream = googleDriveConnector.streamFiles({
+  auth,
+  fileIds: largeFileList,
+  checkpoint: await loadLastCheckpoint(tenantId),
+});
+
+await engine.runConnectorStream({
+  stream,
+  onCheckpoint: async (checkpoint) => {
+    await saveCheckpoint(tenantId, checkpoint);
+  },
+});
+```
+
+Each checkpoint includes the index of the next file to process. If the sync times out, the next invocation picks up exactly where it left off.
 
 ## Run sync in background jobs
 
@@ -154,11 +180,12 @@ const PAUSE_MS = 2000;
 for (let i = 0; i < allFileIds.length; i += BATCH_SIZE) {
   const batch = allFileIds.slice(i, i + BATCH_SIZE);
   
-  await syncGoogleDriveFiles({
-    engine,
+  const stream = googleDriveConnector.streamFiles({
     auth,
     fileIds: batch,
   });
+
+  await engine.runConnectorStream({ stream });
   
   if (i + BATCH_SIZE < allFileIds.length) {
     await new Promise((r) => setTimeout(r, PAUSE_MS));
@@ -167,6 +194,26 @@ for (let i = 0; i < allFileIds.length; i += BATCH_SIZE) {
 ```
 
 Google Drive has quota limits that vary by API and account type. For most use cases, 20 files with a 2-second pause between batches keeps you safely under the limits.
+
+## Use onEvent for observability
+
+The streaming model makes it easy to log exactly what's happening during a sync:
+
+```ts
+await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "progress") {
+      console.log(`[${event.current}/${event.total}] ${event.message}`);
+    }
+    if (event.type === "warning") {
+      console.warn(`Warning: [${event.code}] ${event.message}`);
+    }
+  },
+});
+```
+
+Forward these events to your logging/monitoring system to catch issues early.
 
 ## Monitor for asset processing warnings
 
@@ -188,16 +235,14 @@ if (result.warnings.length > 0) {
 }
 ```
 
-The high-level `syncGoogleDriveFiles` function doesn't expose per-file warnings in the return value (they're handled internally during ingest), but you can use `onProgress` to observe skipped files:
+The high-level streaming API handles this internally during ingest, but you can use `onEvent` to observe skipped files:
 
 ```ts
-await syncGoogleDriveFiles({
-  engine,
-  auth,
-  fileIds,
-  onProgress: (event) => {
-    if (event.type === "file:skipped") {
-      console.warn(`Skipped ${event.fileId}: ${event.message}`);
+await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "warning" && event.code === "file_skipped") {
+      console.warn(`Skipped ${event.data?.fileId}: ${event.message}`);
     }
   },
 });
@@ -213,4 +258,3 @@ Before running sync on your full file list, test with 2-3 files to verify:
 - Your asset processing config handles the file types you have
 
 Once the small test works, scale up gradually. This catches configuration issues early before you've spent time and API credits on a large sync.
-

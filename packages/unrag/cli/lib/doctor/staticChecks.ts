@@ -103,6 +103,9 @@ async function runInstallChecks(
 		const embeddingExists = await exists(
 			path.join(installDirFull, 'embedding')
 		)
+		const coreConnectorsExists =
+			coreExists &&
+			(await exists(path.join(installDirFull, 'core', 'connectors.ts')))
 		const unragMdExists = await exists(
 			path.join(installDirFull, 'unrag.md')
 		)
@@ -118,7 +121,16 @@ async function runInstallChecks(
 			missingDirs.push('embedding/')
 		}
 
-		if (state.installDirExists && missingDirs.length === 0) {
+		const missingCoreFiles: string[] = []
+		if (!coreConnectorsExists) {
+			missingCoreFiles.push('core/connectors.ts')
+		}
+
+		if (
+			state.installDirExists &&
+			missingDirs.length === 0 &&
+			missingCoreFiles.length === 0
+		) {
 			results.push({
 				id: 'install-dir',
 				title: 'Install directory',
@@ -126,18 +138,23 @@ async function runInstallChecks(
 				summary: `Install directory found at ${state.installDir}`,
 				details: [
 					`core/: ${coreExists ? '✓' : '✗'}`,
+					`core/connectors.ts: ${coreConnectorsExists ? '✓' : '✗'}`,
 					`store/: ${storeExists ? '✓' : '✗'}`,
 					`embedding/: ${embeddingExists ? '✓' : '✗'}`,
 					`unrag.md: ${unragMdExists ? '✓' : '✗'}`
 				]
 			})
 		} else if (state.installDirExists) {
+			const missing: string[] = [
+				...missingDirs,
+				...missingCoreFiles
+			].filter(Boolean)
 			results.push({
 				id: 'install-dir',
 				title: 'Install directory',
 				status: 'warn',
 				summary: 'Install directory exists but is incomplete.',
-				details: [`Missing: ${missingDirs.join(', ')}`],
+				details: [`Missing: ${missing.join(', ')}`],
 				fixHints: ['Run `unrag init` to reinstall missing files']
 			})
 		} else {

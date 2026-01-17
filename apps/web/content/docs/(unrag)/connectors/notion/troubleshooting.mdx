@@ -25,7 +25,17 @@ The v1 renderer supports a limited set of common block types. If your pages cont
 
 You can extend the vendored renderer at `lib/unrag/connectors/notion/render.ts` to add support for the block types you need.
 
-If content is deeply nested and getting cut off, increase `maxDepth` in `loadNotionPageDocument(...)`. Be aware that higher depth means more API calls and slower syncs.
+If content is deeply nested and getting cut off, increase `maxDepth` when calling `streamPages`:
+
+```ts
+const stream = notionConnector.streamPages({
+  token: process.env.NOTION_TOKEN!,
+  pageIds,
+  maxDepth: 8, // Increase from default of 4
+});
+```
+
+Be aware that higher depth means more API calls and slower syncs.
 
 ## Duplicates in the index
 
@@ -40,3 +50,46 @@ Notion pages can be large and deeply nested, which means many API calls and sign
 Keep `maxDepth` conservative. Sync fewer pages per run. Run sync off the request path—use a background job or cron rather than blocking an HTTP request.
 
 For very large knowledge bases, consider pre-processing content before ingestion, or implementing incremental sync that only re-fetches pages whose `lastEditedTime` has changed.
+
+## Warnings about specific pages
+
+The streaming model emits warnings for pages that fail without stopping the entire sync. To see what's happening:
+
+```ts
+await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "warning") {
+      console.warn(`[${event.code}] ${event.message}`, event.data);
+    }
+  },
+});
+```
+
+Common warning codes:
+
+| Code | Meaning |
+|------|---------|
+| `page_not_found` | Page doesn't exist or integration lacks access |
+| `page_error` | API returned an unexpected error |
+
+## Sync times out in serverless
+
+For large page lists in serverless environments (Vercel, Lambda), persist checkpoints so you can resume:
+
+```ts
+const stream = notionConnector.streamPages({
+  token: process.env.NOTION_TOKEN!,
+  pageIds,
+  checkpoint: await loadLastCheckpoint(tenantId),
+});
+
+await engine.runConnectorStream({
+  stream,
+  onCheckpoint: async (cp) => {
+    await saveCheckpoint(tenantId, cp);
+  },
+});
+```
+
+If the function times out, the next invocation picks up where it left off.

@@ -13,10 +13,11 @@ import {
 import type {
 	BuildGoogleDriveFileIngestInputArgs,
 	GoogleDriveFileDocument,
-	GoogleDriveSyncProgressEvent,
-	SyncGoogleDriveFilesInput
+	GoogleDriveCheckpoint,
+	StreamGoogleDriveFilesInput
 } from '@registry/connectors/google-drive/types'
-import type {IngestResult, Metadata} from '@registry/core'
+import type {Metadata} from '@registry/core'
+import type {ConnectorStream} from '@registry/core/connectors'
 import type {AssetInput} from '@registry/core/types'
 
 const DEFAULT_MAX_BYTES = 15 * 1024 * 1024 // 15MB
@@ -498,31 +499,30 @@ export async function loadGoogleDriveFileDocument(args: {
 	})
 }
 
-export async function syncGoogleDriveFiles(
-	input: SyncGoogleDriveFilesInput
-): Promise<{
-	fileCount: number
-	succeeded: number
-	failed: number
-	deleted: number
-	errors: Array<{fileId: string; sourceId: string; error: unknown}>
-}> {
+/**
+ * Stream Google Drive files as connector events.
+ *
+ * This yields `upsert` and `delete` events that can be applied to an Unrag engine
+ * via `engine.runConnectorStream(...)`. Progress and warnings are emitted as
+ * separate events so callers can attach logging and checkpointing.
+ */
+export async function* streamFiles(
+	input: StreamGoogleDriveFilesInput
+): ConnectorStream<GoogleDriveCheckpoint> {
 	const deleteOnNotFound = input.deleteOnNotFound ?? false
 	const options = input.options ?? {}
 	const maxBytesPerFile = options.maxBytesPerFile ?? DEFAULT_MAX_BYTES
 	const treatForbiddenAsNotFound = options.treatForbiddenAsNotFound ?? true
+	const fileIds = Array.isArray(input.fileIds) ? input.fileIds : []
+	const startIndex = Math.max(0, input.checkpoint?.index ?? 0)
 
 	const {drive} = await createGoogleDriveClient({
 		auth: input.auth,
 		scopes: options.scopes
 	})
 
-	const errors: Array<{fileId: string; sourceId: string; error: unknown}> = []
-	let succeeded = 0
-	let failed = 0
-	let deleted = 0
-
-	for (const fileIdRaw of input.fileIds) {
+	for (let i = startIndex; i < fileIds.length; i++) {
+		const fileIdRaw = fileIds[i]
 		const fileId = String(fileIdRaw ?? '').trim()
 		if (!fileId) {
 			continue
@@ -533,15 +533,14 @@ export async function syncGoogleDriveFiles(
 			`gdrive:file:${fileId}`
 		)
 
-		const emit = (event: GoogleDriveSyncProgressEvent) => {
-			try {
-				input.onProgress?.(event)
-			} catch {
-				// ignore progress handler errors
-			}
+		yield {
+			type: 'progress',
+			message: 'file:start',
+			current: i + 1,
+			total: fileIds.length,
+			sourceId,
+			entityId: fileId
 		}
-
-		emit({type: 'file:start', fileId, sourceId})
 
 		try {
 			const doc = await loadGoogleDriveFileDocument({
@@ -556,99 +555,105 @@ export async function syncGoogleDriveFiles(
 
 			const meta = doc.metadata as Record<string, unknown>
 
-			// Skip folders explicitly (v1).
+			const skip = (args: {
+				reason:
+					| 'is_folder'
+					| 'unsupported_google_mime'
+					| 'too_large'
+					| 'shortcut_unresolved'
+				message: string
+			}) => {
+				return {
+					type: 'warning' as const,
+					code: 'file_skipped',
+					message: args.message,
+					data: {
+						fileId,
+						sourceId,
+						reason: args.reason
+					}
+				}
+			}
+
 			if (meta.kind === 'folder') {
-				emit({
-					type: 'file:skipped',
-					fileId,
-					sourceId,
+				yield skip({
 					reason: 'is_folder',
 					message: 'Skipping folder (v1: files-only connector).'
 				})
-				continue
-			}
-
-			if (meta.unsupportedGoogleMime) {
-				emit({
-					type: 'file:skipped',
-					fileId,
-					sourceId,
+			} else if (meta.unsupportedGoogleMime) {
+				yield skip({
 					reason: 'unsupported_google_mime',
 					message:
 						'Skipping Google-native file type because it has no supported export plan.'
 				})
-				continue
-			}
-
-			if (meta.skippedTooLarge || meta.exportedTooLarge) {
-				emit({
-					type: 'file:skipped',
-					fileId,
-					sourceId,
+			} else if (meta.skippedTooLarge || meta.exportedTooLarge) {
+				yield skip({
 					reason: 'too_large',
 					message: `Skipping file because it exceeds maxBytesPerFile (${maxBytesPerFile}).`
 				})
-				continue
-			}
-
-			if (meta.shortcutUnresolved) {
-				emit({
-					type: 'file:skipped',
-					fileId,
-					sourceId,
+			} else if (meta.shortcutUnresolved) {
+				yield skip({
 					reason: 'shortcut_unresolved',
 					message:
 						'Skipping shortcut because target could not be resolved.'
 				})
-				continue
-			}
-
-			const result: IngestResult = await input.engine.ingest({
-				sourceId: doc.sourceId,
-				content: doc.content,
-				assets: doc.assets,
-				metadata: doc.metadata
-			})
-
-			succeeded += 1
-			emit({
-				type: 'file:success',
-				fileId,
-				sourceId,
-				chunkCount: result.chunkCount
-			})
-		} catch (err) {
-			if (isNotFound(err, Boolean(treatForbiddenAsNotFound))) {
-				emit({type: 'file:not-found', fileId, sourceId})
-				if (deleteOnNotFound) {
-					try {
-						await input.engine.delete({sourceId})
-						deleted += 1
-					} catch (deleteErr) {
-						failed += 1
-						errors.push({fileId, sourceId, error: deleteErr})
-						emit({
-							type: 'file:error',
-							fileId,
-							sourceId,
-							error: deleteErr
-						})
+			} else {
+				yield {
+					type: 'upsert',
+					input: {
+						sourceId: doc.sourceId,
+						content: doc.content,
+						assets: doc.assets,
+						metadata: doc.metadata
 					}
 				}
-				continue
-			}
 
-			failed += 1
-			errors.push({fileId, sourceId, error: err})
-			emit({type: 'file:error', fileId, sourceId, error: err})
+				yield {
+					type: 'progress',
+					message: 'file:success',
+					current: i + 1,
+					total: fileIds.length,
+					sourceId,
+					entityId: fileId
+				}
+			}
+		} catch (err) {
+			if (isNotFound(err, Boolean(treatForbiddenAsNotFound))) {
+				yield {
+					type: 'warning',
+					code: 'file_not_found',
+					message: 'Google Drive file not found or inaccessible.',
+					data: {fileId, sourceId}
+				}
+
+				if (deleteOnNotFound) {
+					yield {type: 'delete', input: {sourceId}}
+				}
+			} else {
+				yield {
+					type: 'warning',
+					code: 'file_error',
+					message: _asMessage(err),
+					data: {fileId, sourceId}
+				}
+			}
+		}
+
+		yield {
+			type: 'checkpoint',
+			checkpoint: {
+				index: i + 1,
+				fileId
+			}
 		}
 	}
+}
 
-	return {
-		fileCount: input.fileIds.length,
-		succeeded,
-		failed,
-		deleted,
-		errors
-	}
+/**
+ * Exported connector surface for Google Drive.
+ *
+ * This keeps connector-related functionality namespaced and future-proof.
+ */
+export const googleDriveConnector = {
+	streamFiles
 }
