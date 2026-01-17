@@ -4,6 +4,7 @@ import {notFound} from 'next/navigation'
 import {ImageResponse} from 'next/og'
 
 export const revalidate = false
+export const runtime = 'nodejs'
 
 const geistRegularPromise = readFile(
 	new URL('./fonts/Geist-Regular.ttf', import.meta.url)
@@ -42,7 +43,7 @@ export async function GET(
 
 	const bannerSrc = `data:image/png;base64,${banner.toString('base64')}`
 
-	return new ImageResponse(
+	const pngResponse = new ImageResponse(
 		<div
 			style={{
 				display: 'flex',
@@ -148,6 +149,38 @@ export async function GET(
 			]
 		}
 	)
+
+	// `ImageResponse` always emits a PNG which can be relatively large for photo-like backgrounds.
+	// WhatsApp in particular has a strict-ish size recommendation (< 600KB), so we re-encode the
+	// generated PNG into a JPEG for significantly smaller payloads.
+	try {
+		const sharp = (await import('sharp')).default
+
+		const png = Buffer.from(await pngResponse.arrayBuffer())
+		const jpeg = await sharp(png)
+			.jpeg({
+				quality: 82,
+				mozjpeg: true
+			})
+			.toBuffer()
+
+		// TS in Next projects typically uses DOM `BodyInit` typings, which don't include Node's `Buffer`.
+		// Convert explicitly to a `Uint8Array` (an `ArrayBufferView`) so types + runtime both agree.
+		const jpegBytes = new Uint8Array(jpeg)
+
+		return new Response(jpegBytes, {
+			headers: {
+				'content-type': 'image/jpeg',
+				// Keep the same caching semantics as `ImageResponse` uses internally.
+				'cache-control':
+					process.env.NODE_ENV === 'development'
+						? 'no-cache, no-store'
+						: 'public, immutable, no-transform, max-age=31536000'
+			}
+		})
+	} catch {
+		return pngResponse
+	}
 }
 
 export function generateStaticParams() {
