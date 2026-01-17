@@ -20,36 +20,6 @@
 - `onProgress` callbacks are removed in favor of [onEvent](cci:1://file:///Users/subho/Documents/Workspace/Work/unrag/packages/unrag/test/connector-runner.unit.test.ts:45:3-45:41) via [runConnectorStream](cci:1://file:///Users/subho/Documents/Workspace/Work/unrag/packages/unrag/registry/core/connectors.ts:107:0-160:1)
 - The `engine` parameter is no longer passed to connector functions; instead, pass the stream to `engine.runConnectorStream()`
 
-### Migration Guide
-
-**Before:**
-
-```ts
-await notionConnector.syncPages({
-  engine,
-  token,
-  pageIds,
-  onProgress: (event) => console.log(event),
-});
-```
-
-**After:**
-
-```ts
-const stream = notionConnector.streamPages({
-  token,
-  pageIds,
-});
-
-const result = await engine.runConnectorStream({
-  stream,
-  onEvent: (event) => console.log(event),
-  onCheckpoint: async (checkpoint) => {
-    await saveCheckpoint(checkpoint);
-  },
-});
-```
-
 ## 0.2.12
 
 ### Patch Changes
