@@ -1,3 +1,5 @@
+import {drizzle} from 'drizzle-orm/node-postgres'
+import {Pool} from 'pg'
 /**
  * Root Unrag config (generated).
  *
@@ -10,11 +12,8 @@
  * The files under your install dir (e.g. `lib/unrag/**`) are intended to be
  * treated like vendored source code.
  */
-import { defineUnragConfig } from "./lib/unrag/core";
-import { createDrizzleVectorStore } from "./lib/unrag/store/drizzle";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { Pool } from "pg";
-import { createCohereReranker } from "./lib/unrag/rerank";
+import {defineUnragConfig} from './lib/unrag/core'
+import {createDrizzleVectorStore} from './lib/unrag/store/drizzle'
 
 export const unrag = defineUnragConfig({
 	defaults: {
@@ -29,15 +28,11 @@ export const unrag = defineUnragConfig({
 	embedding: {
 		provider: 'ai',
 		config: {
-			model: "openai/text-embedding-3-small",
-			timeoutMs: 15_000,
+			model: 'openai/text-embedding-3-small',
+			timeoutMs: 15_000
 		}
 	},
 	engine: {
-		/**
-		 * Reranker for second-stage ranking after retrieval.
-		 */
-		reranker: createCohereReranker(),
 		/**
 		 * Storage controls.
 		 *
@@ -58,42 +53,28 @@ export const unrag = defineUnragConfig({
 		 * - `import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";`
 		 * - `extractors: [createPdfLlmExtractor()]`
 		 */
-		extractors: [
-			// __UNRAG_EXTRACTORS__
-		],
-		/**
-		 * Rich media processing controls.
-		 *
-		 * Notes:
-		 * - This generated config is cost-safe by default (all extraction is off).
-		 * - `unrag init --rich-media` can enable rich media ingestion for you (extractors + assetProcessing flags).
-		 * - Tighten fetch allowlists/limits in production if you ingest URL-based assets.
-		 */
-		assetProcessing: {
-			onUnsupportedAsset: 'skip',
-			onError: 'skip',
-			concurrency: 4,
-			fetch: {
-				enabled: true,
-				maxBytes: 15 * 1024 * 1024,
-				timeoutMs: 20_000
-				// allowedHosts: ["..."], // recommended to mitigate SSRF
-			}
-		}
+		extractors: []
 	}
 } as const)
 
 export function createUnragEngine() {
-	const databaseUrl = process.env.DATABASE_URL;
-	if (!databaseUrl) throw new Error("DATABASE_URL is required");
+	const databaseUrl = process.env.DATABASE_URL
+	if (!databaseUrl) {
+		throw new Error('DATABASE_URL is required')
+	}
 
-	const pool = (globalThis as any).__unragPool ?? new Pool({ connectionString: databaseUrl });
-	(globalThis as any).__unragPool = pool;
+	const globalForUnrag = globalThis as unknown as {
+		__unragPool?: Pool
+		__unragDrizzleDb?: ReturnType<typeof drizzle>
+	}
+	const pool =
+		globalForUnrag.__unragPool ?? new Pool({connectionString: databaseUrl})
+	globalForUnrag.__unragPool = pool
 
-	const db = (globalThis as any).__unragDrizzleDb ?? drizzle(pool);
-	(globalThis as any).__unragDrizzleDb = db;
+	const db = globalForUnrag.__unragDrizzleDb ?? drizzle(pool)
+	globalForUnrag.__unragDrizzleDb = db
 
-	const store = createDrizzleVectorStore(db);
+	const store = createDrizzleVectorStore(db)
 
-	return unrag.createEngine({ store });
+	return unrag.createEngine({store})
 }

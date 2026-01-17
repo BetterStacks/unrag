@@ -28,22 +28,18 @@ After running `bunx unrag@latest init`, your project will contain:
       <File name="types.ts" />
     </Folder>
     <Folder name="embedding">
-      <File name="_shared.ts" />
+      <File name="providers.ts" />
       <File name="ai.ts" />
-      <File name="openai.ts" />
-      <File name="..." />
+      <File name="_shared.ts" />
     </Folder>
     <Folder name="extractors">
       <Folder name="_shared">
         <File name="fetch.ts" />
-        <File name="media.ts" />
-        <File name="text.ts" />
       </Folder>
     </Folder>
     <Folder name="store">
       <File name="drizzle/" />
     </Folder>
-    <File name="unrag.md" />
   </Folder>
   <File name="unrag.json" />
 </Files>
@@ -54,9 +50,9 @@ After running `bunx unrag@latest init`, your project will contain:
 
 **`lib/unrag/store/`** contains your chosen database adapter—whether that's Drizzle, Prisma, or raw SQL. Each adapter implements the same interface: `upsert()` to write documents and their chunks, and `query()` to find the most similar chunks.
 
-**`lib/unrag/embedding/`** contains implementations for all supported embedding providers—Vercel AI Gateway (default), OpenAI, Google, Cohere, Voyage, and others. The default uses the Vercel AI SDK, but you can switch providers by changing a config option. All providers are installed so you can swap without re-running the CLI.
+**`lib/unrag/embedding/`** contains the selected embedding provider implementation plus a dispatcher. The default uses the Vercel AI SDK, but you can switch providers by changing a config option and re-running `unrag init --full` (to vendor all providers) or by re-running init with a different provider selection.
 
-**`lib/unrag/unrag.md`** is a generated README with setup notes specific to your configuration—the database schema you need to create, environment variables to set, and adapter-specific tips.
+**`lib/unrag/unrag.md`** is optional. If you want a generated README with setup notes (schema, env vars, adapter tips), run `unrag init --with-docs`.
 
 ## What Unrag assumes
 
@@ -105,7 +101,7 @@ Real-world content isn't just text. Your Notion pages have embedded PDFs. Your d
 
 **Connectors like Notion and Google Drive** automatically extract these assets from the content they sync, so you don't have to build the asset list yourself.
 
-Asset processing is opt-in and configurable. The library defaults to skipping expensive operations, but the generated config template enables PDF extraction so new installs work with rich content out of the box. See [Multimodal Ingestion](/docs/concepts/multimodal) for the full picture.
+Asset processing is opt-in and configurable. The library defaults to skipping expensive operations, and rich media settings are only enabled when you choose extractors during `init` (or add them later). See [Multimodal Ingestion](/docs/concepts/multimodal) for the full picture.
 
 <Callout title="New to RAG?">
 If you're new to retrieval-augmented generation or want a deeper understanding of the concepts, tradeoffs, and failure modes involved in production RAG systems, check out our comprehensive [RAG Handbook](/docs/rag). It covers everything from first principles to production operations.

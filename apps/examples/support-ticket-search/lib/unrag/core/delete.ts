@@ -1,8 +1,5 @@
 import {getDebugEmitter} from '@unrag/core/debug-emitter'
-import type {
-	DeleteInput,
-	ResolvedContextEngineConfig
-} from '@unrag/core/types'
+import type {DeleteInput, ResolvedContextEngineConfig} from '@unrag/core/types'
 
 const now = () => performance.now()
 

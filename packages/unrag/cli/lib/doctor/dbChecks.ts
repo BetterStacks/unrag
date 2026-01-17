@@ -437,7 +437,7 @@ async function checkTable(
 				summary: `Table ${schema}.${tableName} does not exist.`,
 				fixHints: [
 					'Run the schema migration to create Unrag tables.',
-					'See lib/unrag/unrag.md for the required schema.'
+					'See the database setup docs for the required schema.'
 				],
 				docsLink: docsUrl(
 					'/docs/getting-started/database#creating-the-schema'

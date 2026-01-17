@@ -11,6 +11,8 @@ export type RegistrySelection = {
 	storeAdapter: 'drizzle' | 'prisma' | 'raw-sql'
 	aliasBase: string // e.g. "@unrag"
 	embeddingProvider?: EmbeddingProviderName
+	full?: boolean
+	withDocs?: boolean
 	yes?: boolean // non-interactive
 	overwrite?: 'skip' | 'force' // behavior when dest exists
 	presetConfig?: {
@@ -137,6 +139,77 @@ const renderObjectLiteral = (
 	return `{\n${inner}\n${' '.repeat(Math.max(0, indent - 2))}}`
 }
 
+const EMBEDDING_PROVIDER_FILES: Record<EmbeddingProviderName, string> = {
+	ai: 'embedding/ai.ts',
+	openai: 'embedding/openai.ts',
+	google: 'embedding/google.ts',
+	openrouter: 'embedding/openrouter.ts',
+	azure: 'embedding/azure.ts',
+	vertex: 'embedding/vertex.ts',
+	bedrock: 'embedding/bedrock.ts',
+	cohere: 'embedding/cohere.ts',
+	mistral: 'embedding/mistral.ts',
+	together: 'embedding/together.ts',
+	ollama: 'embedding/ollama.ts',
+	voyage: 'embedding/voyage.ts'
+}
+
+const EMBEDDING_NEEDS_SHARED = new Set<EmbeddingProviderName>([
+	'openai',
+	'google',
+	'openrouter',
+	'azure',
+	'vertex',
+	'bedrock',
+	'cohere',
+	'mistral',
+	'together',
+	'ollama',
+	'voyage'
+])
+
+const EMBEDDING_PROVIDER_FACTORY: Record<EmbeddingProviderName, string> = {
+	ai: 'createAiEmbeddingProvider',
+	openai: 'createOpenAiEmbeddingProvider',
+	google: 'createGoogleEmbeddingProvider',
+	openrouter: 'createOpenRouterEmbeddingProvider',
+	azure: 'createAzureEmbeddingProvider',
+	vertex: 'createVertexEmbeddingProvider',
+	bedrock: 'createBedrockEmbeddingProvider',
+	cohere: 'createCohereEmbeddingProvider',
+	mistral: 'createMistralEmbeddingProvider',
+	together: 'createTogetherEmbeddingProvider',
+	ollama: 'createOllamaEmbeddingProvider',
+	voyage: 'createVoyageEmbeddingProvider'
+}
+
+const renderEmbeddingProviders = (
+	content: string,
+	selection: RegistrySelection
+) => {
+	const provider = selection.embeddingProvider ?? 'ai'
+	const full = Boolean(selection.full)
+	const providers = full
+		? (Object.keys(EMBEDDING_PROVIDER_FILES) as EmbeddingProviderName[])
+		: [provider]
+
+	const importLines = providers.map(
+		(p) =>
+			`import { ${EMBEDDING_PROVIDER_FACTORY[p]} } from "@registry/embedding/${p}";`
+	)
+
+	const caseLines = providers
+		.map(
+			(p) =>
+				`case '${p}':\n      return ${EMBEDDING_PROVIDER_FACTORY[p]}(config.config);`
+		)
+		.join('\n')
+
+	return content
+		.replace('// __UNRAG_PROVIDER_IMPORTS__', importLines.join('\n'))
+		.replace('// __UNRAG_PROVIDER_CASES__', caseLines)
+}
+
 const _replaceBetweenMarkers = (
 	content: string,
 	startMarker: string,
@@ -191,13 +264,19 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 		)
 		storeCreateLines.push(
 			'  const databaseUrl = process.env.DATABASE_URL;',
-			`  if (!databaseUrl) throw new Error("DATABASE_URL is required");`,
+			'  if (!databaseUrl) {',
+			'    throw new Error("DATABASE_URL is required");',
+			'  }',
 			'',
-			'  const pool = (globalThis as any).__unragPool ?? new Pool({ connectionString: databaseUrl });',
-			'  (globalThis as any).__unragPool = pool;',
+			'  const globalForUnrag = globalThis as unknown as {',
+			'    __unragPool?: Pool;',
+			'    __unragDrizzleDb?: ReturnType<typeof drizzle>;',
+			'  };',
+			'  const pool = globalForUnrag.__unragPool ?? new Pool({ connectionString: databaseUrl });',
+			'  globalForUnrag.__unragPool = pool;',
 			'',
-			'  const db = (globalThis as any).__unragDrizzleDb ?? drizzle(pool);',
-			'  (globalThis as any).__unragDrizzleDb = db;',
+			'  const db = globalForUnrag.__unragDrizzleDb ?? drizzle(pool);',
+			'  globalForUnrag.__unragDrizzleDb = db;',
 			'',
 			'  const store = createDrizzleVectorStore(db);'
 		)
@@ -208,10 +287,15 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 		)
 		storeCreateLines.push(
 			'  const databaseUrl = process.env.DATABASE_URL;',
-			`  if (!databaseUrl) throw new Error("DATABASE_URL is required");`,
+			'  if (!databaseUrl) {',
+			'    throw new Error("DATABASE_URL is required");',
+			'  }',
 			'',
-			'  const pool = (globalThis as any).__unragPool ?? new Pool({ connectionString: databaseUrl });',
-			'  (globalThis as any).__unragPool = pool;',
+			'  const globalForUnrag = globalThis as unknown as {',
+			'    __unragPool?: Pool;',
+			'  };',
+			'  const pool = globalForUnrag.__unragPool ?? new Pool({ connectionString: databaseUrl });',
+			'  globalForUnrag.__unragPool = pool;',
 			'',
 			'  const store = createRawSqlVectorStore(pool);'
 		)
@@ -221,8 +305,11 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 			`import { PrismaClient } from "@prisma/client";`
 		)
 		storeCreateLines.push(
-			'  const prisma = (globalThis as any).__unragPrisma ?? new PrismaClient();',
-			'  (globalThis as any).__unragPrisma = prisma;',
+			'  const globalForUnrag = globalThis as unknown as {',
+			'    __unragPrisma?: PrismaClient;',
+			'  };',
+			'  const prisma = globalForUnrag.__unragPrisma ?? new PrismaClient();',
+			'  globalForUnrag.__unragPrisma = prisma;',
 			'  const store = createPrismaVectorStore(prisma);'
 		)
 	}
@@ -507,7 +594,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 	// We include a leading comma so the block can be injected after the `extractors: [...]` property.
 	out = out.replace(
 		/^([ \t]*)\/\/ __UNRAG_ASSET_PROCESSING_OVERRIDES__\s*$/m,
-		(m: string, indent: string) => {
+		(_m: string, indent: string) => {
 			if (!assetProcessingBlock) {
 				return ''
 			}
@@ -518,9 +605,9 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 	// Inject extractor list (or remove placeholder) without depending on exact indentation.
 	out = out.replace(
 		/^([ \t]*)\/\/ __UNRAG_EXTRACTORS__\s*$/m,
-		(m: string, indent: string) => {
+		(_m: string, indent: string) => {
 			if (!(richMedia.enabled && selectedExtractors.length > 0)) {
-				return m
+				return ''
 			}
 			return selectedExtractors
 				.map((ex) => `${indent}${EXTRACTOR_FACTORY[ex]}(),`)
@@ -665,16 +752,11 @@ export async function copyRegistryFiles(
 	const installBaseAbs = toAbs(selection.installDir)
 
 	const fileMappings: FileMapping[] = [
-		// root config + docs
+		// root config
 		{
 			src: path.join(selection.registryRoot, 'config/unrag.config.ts'),
 			dest: toAbs('unrag.config.ts'),
 			transform: (c) => renderUnragConfig(c, selection)
-		},
-		{
-			src: path.join(selection.registryRoot, 'docs/unrag.md'),
-			dest: path.join(installBaseAbs, 'unrag.md'),
-			transform: (c) => renderDocs(c, selection)
 		},
 
 		// core
@@ -743,75 +825,67 @@ export async function copyRegistryFiles(
 			),
 			dest: path.join(installBaseAbs, 'extractors/_shared/fetch.ts')
 		},
-		{
-			src: path.join(
-				selection.registryRoot,
-				'extractors/_shared/media.ts'
-			),
-			dest: path.join(installBaseAbs, 'extractors/_shared/media.ts')
-		},
-		{
-			src: path.join(
-				selection.registryRoot,
-				'extractors/_shared/text.ts'
-			),
-			dest: path.join(installBaseAbs, 'extractors/_shared/text.ts')
-		},
 
-		// embedding
+		// embedding dispatcher (generated)
 		{
-			src: path.join(selection.registryRoot, 'embedding/_shared.ts'),
-			dest: path.join(installBaseAbs, 'embedding/_shared.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/ai.ts'),
-			dest: path.join(installBaseAbs, 'embedding/ai.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/openai.ts'),
-			dest: path.join(installBaseAbs, 'embedding/openai.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/google.ts'),
-			dest: path.join(installBaseAbs, 'embedding/google.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/openrouter.ts'),
-			dest: path.join(installBaseAbs, 'embedding/openrouter.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/azure.ts'),
-			dest: path.join(installBaseAbs, 'embedding/azure.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/vertex.ts'),
-			dest: path.join(installBaseAbs, 'embedding/vertex.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/bedrock.ts'),
-			dest: path.join(installBaseAbs, 'embedding/bedrock.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/cohere.ts'),
-			dest: path.join(installBaseAbs, 'embedding/cohere.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/mistral.ts'),
-			dest: path.join(installBaseAbs, 'embedding/mistral.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/together.ts'),
-			dest: path.join(installBaseAbs, 'embedding/together.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/ollama.ts'),
-			dest: path.join(installBaseAbs, 'embedding/ollama.ts')
-		},
-		{
-			src: path.join(selection.registryRoot, 'embedding/voyage.ts'),
-			dest: path.join(installBaseAbs, 'embedding/voyage.ts')
+			src: path.join(selection.registryRoot, 'embedding/providers.ts'),
+			dest: path.join(installBaseAbs, 'embedding/providers.ts'),
+			transform: (c) => renderEmbeddingProviders(c, selection)
 		}
 	]
+
+	// Optional docs
+	if (selection.withDocs) {
+		fileMappings.push({
+			src: path.join(selection.registryRoot, 'docs/unrag.md'),
+			dest: path.join(installBaseAbs, 'unrag.md'),
+			transform: (c) => renderDocs(c, selection)
+		})
+	}
+
+	const richMediaEnabled = Boolean(selection.richMedia?.enabled)
+	const fullScaffold = Boolean(selection.full)
+
+	// Include extractor shared utilities only when needed.
+	if (fullScaffold || richMediaEnabled) {
+		fileMappings.push(
+			{
+				src: path.join(
+					selection.registryRoot,
+					'extractors/_shared/media.ts'
+				),
+				dest: path.join(installBaseAbs, 'extractors/_shared/media.ts')
+			},
+			{
+				src: path.join(
+					selection.registryRoot,
+					'extractors/_shared/text.ts'
+				),
+				dest: path.join(installBaseAbs, 'extractors/_shared/text.ts')
+			}
+		)
+	}
+
+	// Embedding providers (slim by default, full on demand).
+	const provider = selection.embeddingProvider ?? 'ai'
+	const providers = fullScaffold
+		? (Object.keys(EMBEDDING_PROVIDER_FILES) as EmbeddingProviderName[])
+		: [provider]
+
+	if (fullScaffold || EMBEDDING_NEEDS_SHARED.has(provider)) {
+		fileMappings.push({
+			src: path.join(selection.registryRoot, 'embedding/_shared.ts'),
+			dest: path.join(installBaseAbs, 'embedding/_shared.ts')
+		})
+	}
+
+	for (const p of providers) {
+		const file = EMBEDDING_PROVIDER_FILES[p]
+		fileMappings.push({
+			src: path.join(selection.registryRoot, file),
+			dest: path.join(installBaseAbs, file)
+		})
+	}
 
 	// store
 	if (selection.storeAdapter === 'drizzle') {
