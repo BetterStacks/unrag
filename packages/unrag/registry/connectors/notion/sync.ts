@@ -21,11 +21,11 @@ import {
 import type {
 	BuildNotionPageIngestInputArgs,
 	NotionPageDocument,
-	NotionSyncProgressEvent,
-	SyncNotionPagesInput,
-	SyncNotionPagesResult
+	NotionCheckpoint,
+	StreamNotionPagesInput
 } from '@registry/connectors/notion/types'
-import type {IngestResult, Metadata} from '@registry/core'
+import type {Metadata} from '@registry/core'
+import type {ConnectorStream} from '@registry/core/connectors'
 
 const joinPrefix = (prefix: string | undefined, rest: string) => {
 	const p = (prefix ?? '').trim()
@@ -180,88 +180,112 @@ const isNotFound = (err: unknown): boolean => {
 	return msg.toLowerCase().includes('could not find')
 }
 
-export async function syncNotionPages(
-	input: SyncNotionPagesInput
-): Promise<SyncNotionPagesResult> {
+const asMessage = (err: unknown): string => {
+	if (err instanceof Error) {
+		return err.message
+	}
+	try {
+		return typeof err === 'string' ? err : JSON.stringify(err)
+	} catch {
+		return String(err)
+	}
+}
+
+/**
+ * Stream Notion pages as connector events.
+ *
+ * This yields `upsert` and `delete` events that can be applied to an Unrag engine
+ * via `engine.runConnectorStream(...)`. Progress and warnings are emitted as
+ * separate events so callers can attach logging and checkpointing.
+ */
+export async function* streamPages(
+	input: StreamNotionPagesInput
+): ConnectorStream<NotionCheckpoint> {
 	const deleteOnNotFound = input.deleteOnNotFound ?? false
-
+	const pageIds = Array.isArray(input.pageIds) ? input.pageIds : []
+	const startIndex = Math.max(0, input.checkpoint?.index ?? 0)
 	const notion = createNotionClient({token: input.token})
-	const errors: SyncNotionPagesResult['errors'] = []
 
-	let succeeded = 0
-	let failed = 0
-	let deleted = 0
-
-	for (const rawId of input.pageIds) {
+	for (let i = startIndex; i < pageIds.length; i++) {
+		const rawId = pageIds[i]
 		const pageId = normalizeNotionPageId32(rawId)
 		const sourceId = joinPrefix(
 			input.sourceIdPrefix,
 			`notion:page:${pageId}`
 		)
 
-		const emit = (event: NotionSyncProgressEvent) => {
-			try {
-				input.onProgress?.(event)
-			} catch {
-				// ignore progress handler errors
-			}
+		yield {
+			type: 'progress',
+			message: 'page:start',
+			current: i + 1,
+			total: pageIds.length,
+			sourceId,
+			entityId: pageId
 		}
-
-		emit({type: 'page:start', pageId, sourceId})
 
 		try {
 			const doc = await loadNotionPageDocument({
 				notion,
 				pageIdOrUrl: pageId,
-				sourceIdPrefix: input.sourceIdPrefix
+				sourceIdPrefix: input.sourceIdPrefix,
+				maxDepth: input.maxDepth
 			})
 
-			const result: IngestResult = await input.engine.ingest({
-				sourceId: doc.sourceId,
-				content: doc.content,
-				assets: doc.assets,
-				metadata: doc.metadata
-			})
-
-			succeeded += 1
-			emit({
-				type: 'page:success',
-				pageId,
-				sourceId,
-				chunkCount: result.chunkCount
-			})
-		} catch (err) {
-			if (isNotFound(err)) {
-				emit({type: 'page:not-found', pageId, sourceId})
-				if (deleteOnNotFound) {
-					try {
-						await input.engine.delete({sourceId})
-						deleted += 1
-					} catch (deleteErr) {
-						failed += 1
-						errors.push({pageId, sourceId, error: deleteErr})
-						emit({
-							type: 'page:error',
-							pageId,
-							sourceId,
-							error: deleteErr
-						})
-					}
+			yield {
+				type: 'upsert',
+				input: {
+					sourceId: doc.sourceId,
+					content: doc.content,
+					assets: doc.assets,
+					metadata: doc.metadata
 				}
-				continue
 			}
 
-			failed += 1
-			errors.push({pageId, sourceId, error: err})
-			emit({type: 'page:error', pageId, sourceId, error: err})
+			yield {
+				type: 'progress',
+				message: 'page:success',
+				current: i + 1,
+				total: pageIds.length,
+				sourceId,
+				entityId: pageId
+			}
+		} catch (err) {
+			if (isNotFound(err)) {
+				yield {
+					type: 'warning',
+					code: 'page_not_found',
+					message: 'Notion page not found or inaccessible.',
+					data: {pageId, sourceId}
+				}
+
+				if (deleteOnNotFound) {
+					yield {type: 'delete', input: {sourceId}}
+				}
+			} else {
+				yield {
+					type: 'warning',
+					code: 'page_error',
+					message: asMessage(err),
+					data: {pageId, sourceId}
+				}
+			}
+		}
+
+		yield {
+			type: 'checkpoint',
+			checkpoint: {
+				index: i + 1,
+				pageId
+			}
 		}
 	}
+}
 
-	return {
-		pageCount: input.pageIds.length,
-		succeeded,
-		failed,
-		deleted,
-		errors
-	}
+/**
+ * Exported connector surface for Notion.
+ *
+ * This keeps connector-related functionality namespaced and future-proof.
+ */
+export const notionConnector = {
+	streamPages
 }

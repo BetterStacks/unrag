@@ -8,6 +8,7 @@ export {deleteDocuments} from '@registry/core/delete'
 export {ingest, planIngest} from '@registry/core/ingest'
 export {rerank} from '@registry/core/rerank'
 export {retrieve} from '@registry/core/retrieve'
+export * from '@registry/core/connectors'
 export {defaultChunker, resolveChunkingOptions} from '@registry/core/chunking'
 export {
 	defaultAssetProcessingConfig,

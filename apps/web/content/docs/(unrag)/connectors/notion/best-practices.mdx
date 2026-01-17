@@ -12,12 +12,13 @@ The Notion token is a credential. Only run the connector in server environments�
 If your app has multiple tenants or users, always set `sourceIdPrefix` to avoid cross-tenant retrieval and to enable safe namespace wipes:
 
 ```ts
-await syncNotionPages({
-  engine,
+const stream = notionConnector.streamPages({
   token: process.env.NOTION_TOKEN!,
   pageIds: [...],
   sourceIdPrefix: `tenant:${tenantId}:`,
 });
+
+await engine.runConnectorStream({ stream });
 ```
 
 This yields source IDs like `tenant:acme:notion:page:<pageId>`. When retrieving, scope with `{ sourceId: "tenant:acme:" }` to search only that tenant's content. When a tenant churns, you can wipe their namespace with `engine.delete({ sourceIdPrefix: "tenant:acme:" })`.
@@ -36,14 +37,77 @@ The v1 renderer supports common block types, but Notion has many. Unsupported bl
 
 ## Limit deep nesting
 
-Notion pages can contain deeply nested blocks. The `loadNotionPageDocument` helper accepts a `maxDepth` parameter, which defaults to a conservative value. If you increase depth, expect slower syncs and larger API call counts.
+Notion pages can contain deeply nested blocks. The `streamPages` function accepts a `maxDepth` parameter, which defaults to a conservative value. If you increase depth, expect slower syncs and larger API call counts.
 
 If you need full-depth rendering for complex pages, consider caching the Notion API responses or implementing incremental updates on top of the vendored code.
 
+## Persist checkpoints for large syncs
+
+For syncs with many pages—especially in serverless environments with timeout limits—persist checkpoints so you can resume if interrupted:
+
+```ts
+const stream = notionConnector.streamPages({
+  token: process.env.NOTION_TOKEN!,
+  pageIds: largePageList,
+  checkpoint: await loadLastCheckpoint(tenantId),
+});
+
+await engine.runConnectorStream({
+  stream,
+  onCheckpoint: async (checkpoint) => {
+    await saveCheckpoint(tenantId, checkpoint);
+  },
+});
+```
+
+Each checkpoint includes the index of the next page to process. If the sync times out, the next invocation picks up exactly where it left off.
+
 ## Rate limits and batching
 
-The Notion API enforces rate limits. For larger page lists, batch your page IDs, add pauses between batches, and use the `onProgress` callback to instrument failures and retries. If you need aggressive retrying, wrap calls to `syncNotionPages` or fork the vendored code to add exponential backoff.
+The Notion API enforces rate limits. For larger page lists, batch your page IDs, add pauses between batches, and use the `onEvent` callback to instrument failures and retries:
+
+```ts
+const BATCH_SIZE = 20;
+const PAUSE_MS = 2000;
+
+for (let i = 0; i < allPageIds.length; i += BATCH_SIZE) {
+  const batch = allPageIds.slice(i, i + BATCH_SIZE);
+
+  const stream = notionConnector.streamPages({
+    token: process.env.NOTION_TOKEN!,
+    pageIds: batch,
+  });
+
+  await engine.runConnectorStream({ stream });
+
+  if (i + BATCH_SIZE < allPageIds.length) {
+    await new Promise((r) => setTimeout(r, PAUSE_MS));
+  }
+}
+```
+
+If you need aggressive retrying, wrap calls to `engine.runConnectorStream` or fork the vendored code to add exponential backoff.
+
+## Use onEvent for observability
+
+The streaming model makes it easy to log exactly what's happening during a sync:
+
+```ts
+await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "progress") {
+      console.log(`[${event.current}/${event.total}] ${event.message}`);
+    }
+    if (event.type === "warning") {
+      console.warn(`Warning: ${event.code} - ${event.message}`);
+    }
+  },
+});
+```
+
+Forward these events to your logging/monitoring system to catch issues early.
 
 ## Avoid leaking sensitive content
 
-Notion pages often contain internal information that shouldn't end up in a public search index. Store embeddings in a secured database, scope retrieval per tenant or role, and consider redacting sensitive content before ingestion. The vendored code makes custom pre-processing easy—just modify the content before calling `engine.ingest`.
+Notion pages often contain internal information that shouldn't end up in a public search index. Store embeddings in a secured database, scope retrieval per tenant or role, and consider redacting sensitive content before ingestion. The vendored code makes custom pre-processing easy—load documents with `loadNotionPageDocument`, modify the content, then call `engine.ingest` directly.

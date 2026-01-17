@@ -1,4 +1,9 @@
 import {defineConfig, resolveConfig} from '@registry/core/config'
+import {
+	runConnectorStream,
+	type RunConnectorStreamOptions,
+	type RunConnectorStreamResult
+} from '@registry/core/connectors'
 import {deleteDocuments} from '@registry/core/delete'
 import {ingest, planIngest} from '@registry/core/ingest'
 import {rerank} from '@registry/core/rerank'
@@ -156,6 +161,21 @@ export class ContextEngine {
 
 	async delete(input: DeleteInput): Promise<void> {
 		return deleteDocuments(this.config, input)
+	}
+
+	/**
+	 * Consume a connector stream and apply its events to this engine.
+	 *
+	 * This is a convenience wrapper around `runConnectorStream(...)` so callers
+	 * can use `engine.runConnectorStream({ stream, ... })` directly.
+	 */
+	async runConnectorStream<TCheckpoint = unknown>(
+		options: Omit<RunConnectorStreamOptions<TCheckpoint>, 'engine'>
+	): Promise<RunConnectorStreamResult<TCheckpoint>> {
+		return runConnectorStream({
+			engine: this,
+			...options
+		})
 	}
 
 	/**
