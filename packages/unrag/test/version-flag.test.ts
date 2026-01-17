@@ -1,10 +1,13 @@
+import {expect, test} from 'bun:test'
 import {readFile} from 'node:fs/promises'
 import {run} from '@cli/run'
 
 test('unrag --version prints the CLI package version', async () => {
 	const pkgRaw = await readFile(`${process.cwd()}/package.json`, 'utf8')
 	const pkg = JSON.parse(pkgRaw) as {version?: string}
-	expect(typeof pkg.version).toBe('string')
+	if (typeof pkg.version !== 'string' || !pkg.version) {
+		throw new Error('package.json version is missing')
+	}
 
 	let out = ''
 	const originalWrite = process.stdout.write

@@ -41,6 +41,7 @@
 	"scripts": {
 		"build": "bun build --target=node --format=esm --packages=external --outfile dist/cli/index.js cli/index.ts && bun build --target=node --format=esm --production --outfile dist/debug-tui/index.js registry/debug/tui/App.tsx",
 		"test": "bun test",
+		"types:check": "tsc -p tsconfig.json --noEmit",
 		"lint": "biome check .",
 		"unrag:doctor": "unrag doctor --config .unrag/doctor.json",
 		"unrag:doctor:db": "unrag doctor --config .unrag/doctor.json --db",

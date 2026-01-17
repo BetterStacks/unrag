@@ -32,7 +32,7 @@ describe('dropbox connector: deleteOnRemoved behavior', () => {
 	})
 
 	test('emits delete events when deleteOnRemoved=true', async () => {
-		globalThis.fetch = (async (url: RequestInfo) => {
+		globalThis.fetch = (async (url) => {
 			const u = String(url)
 			if (u.includes('/files/list_folder')) {
 				return new Response(

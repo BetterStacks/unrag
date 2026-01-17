@@ -682,7 +682,9 @@ const collectParents = async (
 			supportsAllDrives: supportsAllDrives ?? true,
 			fields: 'id,parents'
 		})
-		const parents = (res.data?.parents ?? []) as string[]
+		const parents = Array.isArray(res.data.parents)
+			? res.data.parents.map((x) => String(x))
+			: []
 		cache.set(fileId, parents)
 		return parents
 	} catch {

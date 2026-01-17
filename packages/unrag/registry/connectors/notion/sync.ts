@@ -208,7 +208,35 @@ export async function* streamPages(
 
 	for (let i = startIndex; i < pageIds.length; i++) {
 		const rawId = pageIds[i]
-		const pageId = normalizeNotionPageId32(rawId)
+		const rawIdStr = String(rawId ?? '').trim()
+		if (!rawIdStr) {
+			yield {
+				type: 'warning',
+				code: 'page_id_missing',
+				message: 'Skipping Notion page because page id is missing.',
+				data: {index: i}
+			}
+			yield {type: 'checkpoint', checkpoint: {index: i + 1}}
+			continue
+		}
+
+		let pageId: string
+		try {
+			pageId = normalizeNotionPageId32(rawIdStr)
+		} catch (err) {
+			yield {
+				type: 'warning',
+				code: 'page_id_invalid',
+				message:
+					err instanceof Error
+						? err.message
+						: 'Invalid Notion page id.',
+				data: {rawId: rawIdStr, index: i}
+			}
+			yield {type: 'checkpoint', checkpoint: {index: i + 1}}
+			continue
+		}
+
 		const sourceId = joinPrefix(
 			input.sourceIdPrefix,
 			`notion:page:${pageId}`

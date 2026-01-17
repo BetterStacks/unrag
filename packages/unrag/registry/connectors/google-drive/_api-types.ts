@@ -30,12 +30,31 @@ export interface DriveFileList {
 }
 
 export interface DriveFilesResource {
+	/**
+	 * File metadata request.
+	 *
+	 * Note: googleapis overloads `files.get` based on `alt=media`.
+	 * Our connector uses:
+	 * - metadata calls (`fields=...`) which return a JSON object
+	 * - media downloads (`alt=media`) which return bytes / string
+	 *
+	 * Model that here so TypeScript can safely access metadata fields like `parents`.
+	 */
 	get(params: {
 		fileId: string
 		fields?: string
-		alt?: string
+		alt?: undefined
 		supportsAllDrives?: boolean
-	}): Promise<{data: DriveFile | ArrayBuffer | string}>
+	}): Promise<{data: DriveFile}>
+
+	/**
+	 * File content download request.
+	 */
+	get(params: {
+		fileId: string
+		alt: 'media'
+		supportsAllDrives?: boolean
+	}): Promise<{data: ArrayBuffer | string}>
 
 	list(params: {
 		q?: string

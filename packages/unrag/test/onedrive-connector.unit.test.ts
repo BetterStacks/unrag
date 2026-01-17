@@ -44,7 +44,7 @@ describe('onedrive connector: deleteOnRemoved behavior', () => {
 	})
 
 	test('emits delete events when deleteOnRemoved=true', async () => {
-		globalThis.fetch = (async (url: RequestInfo) => {
+		globalThis.fetch = (async (url) => {
 			const u = String(url)
 			if (u.includes('/me/drive?$select=id')) {
 				return new Response(JSON.stringify({id: 'drive123'}), {
