@@ -1249,7 +1249,7 @@ export function RegistrySection() {
 				eyebrow: 'Data sources',
 				title: 'Ingest from where your data lives',
 				description:
-					'Pull documents straight from Notion, GitHub, Slack, and more. Keep your knowledge base fresh without manual uploads.',
+					'Pull documents straight from Notion, Google Drive, OneDrive, Dropbox, and more. Keep your knowledge base fresh without manual uploads.',
 				docLink: '/docs/connectors',
 				ctaLabel: 'Explore connectors'
 			}

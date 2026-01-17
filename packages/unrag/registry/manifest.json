@@ -375,26 +375,6 @@
 			"devDeps": {}
 		},
 		{
-			"id": "dropbox",
-			"displayName": "Dropbox",
-			"types": ["files"],
-			"description": "Ingest shared folders and exported docs/files",
-			"status": "coming-soon",
-			"docsPath": null,
-			"deps": {},
-			"devDeps": {}
-		},
-		{
-			"id": "onedrive",
-			"displayName": "OneDrive",
-			"types": ["files"],
-			"description": "Ingest files and Office exports from Microsoft 365",
-			"status": "coming-soon",
-			"docsPath": null,
-			"deps": {},
-			"devDeps": {}
-		},
-		{
 			"id": "teams",
 			"displayName": "Microsoft Teams",
 			"types": ["chat"],
