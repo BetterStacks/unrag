@@ -1,9 +1,9 @@
 ---
 title: Connectors Overview
-description: Ingest content from external services like Notion and Google Drive into your Unrag store.
+description: Ingest content from external services like Notion, Google Drive, OneDrive, and Dropbox into your Unrag store.
 ---
 
-Connectors bring external content into Unrag. They fetch data from services like Notion or Google Drive, normalize it into a format the engine understands, and hand it off for ingestion. You get searchable, embedded content from sources that live outside your codebase.
+Connectors bring external content into Unrag. They fetch data from services like Notion, Google Drive, OneDrive, or Dropbox, normalize it into a format the engine understands, and hand it off for ingestion. You get searchable, embedded content from sources that live outside your codebase.
 
 ## How connectors work
 
@@ -39,7 +39,7 @@ const result = await engine.runConnectorStream({
   stream,
   onEvent: (event) => {
     if (event.type === "progress") {
-      console.log(`[\${event.current}/\${event.total}] \${event.message}`);
+      console.log(`[${event.current}/${event.total}] ${event.message}`);
     }
   },
   onCheckpoint: async (checkpoint) => {
@@ -48,7 +48,7 @@ const result = await engine.runConnectorStream({
   },
 });
 
-console.log(`Synced \${result.upserts} documents`);
+console.log(`Synced ${result.upserts} documents`);
 ```
 
 The `engine.runConnectorStream(...)` method consumes the stream and applies each event to the engine. It returns a summary with counts for upserts, deletes, and warnings.
@@ -124,7 +124,13 @@ This pattern is essential for serverless environments where functions have timeo
     Ingest pages, databases, and blocks from Notion workspaces
   </Card>
   <Card title="Google Drive" href="/docs/connectors/google-drive">
-    Ingest Docs, Sheets, Slides, and files from Google Drive
+    Ingest Docs, Sheets, Slides, and files from Google Drive with folder sync
+  </Card>
+  <Card title="OneDrive" href="/docs/connectors/onedrive">
+    Ingest files from OneDrive and SharePoint with incremental delta sync
+  </Card>
+  <Card title="Dropbox" href="/docs/connectors/dropbox">
+    Ingest files from Dropbox with cursor-based folder sync
   </Card>
 </Cards>
 
@@ -142,7 +148,7 @@ async function* streamMySourceItems(input: MySourceInput): ConnectorStream {
     yield {
       type: "upsert",
       input: {
-        sourceId: `my-source:\${item.id}`,
+        sourceId: `my-source:${item.id}`,
         content: item.content,
         metadata: { source: "my-source", ...item.metadata },
       },

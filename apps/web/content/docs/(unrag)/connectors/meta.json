@@ -1,4 +1,4 @@
 {
 	"title": "Connectors",
-	"pages": ["index", "contract", "notion", "google-drive"]
+	"pages": ["index", "contract", "notion", "google-drive", "onedrive", "dropbox"]
 }

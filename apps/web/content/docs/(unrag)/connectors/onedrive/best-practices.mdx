@@ -1,0 +1,210 @@
+---
+title: Best Practices
+description: Production patterns for OneDrive ingestion with Unrag.
+---
+
+The OneDrive connector is designed to be safe and idempotent, but production deployments benefit from patterns that handle edge cases gracefully and make the most of Microsoft Graph's capabilities.
+
+## Choose the right authentication model
+
+The authentication model you choose affects both security and operational complexity.
+
+**Delegated refresh tokens** are the right choice when users connect their own OneDrive accounts. Each user controls which files they share, and you store their refresh tokens. The connector handles token refresh automatically, making this the recommended approach for most SaaS applications.
+
+**App-only (client credentials)** work well for internal tools or org-wide ingestion. Your app accesses OneDrive as itself (not as a user), which requires admin consent but eliminates the need for user-by-user token management. This is ideal for automated backups, compliance tools, or internal knowledge bases.
+
+**Delegated access tokens** are the simplest form but require you to manage token refresh yourself. Use this only when you have short-lived operations or already handle token refresh in your OAuth flow.
+
+If you're building for a single organization, app-only access is often simpler operationally—no user tokens to manage, no refresh failures to handle. For multi-tenant SaaS, delegated refresh tokens are the standard approach.
+
+## Persist checkpoints religiously
+
+For folder sync, checkpoints are essential. They contain the delta API link that enables incremental updates. Without a checkpoint, every sync processes all files from scratch.
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth,
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+  checkpoint: await loadCheckpoint(tenantId),
+});
+
+await engine.runConnectorStream({
+  stream,
+  onCheckpoint: async (checkpoint) => {
+    await saveCheckpoint(tenantId, checkpoint);
+  },
+});
+```
+
+Store checkpoints in your database, keyed by tenant or sync job. The checkpoint is a small JSON object, so storage overhead is minimal.
+
+If you lose a checkpoint, the next sync will reprocess all files. This is safe (idempotent) but wasteful if the folder contains many files.
+
+## Use namespace prefixes for multi-tenant apps
+
+If your application serves multiple tenants, use `sourceIdPrefix` to partition content:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth,
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+  sourceIdPrefix: `tenant:${tenantId}:`,
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+This makes retrieval scoping simple and prevents accidental cross-tenant data leakage. When a tenant disconnects, you can cleanly wipe their content:
+
+```ts
+await engine.delete({ sourceIdPrefix: `tenant:${tenantId}:` });
+```
+
+## Enable deleteOnRemoved for folder sync
+
+When using folder sync, consider enabling `deleteOnRemoved` to keep your index in sync with reality:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth,
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+  options: {
+    recursive: true,
+    deleteOnRemoved: true,
+  },
+  checkpoint,
+});
+
+await engine.runConnectorStream({ stream, onCheckpoint: saveCheckpoint });
+```
+
+With this option, the connector emits delete events when:
+
+- A file is deleted from OneDrive
+- A file is moved to the recycle bin
+- A file is moved out of the synced folder
+
+Without it, removed files remain in your index until you manually delete them.
+
+## Handle token expiration gracefully
+
+Refresh tokens can expire or be revoked. When a user's token stops working, your sync will fail with 401 errors. Build your application to handle this:
+
+```ts
+try {
+  const stream = oneDriveConnector.streamFolder({
+    auth: {
+      kind: "delegated_refresh_token",
+      tenantId,
+      clientId,
+      clientSecret,
+      refreshToken,
+    },
+    drive: { kind: "me" },
+    folder: { path: "/Documents" },
+  });
+
+  await engine.runConnectorStream({ stream });
+} catch (err) {
+  if (isTokenExpiredError(err)) {
+    await markUserNeedsReauth(userId);
+    return { success: false, reason: "auth_expired" };
+  }
+  throw err;
+}
+```
+
+For app-only access, client secrets can expire (Azure AD app secrets have configurable lifetimes). Monitor expiration dates and rotate secrets before they expire.
+
+## Run sync in background jobs
+
+For production deployments, don't run sync in request handlers. File downloads and ingestion can be slow, and you don't want to block user-facing requests or risk timeouts.
+
+Instead, run sync from background jobs: cron scripts, BullMQ workers, Inngest functions, or similar. This gives you:
+
+- **Retries**: If a sync fails partway through, you can retry without losing progress (thanks to checkpoints)
+- **Observability**: Job runners typically provide logging, metrics, and alerting
+- **Timeout safety**: Background jobs can run longer than HTTP request timeouts
+
+## Set appropriate file size limits
+
+The default `maxBytesPerFile` is 15MB, which is reasonable for most documents. If you're ingesting large PDFs or media files, you can increase it:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth,
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+  options: {
+    maxBytesPerFile: 50 * 1024 * 1024, // 50MB
+  },
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+But be thoughtful about this. Large files take longer to download, cost more to process (especially for LLM extraction), and may produce many chunks. Consider whether you actually need to ingest huge files.
+
+## Use onEvent for observability
+
+The streaming model makes it easy to log exactly what's happening during a sync:
+
+```ts
+await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "progress") {
+      console.log(`[${event.message}] ${event.sourceId}`);
+    }
+    if (event.type === "warning") {
+      console.warn(`Warning: [${event.code}] ${event.message}`);
+    }
+    if (event.type === "delete") {
+      console.log(`Deleted: ${event.input.sourceId}`);
+    }
+  },
+});
+```
+
+Forward these events to your logging/monitoring system to catch issues early. Pay particular attention to warning events—they often indicate permission issues or configuration problems.
+
+## Test with a small folder first
+
+Before syncing a user's entire OneDrive:
+
+1. Create a test folder with a few files of different types
+2. Run sync and verify files are ingested correctly
+3. Add, modify, and delete files, then run sync again to verify incremental updates
+4. Check that your checkpoint persistence is working
+
+This catches configuration issues early before you've processed thousands of files.
+
+## Consider SharePoint document libraries
+
+If you're syncing from SharePoint rather than personal OneDrive, use the drive ID directly:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth,
+  drive: { kind: "drive", driveId: sharePointDriveId },
+  folder: { path: "/Shared Documents/Knowledge Base" },
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+You can discover drive IDs by listing drives for a SharePoint site via the Graph API. The drive ID is stable and won't change even if the site or document library is renamed.
+
+## Handle large folders with care
+
+OneDrive folders can contain thousands of files. For very large folders:
+
+- **Always use checkpoints**: This is non-negotiable for large syncs
+- **Run in background jobs**: Long syncs need timeout-safe environments
+- **Consider scoping**: Instead of syncing all of `/Documents`, sync specific subfolders
+- **Monitor memory**: Very large syncs may need memory-conscious processing
+
+The delta API handles pagination internally, so you don't need to batch requests. But you should still ensure your runtime environment can handle long-running operations.

@@ -1,0 +1,295 @@
+---
+title: Troubleshooting
+description: Common issues with the OneDrive connector and how to resolve them.
+---
+
+Most problems with the OneDrive connector come down to authentication, permissions, or Azure AD configuration. This page covers the common failure modes and how to diagnose them.
+
+## Authentication errors
+
+### "Invalid client credentials" or "AADSTS7000215"
+
+Your client ID or client secret is wrong. Double-check:
+
+1. The client ID matches your Azure AD app registration
+2. The client secret is current (not expired)
+3. You're using the correct tenant ID
+
+```ts
+// Make sure all values are correct and not undefined
+auth: {
+  kind: "delegated_refresh_token",
+  tenantId: process.env.AZURE_TENANT_ID!,   // Should be a GUID or "common"
+  clientId: process.env.AZURE_CLIENT_ID!,   // Your app's client ID
+  clientSecret: process.env.AZURE_CLIENT_SECRET!, // A valid, non-expired secret
+  refreshToken: userRefreshToken,
+}
+```
+
+Client secrets expire based on your Azure AD configuration. If you haven't rotated secrets in a while, check the expiration date in the Azure Portal.
+
+### "AADSTS50126" / "Invalid username or password"
+
+This error occurs with client credentials flow when:
+
+1. The client secret is wrong
+2. The app registration doesn't have application permissions
+3. Admin consent hasn't been granted
+
+For app-only access, make sure you've added `Files.Read.All` as an **application permission** (not delegated) and had an admin grant consent.
+
+### "AADSTS65001" / "The user or administrator has not consented"
+
+The required permissions haven't been consented. For delegated permissions, the user needs to complete the OAuth consent flow. For application permissions, an admin needs to grant consent in the Azure Portal.
+
+To grant admin consent: Azure Portal → App registrations → Your app → API permissions → Grant admin consent.
+
+### "AADSTS700016" / "Application not found"
+
+The client ID doesn't match any app registration in the specified tenant. Check:
+
+1. You're using the correct tenant ID
+2. The app registration exists and isn't deleted
+3. If your app is multi-tenant, make sure the tenant allows external apps
+
+### "invalid_grant" / "AADSTS50173" / "Refresh token expired"
+
+The refresh token is no longer valid. This happens when:
+
+- The token hasn't been used in 90 days (default for Azure AD)
+- The user's password changed
+- The user revoked access to your app
+- An admin revoked the token
+- Conditional Access policies blocked the refresh
+
+Prompt the user to sign in again to get a new refresh token.
+
+## Permission errors
+
+### 403 Forbidden / "Access denied"
+
+The authenticated identity doesn't have permission to access the requested resource. Common causes:
+
+**For delegated access:**
+- The user can't access that file/folder
+- Your app doesn't have the required delegated permissions (`Files.Read.All`)
+- The user hasn't consented to the required scopes
+
+**For app-only access:**
+- Your app doesn't have application permissions for `Files.Read.All`
+- Admin consent hasn't been granted
+- The target user/drive doesn't exist in the tenant
+
+To verify permissions, check your app registration's API permissions in the Azure Portal.
+
+### 404 Not Found
+
+The requested resource doesn't exist or isn't accessible. Common causes:
+
+- The file or folder ID is wrong
+- The file was deleted
+- The path doesn't exist
+- For app-only: the user ID or UPN is invalid
+
+Double-check the drive selector and folder path. For debugging, try accessing the resource directly via Graph Explorer.
+
+### "The drive was not found" / "Drive not found"
+
+The drive you're trying to access doesn't exist or isn't accessible:
+
+```ts
+// Make sure the drive selector is correct
+drive: { kind: "me" }  // Requires delegated auth
+drive: { kind: "user", userId: "jane@company.com" }  // UPN or user ID
+drive: { kind: "drive", driveId: "b!abc123..." }  // Specific drive ID
+```
+
+For `{ kind: "me" }`, you must use delegated authentication—it doesn't work with app-only access.
+
+For `{ kind: "user" }`, the user must exist and have a OneDrive provisioned. Some organizations don't provision OneDrive for all users.
+
+## Folder sync issues
+
+### First run processes no files
+
+If your first folder sync completes with zero upserts:
+
+1. **Folder path is correct**: Paths are case-insensitive but must start with `/`
+2. **Folder has files**: The folder might be empty or contain only subfolders (check `recursive` option)
+3. **Permissions**: The authenticated identity can list the folder's contents
+
+```ts
+// Correct path format
+folder: { path: "/Documents/Knowledge Base" }  // Good
+folder: { path: "Documents/Knowledge Base" }   // Bad: missing leading slash
+```
+
+### Subsequent runs re-process everything
+
+If folder sync processes all files every time instead of just changes:
+
+1. **Load the checkpoint** before creating the stream
+2. **Pass the checkpoint** to `streamFolder`
+3. **Save each checkpoint** via `onCheckpoint`
+
+```ts
+const lastCheckpoint = await loadCheckpoint(syncId);
+
+const stream = oneDriveConnector.streamFolder({
+  auth,
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+  checkpoint: lastCheckpoint, // Must pass this
+});
+
+await engine.runConnectorStream({
+  stream,
+  onCheckpoint: async (cp) => {
+    await saveCheckpoint(syncId, cp); // Must save these
+  },
+});
+```
+
+If the checkpoint is `undefined` or malformed, the connector starts fresh.
+
+### Files deleted from OneDrive still appear in search
+
+By default, folder sync doesn't emit delete events. Enable `deleteOnRemoved`:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth,
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+  options: {
+    deleteOnRemoved: true, // Required for deletion sync
+  },
+  checkpoint,
+});
+```
+
+### Delta API returns no changes
+
+The delta API can have a short delay before changes appear. If you just modified a file:
+
+1. Wait a few seconds and try again
+2. Verify the file is actually in the synced folder
+3. Check that the file isn't in the recycle bin
+
+## File handling issues
+
+### Large files are skipped
+
+Files larger than `maxBytesPerFile` (default 15MB) are skipped with a warning. To increase the limit:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth,
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+  options: {
+    maxBytesPerFile: 50 * 1024 * 1024, // 50MB
+  },
+});
+```
+
+Be aware that very large files may cause memory issues or timeouts.
+
+### Binary files aren't being processed
+
+The connector emits binary files (PDFs, Office documents, images) as `assets`. Whether those assets become searchable content depends on your engine's `assetProcessing` configuration.
+
+Make sure you have appropriate extractors installed (e.g., `pdf-text-layer` for PDFs, `file-docx` for Word documents).
+
+### Folders are skipped
+
+The connector only ingests files, not folders. When it encounters a folder in the delta results or file list, it skips it. This is expected behavior.
+
+## Rate limiting
+
+### 429 Too Many Requests
+
+You're hitting Microsoft Graph's rate limits. The connector includes basic retry logic, but for very large syncs you might still hit limits.
+
+To reduce rate limiting:
+
+1. **Don't parallelize**: The connector processes files sequentially, which is safer
+2. **Use checkpoints**: If rate-limited, the next run picks up where it left off
+3. **Batch across time**: For very large syncs, run in batches with delays between them
+
+Microsoft Graph rate limits vary by API and tenant. For most use cases, the connector's default behavior stays within limits.
+
+## Azure AD configuration issues
+
+### "AADSTS50020" / "User account doesn't exist"
+
+For multi-tenant apps, the user's tenant might not be configured correctly. Make sure:
+
+1. Your app registration supports the intended account types (single tenant, multi-tenant, etc.)
+2. The user's organization allows third-party apps (if applicable)
+3. You're using the correct tenant ID (or "common" for multi-tenant)
+
+### App-only access not working
+
+For app-only (client credentials) access to work:
+
+1. Add `Files.Read.All` as an **application permission** (not delegated)
+2. Have an admin grant consent
+3. The app must be registered in the same tenant as the users whose files you're accessing (for single-tenant apps)
+
+To verify: Azure Portal → App registrations → Your app → API permissions → Check for green checkmarks indicating granted consent.
+
+## Debugging tips
+
+### Enable verbose logging
+
+Use the `onEvent` callback to see what's happening:
+
+```ts
+await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    console.log(JSON.stringify(event, null, 2));
+  },
+});
+```
+
+### Test with Graph Explorer
+
+Before debugging the connector, verify your authentication and permissions work using [Microsoft Graph Explorer](https://developer.microsoft.com/graph/graph-explorer). Try:
+
+- `GET /me/drive/root/children` (for delegated access)
+- `GET /users/{userId}/drive/root/children` (for app access)
+
+If these fail in Graph Explorer, the issue is with your Azure AD configuration, not the connector.
+
+### Test with a single file
+
+Before syncing a folder, test with explicit file sync on a single file:
+
+```ts
+const stream = oneDriveConnector.streamFiles({
+  auth,
+  fileIds: ["known-file-id"],
+});
+
+const result = await engine.runConnectorStream({ stream });
+console.log(result);
+```
+
+### Verify the folder path
+
+OneDrive paths can be tricky. To verify a path exists:
+
+```ts
+const { fetch: graphFetch } = await createOneDriveClient({ auth });
+
+// Check if the folder exists
+const res = await graphFetch(
+  "https://graph.microsoft.com/v1.0/me/drive/root:/Documents/Knowledge Base"
+);
+
+if (!res.ok) {
+  console.error("Folder not found:", await res.text());
+}
+```
