@@ -11,7 +11,7 @@
     "reranker"
   ],
   "installedFrom": {
-    "unragVersion": "0.3.1"
+    "unragVersion": "0.3.2"
   },
   "managedFiles": [
     "lib/unrag/core/assets.ts",

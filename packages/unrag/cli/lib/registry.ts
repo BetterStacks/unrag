@@ -503,13 +503,13 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 	}
 	// If no extractors and no preset override, assetProcessingBlock remains empty (omitted)
 
-	// Replace the marker line with the generated block (or omit it).
+	// Replace the marker line with the generated block (or remove it).
 	// We include a leading comma so the block can be injected after the `extractors: [...]` property.
 	out = out.replace(
 		/^([ \t]*)\/\/ __UNRAG_ASSET_PROCESSING_OVERRIDES__\s*$/m,
 		(m: string, indent: string) => {
 			if (!assetProcessingBlock) {
-				return m
+				return ''
 			}
 			return `${indent},\n${indent}${assetProcessingBlock.trimEnd()}`
 		}
