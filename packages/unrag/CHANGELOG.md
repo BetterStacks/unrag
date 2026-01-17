@@ -17,7 +17,7 @@
 ### Breaking Changes
 
 - `syncPages` and `syncFiles` methods are replaced by `streamPages` and `streamFiles`
-- `onProgress` callbacks are removed in favor of [onEvent](cci:1://file:///Users/subho/Documents/Workspace/Work/unrag/packages/unrag/test/connector-runner.unit.test.ts:45:3-45:41) via [runConnectorStream](cci:1://file:///Users/subho/Documents/Workspace/Work/unrag/packages/unrag/registry/core/connectors.ts:107:0-160:1)
+- `onProgress` callbacks are removed in favor of onEvent via runConnectorStream, [check here](https://unrag.dev/docs/connectors#the-connector-streaming-model).
 - The `engine` parameter is no longer passed to connector functions; instead, pass the stream to `engine.runConnectorStream()`
 
 ## 0.2.12
