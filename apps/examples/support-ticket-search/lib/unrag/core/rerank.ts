@@ -1,12 +1,12 @@
 import type {
-  RerankInput,
-  RerankResult,
-  RerankCandidate,
-  RerankRankingItem,
-  ResolvedContextEngineConfig,
-} from "./types";
+	RerankCandidate,
+	RerankInput,
+	RerankRankingItem,
+	RerankResult,
+	ResolvedContextEngineConfig
+} from './types'
 
-const now = () => performance.now();
+const now = () => performance.now()
 
 /**
  * Rerank candidates using the configured reranker.
@@ -15,144 +15,163 @@ const now = () => performance.now();
  * and returns reranked results with robust error handling.
  */
 export const rerank = async (
-  config: ResolvedContextEngineConfig,
-  input: RerankInput
+	config: ResolvedContextEngineConfig,
+	input: RerankInput
 ): Promise<RerankResult> => {
-  const totalStart = now();
-  const warnings: string[] = [];
+	const totalStart = now()
+	const warnings: string[] = []
 
-  const {
-    query,
-    candidates,
-    topK: requestedTopK,
-    onMissingReranker = "throw",
-    onMissingText = "throw",
-    resolveText,
-  } = input;
+	const {
+		query,
+		candidates,
+		topK: requestedTopK,
+		onMissingReranker = 'throw',
+		onMissingText = 'throw',
+		resolveText
+	} = input
 
-  // Validate candidates
-  if (!Array.isArray(candidates) || candidates.length === 0) {
-    return {
-      chunks: [],
-      ranking: [],
-      meta: { rerankerName: "none" },
-      durations: { rerankMs: 0, totalMs: now() - totalStart },
-      warnings: ["No candidates provided for reranking."],
-    };
-  }
+	// Validate candidates
+	if (!Array.isArray(candidates) || candidates.length === 0) {
+		return {
+			chunks: [],
+			ranking: [],
+			meta: {rerankerName: 'none'},
+			durations: {rerankMs: 0, totalMs: now() - totalStart},
+			warnings: ['No candidates provided for reranking.']
+		}
+	}
 
-  // Clamp topK to valid range
-  const topK = Math.max(1, Math.min(requestedTopK ?? candidates.length, candidates.length));
+	// Clamp topK to valid range
+	const topK = Math.max(
+		1,
+		Math.min(requestedTopK ?? candidates.length, candidates.length)
+	)
 
-  // Handle missing reranker
-  if (!config.reranker) {
-    if (onMissingReranker === "skip") {
-      warnings.push("Reranker not configured; returning original order.");
-      return {
-        chunks: candidates.slice(0, topK),
-        ranking: candidates.slice(0, topK).map((_, i) => ({ index: i })),
-        meta: { rerankerName: "none" },
-        durations: { rerankMs: 0, totalMs: now() - totalStart },
-        warnings,
-      };
-    }
-    throw new Error(
-      "Reranker not configured. Install the reranker battery (`unrag add battery reranker`) and wire it in your config, or use `onMissingReranker: 'skip'`."
-    );
-  }
+	// Handle missing reranker
+	if (!config.reranker) {
+		if (onMissingReranker === 'skip') {
+			warnings.push('Reranker not configured; returning original order.')
+			return {
+				chunks: candidates.slice(0, topK),
+				ranking: candidates.slice(0, topK).map((_, i) => ({index: i})),
+				meta: {rerankerName: 'none'},
+				durations: {rerankMs: 0, totalMs: now() - totalStart},
+				warnings
+			}
+		}
+		throw new Error(
+			"Reranker not configured. Install the reranker battery (`unrag add battery reranker`) and wire it in your config, or use `onMissingReranker: 'skip'`."
+		)
+	}
 
-  // Resolve text for each candidate
-  const documents: string[] = [];
-  const validCandidateIndices: number[] = [];
-  const skippedIndices: number[] = [];
+	// Resolve text for each candidate
+	const documents: string[] = []
+	const validCandidateIndices: number[] = []
+	const skippedIndices: number[] = []
 
-  for (let i = 0; i < candidates.length; i++) {
-    const candidate = candidates[i]!;
-    let text = candidate.content?.trim() ?? "";
+	for (let i = 0; i < candidates.length; i++) {
+		const candidate = candidates[i]
+		if (!candidate) {
+			continue
+		}
+		let text = candidate.content?.trim() ?? ''
 
-    // Try resolveText hook if content is empty
-    if (!text && resolveText) {
-      try {
-        text = (await resolveText(candidate))?.trim() ?? "";
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        warnings.push(`resolveText failed for candidate ${i}: ${msg}`);
-      }
-    }
+		// Try resolveText hook if content is empty
+		if (!text && resolveText) {
+			try {
+				text = (await resolveText(candidate))?.trim() ?? ''
+			} catch (err) {
+				const msg = err instanceof Error ? err.message : String(err)
+				warnings.push(`resolveText failed for candidate ${i}: ${msg}`)
+			}
+		}
 
-    if (!text) {
-      if (onMissingText === "skip") {
-        skippedIndices.push(i);
-        warnings.push(`Candidate ${i} has no text; skipped.`);
-        continue;
-      }
-      throw new Error(
-        `Candidate ${i} (id=${candidate.id}) has empty content. Enable 'storeChunkContent' in engine config, provide 'resolveText' hook, or use 'onMissingText: \"skip\"'.`
-      );
-    }
+		if (!text) {
+			if (onMissingText === 'skip') {
+				skippedIndices.push(i)
+				warnings.push(`Candidate ${i} has no text; skipped.`)
+				continue
+			}
+			throw new Error(
+				`Candidate ${i} (id=${candidate.id}) has empty content. Enable 'storeChunkContent' in engine config, provide 'resolveText' hook, or use 'onMissingText: \"skip\"'.`
+			)
+		}
 
-    documents.push(text);
-    validCandidateIndices.push(i);
-  }
+		documents.push(text)
+		validCandidateIndices.push(i)
+	}
 
-  // If no valid documents, return original order
-  if (documents.length === 0) {
-    warnings.push("All candidates have missing text; returning original order.");
-    return {
-      chunks: candidates.slice(0, topK),
-      ranking: candidates.slice(0, topK).map((_, i) => ({ index: i })),
-      meta: { rerankerName: config.reranker.name },
-      durations: { rerankMs: 0, totalMs: now() - totalStart },
-      warnings,
-    };
-  }
+	// If no valid documents, return original order
+	if (documents.length === 0) {
+		warnings.push(
+			'All candidates have missing text; returning original order.'
+		)
+		return {
+			chunks: candidates.slice(0, topK),
+			ranking: candidates.slice(0, topK).map((_, i) => ({index: i})),
+			meta: {rerankerName: config.reranker.name},
+			durations: {rerankMs: 0, totalMs: now() - totalStart},
+			warnings
+		}
+	}
 
-  // Call the reranker
-  const rerankStart = now();
-  const result = await config.reranker.rerank({ query, documents });
-  const rerankMs = now() - rerankStart;
+	// Call the reranker
+	const rerankStart = now()
+	const result = await config.reranker.rerank({query, documents})
+	const rerankMs = now() - rerankStart
 
-  // Build ranking from reranker result
-  // `result.order` is indices into the `documents` array (which maps to validCandidateIndices)
-  const ranking: RerankRankingItem[] = [];
+	// Build ranking from reranker result
+	// `result.order` is indices into the `documents` array (which maps to validCandidateIndices)
+	const ranking: RerankRankingItem[] = []
 
-  for (let rank = 0; rank < result.order.length; rank++) {
-    const docIndex = result.order[rank]!;
-    const originalCandidateIndex = validCandidateIndices[docIndex];
-    if (originalCandidateIndex === undefined) continue;
+	for (let rank = 0; rank < result.order.length; rank++) {
+		const docIndex = result.order[rank]
+		if (docIndex === undefined) {
+			continue
+		}
+		const originalCandidateIndex = validCandidateIndices[docIndex]
+		if (originalCandidateIndex === undefined) {
+			continue
+		}
 
-    ranking.push({
-      index: originalCandidateIndex,
-      rerankScore: result.scores?.[rank],
-    });
-  }
+		ranking.push({
+			index: originalCandidateIndex,
+			rerankScore: result.scores?.[rank]
+		})
+	}
 
-  // Append skipped candidates at the end (stable tie-breaking: original order)
-  for (const skippedIndex of skippedIndices) {
-    ranking.push({ index: skippedIndex });
-  }
+	// Append skipped candidates at the end (stable tie-breaking: original order)
+	for (const skippedIndex of skippedIndices) {
+		ranking.push({index: skippedIndex})
+	}
 
-  // Apply stable sort for items with equal/undefined scores: preserve original retrieval order
-  // The reranker already provides order, so we trust it for scored items.
-  // Skipped items are already appended in original order.
+	// Apply stable sort for items with equal/undefined scores: preserve original retrieval order
+	// The reranker already provides order, so we trust it for scored items.
+	// Skipped items are already appended in original order.
 
-  // Select top-K chunks
-  const topKRanking = ranking.slice(0, topK);
-  const chunks: RerankCandidate[] = topKRanking.map((r) => candidates[r.index]!);
+	// Select top-K chunks
+	const topKRanking = ranking.slice(0, topK)
+	const chunks: RerankCandidate[] = []
+	for (const r of topKRanking) {
+		const candidate = candidates[r.index]
+		if (candidate) {
+			chunks.push(candidate)
+		}
+	}
 
-  const totalMs = now() - totalStart;
+	const totalMs = now() - totalStart
 
-  return {
-    chunks,
-    ranking,
-    meta: {
-      rerankerName: config.reranker.name,
-      model: result.model,
-    },
-    durations: {
-      rerankMs,
-      totalMs,
-    },
-    warnings,
-  };
-};
+	return {
+		chunks,
+		ranking,
+		meta: {
+			rerankerName: config.reranker.name,
+			model: result.model
+		},
+		durations: {
+			rerankMs,
+			totalMs
+		},
+		warnings
+	}
+}

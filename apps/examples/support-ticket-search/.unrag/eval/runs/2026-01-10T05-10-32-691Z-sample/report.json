@@ -1,122 +1,118 @@
 {
-  "version": "1",
-  "createdAt": "2026-01-10T05:10:32.690Z",
-  "dataset": {
-    "id": "sample",
-    "version": "1",
-    "description": "Tiny dataset to validate retrieval changes."
-  },
-  "config": {
-    "mode": "retrieve",
-    "topK": 10,
-    "scopePrefix": "eval:sample:",
-    "ingest": true,
-    "cleanup": "none",
-    "includeNdcg": false
-  },
-  "engine": {
-    "embeddingModel": "ai-sdk:openai/text-embedding-3-small"
-  },
-  "results": {
-    "queries": [
-      {
-        "id": "q_refund_window",
-        "query": "How long do I have to request a refund?",
-        "topK": 10,
-        "scopePrefix": "eval:sample:",
-        "relevant": {
-          "sourceIds": [
-            "eval:sample:doc:refund-policy"
-          ]
-        },
-        "retrieved": {
-          "sourceIds": [
-            "eval:sample:doc:refund-policy",
-            "eval:sample:doc:contact-support"
-          ],
-          "metrics": {
-            "hitAtK": 1,
-            "recallAtK": 1,
-            "precisionAtK": 0.1,
-            "mrrAtK": 1
-          },
-          "durationsMs": {
-            "totalMs": 698.7799999999997,
-            "embeddingMs": 401.5913330000003,
-            "retrievalMs": 297.18512499999997
-          }
-        }
-      },
-      {
-        "id": "q_contact_support",
-        "query": "How do I contact support?",
-        "topK": 10,
-        "scopePrefix": "eval:sample:",
-        "relevant": {
-          "sourceIds": [
-            "eval:sample:doc:contact-support"
-          ]
-        },
-        "retrieved": {
-          "sourceIds": [
-            "eval:sample:doc:contact-support",
-            "eval:sample:doc:refund-policy"
-          ],
-          "metrics": {
-            "hitAtK": 1,
-            "recallAtK": 1,
-            "precisionAtK": 0.1,
-            "mrrAtK": 1
-          },
-          "durationsMs": {
-            "totalMs": 781.0573339999992,
-            "embeddingMs": 497.88833299999897,
-            "retrievalMs": 283.1669160000001
-          }
-        }
-      }
-    ],
-    "aggregates": {
-      "retrieved": {
-        "mean": {
-          "hitAtK": 1,
-          "recallAtK": 1,
-          "precisionAtK": 0.1,
-          "mrrAtK": 1
-        },
-        "median": {
-          "hitAtK": 1,
-          "recallAtK": 1,
-          "precisionAtK": 0.1,
-          "mrrAtK": 1
-        }
-      }
-    },
-    "timings": {
-      "embeddingMs": {
-        "p50": 449.73983299999963,
-        "p95": 493.07348299999904
-      },
-      "retrievalMs": {
-        "p50": 290.17602050000005,
-        "p95": 296.48421455
-      },
-      "retrieveTotalMs": {
-        "p50": 739.9186669999995,
-        "p95": 776.9434672999992
-      },
-      "totalMs": {
-        "p50": 739.9186669999995,
-        "p95": 776.9434672999992
-      }
-    },
-    "thresholdsApplied": {
-      "min": {
-        "recallAtK": 0.75
-      },
-      "max": {}
-    },
-    "thresholdFailures": [],
-    "passed": true
-  }
+	"version": "1",
+	"createdAt": "2026-01-10T05:10:32.690Z",
+	"dataset": {
+		"id": "sample",
+		"version": "1",
+		"description": "Tiny dataset to validate retrieval changes."
+	},
+	"config": {
+		"mode": "retrieve",
+		"topK": 10,
+		"scopePrefix": "eval:sample:",
+		"ingest": true,
+		"cleanup": "none",
+		"includeNdcg": false
+	},
+	"engine": {
+		"embeddingModel": "ai-sdk:openai/text-embedding-3-small"
+	},
+	"results": {
+		"queries": [
+			{
+				"id": "q_refund_window",
+				"query": "How long do I have to request a refund?",
+				"topK": 10,
+				"scopePrefix": "eval:sample:",
+				"relevant": {
+					"sourceIds": ["eval:sample:doc:refund-policy"]
+				},
+				"retrieved": {
+					"sourceIds": [
+						"eval:sample:doc:refund-policy",
+						"eval:sample:doc:contact-support"
+					],
+					"metrics": {
+						"hitAtK": 1,
+						"recallAtK": 1,
+						"precisionAtK": 0.1,
+						"mrrAtK": 1
+					},
+					"durationsMs": {
+						"totalMs": 698.7799999999997,
+						"embeddingMs": 401.5913330000003,
+						"retrievalMs": 297.18512499999997
+					}
+				}
+			},
+			{
+				"id": "q_contact_support",
+				"query": "How do I contact support?",
+				"topK": 10,
+				"scopePrefix": "eval:sample:",
+				"relevant": {
+					"sourceIds": ["eval:sample:doc:contact-support"]
+				},
+				"retrieved": {
+					"sourceIds": [
+						"eval:sample:doc:contact-support",
+						"eval:sample:doc:refund-policy"
+					],
+					"metrics": {
+						"hitAtK": 1,
+						"recallAtK": 1,
+						"precisionAtK": 0.1,
+						"mrrAtK": 1
+					},
+					"durationsMs": {
+						"totalMs": 781.0573339999992,
+						"embeddingMs": 497.88833299999897,
+						"retrievalMs": 283.1669160000001
+					}
+				}
+			}
+		],
+		"aggregates": {
+			"retrieved": {
+				"mean": {
+					"hitAtK": 1,
+					"recallAtK": 1,
+					"precisionAtK": 0.1,
+					"mrrAtK": 1
+				},
+				"median": {
+					"hitAtK": 1,
+					"recallAtK": 1,
+					"precisionAtK": 0.1,
+					"mrrAtK": 1
+				}
+			}
+		},
+		"timings": {
+			"embeddingMs": {
+				"p50": 449.73983299999963,
+				"p95": 493.07348299999904
+			},
+			"retrievalMs": {
+				"p50": 290.17602050000005,
+				"p95": 296.48421455
+			},
+			"retrieveTotalMs": {
+				"p50": 739.9186669999995,
+				"p95": 776.9434672999992
+			},
+			"totalMs": {
+				"p50": 739.9186669999995,
+				"p95": 776.9434672999992
+			}
+		},
+		"thresholdsApplied": {
+			"min": {
+				"recallAtK": 0.75
+			},
+			"max": {}
+		},
+		"thresholdFailures": [],
+		"passed": true
+	}
 }

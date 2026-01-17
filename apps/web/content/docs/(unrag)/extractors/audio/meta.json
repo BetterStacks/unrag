@@ -1,9 +1,4 @@
 {
-  "title": "Audio",
-  "pages": [
-    "index",
-    "transcribe"
-  ]
+	"title": "Audio",
+	"pages": ["index", "transcribe"]
 }
-
-

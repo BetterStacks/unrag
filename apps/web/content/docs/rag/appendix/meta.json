@@ -1,13 +1,12 @@
 {
-  "title": "Appendix",
-  "description": "Reference material: glossary, checklists, and a failure-mode index.",
-  "pages": [
-    "index",
-    "glossary",
-    "failure-modes",
-    "launch-checklist",
-    "security-checklist",
-    "evaluation-checklist"
-  ]
+	"title": "Appendix",
+	"description": "Reference material: glossary, checklists, and a failure-mode index.",
+	"pages": [
+		"index",
+		"glossary",
+		"failure-modes",
+		"launch-checklist",
+		"security-checklist",
+		"evaluation-checklist"
+	]
 }
-

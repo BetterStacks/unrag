@@ -1,19 +1,18 @@
 {
-  "root": true,
-  "title": "RAG Handbook",
-  "description": "Guide to building RAG systems",
-  "pages": [
-    "index",
-    "00-orientation",
-    "01-foundations",
-    "02-data-and-ingestion",
-    "03-chunking-and-representation",
-    "04-retrieval",
-    "05-reranking-and-context",
-    "06-generation",
-    "07-evaluation",
-    "08-production-and-ops",
-    "appendix"
-  ]
+	"root": true,
+	"title": "RAG Handbook",
+	"description": "Guide to building RAG systems",
+	"pages": [
+		"index",
+		"00-orientation",
+		"01-foundations",
+		"02-data-and-ingestion",
+		"03-chunking-and-representation",
+		"04-retrieval",
+		"05-reranking-and-context",
+		"06-generation",
+		"07-evaluation",
+		"08-production-and-ops",
+		"appendix"
+	]
 }
-

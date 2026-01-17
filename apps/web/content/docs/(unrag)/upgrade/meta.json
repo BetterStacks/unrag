@@ -1,0 +1,5 @@
+{
+	"title": "Upgrading",
+	"description": "Safely update vendored Unrag sources while preserving your customizations.",
+	"pages": ["index", "getting-started", "how-it-works", "handling-conflicts"]
+}

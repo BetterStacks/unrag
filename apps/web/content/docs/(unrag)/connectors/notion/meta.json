@@ -1,11 +1,4 @@
 {
-  "title": "Notion",
-  "pages": [
-    "index",
-    "api",
-    "best-practices",
-    "troubleshooting"
-  ]
+	"title": "Notion",
+	"pages": ["index", "api", "best-practices", "troubleshooting"]
 }
-
-

@@ -1,71 +1,77 @@
-import { embed, embedMany, type EmbeddingModel } from "ai";
-import type { EmbeddingProvider } from "../core/types";
-import { requireOptional } from "./_shared";
+import {type EmbeddingModel, embed, embedMany} from 'ai'
+import type {EmbeddingProvider} from '../core/types'
+import {requireOptional} from './_shared'
 
 /**
  * Mistral provider module interface.
  */
 interface MistralModule {
-  mistral: {
-    embedding: (model: string) => EmbeddingModel;
-  };
+	mistral: {
+		embedding: (model: string) => EmbeddingModel
+	}
 }
 
 export type MistralEmbeddingConfig = {
-  model?: string;
-  timeoutMs?: number;
-};
+	model?: string
+	timeoutMs?: number
+}
 
-const DEFAULT_TEXT_MODEL = "mistral-embed";
+const DEFAULT_TEXT_MODEL = 'mistral-embed'
 
 export const createMistralEmbeddingProvider = (
-  config: MistralEmbeddingConfig = {}
+	config: MistralEmbeddingConfig = {}
 ): EmbeddingProvider => {
-  const { mistral } = requireOptional<MistralModule>({
-    id: "@ai-sdk/mistral",
-    installHint: "bun add @ai-sdk/mistral",
-    providerName: "mistral",
-  });
-  const model =
-    config.model ?? process.env.MISTRAL_EMBEDDING_MODEL ?? DEFAULT_TEXT_MODEL;
-  const timeoutMs = config.timeoutMs;
-  const embeddingModel = mistral.embedding(model);
+	const {mistral} = requireOptional<MistralModule>({
+		id: '@ai-sdk/mistral',
+		installHint: 'bun add @ai-sdk/mistral',
+		providerName: 'mistral'
+	})
+	const model =
+		config.model ??
+		process.env.MISTRAL_EMBEDDING_MODEL ??
+		DEFAULT_TEXT_MODEL
+	const timeoutMs = config.timeoutMs
+	const embeddingModel = mistral.embedding(model)
 
-  return {
-    name: `mistral:${model}`,
-    dimensions: undefined,
-    embed: async ({ text }) => {
-      const abortSignal = timeoutMs
-        ? AbortSignal.timeout(timeoutMs)
-        : undefined;
+	return {
+		name: `mistral:${model}`,
+		dimensions: undefined,
+		embed: async ({text}) => {
+			const abortSignal = timeoutMs
+				? AbortSignal.timeout(timeoutMs)
+				: undefined
 
-      const result = await embed({
-        model: embeddingModel,
-        value: text,
-        ...(abortSignal ? { abortSignal } : {}),
-      });
+			const result = await embed({
+				model: embeddingModel,
+				value: text,
+				...(abortSignal ? {abortSignal} : {})
+			})
 
-      if (!result.embedding) {
-        throw new Error("Embedding missing from Mistral response");
-      }
+			if (!result.embedding) {
+				throw new Error('Embedding missing from Mistral response')
+			}
 
-      return result.embedding;
-    },
-    embedMany: async (inputs) => {
-      const values = inputs.map((i) => i.text);
-      const abortSignal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined;
+			return result.embedding
+		},
+		embedMany: async (inputs) => {
+			const values = inputs.map((i) => i.text)
+			const abortSignal = timeoutMs
+				? AbortSignal.timeout(timeoutMs)
+				: undefined
 
-      const result = await embedMany({
-        model: embeddingModel,
-        values,
-        ...(abortSignal ? { abortSignal } : {}),
-      });
+			const result = await embedMany({
+				model: embeddingModel,
+				values,
+				...(abortSignal ? {abortSignal} : {})
+			})
 
-      const { embeddings } = result;
-      if (!Array.isArray(embeddings)) {
-        throw new Error("Embeddings missing from Mistral embedMany response");
-      }
-      return embeddings;
-    },
-  };
-};
+			const {embeddings} = result
+			if (!Array.isArray(embeddings)) {
+				throw new Error(
+					'Embeddings missing from Mistral embedMany response'
+				)
+			}
+			return embeddings
+		}
+	}
+}

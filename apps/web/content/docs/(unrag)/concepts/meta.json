@@ -1,14 +1,12 @@
 {
-  "title": "Concepts",
-  "pages": [
-    "philosophy",
-    "architecture",
-    "multimodal",
-    "context-engine",
-    "chunking",
-    "metadata-and-scoping",
-    "performance"
-  ]
+	"title": "Concepts",
+	"pages": [
+		"philosophy",
+		"architecture",
+		"multimodal",
+		"context-engine",
+		"chunking",
+		"metadata-and-scoping",
+		"performance"
+	]
 }
-
-

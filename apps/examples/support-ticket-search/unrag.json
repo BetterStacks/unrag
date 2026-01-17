@@ -1,13 +1,10 @@
 {
-  "installDir": "lib/unrag",
-  "storeAdapter": "drizzle",
-  "aliasBase": "@unrag",
-  "embeddingProvider": "ai",
-  "version": 1,
-  "connectors": [],
-  "extractors": [],
-  "batteries": [
-    "eval",
-    "reranker"
-  ]
+	"installDir": "lib/unrag",
+	"storeAdapter": "drizzle",
+	"aliasBase": "@unrag",
+	"embeddingProvider": "ai",
+	"version": 1,
+	"connectors": [],
+	"extractors": [],
+	"batteries": ["eval", "reranker"]
 }

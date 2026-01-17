@@ -6,10 +6,10 @@
  */
 
 export const UNRAG_SITE_URL =
-  (process.env.UNRAG_SITE_URL ?? process.env.UNRAG_DOCS_BASE_URL)?.trim() ||
-  "https://unrag.dev";
+	(process.env.UNRAG_SITE_URL ?? process.env.UNRAG_DOCS_BASE_URL)?.trim() ||
+	'https://unrag.dev'
 
-export const UNRAG_GITHUB_REPO_URL = "https://github.com/BetterStacks/unrag";
+export const UNRAG_GITHUB_REPO_URL = 'https://github.com/BetterStacks/unrag'
 
 /**
  * Build a fully-qualified docs URL for a given site-relative pathname.
@@ -19,13 +19,13 @@ export const UNRAG_GITHUB_REPO_URL = "https://github.com/BetterStacks/unrag";
  * - docsUrl("docs/connectors/notion") -> "https://unrag.dev/docs/connectors/notion"
  */
 export function docsUrl(siteRelativePath: string): string {
-  const p = siteRelativePath.startsWith("/")
-    ? siteRelativePath
-    : `/${siteRelativePath}`;
+	const p = siteRelativePath.startsWith('/')
+		? siteRelativePath
+		: `/${siteRelativePath}`
 
-  // Ensure the base ends with a slash so `new URL()` treats the second arg as a base.
-  const base = UNRAG_SITE_URL.endsWith("/") ? UNRAG_SITE_URL : `${UNRAG_SITE_URL}/`;
-  return new URL(p.replace(/^\/+/, "/"), base).toString();
+	// Ensure the base ends with a slash so `new URL()` treats the second arg as a base.
+	const base = UNRAG_SITE_URL.endsWith('/')
+		? UNRAG_SITE_URL
+		: `${UNRAG_SITE_URL}/`
+	return new URL(p.replace(/^\/+/, '/'), base).toString()
 }
-
-

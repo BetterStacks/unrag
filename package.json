@@ -1,28 +1,25 @@
 {
-  "name": "unrag",
-  "private": true,
-  "type": "module",
-  "repository": "https://github.com/BetterStacks/unrag",
-  "packageManager": "bun@1.2.22",
-  "workspaces": [
-    "apps/*",
-    "apps/examples/*",
-    "packages/*"
-  ],
-  "scripts": {
-    "build": "turbo run build",
-    "test": "turbo run test",
-    "lint": "turbo run lint",
-    "types:check": "turbo run types:check",
-    "export:excalidraw": "bash ./scripts/export-excalidraw.sh",
-    "changeset": "changeset",
-    "version-packages": "changeset version",
-    "release": "changeset publish"
-  },
-  "devDependencies": {
-    "@changesets/cli": "^2.29.7",
-    "turbo": "^2.5.6"
-  }
+	"name": "unrag",
+	"private": true,
+	"type": "module",
+	"repository": "https://github.com/BetterStacks/unrag",
+	"packageManager": "bun@1.2.22",
+	"workspaces": ["apps/*", "apps/examples/*", "packages/*"],
+	"scripts": {
+		"build": "turbo run build",
+		"test": "turbo run test",
+		"lint": "turbo run lint",
+		"lint:fix": "biome check --fix .",
+		"format": "biome format --write .",
+		"types:check": "turbo run types:check",
+		"export:excalidraw": "bash ./scripts/export-excalidraw.sh",
+		"changeset": "changeset",
+		"version-packages": "changeset version",
+		"release": "changeset publish"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.4",
+		"@changesets/cli": "^2.29.7",
+		"turbo": "^2.5.6"
+	}
 }
-
-

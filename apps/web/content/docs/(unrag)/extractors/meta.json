@@ -1,12 +1,4 @@
 {
-  "title": "Extractors",
-  "pages": [
-    "index",
-    "pdf",
-    "image",
-    "audio",
-    "video",
-    "file"
-  ]
+	"title": "Extractors",
+	"pages": ["index", "pdf", "image", "audio", "video", "file"]
 }
-

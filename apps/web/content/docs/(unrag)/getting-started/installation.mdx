@@ -121,12 +121,20 @@ bunx unrag@latest init --yes --store drizzle --no-install
 
 ## Updating Unrag
 
-Because Unrag vendors code into your project, "updating" means re-running the initializer. The CLI will ask before overwriting any existing files, so you can review changes before accepting them. A typical update workflow:
+Because Unrag vendors code into your project, updating requires more care than a typical dependency bump. You've likely customized files, and a naive overwrite would destroy your changes.
 
-1. Run `bunx unrag@latest init` (it reads your previous choices from `unrag.json`)
-2. Review the diff for any files the CLI wants to overwrite
-3. Accept or reject file-by-file
-4. Run your tests to make sure everything still works
+The `unrag upgrade` command handles this intelligently using a three-way merge—the same algorithm Git uses for combining branches. It compares your current files against both the version you originally installed and the new version, automatically merging changes when possible and marking conflicts for manual resolution when automatic merging isn't feasible.
 
-This approach keeps you in control. You can see exactly what changed between versions, and you can choose to keep local modifications if they're intentional.
+```bash
+bunx unrag@latest upgrade
+```
+
+The upgrade command:
+
+- Preserves your customizations while bringing in upstream improvements
+- Shows you exactly what will change before making any modifications
+- Handles dependency updates alongside file changes
+- Warns you about uncommitted changes to prevent accidental data loss
+
+For a complete guide to the upgrade process, see the [Upgrading documentation](/docs/upgrade).
 

@@ -1,55 +1,57 @@
 {
-  "name": "unrag",
-  "type": "module",
-  "repository": "https://github.com/BetterStacks/unrag",
-  "homepage": "https://unrag.dev",
-  "bin": {
-    "unrag": "./dist/cli/index.js"
-  },
-  "version": "0.2.11",
-  "private": false,
-  "license": "Apache-2.0",
-  "devDependencies": {
-    "@ai-sdk/amazon-bedrock": "^3.0.72",
-    "@ai-sdk/cohere": "^3.0.1",
-    "@ai-sdk/google": "^3.0.1",
-    "@ai-sdk/openai": "^3.0.1",
-    "@openrouter/sdk": "^0.3.10",
-    "@prisma/client": "^6.0.0",
-    "@types/bun": "latest",
-    "@types/pg": "^8.16.0",
-    "ai": "^6.0.3",
-    "drizzle-kit": "^0.31.8",
-    "drizzle-orm": "^0.45.1",
-    "ink": "6.6.0",
-    "pg": "^8.16.3",
-    "prisma": "^6.0.0",
-    "react": "19.2.3",
-    "react-devtools-core": "^6.1.5",
-    "voyage-ai-provider": "^3.0.0",
-    "@types/react": "^19.2.3"
-  },
-  "dependencies": {
-    "@clack/prompts": "^0.11.0",
-    "jsonc-parser": "^3.3.1",
-    "pg": "^8.16.3"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "scripts": {
-    "build": "bun build --target=node --format=esm --packages=external --outfile dist/cli/index.js cli/index.ts && bun build --target=node --format=esm --production --outfile dist/debug-tui/index.js registry/debug/tui/App.tsx",
-    "test": "bun test",
-    "unrag:doctor": "unrag doctor --config .unrag/doctor.json",
-    "unrag:doctor:db": "unrag doctor --config .unrag/doctor.json --db",
-    "unrag:doctor:ci": "unrag doctor --config .unrag/doctor.json --db --strict --json"
-  },
-  "files": [
-    "dist/**",
-    "registry/**",
-    "README.md"
-  ],
-  "publishConfig": {
-    "access": "public"
-  }
+	"name": "unrag",
+	"type": "module",
+	"repository": "https://github.com/BetterStacks/unrag",
+	"homepage": "https://unrag.dev",
+	"bin": {
+		"unrag": "./dist/cli/index.js"
+	},
+	"version": "0.2.12",
+	"private": false,
+	"license": "Apache-2.0",
+	"devDependencies": {
+		"@ai-sdk/amazon-bedrock": "^3.0.72",
+		"@ai-sdk/cohere": "^3.0.1",
+		"@ai-sdk/google": "^3.0.1",
+		"@ai-sdk/openai": "^3.0.1",
+		"@openrouter/sdk": "^0.3.10",
+		"@prisma/client": "^6.0.0",
+		"@types/bun": "latest",
+		"@types/pg": "^8.16.0",
+		"ai": "^6.0.3",
+		"drizzle-kit": "^0.31.8",
+		"drizzle-orm": "^0.45.1",
+		"ink": "6.6.0",
+		"pg": "^8.16.3",
+		"prisma": "^6.0.0",
+		"react": "19.2.3",
+		"react-devtools-core": "^6.1.5",
+		"voyage-ai-provider": "^3.0.0",
+		"@types/react": "^19.2.3"
+	},
+	"dependencies": {
+		"@clack/prompts": "^0.11.0",
+		"jsonc-parser": "^3.3.1",
+		"pg": "^8.16.3",
+		"semver": "^7.6.3"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	},
+	"scripts": {
+		"build": "bun build --target=node --format=esm --packages=external --outfile dist/cli/index.js cli/index.ts && bun build --target=node --format=esm --production --outfile dist/debug-tui/index.js registry/debug/tui/App.tsx",
+		"test": "bun test",
+		"lint": "biome check .",
+		"unrag:doctor": "unrag doctor --config .unrag/doctor.json",
+		"unrag:doctor:db": "unrag doctor --config .unrag/doctor.json --db",
+		"unrag:doctor:ci": "unrag doctor --config .unrag/doctor.json --db --strict --json"
+	},
+	"files": [
+		"dist/**",
+		"registry/**",
+		"README.md"
+	],
+	"publishConfig": {
+		"access": "public"
+	}
 }
