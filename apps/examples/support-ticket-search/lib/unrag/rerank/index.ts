@@ -37,4 +37,3 @@ export type {
 	CohereRerankerConfig,
 	CustomRerankerConfig
 } from '@unrag/rerank/types'
-

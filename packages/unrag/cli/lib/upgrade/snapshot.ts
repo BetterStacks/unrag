@@ -21,6 +21,8 @@ type SnapshotConfig = {
 	extractors: ExtractorName[]
 	connectors: ConnectorName[]
 	batteries: BatteryName[]
+	full?: boolean
+	withDocs?: boolean
 }
 
 export type Snapshot = {
@@ -138,6 +140,8 @@ const runCurrentInitAndAdds = async (
 			...(config.embeddingProvider
 				? ['--provider', config.embeddingProvider]
 				: []),
+			...(config.full ? ['--full'] : []),
+			...(config.withDocs ? ['--with-docs'] : []),
 			'--no-install',
 			...(quiet ? ['--quiet'] : [])
 		])
@@ -179,25 +183,43 @@ const runExternalInitAndAdds = async (
 	version: string,
 	options?: {verbose?: boolean}
 ) => {
-	await runExternalUnrag(
-		root,
-		version,
-		[
-			'init',
-			'--yes',
-			'--store',
-			config.storeAdapter,
-			'--dir',
-			config.installDir,
-			'--alias',
-			config.aliasBase,
-			...(config.embeddingProvider
-				? ['--provider', config.embeddingProvider]
-				: []),
-			'--no-install'
-		],
-		options
-	)
+	const initArgs = [
+		'init',
+		'--yes',
+		'--store',
+		config.storeAdapter,
+		'--dir',
+		config.installDir,
+		'--alias',
+		config.aliasBase,
+		...(config.embeddingProvider
+			? ['--provider', config.embeddingProvider]
+			: []),
+		...(config.full ? ['--full'] : []),
+		...(config.withDocs ? ['--with-docs'] : []),
+		'--no-install'
+	]
+
+	try {
+		await runExternalUnrag(root, version, initArgs, options)
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err)
+		const usesNewFlags = Boolean(config.full || config.withDocs)
+		const looksLikeUnknownFlag =
+			msg.includes('--full') ||
+			msg.includes('--with-docs') ||
+			msg.toLowerCase().includes('unknown option') ||
+			msg.toLowerCase().includes('unknown argument')
+
+		if (usesNewFlags && looksLikeUnknownFlag) {
+			const fallbackArgs = initArgs.filter(
+				(a) => a !== '--full' && a !== '--with-docs'
+			)
+			await runExternalUnrag(root, version, fallbackArgs, options)
+		} else {
+			throw err
+		}
+	}
 
 	for (const extractor of config.extractors) {
 		await runExternalUnrag(

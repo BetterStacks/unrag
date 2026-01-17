@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process'
-import {readFile, writeFile} from 'node:fs/promises'
+import {readFile, readdir, writeFile} from 'node:fs/promises'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {confirm, intro, isCancel, outro} from '@clack/prompts'
@@ -38,6 +38,7 @@ type UpgradeConfig = {
 	embeddingProvider?: string
 	version?: number
 	installedFrom?: {unragVersion?: string}
+	scaffold?: {mode?: 'slim' | 'full'; withDocs?: boolean}
 	connectors?: string[]
 	extractors?: string[]
 	batteries?: string[]
@@ -127,6 +128,55 @@ const toConnectorNames = (xs: unknown): ConnectorName[] =>
 
 const toBatteryNames = (xs: unknown): BatteryName[] =>
 	toStringList(xs).filter(isBatteryName)
+
+const EMBEDDING_PROVIDER_FILES = [
+	'ai',
+	'openai',
+	'google',
+	'openrouter',
+	'azure',
+	'vertex',
+	'bedrock',
+	'cohere',
+	'mistral',
+	'together',
+	'ollama',
+	'voyage'
+]
+
+const inferScaffoldMode = async (
+	projectRoot: string,
+	installDir: string,
+	explicit?: 'slim' | 'full'
+): Promise<'slim' | 'full'> => {
+	if (explicit === 'slim' || explicit === 'full') {
+		return explicit
+	}
+	const embeddingDir = path.join(projectRoot, installDir, 'embedding')
+	if (!(await exists(embeddingDir))) {
+		return 'slim'
+	}
+	try {
+		const entries = await readdir(embeddingDir)
+		const providers = EMBEDDING_PROVIDER_FILES.filter((p) =>
+			entries.includes(`${p}.ts`)
+		)
+		return providers.length > 1 ? 'full' : 'slim'
+	} catch {
+		return 'slim'
+	}
+}
+
+const inferWithDocs = async (
+	projectRoot: string,
+	installDir: string,
+	explicit?: boolean
+): Promise<boolean> => {
+	if (typeof explicit === 'boolean') {
+		return explicit
+	}
+	return exists(path.join(projectRoot, installDir, 'unrag.md'))
+}
 
 const parseUpgradeArgs = (args: string[]): ParsedUpgradeArgs => {
 	const out: ParsedUpgradeArgs = {}
@@ -434,6 +484,17 @@ export async function upgradeCommand(args: string[]) {
 		? (config.embeddingProvider as EmbeddingProviderName)
 		: 'ai'
 
+	const scaffoldMode = await inferScaffoldMode(
+		root,
+		config.installDir,
+		config.scaffold?.mode
+	)
+	const withDocs = await inferWithDocs(
+		root,
+		config.installDir,
+		config.scaffold?.withDocs
+	)
+
 	const snapshotConfig = {
 		projectRoot: root,
 		installDir: config.installDir,
@@ -442,7 +503,9 @@ export async function upgradeCommand(args: string[]) {
 		embeddingProvider,
 		extractors: toExtractorNames(config.extractors),
 		connectors: toConnectorNames(config.connectors),
-		batteries: toBatteryNames(config.batteries)
+		batteries: toBatteryNames(config.batteries),
+		full: scaffoldMode === 'full',
+		withDocs
 	}
 
 	const baseSnapshot = await createSnapshotFromExternalCli({
@@ -500,6 +563,7 @@ export async function upgradeCommand(args: string[]) {
 			...config,
 			version: CONFIG_VERSION,
 			installedFrom: {unragVersion: cliVersion},
+			scaffold: {mode: scaffoldMode, withDocs},
 			managedFiles: managedFiles
 		})
 

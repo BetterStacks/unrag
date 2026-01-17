@@ -44,7 +44,7 @@ AI_GATEWAY_MODEL="openai/text-embedding-3-large"
 
 ### Create the database schema
 
-Connect to your Postgres database and run the schema creation SQL. You can find the complete schema in `lib/unrag/unrag.md`, but here's the quick version:
+Connect to your Postgres database and run the schema creation SQL. If you generated docs with `unrag init --with-docs`, the complete schema is in `lib/unrag/unrag.md`. Here's the quick version:
 
 ```sql
 -- Enable pgvector

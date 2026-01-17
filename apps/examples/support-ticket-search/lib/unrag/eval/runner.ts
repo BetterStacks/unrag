@@ -534,4 +534,3 @@ function clampRerankTopK(args: {topK: number; rerankTopK: number}): number {
 	}
 	return Math.max(topK, requested)
 }
-

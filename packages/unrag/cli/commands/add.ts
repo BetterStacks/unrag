@@ -68,21 +68,25 @@ const _ensureObject = (obj: Record<string, unknown>, key: string) => {
 	return next
 }
 
-const renderObjectLiteral = (
+const renderObjectLiteralWithIndent = (
 	value: Record<string, unknown>,
-	indent: number
+	indent: string,
+	indentUnit: string
 ): string => {
-	const pad = ' '.repeat(indent)
 	const inner = Object.entries(value)
 		.map(([key, val]) => {
 			if (val && typeof val === 'object' && !Array.isArray(val)) {
-				return `${pad}${key}: ${renderObjectLiteral(val as Record<string, unknown>, indent + 2)},`
+				return `${indent}${key}: ${renderObjectLiteralWithIndent(val as Record<string, unknown>, indent + indentUnit, indentUnit)},`
 			}
-			return `${pad}${key}: ${JSON.stringify(val)},`
+			return `${indent}${key}: ${JSON.stringify(val)},`
 		})
 		.join('\n')
 
-	return `{\n${inner}\n${' '.repeat(Math.max(0, indent - 2))}}`
+	const closeIndent = indent.slice(
+		0,
+		Math.max(0, indent.length - indentUnit.length)
+	)
+	return `{\n${inner}\n${closeIndent}}`
 }
 
 // Map extractor id to factory function name (matches registry.ts)
@@ -262,33 +266,50 @@ async function patchUnragConfig(args: {
 			}
 
 			if (Object.keys(minimalOverrides).length > 0) {
-				const body = renderObjectLiteral(minimalOverrides, 4)
-				const bodyLines = body.split('\n')
-				bodyLines.splice(
-					bodyLines.length - 1,
-					0,
-					'    // __UNRAG_ASSET_PROCESSING_OVERRIDES__'
-				)
-				const bodyWithMarker = bodyLines.join('\n')
-				const assetProcessingBlock = `  assetProcessing: ${bodyWithMarker},\n`
-
 				const assetProcessingMarker =
 					'// __UNRAG_ASSET_PROCESSING_OVERRIDES__'
 				const autoBlockRegex =
 					/assetProcessing:\s*\{[\s\S]*?\/\/ __UNRAG_ASSET_PROCESSING_OVERRIDES__\s*\n\s*\},/
 
+				const buildAssetProcessingBlock = (indent: string) => {
+					const body = renderObjectLiteralWithIndent(
+						minimalOverrides,
+						`${indent}\t`,
+						'\t'
+					)
+					const bodyLines = body.split('\n')
+					bodyLines.splice(
+						bodyLines.length - 1,
+						0,
+						`${indent}\t${assetProcessingMarker}`
+					)
+					const bodyWithMarker = bodyLines.join('\n')
+					return `${indent}assetProcessing: ${bodyWithMarker},\n`
+				}
+
 				if (autoBlockRegex.test(newContent)) {
 					// Replace the auto-managed block with the refreshed minimal overrides
 					newContent = newContent.replace(
 						autoBlockRegex,
-						assetProcessingBlock.trimEnd()
+						buildAssetProcessingBlock('\t\t').trimEnd()
 					)
 					modified = true
 				} else if (newContent.includes(assetProcessingMarker)) {
 					// Marker exists (fresh minimal install) - replace it
 					newContent = newContent.replace(
 						assetProcessingMarker,
-						assetProcessingBlock.trimEnd()
+						(match) => {
+							const lineStart = newContent.lastIndexOf(
+								'\n',
+								newContent.indexOf(match)
+							)
+							const line = newContent.slice(
+								lineStart + 1,
+								newContent.indexOf(match)
+							)
+							const indent = line.match(/^\s*/)?.[0] ?? ''
+							return buildAssetProcessingBlock(indent).trimEnd()
+						}
 					)
 					modified = true
 				} else {
@@ -297,20 +318,29 @@ async function patchUnragConfig(args: {
 						/assetProcessing:\s*\{[\s\S]*?\n\s*\}/s
 					)
 					if (!existingAssetProcessingMatch) {
-						// Insert after extractors array
-						const extractorsArrayEnd =
-							newContent.lastIndexOf('    ],')
-						if (extractorsArrayEnd > 0) {
-							newContent = `${newContent.slice(0, extractorsArrayEnd + 5)}\n${assetProcessingBlock.trimEnd()}${newContent.slice(extractorsArrayEnd + 5)}`
+						const extractorsBlockRegex =
+							/(\n[ \t]*extractors:\s*\[[\s\S]*?\n)([ \t]*\])/m
+						const match = newContent.match(extractorsBlockRegex)
+						if (match) {
+							const indent =
+								match[1]?.match(/\n([ \t]*)extractors:/)?.[1] ??
+								'\t\t'
+							const insert =
+								buildAssetProcessingBlock(indent).trimEnd()
+							newContent = newContent.replace(
+								extractorsBlockRegex,
+								`${match[1]}${match[2]},\n${insert}`
+							)
 							modified = true
 						} else {
 							// Fallback: find engine closing brace
 							const engineClosingBrace =
-								newContent.lastIndexOf('  },')
+								newContent.lastIndexOf('\t},')
 							if (engineClosingBrace > 0) {
+								const insert = buildAssetProcessingBlock('\t\t')
 								newContent =
 									newContent.slice(0, engineClosingBrace) +
-									assetProcessingBlock +
+									insert +
 									newContent.slice(engineClosingBrace)
 								modified = true
 							}
