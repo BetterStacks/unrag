@@ -77,7 +77,7 @@ Upgrade plan:
 - conflicts: 3
 ```
 
-After the upgrade completes, find all files with conflicts:
+After the upgrade completes, the CLI lists the exact conflict files and includes a documentation link. If you need to re-check later, find all files with conflicts using:
 
 ```bash
 grep -r "<<<<<<< OURS" lib/unrag/

@@ -561,6 +561,15 @@ export type DeleteInput =
 			sourceIdPrefix: string
 	  }
 
+/**
+ * Scope for filtering retrieval results.
+ * Used in both `RetrieveInput` and `VectorStore.query()`.
+ */
+export type RetrieveScope = {
+	/** Filter to chunks whose sourceId starts with this prefix. */
+	sourceId?: string
+}
+
 export type VectorStore = {
 	/**
 	 * Persist (replace) a single document's chunks.
@@ -568,14 +577,19 @@ export type VectorStore = {
 	 * The store treats `chunks[0].sourceId` as the logical identifier for the document.
 	 * Calling `upsert()` multiple times with the same `sourceId` replaces the previously
 	 * stored content for that document (including when the chunk count changes).
+	 *
+	 * Returns the canonical `documentId` for the logical document. On first ingest this
+	 * is a newly generated ID; on subsequent ingests for the same `sourceId` it returns
+	 * the existing (stable) document ID.
+	 *
+	 * **Important**: This method requires a UNIQUE constraint on `documents.source_id`
+	 * to guarantee idempotent upsert semantics under concurrent writes.
 	 */
-	upsert: (chunks: Chunk[]) => Promise<void>
+	upsert: (chunks: Chunk[]) => Promise<{documentId: string}>
 	query: (params: {
 		embedding: number[]
 		topK: number
-		scope?: {
-			sourceId?: string
-		}
+		scope?: RetrieveScope
 	}) => Promise<Array<Chunk & {score: number}>>
 	delete: (input: DeleteInput) => Promise<void>
 }
@@ -673,9 +687,7 @@ export type IngestResult = {
 export type RetrieveInput = {
 	query: string
 	topK?: number
-	scope?: {
-		sourceId?: string
-	}
+	scope?: RetrieveScope
 }
 
 export type RetrieveResult = {
@@ -951,3 +963,4 @@ export type ResolvedContextEngineConfig = {
 	assetProcessing: AssetProcessingConfig
 	embeddingProcessing: EmbeddingProcessingConfig
 }
+

@@ -50,6 +50,8 @@ type ParsedUpgradeArgs = {
 	dryRun?: boolean
 	allowDirty?: boolean
 	overwrite?: 'skip' | 'force'
+	noInstall?: boolean
+	verbose?: boolean
 	help?: boolean
 }
 
@@ -158,6 +160,14 @@ const parseUpgradeArgs = (args: string[]): ParsedUpgradeArgs => {
 			}
 			continue
 		}
+		if (a === '--no-install') {
+			out.noInstall = true
+			continue
+		}
+		if (a === '--verbose') {
+			out.verbose = true
+			continue
+		}
 		if (a === '--help' || a === '-h') {
 			out.help = true
 		}
@@ -176,7 +186,9 @@ const renderUpgradeHelp = () =>
 		'  --from-version <x>   Base version to diff from (if missing in unrag.json)',
 		'  --overwrite <mode>   skip | force (only affects new files)',
 		'  --dry-run            Plan only; do not write files',
+		'  --no-install         Skip dependency installation',
 		'  --allow-dirty        Allow running with uncommitted git changes',
+		'  --verbose            Show init/add logs while preparing snapshots',
 		'  -y, --yes            Non-interactive; skip prompts',
 		'  -h, --help           Show help',
 		'',
@@ -343,7 +355,13 @@ const summarizePlan = (plan: FilePlan[]) => {
 	for (const item of plan) {
 		counts[item.action] = (counts[item.action] ?? 0) + 1
 	}
+	const changedCount =
+		(counts.add ?? 0) +
+		(counts.update ?? 0) +
+		(counts.merge ?? 0) +
+		(counts.conflict ?? 0)
 	const lines = [
+		`- files-changed: ${changedCount}`,
 		`- add: ${counts.add ?? 0}`,
 		`- update: ${counts.update ?? 0}`,
 		`- merge: ${counts.merge ?? 0}`,
@@ -353,7 +371,7 @@ const summarizePlan = (plan: FilePlan[]) => {
 		`- skipped: ${counts.skip ?? 0}`,
 		`- unchanged: ${counts.unchanged ?? 0}`
 	]
-	return {counts, lines}
+	return {counts, lines, changedCount}
 }
 
 export async function upgradeCommand(args: string[]) {
@@ -382,6 +400,7 @@ export async function upgradeCommand(args: string[]) {
 
 	const nonInteractive = parsed.yes || !process.stdin.isTTY
 	const overwrite = parsed.overwrite ?? 'skip'
+	const verbose = Boolean(parsed.verbose)
 
 	const fromVersion =
 		parsed.fromVersion ?? (config.installedFrom?.unragVersion || '').trim()
@@ -428,9 +447,12 @@ export async function upgradeCommand(args: string[]) {
 
 	const baseSnapshot = await createSnapshotFromExternalCli({
 		version: fromVersion,
-		config: snapshotConfig
+		config: snapshotConfig,
+		verbose
 	})
-	const theirsSnapshot = await createSnapshotFromCurrentCli(snapshotConfig)
+	const theirsSnapshot = await createSnapshotFromCurrentCli(snapshotConfig, {
+		verbose
+	})
 
 	const {plan, managedFiles} = await planUpgrade({
 		projectRoot: root,
@@ -442,6 +464,9 @@ export async function upgradeCommand(args: string[]) {
 	})
 
 	const summary = summarizePlan(plan)
+	const conflictFiles = plan
+		.filter((item) => item.action === 'conflict')
+		.map((item) => item.path)
 	const summaryLines = [
 		'Upgrade plan:',
 		...summary.lines,
@@ -521,7 +546,8 @@ export async function upgradeCommand(args: string[]) {
 			}
 		)
 
-		const noInstall = process.env.UNRAG_SKIP_INSTALL === '1'
+		const noInstall =
+			Boolean(parsed.noInstall) || process.env.UNRAG_SKIP_INSTALL === '1'
 		if (merged.changes.length > 0) {
 			await writePackageJson(root, merged.pkg)
 			if (!noInstall) {
@@ -541,6 +567,20 @@ export async function upgradeCommand(args: string[]) {
 					? `Next: run \`${installCmd(pm)}\``
 					: `Dependencies updated. (ran ${installCmd(pm)})`
 
+		const conflictLines =
+			(conflictFiles.length ?? 0) > 0
+				? [
+						'',
+						'Conflicts:',
+						...conflictFiles.map((file) => `- ${file}`),
+						gitStatus.isRepo
+							? 'Resolve with: git diff --name-only --diff-filter=U'
+							: '',
+						`Docs: ${docsUrl('/docs/upgrade/handling-conflicts')}`,
+						'Next: resolve markers, then re-run `unrag doctor`.'
+					]
+				: []
+
 		outro(
 			[
 				'Upgrade complete.',
@@ -549,9 +589,7 @@ export async function upgradeCommand(args: string[]) {
 				'',
 				depsLine,
 				installLine,
-				(summary.counts.conflict ?? 0) > 0
-					? 'Conflicts detected. Resolve markers and re-run `unrag doctor`.'
-					: ''
+				...conflictLines
 			]
 				.filter(Boolean)
 				.join('\n')

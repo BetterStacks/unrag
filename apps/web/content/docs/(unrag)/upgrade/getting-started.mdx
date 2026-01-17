@@ -65,6 +65,7 @@ Next, the command generates the upgrade plan. This takes a few seconds as it cre
 
 ```
 Upgrade plan:
+- files-changed: 11
 - add: 2
 - update: 8
 - merge: 1
@@ -99,10 +100,17 @@ Once the upgrade completes, you'll see a summary:
 
 ```
 └  Upgrade complete.
-   - Files updated: 11
-   - Conflicts: 0
-   - Docs: https://unrag.dev/docs/upgrade
-   - Deps: ai, drizzle-orm (updated)
+   - files-changed: 11
+   - add: 2
+   - update: 8
+   - merge: 1
+   - conflicts: 0
+   - keep: 3
+   - removed-upstream: 0
+   - skipped: 0
+   - unchanged: 12
+
+   Deps: ai, drizzle-orm (updated)
    Next: run `bun install`
 ```
 
@@ -193,6 +201,14 @@ In non-interactive mode, the command proceeds automatically if there are no conf
 <Callout type="warn">
 In non-interactive mode with a dirty git working tree, the command will fail rather than potentially destroying uncommitted work. Use `--allow-dirty` to override this, but be careful—you might lose changes.
 </Callout>
+
+## Verbose output (optional)
+
+By default, `upgrade` keeps the output focused on the plan and the final summary. If you want the full snapshot logs (the `init`/`add` steps that build the comparison), pass `--verbose`:
+
+```bash
+bunx unrag@latest upgrade --verbose
+```
 
 ## Troubleshooting
 

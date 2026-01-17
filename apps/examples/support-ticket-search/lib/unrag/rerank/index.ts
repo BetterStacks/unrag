@@ -26,8 +26,8 @@
  */
 
 // Factories
-export {createCohereReranker} from './cohere'
-export {createCustomReranker} from './custom'
+export {createCohereReranker} from '@unrag/rerank/cohere'
+export {createCustomReranker} from '@unrag/rerank/custom'
 
 // Types
 export type {
@@ -36,4 +36,5 @@ export type {
 	RerankerRerankResult,
 	CohereRerankerConfig,
 	CustomRerankerConfig
-} from './types'
+} from '@unrag/rerank/types'
+

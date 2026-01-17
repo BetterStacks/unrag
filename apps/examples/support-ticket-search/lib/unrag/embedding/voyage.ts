@@ -1,6 +1,7 @@
+import {Buffer} from 'node:buffer'
+import type {EmbeddingProvider, ImageEmbeddingInput} from '@unrag/core/types'
+import {requireOptional} from '@unrag/embedding/_shared'
 import {type EmbeddingModel, embed, embedMany} from 'ai'
-import type {EmbeddingProvider, ImageEmbeddingInput} from '../core/types'
-import {requireOptional} from './_shared'
 
 /**
  * Voyage AI provider module interface.
@@ -18,19 +19,29 @@ type BaseConfig = {
 	timeoutMs?: number
 }
 
-export type VoyageEmbeddingConfig =
-	| (BaseConfig & {
-			type?: 'text'
-	  })
-	| (BaseConfig & {
-			type: 'multimodal'
-			text?: {
-				value?: (text: string) => unknown
-			}
-			image?: {
-				value?: (input: ImageEmbeddingInput) => unknown
-			}
-	  })
+type VoyageMultimodalTextValue = {
+	text: string[]
+}
+
+type VoyageMultimodalImageValue = {
+	image: string[]
+}
+
+type VoyageTextConfig = BaseConfig & {
+	type?: 'text'
+}
+
+type VoyageMultimodalConfig = BaseConfig & {
+	type: 'multimodal'
+	text?: {
+		value?: (text: string) => VoyageMultimodalTextValue
+	}
+	image?: {
+		value?: (input: ImageEmbeddingInput) => VoyageMultimodalImageValue
+	}
+}
+
+export type VoyageEmbeddingConfig = VoyageTextConfig | VoyageMultimodalConfig
 
 const DEFAULT_TEXT_MODEL = 'voyage-3.5-lite'
 const DEFAULT_MULTIMODAL_MODEL = 'voyage-multimodal-3'
@@ -52,6 +63,22 @@ const defaultImageValue = (input: ImageEmbeddingInput) => {
 	return {image: [v]}
 }
 
+type EmbedFnInput = Parameters<typeof embed>[0]
+type EmbedManyFnInput = Parameters<typeof embedMany>[0]
+
+type UnsafeEmbedInput = Omit<EmbedFnInput, 'value'> & {value: unknown}
+type UnsafeEmbedManyInput = Omit<EmbedManyFnInput, 'values'> & {
+	values: readonly unknown[]
+}
+
+async function unsafeEmbed(args: UnsafeEmbedInput) {
+	return embed(args as EmbedFnInput)
+}
+
+async function unsafeEmbedMany(args: UnsafeEmbedManyInput) {
+	return embedMany(args as EmbedManyFnInput)
+}
+
 export const createVoyageEmbeddingProvider = (
 	config: VoyageEmbeddingConfig = {}
 ): EmbeddingProvider => {
@@ -60,41 +87,103 @@ export const createVoyageEmbeddingProvider = (
 		installHint: 'bun add voyage-ai-provider',
 		providerName: 'voyage'
 	})
-	const type = config.type ?? 'text'
-	const isMultimodal = config.type === 'multimodal'
-	const model =
-		config.model ??
-		process.env.VOYAGE_MODEL ??
-		(type === 'multimodal' ? DEFAULT_MULTIMODAL_MODEL : DEFAULT_TEXT_MODEL)
 	const timeoutMs = config.timeoutMs
 
-	const textEmbeddingModel =
-		type === 'multimodal'
-			? undefined
-			: typeof voyage.embeddingModel === 'function'
-				? voyage.embeddingModel(model)
-				: voyage.textEmbeddingModel?.(model)
-	const multimodalEmbeddingModel =
-		type === 'multimodal'
-			? voyage.multimodalEmbeddingModel?.(model)
-			: undefined
-
-	// AI SDK 6 types only accept string inputs; cast multimodal models/values.
-	const multimodalModel =
-		multimodalEmbeddingModel as unknown as EmbeddingModel
-
-	const resolveTextValue = (text: string) => {
-		if (isMultimodal && config.text?.value) {
-			return config.text.value(text)
+	if (config.type === 'multimodal') {
+		const model =
+			config.model ?? process.env.VOYAGE_MODEL ?? DEFAULT_MULTIMODAL_MODEL
+		const multimodalModel = voyage.multimodalEmbeddingModel?.(model)
+		if (!multimodalModel) {
+			throw new Error(
+				'Voyage multimodal embedding model is unavailable. ' +
+					'Ensure your installed `voyage-ai-provider` version supports multimodal embedding models.'
+			)
 		}
-		return defaultTextValue(text)
+
+		const resolveTextValue = (text: string): VoyageMultimodalTextValue => {
+			return config.text?.value
+				? config.text.value(text)
+				: defaultTextValue(text)
+		}
+
+		const resolveImageValue = (
+			input: ImageEmbeddingInput
+		): VoyageMultimodalImageValue => {
+			return config.image?.value
+				? config.image.value(input)
+				: defaultImageValue(input)
+		}
+
+		return {
+			name: `voyage:${model}`,
+			dimensions: undefined,
+			embed: async ({text}) => {
+				const abortSignal = timeoutMs
+					? AbortSignal.timeout(timeoutMs)
+					: undefined
+
+				const result = await unsafeEmbed({
+					model: multimodalModel,
+					value: resolveTextValue(text),
+					...(abortSignal ? {abortSignal} : {})
+				})
+
+				if (!result.embedding) {
+					throw new Error('Embedding missing from Voyage response')
+				}
+
+				return result.embedding
+			},
+			embedMany: async (inputs) => {
+				const abortSignal = timeoutMs
+					? AbortSignal.timeout(timeoutMs)
+					: undefined
+
+				const result = await unsafeEmbedMany({
+					model: multimodalModel,
+					values: inputs.map((i) => resolveTextValue(i.text)),
+					...(abortSignal ? {abortSignal} : {})
+				})
+
+				const {embeddings} = result
+				if (!Array.isArray(embeddings)) {
+					throw new Error(
+						'Embeddings missing from Voyage embedMany response'
+					)
+				}
+				return embeddings
+			},
+			embedImage: async (input: ImageEmbeddingInput) => {
+				const abortSignal = timeoutMs
+					? AbortSignal.timeout(timeoutMs)
+					: undefined
+
+				const result = await unsafeEmbed({
+					model: multimodalModel,
+					value: resolveImageValue(input),
+					...(abortSignal ? {abortSignal} : {})
+				})
+
+				if (!result.embedding) {
+					throw new Error('Embedding missing from Voyage response')
+				}
+
+				return result.embedding
+			}
+		}
 	}
 
-	const resolveImageValue = (input: ImageEmbeddingInput) => {
-		if (isMultimodal && config.image?.value) {
-			return config.image.value(input)
-		}
-		return defaultImageValue(input)
+	const model = config.model ?? process.env.VOYAGE_MODEL ?? DEFAULT_TEXT_MODEL
+	const textModel =
+		typeof voyage.embeddingModel === 'function'
+			? voyage.embeddingModel(model)
+			: voyage.textEmbeddingModel?.(model)
+
+	if (!textModel) {
+		throw new Error(
+			'Voyage text embedding model is unavailable. ' +
+				'Ensure your installed `voyage-ai-provider` version supports text embedding models.'
+		)
 	}
 
 	return {
@@ -105,25 +194,11 @@ export const createVoyageEmbeddingProvider = (
 				? AbortSignal.timeout(timeoutMs)
 				: undefined
 
-			const result =
-				type === 'multimodal'
-					? await embed({
-							model: multimodalModel,
-							value: resolveTextValue(text) as unknown as string,
-							...(abortSignal ? {abortSignal} : {})
-						})
-					: await embed({
-							model: (() => {
-								if (!textEmbeddingModel) {
-									throw new Error(
-										'Voyage text embedding model is unavailable'
-									)
-								}
-								return textEmbeddingModel
-							})(),
-							value: text,
-							...(abortSignal ? {abortSignal} : {})
-						})
+			const result = await embed({
+				model: textModel,
+				value: text,
+				...(abortSignal ? {abortSignal} : {})
+			})
 
 			if (!result.embedding) {
 				throw new Error('Embedding missing from Voyage response')
@@ -135,27 +210,12 @@ export const createVoyageEmbeddingProvider = (
 			const abortSignal = timeoutMs
 				? AbortSignal.timeout(timeoutMs)
 				: undefined
-			const result =
-				type === 'multimodal'
-					? await embedMany({
-							model: multimodalModel,
-							values: inputs.map((i) =>
-								resolveTextValue(i.text)
-							) as unknown as string[],
-							...(abortSignal ? {abortSignal} : {})
-						})
-					: await embedMany({
-							model: (() => {
-								if (!textEmbeddingModel) {
-									throw new Error(
-										'Voyage text embedding model is unavailable'
-									)
-								}
-								return textEmbeddingModel
-							})(),
-							values: inputs.map((i) => i.text),
-							...(abortSignal ? {abortSignal} : {})
-						})
+
+			const result = await embedMany({
+				model: textModel,
+				values: inputs.map((i) => i.text),
+				...(abortSignal ? {abortSignal} : {})
+			})
 
 			const {embeddings} = result
 			if (!Array.isArray(embeddings)) {
@@ -164,31 +224,7 @@ export const createVoyageEmbeddingProvider = (
 				)
 			}
 			return embeddings
-		},
-		...(type === 'multimodal'
-			? {
-					embedImage: async (input: ImageEmbeddingInput) => {
-						const abortSignal = timeoutMs
-							? AbortSignal.timeout(timeoutMs)
-							: undefined
-
-						const value = resolveImageValue(input)
-
-						const result = await embed({
-							model: multimodalModel,
-							value: value as unknown as string,
-							...(abortSignal ? {abortSignal} : {})
-						})
-
-						if (!result.embedding) {
-							throw new Error(
-								'Embedding missing from Voyage response'
-							)
-						}
-
-						return result.embedding
-					}
-				}
-			: {})
+		}
 	}
 }
+

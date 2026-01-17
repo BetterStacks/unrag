@@ -1,6 +1,6 @@
+import type {EmbeddingProvider} from '@unrag/core/types'
+import {requireOptional} from '@unrag/embedding/_shared'
 import {type EmbeddingModel, embed, embedMany} from 'ai'
-import type {EmbeddingProvider} from '../core/types'
-import {requireOptional} from './_shared'
 
 /**
  * OpenAI provider module interface.

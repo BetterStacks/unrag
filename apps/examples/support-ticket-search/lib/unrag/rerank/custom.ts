@@ -4,8 +4,8 @@
  * Use this to bring your own reranking logic or integrate with other providers.
  */
 
-import type {Reranker} from '../core/types'
-import type {CustomRerankerConfig} from './types'
+import type {Reranker} from '@unrag/core/types'
+import type {CustomRerankerConfig} from '@unrag/rerank/types'
 
 /**
  * Create a custom reranker with your own implementation.
