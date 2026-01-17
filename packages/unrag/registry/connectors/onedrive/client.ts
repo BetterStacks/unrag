@@ -1,8 +1,8 @@
 import type {
+	OneDriveAppClientCredentialsAuth,
 	OneDriveAuth,
 	OneDriveDelegatedAccessTokenAuth,
-	OneDriveDelegatedRefreshTokenAuth,
-	OneDriveAppClientCredentialsAuth
+	OneDriveDelegatedRefreshTokenAuth
 } from '@registry/connectors/onedrive/types'
 
 export const GRAPH_BASE_URL = 'https://graph.microsoft.com/v1.0'

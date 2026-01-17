@@ -12,8 +12,8 @@ import {
 } from '@registry/connectors/google-drive/mime'
 import type {
 	BuildGoogleDriveFileIngestInputArgs,
-	GoogleDriveFileDocument,
 	GoogleDriveCheckpoint,
+	GoogleDriveFileDocument,
 	GoogleDriveFolderCheckpoint,
 	StreamGoogleDriveFilesInput,
 	StreamGoogleDriveFolderInput
@@ -776,8 +776,7 @@ export async function* streamFolder(
 		const res = await drive.changes.list({
 			pageToken,
 			pageSize: options.pageSize,
-			fields:
-				'nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,size,parents,trashed,shortcutDetails,driveId,modifiedTime,md5Checksum,webViewLink,webContentLink,iconLink))',
+			fields: 'nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,size,parents,trashed,shortcutDetails,driveId,modifiedTime,md5Checksum,webViewLink,webContentLink,iconLink))',
 			includeItemsFromAllDrives,
 			supportsAllDrives,
 			driveId,
@@ -873,7 +872,8 @@ export async function* streamFolder(
 				if (meta.kind === 'folder') {
 					yield skip({
 						reason: 'is_folder',
-						message: 'Skipping folder (folder sync emits files only).'
+						message:
+							'Skipping folder (folder sync emits files only).'
 					})
 					continue
 				}

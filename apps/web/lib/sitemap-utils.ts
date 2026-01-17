@@ -57,8 +57,10 @@ export function getPriorityForPath(urlPath: string): number {
 		return SITEMAP_PRIORITIES.gettingStarted
 	if (urlPath.startsWith('/docs/concepts')) return SITEMAP_PRIORITIES.concepts
 	if (urlPath.startsWith('/docs/guides')) return SITEMAP_PRIORITIES.guides
-	if (urlPath.startsWith('/docs/reference')) return SITEMAP_PRIORITIES.reference
-	if (urlPath.startsWith('/docs/changelog')) return SITEMAP_PRIORITIES.changelog
+	if (urlPath.startsWith('/docs/reference'))
+		return SITEMAP_PRIORITIES.reference
+	if (urlPath.startsWith('/docs/changelog'))
+		return SITEMAP_PRIORITIES.changelog
 
 	return SITEMAP_PRIORITIES.default
 }

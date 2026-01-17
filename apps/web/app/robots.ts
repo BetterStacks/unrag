@@ -1,5 +1,5 @@
-import type {MetadataRoute} from 'next'
 import {getSiteUrl} from '@/lib/sitemap-utils'
+import type {MetadataRoute} from 'next'
 
 /**
  * Generates the robots.txt file for the site.

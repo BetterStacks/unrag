@@ -1,5 +1,3 @@
-import type {ConnectorStream} from '@registry/core/connectors'
-import type {AssetInput, Metadata} from '@registry/core/types'
 import {
 	GRAPH_BASE_URL,
 	graphDownload,
@@ -14,6 +12,8 @@ import type {
 	StreamOneDriveFilesInput,
 	StreamOneDriveFolderInput
 } from '@registry/connectors/onedrive/types'
+import type {ConnectorStream} from '@registry/core/connectors'
+import type {AssetInput, Metadata} from '@registry/core/types'
 
 const DEFAULT_MAX_BYTES = 15 * 1024 * 1024 // 15MB
 

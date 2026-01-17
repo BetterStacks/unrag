@@ -89,11 +89,19 @@ describe('google-drive connector: sourceId prefixing', () => {
 
 	test('buildGoogleDriveFolderSourceId scopes sourceId to folder', () => {
 		expect(
-			buildGoogleDriveFolderSourceId('tenant:acme:', 'folder123', 'file456')
+			buildGoogleDriveFolderSourceId(
+				'tenant:acme:',
+				'folder123',
+				'file456'
+			)
 		).toBe('tenant:acme:gdrive:folder:folder123:file:file456')
 
 		expect(
-			buildGoogleDriveFolderSourceId('tenant:acme', 'folder123', 'file456')
+			buildGoogleDriveFolderSourceId(
+				'tenant:acme',
+				'folder123',
+				'file456'
+			)
 		).toBe('tenant:acme:gdrive:folder:folder123:file:file456')
 	})
 })

@@ -55,7 +55,8 @@ describe('onedrive connector: deleteOnRemoved behavior', () => {
 				return new Response(
 					JSON.stringify({
 						value: [{id: 'item123', deleted: {}}],
-						'@odata.deltaLink': 'https://graph.microsoft.com/v1.0/delta'
+						'@odata.deltaLink':
+							'https://graph.microsoft.com/v1.0/delta'
 					}),
 					{status: 200, headers: {'Content-Type': 'application/json'}}
 				)

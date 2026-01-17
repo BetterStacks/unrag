@@ -20,8 +20,8 @@ import {
 } from '@registry/connectors/notion/render'
 import type {
 	BuildNotionPageIngestInputArgs,
-	NotionPageDocument,
 	NotionCheckpoint,
+	NotionPageDocument,
 	StreamNotionPagesInput
 } from '@registry/connectors/notion/types'
 import type {Metadata} from '@registry/core'

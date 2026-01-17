@@ -1,4 +1,11 @@
 {
 	"title": "Connectors",
-	"pages": ["index", "contract", "notion", "google-drive", "onedrive", "dropbox"]
+	"pages": [
+		"index",
+		"contract",
+		"notion",
+		"google-drive",
+		"onedrive",
+		"dropbox"
+	]
 }

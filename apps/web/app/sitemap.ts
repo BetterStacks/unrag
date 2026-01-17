@@ -1,11 +1,11 @@
-import type {MetadataRoute} from 'next'
-import {source} from '@/lib/source'
 import {
+	STATIC_PAGES,
 	getChangeFrequencyForPath,
 	getPriorityForPath,
-	getSiteUrl,
-	STATIC_PAGES
+	getSiteUrl
 } from '@/lib/sitemap-utils'
+import {source} from '@/lib/source'
+import type {MetadataRoute} from 'next'
 
 /**
  * Force static generation at build time.

@@ -1,15 +1,15 @@
-import type {ConnectorStream} from '@registry/core/connectors'
-import type {AssetInput, Metadata} from '@registry/core/types'
 import {
 	dropboxApiFetch,
 	dropboxDownload
 } from '@registry/connectors/dropbox/client'
 import type {
-	DropboxCheckpoint,
 	DropboxAuth,
+	DropboxCheckpoint,
 	StreamDropboxFilesInput,
 	StreamDropboxFolderInput
 } from '@registry/connectors/dropbox/types'
+import type {ConnectorStream} from '@registry/core/connectors'
+import type {AssetInput, Metadata} from '@registry/core/types'
 
 const DEFAULT_MAX_BYTES = 15 * 1024 * 1024 // 15MB
 
@@ -36,7 +36,9 @@ const asMessage = (err: unknown): string => {
 }
 
 const isTextLike = (mediaType: string | undefined) => {
-	const mt = String(mediaType ?? '').trim().toLowerCase()
+	const mt = String(mediaType ?? '')
+		.trim()
+		.toLowerCase()
 	if (!mt) {
 		return false
 	}
@@ -162,7 +164,7 @@ export async function* streamFolder(
 					auth: input.auth,
 					path: 'files/list_folder/continue',
 					body: {cursor}
-			  })
+				})
 			: await dropboxApiFetch<DropboxListFolderResponse>({
 					auth: input.auth,
 					path: 'files/list_folder',
@@ -171,7 +173,7 @@ export async function* streamFolder(
 						recursive,
 						include_deleted: true
 					}
-			  })
+				})
 
 		const entries = data.entries ?? []
 		for (const entry of entries) {
@@ -202,7 +204,10 @@ export async function* streamFolder(
 				entityId: entry.id ?? entryPath
 			}
 
-			if (Number.isFinite(entry.size) && (entry.size as number) > maxBytesPerFile) {
+			if (
+				Number.isFinite(entry.size) &&
+				(entry.size as number) > maxBytesPerFile
+			) {
 				yield {
 					type: 'warning',
 					code: 'file_skipped',
@@ -337,7 +342,10 @@ export async function* streamFiles(
 				continue
 			}
 			const sourceId = buildSourceId(input.sourceIdPrefix, entryPath)
-			if (Number.isFinite(meta.size) && (meta.size as number) > maxBytesPerFile) {
+			if (
+				Number.isFinite(meta.size) &&
+				(meta.size as number) > maxBytesPerFile
+			) {
 				yield {
 					type: 'warning',
 					code: 'file_skipped',
