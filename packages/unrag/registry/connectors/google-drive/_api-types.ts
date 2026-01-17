@@ -10,6 +10,7 @@ export interface DriveFile {
 	name?: string | null
 	mimeType?: string | null
 	size?: string | null
+	trashed?: boolean | null
 	webViewLink?: string | null
 	webContentLink?: string | null
 	iconLink?: string | null
@@ -51,8 +52,38 @@ export interface DriveFilesResource {
 	}): Promise<{data: ArrayBuffer | string}>
 }
 
+export interface DriveChange {
+	fileId?: string | null
+	removed?: boolean | null
+	file?: DriveFile | null
+}
+
+export interface DriveChangeList {
+	changes?: DriveChange[]
+	nextPageToken?: string | null
+	newStartPageToken?: string | null
+}
+
+export interface DriveChangesResource {
+	getStartPageToken(params: {
+		driveId?: string
+		supportsAllDrives?: boolean
+	}): Promise<{data: {startPageToken?: string | null}}>
+
+	list(params: {
+		pageToken: string
+		pageSize?: number
+		fields?: string
+		includeItemsFromAllDrives?: boolean
+		supportsAllDrives?: boolean
+		driveId?: string
+		restrictToMyDrive?: boolean
+	}): Promise<{data: DriveChangeList}>
+}
+
 export interface DriveClient {
 	files: DriveFilesResource
+	changes: DriveChangesResource
 }
 
 /**

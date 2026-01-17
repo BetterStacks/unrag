@@ -14,7 +14,9 @@ import type {
 	BuildGoogleDriveFileIngestInputArgs,
 	GoogleDriveFileDocument,
 	GoogleDriveCheckpoint,
-	StreamGoogleDriveFilesInput
+	GoogleDriveFolderCheckpoint,
+	StreamGoogleDriveFilesInput,
+	StreamGoogleDriveFolderInput
 } from '@registry/connectors/google-drive/types'
 import type {Metadata} from '@registry/core'
 import type {ConnectorStream} from '@registry/core/connectors'
@@ -47,6 +49,14 @@ const joinPrefix = (prefix: string | undefined, rest: string) => {
 		return rest
 	}
 	return p.endsWith(':') ? p + rest : `${p}:${rest}`
+}
+
+export const buildGoogleDriveFolderSourceId = (
+	prefix: string | undefined,
+	folderId: string,
+	fileId: string
+) => {
+	return joinPrefix(prefix, `gdrive:folder:${folderId}:file:${fileId}`)
 }
 
 export function buildGoogleDriveFileIngestInput(
@@ -125,11 +135,12 @@ const isNotFound = (
 
 async function getFileMetadata(
 	drive: DriveClient,
-	fileId: string
+	fileId: string,
+	supportsAllDrives?: boolean
 ): Promise<DriveFile> {
 	const res = await drive.files.get({
 		fileId,
-		supportsAllDrives: true,
+		supportsAllDrives: supportsAllDrives ?? true,
 		fields: 'id,name,mimeType,size,md5Checksum,modifiedTime,webViewLink,webContentLink,iconLink,shortcutDetails,driveId'
 	})
 	return (res?.data ?? {}) as DriveFile
@@ -167,6 +178,8 @@ export async function loadGoogleDriveFileDocument(args: {
 		maxBytesPerFile?: number
 		strictNativeExport?: boolean
 	}
+	/** Whether to set supportsAllDrives for Drive API calls. */
+	supportsAllDrives?: boolean
 	/** internal: recursion guard for shortcuts */
 	_visited?: Set<string>
 }): Promise<GoogleDriveFileDocument> {
@@ -175,7 +188,11 @@ export async function loadGoogleDriveFileDocument(args: {
 		args.options?.strictNativeExport ?? false
 	)
 
-	const meta = await getFileMetadata(args.drive, args.fileId)
+	const meta = await getFileMetadata(
+		args.drive,
+		args.fileId,
+		args.supportsAllDrives
+	)
 	const fileId = String(meta?.id ?? args.fileId)
 	const name = String(meta?.name ?? '')
 	const mimeType = String(meta?.mimeType ?? '')
@@ -258,6 +275,7 @@ export async function loadGoogleDriveFileDocument(args: {
 			fileId: targetId,
 			sourceIdPrefix: args.sourceIdPrefix,
 			options: args.options,
+			supportsAllDrives: args.supportsAllDrives,
 			_visited: visited
 		})
 
@@ -649,11 +667,311 @@ export async function* streamFiles(
 	}
 }
 
+const collectParents = async (
+	drive: DriveClient,
+	fileId: string,
+	cache: Map<string, string[] | null>,
+	supportsAllDrives?: boolean
+): Promise<string[]> => {
+	if (cache.has(fileId)) {
+		return cache.get(fileId) ?? []
+	}
+	try {
+		const res = await drive.files.get({
+			fileId,
+			supportsAllDrives: supportsAllDrives ?? true,
+			fields: 'id,parents'
+		})
+		const parents = (res.data?.parents ?? []) as string[]
+		cache.set(fileId, parents)
+		return parents
+	} catch {
+		cache.set(fileId, null)
+		return []
+	}
+}
+
+const isUnderFolder = async (args: {
+	drive: DriveClient
+	fileId: string
+	parents: string[]
+	folderId: string
+	recursive: boolean
+	cache: Map<string, string[] | null>
+	supportsAllDrives?: boolean
+}) => {
+	if (!args.recursive) {
+		return args.parents.includes(args.folderId)
+	}
+
+	const queue = [...args.parents]
+	const visited = new Set<string>()
+
+	while (queue.length > 0) {
+		const parentId = queue.shift()
+		if (!parentId) {
+			continue
+		}
+		if (parentId === args.folderId) {
+			return true
+		}
+		if (visited.has(parentId)) {
+			continue
+		}
+		visited.add(parentId)
+		const nextParents = await collectParents(
+			args.drive,
+			parentId,
+			args.cache,
+			args.supportsAllDrives
+		)
+		queue.push(...nextParents)
+	}
+
+	return false
+}
+
+/**
+ * Stream Google Drive folder changes as connector events.
+ *
+ * Uses the Drive Changes API for incremental syncing (cursor-based).
+ */
+export async function* streamFolder(
+	input: StreamGoogleDriveFolderInput
+): ConnectorStream<GoogleDriveFolderCheckpoint> {
+	const options = input.options ?? {}
+	const deleteOnRemoved = options.deleteOnRemoved ?? false
+	const recursive = options.recursive ?? true
+	const maxBytesPerFile = options.maxBytesPerFile ?? DEFAULT_MAX_BYTES
+	const treatForbiddenAsNotFound = options.treatForbiddenAsNotFound ?? true
+	const supportsAllDrives = options.supportsAllDrives ?? true
+	const includeItemsFromAllDrives = options.includeItemsFromAllDrives ?? true
+	const driveId = options.driveId
+	const folderId = String(input.folderId ?? '').trim()
+
+	if (!folderId) {
+		throw new Error('Google Drive folderId is required')
+	}
+
+	const {drive} = await createGoogleDriveClient({
+		auth: input.auth,
+		scopes: options.scopes
+	})
+
+	let pageToken = input.checkpoint?.pageToken
+	if (!pageToken) {
+		const res = await drive.changes.getStartPageToken({
+			driveId,
+			supportsAllDrives
+		})
+		pageToken = String(res.data?.startPageToken ?? '')
+		if (!pageToken) {
+			throw new Error('Google Drive changes startPageToken not found')
+		}
+	}
+
+	const parentsCache = new Map<string, string[] | null>()
+
+	while (pageToken) {
+		const res = await drive.changes.list({
+			pageToken,
+			pageSize: options.pageSize,
+			fields:
+				'nextPageToken,newStartPageToken,changes(fileId,removed,file(id,name,mimeType,size,parents,trashed,shortcutDetails,driveId,modifiedTime,md5Checksum,webViewLink,webContentLink,iconLink))',
+			includeItemsFromAllDrives,
+			supportsAllDrives,
+			driveId,
+			restrictToMyDrive: false
+		})
+
+		const changes = res.data?.changes ?? []
+		let processed = 0
+
+		for (const change of changes) {
+			processed += 1
+			const fileId = String(change.fileId ?? change.file?.id ?? '').trim()
+			if (!fileId) {
+				continue
+			}
+
+			const sourceId = buildGoogleDriveFolderSourceId(
+				input.sourceIdPrefix,
+				folderId,
+				fileId
+			)
+
+			yield {
+				type: 'progress',
+				message: 'file:start',
+				current: processed,
+				sourceId,
+				entityId: fileId
+			}
+
+			const removed = Boolean(change.removed)
+			const trashed = Boolean(change.file?.trashed)
+
+			const parents = (change.file?.parents ?? []) as string[]
+			const inFolder = await isUnderFolder({
+				drive,
+				fileId,
+				parents,
+				folderId,
+				recursive,
+				cache: parentsCache,
+				supportsAllDrives
+			})
+
+			if (!inFolder) {
+				if (deleteOnRemoved) {
+					yield {type: 'delete', input: {sourceId}}
+				}
+				continue
+			}
+
+			if (removed || trashed) {
+				if (deleteOnRemoved) {
+					yield {type: 'delete', input: {sourceId}}
+				}
+				continue
+			}
+
+			try {
+				const doc = await loadGoogleDriveFileDocument({
+					drive,
+					fileId,
+					sourceIdPrefix: input.sourceIdPrefix,
+					options: {
+						maxBytesPerFile,
+						strictNativeExport: options.strictNativeExport
+					},
+					supportsAllDrives
+				})
+
+				const meta = doc.metadata as Record<string, unknown>
+
+				const skip = (args: {
+					reason:
+						| 'is_folder'
+						| 'unsupported_google_mime'
+						| 'too_large'
+						| 'shortcut_unresolved'
+					message: string
+				}) => {
+					return {
+						type: 'warning' as const,
+						code: 'file_skipped',
+						message: args.message,
+						data: {
+							fileId,
+							sourceId,
+							reason: args.reason
+						}
+					}
+				}
+
+				if (meta.kind === 'folder') {
+					yield skip({
+						reason: 'is_folder',
+						message: 'Skipping folder (folder sync emits files only).'
+					})
+					continue
+				}
+				if (meta.unsupportedGoogleMime) {
+					yield skip({
+						reason: 'unsupported_google_mime',
+						message:
+							'Skipping Google-native file type because it has no supported export plan.'
+					})
+					continue
+				}
+				if (meta.skippedTooLarge || meta.exportedTooLarge) {
+					yield skip({
+						reason: 'too_large',
+						message: `Skipping file because it exceeds maxBytesPerFile (${maxBytesPerFile}).`
+					})
+					continue
+				}
+				if (meta.shortcutUnresolved) {
+					yield skip({
+						reason: 'shortcut_unresolved',
+						message:
+							'Skipping shortcut because target could not be resolved.'
+					})
+					continue
+				}
+
+				yield {
+					type: 'upsert',
+					input: {
+						sourceId,
+						content: doc.content,
+						assets: doc.assets,
+						metadata: {
+							...(doc.metadata ?? {}),
+							folderId
+						}
+					}
+				}
+
+				yield {
+					type: 'progress',
+					message: 'file:success',
+					current: processed,
+					sourceId,
+					entityId: fileId
+				}
+			} catch (err) {
+				if (isNotFound(err, Boolean(treatForbiddenAsNotFound))) {
+					yield {
+						type: 'warning',
+						code: 'file_not_found',
+						message: 'Google Drive file not found or inaccessible.',
+						data: {fileId, sourceId}
+					}
+					if (deleteOnRemoved) {
+						yield {type: 'delete', input: {sourceId}}
+					}
+				} else {
+					yield {
+						type: 'warning',
+						code: 'file_error',
+						message: _asMessage(err),
+						data: {fileId, sourceId}
+					}
+				}
+			}
+		}
+
+		const nextPageToken = res.data?.nextPageToken
+		const newStartPageToken = res.data?.newStartPageToken
+		const nextToken = String(nextPageToken ?? newStartPageToken ?? '')
+		if (nextToken) {
+			yield {
+				type: 'checkpoint',
+				checkpoint: {
+					pageToken: nextToken,
+					folderId,
+					...(driveId ? {driveId} : {})
+				}
+			}
+		}
+
+		if (nextPageToken) {
+			pageToken = String(nextPageToken)
+			continue
+		}
+
+		break
+	}
+}
+
 /**
  * Exported connector surface for Google Drive.
  *
  * This keeps connector-related functionality namespaced and future-proof.
  */
 export const googleDriveConnector = {
-	streamFiles
+	streamFiles,
+	streamFolder
 }
