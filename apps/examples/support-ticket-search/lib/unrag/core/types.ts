@@ -530,6 +530,110 @@ export type ImageEmbeddingInput = {
 	assetId?: string
 }
 
+type BaseEmbeddingConfig = {
+	model?: string
+	timeoutMs?: number
+}
+
+export type AiEmbeddingConfig = BaseEmbeddingConfig
+
+export type OpenAiEmbeddingConfig = BaseEmbeddingConfig & {
+	dimensions?: number
+	user?: string
+}
+
+export type GoogleEmbeddingTaskType =
+	| 'SEMANTIC_SIMILARITY'
+	| 'CLASSIFICATION'
+	| 'CLUSTERING'
+	| 'RETRIEVAL_DOCUMENT'
+	| 'RETRIEVAL_QUERY'
+	| 'QUESTION_ANSWERING'
+	| 'FACT_VERIFICATION'
+	| 'CODE_RETRIEVAL_QUERY'
+
+export type GoogleEmbeddingConfig = BaseEmbeddingConfig & {
+	outputDimensionality?: number
+	taskType?: GoogleEmbeddingTaskType
+}
+
+export type OpenRouterEmbeddingConfig = BaseEmbeddingConfig & {
+	apiKey?: string
+	baseURL?: string
+	headers?: Record<string, string>
+	referer?: string
+	title?: string
+}
+
+export type AzureEmbeddingConfig = BaseEmbeddingConfig & {
+	dimensions?: number
+	user?: string
+}
+
+export type VertexEmbeddingTaskType =
+	| 'SEMANTIC_SIMILARITY'
+	| 'CLASSIFICATION'
+	| 'CLUSTERING'
+	| 'RETRIEVAL_DOCUMENT'
+	| 'RETRIEVAL_QUERY'
+	| 'QUESTION_ANSWERING'
+	| 'FACT_VERIFICATION'
+	| 'CODE_RETRIEVAL_QUERY'
+
+export type VertexEmbeddingConfig = BaseEmbeddingConfig & {
+	outputDimensionality?: number
+	taskType?: VertexEmbeddingTaskType
+	title?: string
+	autoTruncate?: boolean
+}
+
+export type BedrockEmbeddingConfig = BaseEmbeddingConfig & {
+	dimensions?: number
+	normalize?: boolean
+}
+
+export type CohereEmbeddingConfig = BaseEmbeddingConfig & {
+	inputType?:
+		| 'search_document'
+		| 'search_query'
+		| 'classification'
+		| 'clustering'
+	truncate?: 'NONE' | 'START' | 'END'
+}
+
+export type MistralEmbeddingConfig = BaseEmbeddingConfig
+
+export type TogetherEmbeddingConfig = BaseEmbeddingConfig
+
+export type OllamaEmbeddingConfig = BaseEmbeddingConfig & {
+	baseURL?: string
+	headers?: Record<string, string>
+}
+
+type VoyageMultimodalTextValue = {
+	text: string[]
+}
+
+type VoyageMultimodalImageValue = {
+	image: string[]
+}
+
+type VoyageTextConfig = BaseEmbeddingConfig & {
+	type?: 'text'
+}
+
+type VoyageMultimodalConfig = BaseEmbeddingConfig & {
+	type: 'multimodal'
+	text?: {
+		value?: (text: string) => VoyageMultimodalTextValue
+	}
+	image?: {
+		value?: (input: ImageEmbeddingInput) => VoyageMultimodalImageValue
+	}
+}
+
+export type VoyageEmbeddingConfig = VoyageTextConfig | VoyageMultimodalConfig
+
 export type EmbeddingProvider = {
 	name: string
 	dimensions?: number
@@ -561,6 +665,15 @@ export type DeleteInput =
 			sourceIdPrefix: string
 	  }
 
+/**
+ * Scope for filtering retrieval results.
+ * Used in both `RetrieveInput` and `VectorStore.query()`.
+ */
+export type RetrieveScope = {
+	/** Filter to chunks whose sourceId starts with this prefix. */
+	sourceId?: string
+}
+
 export type VectorStore = {
 	/**
 	 * Persist (replace) a single document's chunks.
@@ -568,14 +681,19 @@ export type VectorStore = {
 	 * The store treats `chunks[0].sourceId` as the logical identifier for the document.
 	 * Calling `upsert()` multiple times with the same `sourceId` replaces the previously
 	 * stored content for that document (including when the chunk count changes).
+	 *
+	 * Returns the canonical `documentId` for the logical document. On first ingest this
+	 * is a newly generated ID; on subsequent ingests for the same `sourceId` it returns
+	 * the existing (stable) document ID.
+	 *
+	 * **Important**: This method requires a UNIQUE constraint on `documents.source_id`
+	 * to guarantee idempotent upsert semantics under concurrent writes.
 	 */
-	upsert: (chunks: Chunk[]) => Promise<void>
+	upsert: (chunks: Chunk[]) => Promise<{documentId: string}>
 	query: (params: {
 		embedding: number[]
 		topK: number
-		scope?: {
-			sourceId?: string
-		}
+		scope?: RetrieveScope
 	}) => Promise<Array<Chunk & {score: number}>>
 	delete: (input: DeleteInput) => Promise<void>
 }
@@ -673,9 +791,7 @@ export type IngestResult = {
 export type RetrieveInput = {
 	query: string
 	topK?: number
-	scope?: {
-		sourceId?: string
-	}
+	scope?: RetrieveScope
 }
 
 export type RetrieveResult = {
@@ -825,51 +941,51 @@ export type UnragEngineConfig = Omit<
 export type UnragEmbeddingConfig =
 	| {
 			provider: 'ai'
-			config?: import('../embedding/ai').AiEmbeddingConfig
+			config?: AiEmbeddingConfig
 	  }
 	| {
 			provider: 'openai'
-			config?: import('../embedding/openai').OpenAiEmbeddingConfig
+			config?: OpenAiEmbeddingConfig
 	  }
 	| {
 			provider: 'google'
-			config?: import('../embedding/google').GoogleEmbeddingConfig
+			config?: GoogleEmbeddingConfig
 	  }
 	| {
 			provider: 'openrouter'
-			config?: import('../embedding/openrouter').OpenRouterEmbeddingConfig
+			config?: OpenRouterEmbeddingConfig
 	  }
 	| {
 			provider: 'azure'
-			config?: import('../embedding/azure').AzureEmbeddingConfig
+			config?: AzureEmbeddingConfig
 	  }
 	| {
 			provider: 'vertex'
-			config?: import('../embedding/vertex').VertexEmbeddingConfig
+			config?: VertexEmbeddingConfig
 	  }
 	| {
 			provider: 'bedrock'
-			config?: import('../embedding/bedrock').BedrockEmbeddingConfig
+			config?: BedrockEmbeddingConfig
 	  }
 	| {
 			provider: 'cohere'
-			config?: import('../embedding/cohere').CohereEmbeddingConfig
+			config?: CohereEmbeddingConfig
 	  }
 	| {
 			provider: 'mistral'
-			config?: import('../embedding/mistral').MistralEmbeddingConfig
+			config?: MistralEmbeddingConfig
 	  }
 	| {
 			provider: 'together'
-			config?: import('../embedding/together').TogetherEmbeddingConfig
+			config?: TogetherEmbeddingConfig
 	  }
 	| {
 			provider: 'ollama'
-			config?: import('../embedding/ollama').OllamaEmbeddingConfig
+			config?: OllamaEmbeddingConfig
 	  }
 	| {
 			provider: 'voyage'
-			config?: import('../embedding/voyage').VoyageEmbeddingConfig
+			config?: VoyageEmbeddingConfig
 	  }
 	| {
 			provider: 'custom'

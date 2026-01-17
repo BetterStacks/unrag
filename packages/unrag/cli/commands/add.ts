@@ -68,21 +68,25 @@ const _ensureObject = (obj: Record<string, unknown>, key: string) => {
 	return next
 }
 
-const renderObjectLiteral = (
+const renderObjectLiteralWithIndent = (
 	value: Record<string, unknown>,
-	indent: number
+	indent: string,
+	indentUnit: string
 ): string => {
-	const pad = ' '.repeat(indent)
 	const inner = Object.entries(value)
 		.map(([key, val]) => {
 			if (val && typeof val === 'object' && !Array.isArray(val)) {
-				return `${pad}${key}: ${renderObjectLiteral(val as Record<string, unknown>, indent + 2)},`
+				return `${indent}${key}: ${renderObjectLiteralWithIndent(val as Record<string, unknown>, indent + indentUnit, indentUnit)},`
 			}
-			return `${pad}${key}: ${JSON.stringify(val)},`
+			return `${indent}${key}: ${JSON.stringify(val)},`
 		})
 		.join('\n')
 
-	return `{\n${inner}\n${' '.repeat(Math.max(0, indent - 2))}}`
+	const closeIndent = indent.slice(
+		0,
+		Math.max(0, indent.length - indentUnit.length)
+	)
+	return `{\n${inner}\n${closeIndent}}`
 }
 
 // Map extractor id to factory function name (matches registry.ts)
@@ -262,33 +266,50 @@ async function patchUnragConfig(args: {
 			}
 
 			if (Object.keys(minimalOverrides).length > 0) {
-				const body = renderObjectLiteral(minimalOverrides, 4)
-				const bodyLines = body.split('\n')
-				bodyLines.splice(
-					bodyLines.length - 1,
-					0,
-					'    // __UNRAG_ASSET_PROCESSING_OVERRIDES__'
-				)
-				const bodyWithMarker = bodyLines.join('\n')
-				const assetProcessingBlock = `  assetProcessing: ${bodyWithMarker},\n`
-
 				const assetProcessingMarker =
 					'// __UNRAG_ASSET_PROCESSING_OVERRIDES__'
 				const autoBlockRegex =
 					/assetProcessing:\s*\{[\s\S]*?\/\/ __UNRAG_ASSET_PROCESSING_OVERRIDES__\s*\n\s*\},/
 
+				const buildAssetProcessingBlock = (indent: string) => {
+					const body = renderObjectLiteralWithIndent(
+						minimalOverrides,
+						`${indent}\t`,
+						'\t'
+					)
+					const bodyLines = body.split('\n')
+					bodyLines.splice(
+						bodyLines.length - 1,
+						0,
+						`${indent}\t${assetProcessingMarker}`
+					)
+					const bodyWithMarker = bodyLines.join('\n')
+					return `${indent}assetProcessing: ${bodyWithMarker},\n`
+				}
+
 				if (autoBlockRegex.test(newContent)) {
 					// Replace the auto-managed block with the refreshed minimal overrides
 					newContent = newContent.replace(
 						autoBlockRegex,
-						assetProcessingBlock.trimEnd()
+						buildAssetProcessingBlock('\t\t').trimEnd()
 					)
 					modified = true
 				} else if (newContent.includes(assetProcessingMarker)) {
 					// Marker exists (fresh minimal install) - replace it
 					newContent = newContent.replace(
 						assetProcessingMarker,
-						assetProcessingBlock.trimEnd()
+						(match) => {
+							const lineStart = newContent.lastIndexOf(
+								'\n',
+								newContent.indexOf(match)
+							)
+							const line = newContent.slice(
+								lineStart + 1,
+								newContent.indexOf(match)
+							)
+							const indent = line.match(/^\s*/)?.[0] ?? ''
+							return buildAssetProcessingBlock(indent).trimEnd()
+						}
 					)
 					modified = true
 				} else {
@@ -297,20 +318,29 @@ async function patchUnragConfig(args: {
 						/assetProcessing:\s*\{[\s\S]*?\n\s*\}/s
 					)
 					if (!existingAssetProcessingMatch) {
-						// Insert after extractors array
-						const extractorsArrayEnd =
-							newContent.lastIndexOf('    ],')
-						if (extractorsArrayEnd > 0) {
-							newContent = `${newContent.slice(0, extractorsArrayEnd + 5)}\n${assetProcessingBlock.trimEnd()}${newContent.slice(extractorsArrayEnd + 5)}`
+						const extractorsBlockRegex =
+							/(\n[ \t]*extractors:\s*\[[\s\S]*?\n)([ \t]*\])/m
+						const match = newContent.match(extractorsBlockRegex)
+						if (match) {
+							const indent =
+								match[1]?.match(/\n([ \t]*)extractors:/)?.[1] ??
+								'\t\t'
+							const insert =
+								buildAssetProcessingBlock(indent).trimEnd()
+							newContent = newContent.replace(
+								extractorsBlockRegex,
+								`${match[1]}${match[2]},\n${insert}`
+							)
 							modified = true
 						} else {
 							// Fallback: find engine closing brace
 							const engineClosingBrace =
-								newContent.lastIndexOf('  },')
+								newContent.lastIndexOf('\t},')
 							if (engineClosingBrace > 0) {
+								const insert = buildAssetProcessingBlock('\t\t')
 								newContent =
 									newContent.slice(0, engineClosingBrace) +
-									assetProcessingBlock +
+									insert +
 									newContent.slice(engineClosingBrace)
 								modified = true
 							}
@@ -455,6 +485,7 @@ type ParsedAddArgs = {
 	name?: string
 	yes?: boolean
 	noInstall?: boolean
+	quiet?: boolean
 }
 
 const parseAddArgs = (args: string[]): ParsedAddArgs => {
@@ -468,6 +499,10 @@ const parseAddArgs = (args: string[]): ParsedAddArgs => {
 		}
 		if (a === '--no-install') {
 			out.noInstall = true
+			continue
+		}
+		if (a === '--quiet') {
+			out.quiet = true
 			continue
 		}
 
@@ -511,6 +546,7 @@ export async function addCommand(args: string[]) {
 	const name = parsed.name
 	const noInstall =
 		Boolean(parsed.noInstall) || process.env.UNRAG_SKIP_INSTALL === '1'
+	const quiet = Boolean(parsed.quiet)
 
 	const configPath = path.join(root, CONFIG_FILE)
 	const config = await readJsonFile<InitConfig>(configPath)
@@ -544,18 +580,20 @@ export async function addCommand(args: string[]) {
 	)
 
 	if (!name) {
-		outro(
-			[
-				'Usage:',
-				'  unrag add <connector>',
-				'  unrag add extractor <name>',
-				'  unrag add battery <name>',
-				'',
-				`Available connectors: ${Array.from(availableConnectors).join(', ')}`,
-				`Available extractors: ${Array.from(availableExtractors).join(', ')}`,
-				`Available batteries: ${Array.from(availableBatteries).join(', ')}`
-			].join('\n')
-		)
+		if (!quiet) {
+			outro(
+				[
+					'Usage:',
+					'  unrag add <connector>',
+					'  unrag add extractor <name>',
+					'  unrag add battery <name>',
+					'',
+					`Available connectors: ${Array.from(availableConnectors).join(', ')}`,
+					`Available extractors: ${Array.from(availableExtractors).join(', ')}`,
+					`Available batteries: ${Array.from(availableBatteries).join(', ')}`
+				].join('\n')
+			)
+		}
 		return
 	}
 
@@ -568,9 +606,11 @@ export async function addCommand(args: string[]) {
 	if (kind === 'battery') {
 		const battery = name as BatteryName | undefined
 		if (!battery || !availableBatteries.has(battery)) {
-			outro(
-				`Unknown battery: ${name}\n\nAvailable batteries: ${Array.from(availableBatteries).join(', ')}`
-			)
+			if (!quiet) {
+				outro(
+					`Unknown battery: ${name}\n\nAvailable batteries: ${Array.from(availableBatteries).join(', ')}`
+				)
+			}
 			return
 		}
 
@@ -943,29 +983,31 @@ main().catch((err) => {
 				nonInteractive
 			})
 
-			outro(
-				[
-					`Installed battery: ${battery}.`,
-					'',
-					`- Code: ${path.join(config.installDir, 'eval')}`,
-					'',
-					`- Dataset: ${path.relative(root, datasetAbs)}`,
-					`- Script: ${path.relative(root, scriptAbs)}`,
-					'',
-					scriptsResult.added.length > 0
-						? `Added scripts: ${scriptsResult.added.join(', ')}`
-						: 'Added scripts: none',
-					scriptsResult.kept.length > 0
-						? `Kept existing scripts: ${scriptsResult.kept.join(', ')}`
-						: '',
-					'',
-					'Next:',
-					'  bun run unrag:eval',
-					'  bun run unrag:eval:ci'
-				]
-					.filter(Boolean)
-					.join('\n')
-			)
+			if (!quiet) {
+				outro(
+					[
+						`Installed battery: ${battery}.`,
+						'',
+						`- Code: ${path.join(config.installDir, 'eval')}`,
+						'',
+						`- Dataset: ${path.relative(root, datasetAbs)}`,
+						`- Script: ${path.relative(root, scriptAbs)}`,
+						'',
+						scriptsResult.added.length > 0
+							? `Added scripts: ${scriptsResult.added.join(', ')}`
+							: 'Added scripts: none',
+						scriptsResult.kept.length > 0
+							? `Kept existing scripts: ${scriptsResult.kept.join(', ')}`
+							: '',
+						'',
+						'Next:',
+						'  bun run unrag:eval',
+						'  bun run unrag:eval:ci'
+					]
+						.filter(Boolean)
+						.join('\n')
+				)
+			}
 
 			return
 		}
@@ -997,42 +1039,44 @@ main().catch((err) => {
 				nonInteractive
 			})
 
-			outro(
-				[
-					`Installed battery: ${battery}.`,
-					'',
-					`- Code: ${path.join(config.installDir, 'debug')}`,
-					'- Config: .unrag/debug/config.json',
-					'',
-					merged.changes.length > 0
-						? `Deps: ${formatDepChanges(merged.changes)}`
-						: 'Deps: none',
-					merged.changes.length > 0 && !noInstall
-						? 'Dependencies installed.'
-						: merged.changes.length > 0 && noInstall
-							? 'Dependencies not installed (skipped).'
+			if (!quiet) {
+				outro(
+					[
+						`Installed battery: ${battery}.`,
+						'',
+						`- Code: ${path.join(config.installDir, 'debug')}`,
+						'- Config: .unrag/debug/config.json',
+						'',
+						merged.changes.length > 0
+							? `Deps: ${formatDepChanges(merged.changes)}`
+							: 'Deps: none',
+						merged.changes.length > 0 && !noInstall
+							? 'Dependencies installed.'
+							: merged.changes.length > 0 && noInstall
+								? 'Dependencies not installed (skipped).'
+								: '',
+						scriptsResult.added.length > 0
+							? `Added scripts: ${scriptsResult.added.join(', ')}`
+							: 'Added scripts: none',
+						scriptsResult.kept.length > 0
+							? `Kept existing scripts: ${scriptsResult.kept.join(', ')}`
 							: '',
-					scriptsResult.added.length > 0
-						? `Added scripts: ${scriptsResult.added.join(', ')}`
-						: 'Added scripts: none',
-					scriptsResult.kept.length > 0
-						? `Kept existing scripts: ${scriptsResult.kept.join(', ')}`
-						: '',
-					'',
-					'Usage:',
-					"  1. Set UNRAG_DEBUG=true in your app's environment",
-					'  2. Run your app (debug server auto-starts on port 3847)',
-					'  3. In another terminal: bun run unrag:debug',
-					'',
-					'The debug panel will connect to your app and show live events for:',
-					'  - Ingest operations (chunking, embedding, storage)',
-					'  - Retrieve operations (embedding, database queries)',
-					'  - Rerank operations (scoring, reordering)',
-					'  - Delete operations'
-				]
-					.filter(Boolean)
-					.join('\n')
-			)
+						'',
+						'Usage:',
+						"  1. Set UNRAG_DEBUG=true in your app's environment",
+						'  2. Run your app (debug server auto-starts on port 3847)',
+						'  3. In another terminal: bun run unrag:debug',
+						'',
+						'The debug panel will connect to your app and show live events for:',
+						'  - Ingest operations (chunking, embedding, storage)',
+						'  - Retrieve operations (embedding, database queries)',
+						'  - Rerank operations (scoring, reordering)',
+						'  - Delete operations'
+					]
+						.filter(Boolean)
+						.join('\n')
+				)
+			}
 
 			return
 		}
@@ -1058,25 +1102,27 @@ main().catch((err) => {
 					]
 				: []
 
-		outro(
-			[
-				`Installed battery: ${battery}.`,
-				'',
-				`- Code: ${path.join(config.installDir, battery === 'reranker' ? 'rerank' : battery)}`,
-				'',
-				merged.changes.length > 0
-					? `Deps: ${formatDepChanges(merged.changes)}`
-					: 'Deps: none',
-				merged.changes.length > 0 && !noInstall
-					? 'Dependencies installed.'
-					: merged.changes.length > 0 && noInstall
-						? 'Dependencies not installed (skipped).'
-						: '',
-				...wiringSnippet
-			]
-				.filter(Boolean)
-				.join('\n')
-		)
+		if (!quiet) {
+			outro(
+				[
+					`Installed battery: ${battery}.`,
+					'',
+					`- Code: ${path.join(config.installDir, battery === 'reranker' ? 'rerank' : battery)}`,
+					'',
+					merged.changes.length > 0
+						? `Deps: ${formatDepChanges(merged.changes)}`
+						: 'Deps: none',
+					merged.changes.length > 0 && !noInstall
+						? 'Dependencies installed.'
+						: merged.changes.length > 0 && noInstall
+							? 'Dependencies not installed (skipped).'
+							: '',
+					...wiringSnippet
+				]
+					.filter(Boolean)
+					.join('\n')
+			)
+		}
 
 		return
 	}
@@ -1084,9 +1130,11 @@ main().catch((err) => {
 	if (kind === 'connector') {
 		const connector = name as ConnectorName | undefined
 		if (!connector || !availableConnectors.has(connector)) {
-			outro(
-				`Unknown connector: ${name}\n\nAvailable connectors: ${Array.from(availableConnectors).join(', ')}`
-			)
+			if (!quiet) {
+				outro(
+					`Unknown connector: ${name}\n\nAvailable connectors: ${Array.from(availableConnectors).join(', ')}`
+				)
+			}
 			return
 		}
 
@@ -1123,32 +1171,34 @@ main().catch((err) => {
 			managedFiles: Array.from(managedFiles).sort()
 		})
 
-		outro(
-			[
-				`Installed connector: ${connector}.`,
-				'',
-				`- Code: ${path.join(config.installDir, 'connectors', connector)}`,
-				`- Docs: ${docsUrl(`/docs/connectors/${connector}`)}`,
-				'',
-				merged.changes.length > 0
-					? `Deps: ${formatDepChanges(merged.changes)}`
-					: 'Deps: none',
-				merged.changes.length > 0 && !noInstall
-					? 'Dependencies installed.'
-					: merged.changes.length > 0 && noInstall
-						? 'Dependencies not installed (skipped).'
-						: '',
-				nonInteractive
-					? ''
-					: connector === 'notion'
-						? 'Tip: keep NOTION_TOKEN server-side only (env var).'
-						: connector === 'google-drive'
-							? 'Tip: keep Google OAuth refresh tokens and service account keys server-side only.'
-							: ''
-			]
-				.filter(Boolean)
-				.join('\n')
-		)
+		if (!quiet) {
+			outro(
+				[
+					`Installed connector: ${connector}.`,
+					'',
+					`- Code: ${path.join(config.installDir, 'connectors', connector)}`,
+					`- Docs: ${docsUrl(`/docs/connectors/${connector}`)}`,
+					'',
+					merged.changes.length > 0
+						? `Deps: ${formatDepChanges(merged.changes)}`
+						: 'Deps: none',
+					merged.changes.length > 0 && !noInstall
+						? 'Dependencies installed.'
+						: merged.changes.length > 0 && noInstall
+							? 'Dependencies not installed (skipped).'
+							: '',
+					nonInteractive
+						? ''
+						: connector === 'notion'
+							? 'Tip: keep NOTION_TOKEN server-side only (env var).'
+							: connector === 'google-drive'
+								? 'Tip: keep Google OAuth refresh tokens and service account keys server-side only.'
+								: ''
+				]
+					.filter(Boolean)
+					.join('\n')
+			)
+		}
 
 		return
 	}
@@ -1156,9 +1206,11 @@ main().catch((err) => {
 	// Extractors
 	const extractor = name as ExtractorName | undefined
 	if (!extractor || !availableExtractors.has(extractor)) {
-		outro(
-			`Unknown extractor: ${name}\n\nAvailable extractors: ${Array.from(availableExtractors).join(', ')}`
-		)
+		if (!quiet) {
+			outro(
+				`Unknown extractor: ${name}\n\nAvailable extractors: ${Array.from(availableExtractors).join(', ')}`
+			)
+		}
 		return
 	}
 
@@ -1206,28 +1258,30 @@ main().catch((err) => {
 		extractors
 	})
 
-	outro(
-		[
-			`Installed extractor: ${extractor}.`,
-			'',
-			`- Code: ${path.join(config.installDir, 'extractors', extractor)}`,
-			configPatched
-				? '- Config: updated unrag.config.ts (imported, registered, and enabled)'
-				: '- Config: unrag.config.ts not found or could not be patched automatically',
-			'',
-			merged.changes.length > 0
-				? `Deps: ${formatDepChanges(merged.changes)}`
-				: 'Deps: none',
-			merged.changes.length > 0 && !noInstall
-				? 'Dependencies installed.'
-				: merged.changes.length > 0 && noInstall
-					? 'Dependencies not installed (skipped).'
-					: '',
-			!configPatched
-				? '\nNext: import the extractor and add it to engine.extractors in unrag.config.ts'
-				: ''
-		]
-			.filter(Boolean)
-			.join('\n')
-	)
+	if (!quiet) {
+		outro(
+			[
+				`Installed extractor: ${extractor}.`,
+				'',
+				`- Code: ${path.join(config.installDir, 'extractors', extractor)}`,
+				configPatched
+					? '- Config: updated unrag.config.ts (imported, registered, and enabled)'
+					: '- Config: unrag.config.ts not found or could not be patched automatically',
+				'',
+				merged.changes.length > 0
+					? `Deps: ${formatDepChanges(merged.changes)}`
+					: 'Deps: none',
+				merged.changes.length > 0 && !noInstall
+					? 'Dependencies installed.'
+					: merged.changes.length > 0 && noInstall
+						? 'Dependencies not installed (skipped).'
+						: '',
+				!configPatched
+					? '\nNext: import the extractor and add it to engine.extractors in unrag.config.ts'
+					: ''
+			]
+				.filter(Boolean)
+				.join('\n')
+		)
+	}
 }

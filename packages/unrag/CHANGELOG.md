@@ -1,5 +1,15 @@
 # unrag
 
+## 0.3.2
+
+### Patch Changes
+
+- **Improved upgrade command UX**: Added verbose mode (`-v/--verbose`) and detailed conflict information during upgrades
+- **Slimmer initial scaffold**: Reduced initial project size by consolidating embedding providers into a single registry-based system
+- Improved maintainability of scaffolded code with cleaner file structure
+- Enhanced upgrade snapshot diffing with better conflict detection
+- Updated CLI registry logic for improved component resolution
+
 ## 0.3.1
 
 ### Patch Changes

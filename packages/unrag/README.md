@@ -5,7 +5,7 @@ Unrag is a **RAG installer** for TypeScript projects that installs **composable,
 It installs small, auditable source files into your repo:
 - `unrag.config.ts` (project root)
 - `lib/unrag/**` (or your chosen directory)
-- `lib/unrag/unrag.md` (setup notes + schema)
+- Optional: `lib/unrag/unrag.md` (setup notes + schema, via `--with-docs`)
 
 ## Usage
 
@@ -42,6 +42,6 @@ const result = await engine.retrieve({ query: "search", topK: 5 });
 ## Database
 
 Unrag assumes **Postgres + pgvector**. You manage migrations yourself.
-See the installed `lib/unrag/unrag.md` for the expected schema and indexes.
+If you want generated schema notes, run `unrag init --with-docs` to create `lib/unrag/unrag.md`.
 
 

@@ -1,4 +1,5 @@
-import {mergeDeep} from './deep-merge'
+import {getDebugEmitter} from '@unrag/core/debug-emitter'
+import {mergeDeep} from '@unrag/core/deep-merge'
 import type {
 	AssetExtractor,
 	AssetExtractorContext,
@@ -12,9 +13,20 @@ import type {
 	IngestWarning,
 	Metadata,
 	ResolvedContextEngineConfig
-} from './types'
+} from '@unrag/core/types'
+import {getAssetBytes} from '@unrag/extractors/_shared/fetch'
 
 const now = () => performance.now()
+
+const createId = (): string => {
+	if (
+		typeof crypto !== 'undefined' &&
+		typeof crypto.randomUUID === 'function'
+	) {
+		return crypto.randomUUID()
+	}
+	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`
+}
 
 const asMessage = (err: unknown) => {
 	if (err instanceof Error) {
@@ -61,8 +73,14 @@ export const ingest = async (
 	config: ResolvedContextEngineConfig,
 	input: IngestInput
 ): Promise<IngestResult> => {
+	const debug = getDebugEmitter()
 	const totalStart = now()
 	const chunkingStart = now()
+	const opId = createId()
+	const rootSpanId = createId()
+	const chunkingSpanId = createId()
+	const embeddingSpanId = createId()
+	const storageSpanId = createId()
 
 	const storeChunkContent = config.storage.storeChunkContent
 	const storeDocumentContent = config.storage.storeDocumentContent
@@ -75,6 +93,18 @@ export const ingest = async (
 
 	const metadata = input.metadata ?? {}
 	const documentId = config.idGenerator()
+	const assets: AssetInput[] = Array.isArray(input.assets) ? input.assets : []
+
+	debug.emit({
+		type: 'ingest:start',
+		sourceId: input.sourceId,
+		documentId,
+		contentLength: input.content.length,
+		assetCount: assets.length,
+		opName: 'ingest',
+		opId,
+		spanId: rootSpanId
+	})
 
 	const assetProcessing: AssetProcessingConfig = mergeDeep(
 		config.assetProcessing,
@@ -113,7 +143,6 @@ export const ingest = async (
 		})
 	}
 
-	const assets: AssetInput[] = Array.isArray(input.assets) ? input.assets : []
 	type PreparedChunkSpec = Omit<Chunk, 'id' | 'index'> & {
 		metadata: Metadata
 		embed:
@@ -323,15 +352,41 @@ export const ingest = async (
 			const specs: PreparedChunkSpec[] = []
 			const warnings: IngestWarning[] = []
 
+			// If provider supports image embedding, ensure URL-based images are fetched server-side
+			// using the same guarded fetch policy as extractors (assetProcessing.fetch).
 			if (config.embedding.embedImage) {
-				const data =
-					asset.data.kind === 'bytes'
-						? asset.data.bytes
-						: asset.data.url
-				const mediaType =
-					asset.data.kind === 'bytes'
-						? asset.data.mediaType
-						: asset.data.mediaType
+				let data: Uint8Array
+				let mediaType: string | undefined
+
+				if (asset.data.kind === 'bytes') {
+					data = asset.data.bytes
+					mediaType = asset.data.mediaType
+				} else {
+					try {
+						const fetched = await getAssetBytes({
+							data: asset.data,
+							fetchConfig: assetProcessing.fetch,
+							maxBytes: assetProcessing.fetch.maxBytes,
+							defaultMediaType: 'image/jpeg'
+						})
+						data = fetched.bytes
+						mediaType = fetched.mediaType
+					} catch (err) {
+						if (assetProcessing.onError === 'fail') {
+							throw err
+						}
+
+						return skip({
+							code: 'asset_processing_error',
+							message: `Asset processing failed but was skipped due to onError="skip": ${asMessage(err)}`,
+							assetId: asset.assetId,
+							assetKind: 'image',
+							stage: 'fetch',
+							...(assetUri ? {assetUri} : {}),
+							...(assetMediaType ? {assetMediaType} : {})
+						})
+					}
+				}
 
 				specs.push({
 					documentId,
@@ -550,7 +605,32 @@ export const ingest = async (
 	}
 
 	const chunkingMs = now() - chunkingStart
+
+	debug.emit({
+		type: 'ingest:chunking-complete',
+		sourceId: input.sourceId,
+		documentId,
+		chunkCount: prepared.length,
+		durationMs: chunkingMs,
+		opName: 'ingest',
+		opId,
+		spanId: chunkingSpanId,
+		parentSpanId: rootSpanId
+	})
+
 	const embeddingStart = now()
+
+	debug.emit({
+		type: 'ingest:embedding-start',
+		sourceId: input.sourceId,
+		documentId,
+		chunkCount: prepared.length,
+		embeddingProvider: config.embedding.name,
+		opName: 'ingest',
+		opId,
+		spanId: embeddingSpanId,
+		parentSpanId: rootSpanId
+	})
 
 	const embeddedChunks: Chunk[] = new Array(prepared.length)
 
@@ -634,7 +714,8 @@ export const ingest = async (
 			const batchEmbeddings = await mapWithConcurrency(
 				batches,
 				concurrency,
-				async (batch) => {
+				async (batch, batchIndex) => {
+					const batchStart = now()
 					const embeddings = await embedMany(
 						batch.map((b) => b.input)
 					)
@@ -646,6 +727,18 @@ export const ingest = async (
 							`embedMany() returned ${Array.isArray(embeddings) ? embeddings.length : 'non-array'} embeddings for a batch of ${batch.length}`
 						)
 					}
+					debug.emit({
+						type: 'ingest:embedding-batch',
+						sourceId: input.sourceId,
+						documentId,
+						batchIndex,
+						batchSize: batch.length,
+						durationMs: now() - batchStart,
+						opName: 'ingest',
+						opId,
+						spanId: embeddingSpanId,
+						parentSpanId: rootSpanId
+					})
 					return embeddings
 				}
 			)
@@ -739,15 +832,54 @@ export const ingest = async (
 	}
 
 	const embeddingMs = now() - embeddingStart
+
+	debug.emit({
+		type: 'ingest:embedding-complete',
+		sourceId: input.sourceId,
+		documentId,
+		totalEmbeddings: embeddedChunks.length,
+		durationMs: embeddingMs,
+		opName: 'ingest',
+		opId,
+		spanId: embeddingSpanId,
+		parentSpanId: rootSpanId
+	})
+
 	const storageStart = now()
 
-	await config.store.upsert(embeddedChunks)
+	const {documentId: canonicalDocumentId} =
+		await config.store.upsert(embeddedChunks)
 
 	const storageMs = now() - storageStart
+
+	debug.emit({
+		type: 'ingest:storage-complete',
+		sourceId: input.sourceId,
+		documentId: canonicalDocumentId,
+		chunksStored: embeddedChunks.length,
+		durationMs: storageMs,
+		opName: 'ingest',
+		opId,
+		spanId: storageSpanId,
+		parentSpanId: rootSpanId
+	})
+
 	const totalMs = now() - totalStart
 
+	debug.emit({
+		type: 'ingest:complete',
+		sourceId: input.sourceId,
+		documentId: canonicalDocumentId,
+		totalChunks: embeddedChunks.length,
+		totalDurationMs: totalMs,
+		warnings: warnings.map((w) => w.message),
+		opName: 'ingest',
+		opId,
+		spanId: rootSpanId
+	})
+
 	return {
-		documentId,
+		documentId: canonicalDocumentId,
 		chunkCount: embeddedChunks.length,
 		embeddingModel: config.embedding.name,
 		warnings,

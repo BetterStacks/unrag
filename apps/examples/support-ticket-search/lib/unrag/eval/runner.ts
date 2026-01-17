@@ -1,23 +1,23 @@
-import type {ContextEngine} from '../core/context-engine'
-import type {AssetInput, Metadata} from '../core/types'
+import type {ContextEngine} from '@unrag/core/context-engine'
+import type {AssetInput, Metadata} from '@unrag/core/types'
 
 import {
-	type EvalDatasetDocument,
+	type EvalDatasetV1,
 	type EvalMode,
 	type EvalThresholds,
 	readEvalDatasetFromFile
-} from './dataset'
+} from '@unrag/eval/dataset'
 import {
 	type EvalMetricsAtK,
 	computeMetricsAtK,
 	uniqueSourceIdsInOrder
-} from './metrics'
+} from '@unrag/eval/metrics'
 import {
 	type EvalCleanupPolicy,
 	type EvalQueryResult,
 	type EvalReportV1,
 	percentiles
-} from './report'
+} from '@unrag/eval/report'
 
 export type EvalRunArgs = {
 	engine: ContextEngine
@@ -322,7 +322,7 @@ export async function runEval(args: EvalRunArgs): Promise<EvalRunOutput> {
 }
 
 async function resolveDocumentContent(
-	doc: EvalDatasetDocument,
+	doc: NonNullable<EvalDatasetV1['documents']>[number],
 	loadByRef: EvalRunArgs['loadDocumentByRef']
 ): Promise<string> {
 	if (typeof doc.content === 'string' && doc.content.trim().length > 0) {

@@ -21,6 +21,8 @@ type SnapshotConfig = {
 	extractors: ExtractorName[]
 	connectors: ConnectorName[]
 	batteries: BatteryName[]
+	full?: boolean
+	withDocs?: boolean
 }
 
 export type Snapshot = {
@@ -70,7 +72,8 @@ const collectSnapshotFiles = async (
 const runExternalUnrag = async (
 	projectRoot: string,
 	version: string,
-	args: string[]
+	args: string[],
+	options?: {verbose?: boolean}
 ) => {
 	const versions = (
 		process as unknown as {versions?: Record<string, unknown>}
@@ -79,31 +82,51 @@ const runExternalUnrag = async (
 	const cmd = useBun ? 'bunx' : 'npx'
 	const prefix = useBun ? [] : ['-y']
 	const fullArgs = [...prefix, `unrag@${version}`, ...args]
+	const verbose = Boolean(options?.verbose)
 
 	await new Promise<void>((resolve, reject) => {
 		const child = spawn(cmd, fullArgs, {
 			cwd: projectRoot,
-			stdio: 'inherit',
+			stdio: verbose ? 'inherit' : ['ignore', 'pipe', 'pipe'],
 			env: process.env
 		})
+		let stdout = ''
+		let stderr = ''
+		if (!verbose) {
+			child.stdout?.on('data', (chunk) => {
+				stdout += chunk.toString()
+			})
+			child.stderr?.on('data', (chunk) => {
+				stderr += chunk.toString()
+			})
+		}
 		child.on('error', (err) => reject(err))
 		child.on('exit', (code, signal) => {
 			if (code === 0) {
 				return resolve()
 			}
+			const combined = [stdout.trim(), stderr.trim()]
+				.filter(Boolean)
+				.join('\n')
+			const output = combined ? `\n\nOutput:\n${combined}` : ''
 			reject(
 				new Error(
 					`Failed to run ${cmd} ${fullArgs.join(' ')} (code: ${
 						code ?? 'null'
-					}, signal: ${signal ?? 'null'})`
+					}, signal: ${signal ?? 'null'})${output}`
 				)
 			)
 		})
 	})
 }
 
-const runCurrentInitAndAdds = async (config: SnapshotConfig, root: string) => {
+const runCurrentInitAndAdds = async (
+	config: SnapshotConfig,
+	root: string,
+	options?: {quiet?: boolean}
+) => {
 	const originalCwd = process.cwd()
+	const quiet = Boolean(options?.quiet)
 	try {
 		process.chdir(root)
 		await initCommand([
@@ -117,17 +140,37 @@ const runCurrentInitAndAdds = async (config: SnapshotConfig, root: string) => {
 			...(config.embeddingProvider
 				? ['--provider', config.embeddingProvider]
 				: []),
-			'--no-install'
+			...(config.full ? ['--full'] : []),
+			...(config.withDocs ? ['--with-docs'] : []),
+			'--no-install',
+			...(quiet ? ['--quiet'] : [])
 		])
 
 		for (const extractor of config.extractors) {
-			await addCommand(['extractor', extractor, '--yes', '--no-install'])
+			await addCommand([
+				'extractor',
+				extractor,
+				'--yes',
+				'--no-install',
+				...(quiet ? ['--quiet'] : [])
+			])
 		}
 		for (const connector of config.connectors) {
-			await addCommand([connector, '--yes', '--no-install'])
+			await addCommand([
+				connector,
+				'--yes',
+				'--no-install',
+				...(quiet ? ['--quiet'] : [])
+			])
 		}
 		for (const battery of config.batteries) {
-			await addCommand(['battery', battery, '--yes', '--no-install'])
+			await addCommand([
+				'battery',
+				battery,
+				'--yes',
+				'--no-install',
+				...(quiet ? ['--quiet'] : [])
+			])
 		}
 	} finally {
 		process.chdir(originalCwd)
@@ -137,9 +180,10 @@ const runCurrentInitAndAdds = async (config: SnapshotConfig, root: string) => {
 const runExternalInitAndAdds = async (
 	config: SnapshotConfig,
 	root: string,
-	version: string
+	version: string,
+	options?: {verbose?: boolean}
 ) => {
-	await runExternalUnrag(root, version, [
+	const initArgs = [
 		'init',
 		'--yes',
 		'--store',
@@ -151,34 +195,55 @@ const runExternalInitAndAdds = async (
 		...(config.embeddingProvider
 			? ['--provider', config.embeddingProvider]
 			: []),
+		...(config.full ? ['--full'] : []),
+		...(config.withDocs ? ['--with-docs'] : []),
 		'--no-install'
-	])
+	]
+
+	try {
+		await runExternalUnrag(root, version, initArgs, options)
+	} catch (err) {
+		const msg = err instanceof Error ? err.message : String(err)
+		const usesNewFlags = Boolean(config.full || config.withDocs)
+		const looksLikeUnknownFlag =
+			msg.includes('--full') ||
+			msg.includes('--with-docs') ||
+			msg.toLowerCase().includes('unknown option') ||
+			msg.toLowerCase().includes('unknown argument')
+
+		if (usesNewFlags && looksLikeUnknownFlag) {
+			const fallbackArgs = initArgs.filter(
+				(a) => a !== '--full' && a !== '--with-docs'
+			)
+			await runExternalUnrag(root, version, fallbackArgs, options)
+		} else {
+			throw err
+		}
+	}
 
 	for (const extractor of config.extractors) {
-		await runExternalUnrag(root, version, [
-			'add',
-			'extractor',
-			extractor,
-			'--yes',
-			'--no-install'
-		])
+		await runExternalUnrag(
+			root,
+			version,
+			['add', 'extractor', extractor, '--yes', '--no-install'],
+			options
+		)
 	}
 	for (const connector of config.connectors) {
-		await runExternalUnrag(root, version, [
-			'add',
-			connector,
-			'--yes',
-			'--no-install'
-		])
+		await runExternalUnrag(
+			root,
+			version,
+			['add', connector, '--yes', '--no-install'],
+			options
+		)
 	}
 	for (const battery of config.batteries) {
-		await runExternalUnrag(root, version, [
-			'add',
-			'battery',
-			battery,
-			'--yes',
-			'--no-install'
-		])
+		await runExternalUnrag(
+			root,
+			version,
+			['add', 'battery', battery, '--yes', '--no-install'],
+			options
+		)
 	}
 }
 
@@ -190,13 +255,16 @@ const buildSnapshotConfig = (config: SnapshotConfig) => ({
 })
 
 export const createSnapshotFromCurrentCli = async (
-	config: SnapshotConfig
+	config: SnapshotConfig,
+	options?: {verbose?: boolean}
 ): Promise<Snapshot> => {
 	const tempDir = await mkdtemp(path.join(os.tmpdir(), 'unrag-current-'))
 	const snapshotConfig = buildSnapshotConfig(config)
 	try {
 		await writeMinimalPackageJson(tempDir)
-		await runCurrentInitAndAdds(snapshotConfig, tempDir)
+		await runCurrentInitAndAdds(snapshotConfig, tempDir, {
+			quiet: !options?.verbose
+		})
 		const files = await collectSnapshotFiles(
 			tempDir,
 			snapshotConfig.installDir
@@ -210,12 +278,15 @@ export const createSnapshotFromCurrentCli = async (
 export const createSnapshotFromExternalCli = async (args: {
 	version: string
 	config: SnapshotConfig
+	verbose?: boolean
 }): Promise<Snapshot> => {
 	const tempDir = await mkdtemp(path.join(os.tmpdir(), 'unrag-external-'))
 	const snapshotConfig = buildSnapshotConfig(args.config)
 	try {
 		await writeMinimalPackageJson(tempDir)
-		await runExternalInitAndAdds(snapshotConfig, tempDir, args.version)
+		await runExternalInitAndAdds(snapshotConfig, tempDir, args.version, {
+			verbose: args.verbose
+		})
 		const files = await collectSnapshotFiles(
 			tempDir,
 			snapshotConfig.installDir

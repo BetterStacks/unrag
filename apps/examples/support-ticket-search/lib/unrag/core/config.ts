@@ -1,14 +1,14 @@
-import {defaultChunker, resolveChunkingOptions} from './chunking'
-import {mergeDeep} from './deep-merge'
+import {defaultChunker, resolveChunkingOptions} from '@unrag/core/chunking'
+import {mergeDeep} from '@unrag/core/deep-merge'
 import type {
 	AssetProcessingConfig,
 	Chunker,
 	ContentStorageConfig,
 	ContextEngineConfig,
+	DeepPartial,
 	EmbeddingProcessingConfig,
 	ResolvedContextEngineConfig
-} from './types'
-import type {DeepPartial} from './types'
+} from '@unrag/core/types'
 
 export const defineConfig = (
 	config: ContextEngineConfig

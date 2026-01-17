@@ -85,7 +85,7 @@ describe('unrag@latest init', () => {
 		)
 		expect(
 			await pathExists(path.join(runDir, 'lib/unrag', 'unrag.md'))
-		).toBe(true)
+		).toBe(false)
 		expect(
 			await pathExists(path.join(runDir, 'lib/unrag/core/delete.ts'))
 		).toBe(true)
@@ -116,6 +116,124 @@ describe('unrag@latest init', () => {
 		expect(pkg.dependencies?.['drizzle-orm']).toBeTruthy()
 		expect(pkg.dependencies?.pg).toBeTruthy()
 		expect(pkg.devDependencies?.['@types/pg']).toBeTruthy()
+	})
+
+	test('slim init vendors only selected provider and minimal extractor shared', async () => {
+		await writeJson(path.join(runDir, 'package.json'), {
+			name: 'proj',
+			private: true,
+			type: 'module',
+			dependencies: {}
+		})
+
+		process.chdir(runDir)
+		await initCommand([
+			'--yes',
+			'--store',
+			'drizzle',
+			'--dir',
+			'lib/unrag',
+			'--no-install'
+		])
+
+		expect(
+			await pathExists(
+				path.join(runDir, 'lib/unrag/embedding/providers.ts')
+			)
+		).toBe(true)
+		expect(
+			await pathExists(path.join(runDir, 'lib/unrag/embedding/ai.ts'))
+		).toBe(true)
+		expect(
+			await pathExists(path.join(runDir, 'lib/unrag/embedding/openai.ts'))
+		).toBe(false)
+		expect(
+			await pathExists(
+				path.join(runDir, 'lib/unrag/embedding/_shared.ts')
+			)
+		).toBe(false)
+
+		expect(
+			await pathExists(
+				path.join(runDir, 'lib/unrag/extractors/_shared/fetch.ts')
+			)
+		).toBe(true)
+		expect(
+			await pathExists(
+				path.join(runDir, 'lib/unrag/extractors/_shared/media.ts')
+			)
+		).toBe(false)
+		expect(
+			await pathExists(
+				path.join(runDir, 'lib/unrag/extractors/_shared/text.ts')
+			)
+		).toBe(false)
+	})
+
+	test('init --with-docs generates unrag.md', async () => {
+		await writeJson(path.join(runDir, 'package.json'), {
+			name: 'proj',
+			private: true,
+			type: 'module',
+			dependencies: {}
+		})
+
+		process.chdir(runDir)
+		await initCommand([
+			'--yes',
+			'--store',
+			'drizzle',
+			'--dir',
+			'lib/unrag',
+			'--with-docs',
+			'--no-install'
+		])
+
+		expect(
+			await pathExists(path.join(runDir, 'lib/unrag', 'unrag.md'))
+		).toBe(true)
+	})
+
+	test('init --full vendors all providers and extractor shared utilities', async () => {
+		await writeJson(path.join(runDir, 'package.json'), {
+			name: 'proj',
+			private: true,
+			type: 'module',
+			dependencies: {}
+		})
+
+		process.chdir(runDir)
+		await initCommand([
+			'--yes',
+			'--store',
+			'drizzle',
+			'--dir',
+			'lib/unrag',
+			'--full',
+			'--no-install'
+		])
+
+		expect(
+			await pathExists(path.join(runDir, 'lib/unrag/embedding/openai.ts'))
+		).toBe(true)
+		expect(
+			await pathExists(path.join(runDir, 'lib/unrag/embedding/google.ts'))
+		).toBe(true)
+		expect(
+			await pathExists(
+				path.join(runDir, 'lib/unrag/embedding/_shared.ts')
+			)
+		).toBe(true)
+		expect(
+			await pathExists(
+				path.join(runDir, 'lib/unrag/extractors/_shared/media.ts')
+			)
+		).toBe(true)
+		expect(
+			await pathExists(
+				path.join(runDir, 'lib/unrag/extractors/_shared/text.ts')
+			)
+		).toBe(true)
 	})
 
 	test('installs prisma adapter and merges deps', async () => {
@@ -441,6 +559,14 @@ describe('unrag@latest init', () => {
 
 		const cfg = await readFile(path.join(runDir, 'unrag.config.ts'), 'utf8')
 		expect(cfg).toMatch(/provider:\s*['"]openai['"]/)
+		expect(
+			await pathExists(path.join(runDir, 'lib/unrag/embedding/openai.ts'))
+		).toBe(true)
+		expect(
+			await pathExists(
+				path.join(runDir, 'lib/unrag/embedding/_shared.ts')
+			)
+		).toBe(true)
 
 		const pkg = await readJson<{
 			dependencies?: Record<string, string>

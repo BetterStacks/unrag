@@ -86,7 +86,7 @@ function renderHelp() {
 		`  ${UNRAG_GITHUB_REPO_URL}`,
 		'',
 		'Tip:',
-		'  After `init`, open the generated unrag.md for schema + env vars (DATABASE_URL).'
+		'  Use `--with-docs` to generate unrag.md with schema + env vars.'
 	].join('\n')
 }
 

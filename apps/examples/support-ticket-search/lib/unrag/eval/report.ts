@@ -1,8 +1,8 @@
 import {mkdir, readFile, writeFile} from 'node:fs/promises'
 import path from 'node:path'
 
-import type {EvalMode, EvalThresholds} from './dataset'
-import type {EvalMetricsAtK} from './metrics'
+import type {EvalMode, EvalThresholds} from '@unrag/eval/dataset'
+import type {EvalMetricsAtK} from '@unrag/eval/metrics'
 
 export type EvalCleanupPolicy = 'none' | 'on-success' | 'always'
 

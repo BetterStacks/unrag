@@ -36,6 +36,8 @@ bunx unrag@latest init --yes --store drizzle --rich-media
 bunx unrag@latest init --yes --store drizzle --extractors pdf-text-layer,file-text
 ```
 
+If you want the legacy full scaffold (all embedding providers + shared utilities), add `--full`. To generate the optional setup doc, add `--with-docs`.
+
 ## What the CLI creates
 
 After initialization completes, your project will have several new files:
@@ -57,34 +59,29 @@ After initialization completes, your project will have several new files:
       <File name="types.ts" />
     </Folder>
     <Folder name="embedding">
-      <File name="_shared.ts" />
+      <File name="providers.ts" />
       <File name="ai.ts" />
-      <File name="openai.ts" />
-      <File name="google.ts" />
-      <File name="..." />
+      <File name="_shared.ts" />
     </Folder>
     <Folder name="extractors">
       <Folder name="_shared">
         <File name="fetch.ts" />
-        <File name="media.ts" />
-        <File name="text.ts" />
       </Folder>
     </Folder>
     <Folder name="store">
       <File name="drizzle/" />
     </Folder>
-    <File name="unrag.md" />
   </Folder>
   <File name="unrag.json" />
 </Files>
 
-If you enabled rich media during setup, you'll also see additional extractor modules under the `extractors/` folder for the specific extractors you selected (e.g., `pdf-text-layer/`, `image-ocr/`).
+If you enabled rich media during setup, you'll also see additional extractor modules under the `extractors/` folder for the specific extractors you selected (e.g., `pdf-text-layer/`, `image-ocr/`). The shared extractor utilities (`media.ts`, `text.ts`) are only installed when rich media is enabled (or if you opt into a full scaffold).
 
 **`unrag.config.ts`** is where you configure the embedding provider, database connection, and default settings. The CLI generates this file with working code for your chosen adapter—you can use it immediately or customize it. If you enabled rich media, this file already has the extractors registered and the relevant `assetProcessing` flags enabled.
 
-**`lib/unrag/`** contains the vendored module code including the core engine (with ingest, retrieve, delete, and rerank operations), your chosen store adapter, all embedding provider implementations, and shared utilities. These files are yours to read and modify.
+**`lib/unrag/`** contains the vendored module code including the core engine (with ingest, retrieve, delete, and rerank operations), your chosen store adapter, the selected embedding provider implementation, and shared utilities. These files are yours to read and modify. If you want all provider implementations vendored for easy switching later, run `unrag init --full`. Some providers require `embedding/_shared.ts`; it’s only installed when needed.
 
-**`lib/unrag/unrag.md`** contains setup documentation specific to your choices—the exact SQL schema, environment variables, and adapter notes.
+**`lib/unrag/unrag.md`** is optional. If you want a generated setup doc with schema and adapter notes, re-run with `unrag init --with-docs`.
 
 **`unrag.json`** records your installation choices (including which extractors you installed) for future `unrag@latest init` runs.
 

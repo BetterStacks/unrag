@@ -257,6 +257,22 @@ Control how files without a known base version are handled. Options are:
 bunx unrag@latest upgrade --overwrite force
 ```
 
+**`--no-install`**
+
+Skip dependency installation during the upgrade. This is handy in CI or when you want to review changes before running your package manager.
+
+```bash
+bunx unrag@latest upgrade --no-install
+```
+
+**`--verbose`**
+
+Show the full `init`/`add` snapshot logs while the upgrade command prepares its baseline comparisons. By default, upgrade keeps this quiet and only prints the upgrade plan and summary.
+
+```bash
+bunx unrag@latest upgrade --verbose
+```
+
 **`-y, --yes`**
 
 Non-interactive mode. Skip all prompts and proceed automatically. If conflicts are detected, they're written to the files (with conflict markers) for manual resolution.
@@ -359,6 +375,22 @@ Skip automatic dependency installation. By default, the CLI runs your package ma
 bunx unrag@latest init --yes --store drizzle --no-install
 ```
 
+**`--full`**
+
+Install the full scaffold (all embedding provider implementations + rich-media shared utilities), matching legacy behavior.
+
+```bash
+bunx unrag@latest init --yes --full
+```
+
+**`--with-docs`**
+
+Generate `lib/unrag/unrag.md` (schema + env var notes).
+
+```bash
+bunx unrag@latest init --yes --with-docs
+```
+
 ## Full examples
 
 A complete non-interactive invocation with text-only setup:
@@ -388,9 +420,9 @@ After initialization, your project will contain:
 **`lib/unrag/`** (or your chosen directory) — The vendored module code:
 - `core/` — ContextEngine, ingest, retrieve, types, chunking
 - `store/` — Your chosen adapter (Drizzle, Prisma, or raw SQL)
-- `embedding/` — The AI SDK embedding provider
+- `embedding/` — The selected embedding provider + dispatcher
 
-**`lib/unrag/unrag.md`** — Generated setup notes including the database schema, environment variables, and adapter-specific tips.
+**`lib/unrag/unrag.md`** — Optional setup notes including the database schema, environment variables, and adapter-specific tips (generate with `--with-docs`).
 
 **`unrag.json`** — Records your installation choices. When you re-run `unrag@latest init`, it reads this file and uses your previous selections as defaults.
 
