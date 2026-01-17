@@ -257,6 +257,22 @@ Control how files without a known base version are handled. Options are:
 bunx unrag@latest upgrade --overwrite force
 ```
 
+**`--no-install`**
+
+Skip dependency installation during the upgrade. This is handy in CI or when you want to review changes before running your package manager.
+
+```bash
+bunx unrag@latest upgrade --no-install
+```
+
+**`--verbose`**
+
+Show the full `init`/`add` snapshot logs while the upgrade command prepares its baseline comparisons. By default, upgrade keeps this quiet and only prints the upgrade plan and summary.
+
+```bash
+bunx unrag@latest upgrade --verbose
+```
+
 **`-y, --yes`**
 
 Non-interactive mode. Skip all prompts and proceed automatically. If conflicts are detected, they're written to the files (with conflict markers) for manual resolution.

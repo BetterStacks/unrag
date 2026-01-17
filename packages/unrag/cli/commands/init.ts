@@ -84,6 +84,7 @@ type ParsedInitArgs = {
 	preset?: string
 	overwrite?: 'skip' | 'force'
 	noInstall?: boolean
+	quiet?: boolean
 }
 
 const formatDepChanges = (changes: DepChange[]) =>
@@ -182,6 +183,10 @@ const parseInitArgs = (args: string[]): ParsedInitArgs => {
 		}
 		if (a === '--no-install') {
 			out.noInstall = true
+			continue
+		}
+		if (a === '--quiet') {
+			out.quiet = true
 		}
 	}
 
@@ -277,6 +282,7 @@ export async function initCommand(args: string[]) {
 	)
 
 	const parsed = parseInitArgs(args)
+	const quiet = Boolean(parsed.quiet)
 	const noInstall =
 		Boolean(parsed.noInstall) || process.env.UNRAG_SKIP_INSTALL === '1'
 
@@ -884,35 +890,37 @@ export async function initCommand(args: string[]) {
 		]
 	})()
 
-	outro(
-		[
-			'Installed Unrag.',
-			'',
-			`- Code: ${path.join(installDir)}`,
-			`- Docs: ${path.join(installDir, 'unrag.md')}`,
-			'- Config: unrag.config.ts',
-			`- Imports: ${aliasBase}/* and ${aliasBase}/config`,
-			'',
-			`- Rich media: ${richMediaEnabled ? 'enabled' : 'disabled'}`,
-			`- Embedding provider: ${embeddingProvider}`,
-			richMediaEnabled
-				? `- Extractors: ${selectedExtractors.length > 0 ? selectedExtractors.join(', ') : 'none'}`
-				: '',
-			richMediaEnabled
-				? '  Tip: you can tweak extractors + assetProcessing flags in unrag.config.ts later.'
-				: '  Tip: re-run `unrag init --rich-media` (or edit unrag.config.ts) to enable rich media later.',
-			tsconfigResult.changed
-				? `- TypeScript: updated ${tsconfigResult.file} (added aliases)`
-				: '- TypeScript: no tsconfig changes needed',
-			'',
-			merged.changes.length > 0
-				? `Deps: ${formatDepChanges(merged.changes)}`
-				: 'Deps: none',
-			installLine,
-			'',
-			...envHint,
-			'',
-			`Saved ${CONFIG_FILE}.`
-		].join('\n')
-	)
+	if (!quiet) {
+		outro(
+			[
+				'Installed Unrag.',
+				'',
+				`- Code: ${path.join(installDir)}`,
+				`- Docs: ${path.join(installDir, 'unrag.md')}`,
+				'- Config: unrag.config.ts',
+				`- Imports: ${aliasBase}/* and ${aliasBase}/config`,
+				'',
+				`- Rich media: ${richMediaEnabled ? 'enabled' : 'disabled'}`,
+				`- Embedding provider: ${embeddingProvider}`,
+				richMediaEnabled
+					? `- Extractors: ${selectedExtractors.length > 0 ? selectedExtractors.join(', ') : 'none'}`
+					: '',
+				richMediaEnabled
+					? '  Tip: you can tweak extractors + assetProcessing flags in unrag.config.ts later.'
+					: '  Tip: re-run `unrag init --rich-media` (or edit unrag.config.ts) to enable rich media later.',
+				tsconfigResult.changed
+					? `- TypeScript: updated ${tsconfigResult.file} (added aliases)`
+					: '- TypeScript: no tsconfig changes needed',
+				'',
+				merged.changes.length > 0
+					? `Deps: ${formatDepChanges(merged.changes)}`
+					: 'Deps: none',
+				installLine,
+				'',
+				...envHint,
+				'',
+				`Saved ${CONFIG_FILE}.`
+			].join('\n')
+		)
+	}
 }
