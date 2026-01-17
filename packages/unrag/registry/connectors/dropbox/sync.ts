@@ -136,8 +136,13 @@ const buildMetadata = (entry: DropboxEntry): Metadata => ({
 })
 
 const isNotFound = (err: unknown): boolean => {
-	const msg = String((err as any)?.message ?? '')
-	return msg.toLowerCase().includes('not_found') || msg.includes('404')
+	const message =
+		typeof err === 'object' && err !== null
+			? String((err as {message?: unknown}).message ?? '')
+			: ''
+	return (
+		message.toLowerCase().includes('not_found') || message.includes('404')
+	)
 }
 
 /**

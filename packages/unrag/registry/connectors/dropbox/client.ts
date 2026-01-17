@@ -58,7 +58,11 @@ export const getDropboxAccessToken = async (
 			refresh_token: auth.refreshToken
 		})
 	}
-	throw new Error(`Unknown Dropbox auth kind: ${String((auth as any)?.kind)}`)
+	const kind =
+		typeof auth === 'object' && auth !== null
+			? (auth as {kind?: unknown}).kind
+			: undefined
+	throw new Error(`Unknown Dropbox auth kind: ${String(kind)}`)
 }
 
 export const dropboxApiFetch = async <T>(args: {
@@ -67,7 +71,7 @@ export const dropboxApiFetch = async <T>(args: {
 	body?: unknown
 }) => {
 	const token = await getDropboxAccessToken(args.auth)
-	const res = await fetch(`${API_BASE}/${args.path.replace(/^\\//, '')}`, {
+	const res = await fetch(`${API_BASE}/${args.path.replace(/^\//, '')}`, {
 		method: 'POST',
 		headers: {
 			Authorization: `Bearer ${token}`,

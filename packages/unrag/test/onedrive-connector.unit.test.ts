@@ -15,16 +15,23 @@ describe('onedrive connector: auth validation', () => {
 	test('delegated refresh token requires fields', async () => {
 		await expect(
 			getOneDriveAccessToken({
-				kind: 'delegated_refresh_token'
-			} as any)
+				kind: 'delegated_refresh_token',
+				tenantId: '',
+				clientId: '',
+				clientSecret: '',
+				refreshToken: ''
+			})
 		).rejects.toThrow()
 	})
 
 	test('client credentials requires fields', async () => {
 		await expect(
 			getOneDriveAccessToken({
-				kind: 'app_client_credentials'
-			} as any)
+				kind: 'app_client_credentials',
+				tenantId: '',
+				clientId: '',
+				clientSecret: ''
+			})
 		).rejects.toThrow()
 	})
 })

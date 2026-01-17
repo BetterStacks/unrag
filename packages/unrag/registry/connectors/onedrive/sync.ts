@@ -43,7 +43,9 @@ const asMessage = (err: unknown): string => {
 }
 
 const isTextLike = (mediaType: string | undefined) => {
-	const mt = String(mediaType ?? '').trim().toLowerCase()
+	const mt = String(mediaType ?? '')
+		.trim()
+		.toLowerCase()
 	if (!mt) {
 		return false
 	}
@@ -112,7 +114,10 @@ type GraphDriveItem = {
 	'@microsoft.graph.downloadUrl'?: string
 }
 
-const resolveDriveId = async (auth: OneDriveAuth, drive: OneDriveDriveSelector) => {
+const resolveDriveId = async (
+	auth: OneDriveAuth,
+	drive: OneDriveDriveSelector
+) => {
 	if (drive.kind === 'drive') {
 		return drive.driveId
 	}
@@ -138,7 +143,7 @@ const resolveFolderId = async (args: {
 		return String(args.folder.id).trim()
 	}
 	if (args.folder?.path) {
-		const path = String(args.folder.path).trim().replace(/^\\//, '')
+		const path = String(args.folder.path).trim().replace(/^\//, '')
 		const data = await graphFetchJson<GraphDriveItem>({
 			auth: args.auth,
 			url: `${GRAPH_BASE_URL}/${base}/root:/${encodeURIComponent(path)}?$select=id`
@@ -440,11 +445,7 @@ export async function* streamFiles(
 			continue
 		}
 		processed += 1
-		const sourceId = buildSourceId(
-			input.sourceIdPrefix,
-			driveId,
-			itemId
-		)
+		const sourceId = buildSourceId(input.sourceIdPrefix, driveId, itemId)
 
 		yield {
 			type: 'progress',

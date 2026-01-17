@@ -68,12 +68,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
 		const bIsRoot = new URL(b.url).pathname === '/'
 
 		// Homepage always first
-		if (aIsRoot && !bIsRoot) return -1
-		if (!aIsRoot && bIsRoot) return 1
+		if (aIsRoot && !bIsRoot) {
+			return -1
+		}
+		if (!aIsRoot && bIsRoot) {
+			return 1
+		}
 
 		// Then by priority (higher first)
 		const priorityDiff = (b.priority ?? 0.5) - (a.priority ?? 0.5)
-		if (priorityDiff !== 0) return priorityDiff
+		if (priorityDiff !== 0) {
+			return priorityDiff
+		}
 
 		// Finally alphabetically
 		return a.url.localeCompare(b.url)

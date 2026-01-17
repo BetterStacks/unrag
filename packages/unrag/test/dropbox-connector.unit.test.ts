@@ -15,8 +15,11 @@ describe('dropbox connector: auth validation', () => {
 	test('refresh token requires fields', async () => {
 		await expect(
 			getDropboxAccessToken({
-				kind: 'oauth_refresh_token'
-			} as any)
+				kind: 'oauth_refresh_token',
+				clientId: '',
+				clientSecret: '',
+				refreshToken: ''
+			})
 		).rejects.toThrow()
 	})
 })

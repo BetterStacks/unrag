@@ -7,20 +7,10 @@ import type {
 
 export const GRAPH_BASE_URL = 'https://graph.microsoft.com/v1.0'
 
-const asMessage = (err: unknown): string => {
-	if (err instanceof Error) {
-		return err.message
-	}
-	try {
-		return typeof err === 'string' ? err : JSON.stringify(err)
-	} catch {
-		return String(err)
-	}
-}
-
 const isDelegatedAccessToken = (
 	auth: OneDriveAuth
-): auth is OneDriveDelegatedAccessTokenAuth => auth.kind === 'delegated_access_token'
+): auth is OneDriveDelegatedAccessTokenAuth =>
+	auth.kind === 'delegated_access_token'
 
 const isDelegatedRefreshToken = (
 	auth: OneDriveAuth
@@ -117,7 +107,11 @@ export const getOneDriveAccessToken = async (
 		})
 	}
 
-	throw new Error(`Unknown OneDrive auth kind: ${String((auth as any)?.kind)}`)
+	const kind =
+		typeof auth === 'object' && auth !== null
+			? (auth as {kind?: unknown}).kind
+			: undefined
+	throw new Error(`Unknown OneDrive auth kind: ${String(kind)}`)
 }
 
 export const graphFetchJson = async <T>(args: {
@@ -130,7 +124,7 @@ export const graphFetchJson = async <T>(args: {
 	const token = await getOneDriveAccessToken(args.auth)
 	const url = args.url.startsWith('http')
 		? args.url
-		: `${GRAPH_BASE_URL}/${args.url.replace(/^\\//, '')}`
+		: `${GRAPH_BASE_URL}/${args.url.replace(/^\//, '')}`
 	const headers: Record<string, string> = {
 		Authorization: `Bearer ${token}`,
 		...(args.headers ?? {})
@@ -174,7 +168,7 @@ export const graphDownloadFromPath = async (args: {
 	path: string
 }) => {
 	const token = await getOneDriveAccessToken(args.auth)
-	const url = `${GRAPH_BASE_URL}/${args.path.replace(/^\\//, '')}`
+	const url = `${GRAPH_BASE_URL}/${args.path.replace(/^\//, '')}`
 	const res = await fetch(url, {
 		headers: {Authorization: `Bearer ${token}`}
 	})
