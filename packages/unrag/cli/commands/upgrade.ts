@@ -106,7 +106,10 @@ const isExtractorName = (v: unknown): v is ExtractorName =>
 	v === 'file-xlsx'
 
 const isConnectorName = (v: unknown): v is ConnectorName =>
-	v === 'notion' || v === 'google-drive'
+	v === 'notion' ||
+	v === 'google-drive' ||
+	v === 'onedrive' ||
+	v === 'dropbox'
 
 const isBatteryName = (v: unknown): v is BatteryName =>
 	v === 'reranker' || v === 'eval' || v === 'debug'

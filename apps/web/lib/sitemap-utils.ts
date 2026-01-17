@@ -49,16 +49,31 @@ export const CHANGE_FREQUENCIES = {
  * Documentation pages are prioritized by section.
  */
 export function getPriorityForPath(urlPath: string): number {
-	if (urlPath === '/') return SITEMAP_PRIORITIES.homepage
-	if (urlPath === '/install') return SITEMAP_PRIORITIES.install
-	if (urlPath === '/docs') return SITEMAP_PRIORITIES.docsRoot
+	if (urlPath === '/') {
+		return SITEMAP_PRIORITIES.homepage
+	}
+	if (urlPath === '/install') {
+		return SITEMAP_PRIORITIES.install
+	}
+	if (urlPath === '/docs') {
+		return SITEMAP_PRIORITIES.docsRoot
+	}
 
-	if (urlPath.startsWith('/docs/getting-started'))
+	if (urlPath.startsWith('/docs/getting-started')) {
 		return SITEMAP_PRIORITIES.gettingStarted
-	if (urlPath.startsWith('/docs/concepts')) return SITEMAP_PRIORITIES.concepts
-	if (urlPath.startsWith('/docs/guides')) return SITEMAP_PRIORITIES.guides
-	if (urlPath.startsWith('/docs/reference')) return SITEMAP_PRIORITIES.reference
-	if (urlPath.startsWith('/docs/changelog')) return SITEMAP_PRIORITIES.changelog
+	}
+	if (urlPath.startsWith('/docs/concepts')) {
+		return SITEMAP_PRIORITIES.concepts
+	}
+	if (urlPath.startsWith('/docs/guides')) {
+		return SITEMAP_PRIORITIES.guides
+	}
+	if (urlPath.startsWith('/docs/reference')) {
+		return SITEMAP_PRIORITIES.reference
+	}
+	if (urlPath.startsWith('/docs/changelog')) {
+		return SITEMAP_PRIORITIES.changelog
+	}
 
 	return SITEMAP_PRIORITIES.default
 }
@@ -69,10 +84,18 @@ export function getPriorityForPath(urlPath: string): number {
 export function getChangeFrequencyForPath(
 	urlPath: string
 ): NonNullable<MetadataRoute.Sitemap[number]['changeFrequency']> {
-	if (urlPath === '/') return CHANGE_FREQUENCIES.homepage
-	if (urlPath === '/install') return CHANGE_FREQUENCIES.install
-	if (urlPath === '/docs') return CHANGE_FREQUENCIES.docsRoot
-	if (urlPath.includes('/changelog')) return CHANGE_FREQUENCIES.changelog
+	if (urlPath === '/') {
+		return CHANGE_FREQUENCIES.homepage
+	}
+	if (urlPath === '/install') {
+		return CHANGE_FREQUENCIES.install
+	}
+	if (urlPath === '/docs') {
+		return CHANGE_FREQUENCIES.docsRoot
+	}
+	if (urlPath.includes('/changelog')) {
+		return CHANGE_FREQUENCIES.changelog
+	}
 
 	return CHANGE_FREQUENCIES.default
 }

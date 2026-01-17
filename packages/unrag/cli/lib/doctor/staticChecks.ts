@@ -438,6 +438,18 @@ async function checkConnectorEnvVars(
 				'GOOGLE_CLIENT_ID',
 				'GOOGLE_CLIENT_SECRET'
 			]
+		},
+		onedrive: {
+			required: [],
+			optional: [
+				'AZURE_TENANT_ID',
+				'AZURE_CLIENT_ID',
+				'AZURE_CLIENT_SECRET'
+			]
+		},
+		dropbox: {
+			required: [],
+			optional: ['DROPBOX_CLIENT_ID', 'DROPBOX_CLIENT_SECRET']
 		}
 	}
 

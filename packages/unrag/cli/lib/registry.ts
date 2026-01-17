@@ -894,7 +894,7 @@ export async function copyRegistryFiles(
 				})
 				if (isCancel(answer)) {
 					cancel('Cancelled.')
-					return
+					return []
 				}
 				if (!answer) {
 					continue
@@ -976,7 +976,7 @@ export async function copyConnectorFiles(
 			})
 			if (isCancel(answer)) {
 				cancel('Cancelled.')
-				return
+				return []
 			}
 			if (!answer) {
 				continue

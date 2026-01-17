@@ -182,7 +182,8 @@ function DocLink({href, children}: {href: string; children: React.ReactNode}) {
 export function NextStepsDialog({
 	open,
 	onOpenChange,
-	state
+	state,
+	manifest
 }: {
 	open: boolean
 	onOpenChange: (open: boolean) => void
@@ -198,6 +199,126 @@ export function NextStepsDialog({
 		[embeddingProvider]
 	)
 
+	const connectorEnvVars: EnvVar[] = React.useMemo(() => {
+		const selected = (state.modules.connectors ?? [])
+			.map(String)
+			.filter(Boolean)
+		if (selected.length === 0) {
+			return []
+		}
+
+		// Prefer manifest-driven env vars (keeps docs in sync with registry/manifest.json).
+		const manifestVarsByConnector = new Map<string, EnvVar[]>()
+		for (const c of manifest?.connectors ?? []) {
+			const id = String(c.id ?? '').trim()
+			if (!id) {
+				continue
+			}
+			const env = Array.isArray(c.envVars) ? c.envVars : []
+			const vars: EnvVar[] = env
+				.map((v) => {
+					const name = String(v?.name ?? '').trim()
+					if (!name) {
+						return null
+					}
+					return {
+						name,
+						required: Boolean(v?.required),
+						description: String(v?.notes ?? '').trim()
+					} satisfies EnvVar
+				})
+				.filter((x): x is EnvVar => Boolean(x))
+			if (vars.length > 0) {
+				manifestVarsByConnector.set(id, vars)
+			}
+		}
+
+		// Fallback for older/trimmed manifests.
+		const fallbackByConnector: Record<string, EnvVar[]> = {
+			notion: [
+				{
+					name: 'NOTION_TOKEN',
+					required: true,
+					description: 'Server-only Notion integration token'
+				}
+			],
+			'google-drive': [
+				{
+					name: 'GOOGLE_SERVICE_ACCOUNT_JSON',
+					required: false,
+					description:
+						'Service account JSON credentials (server-only)'
+				},
+				{
+					name: 'GOOGLE_CLIENT_ID',
+					required: false,
+					description: 'OAuth client id (server-only)'
+				},
+				{
+					name: 'GOOGLE_CLIENT_SECRET',
+					required: false,
+					description: 'OAuth client secret (server-only)'
+				},
+				{
+					name: 'GOOGLE_REDIRECT_URI',
+					required: false,
+					description: 'OAuth redirect URI'
+				}
+			],
+			onedrive: [
+				{
+					name: 'AZURE_TENANT_ID',
+					required: false,
+					description: 'Azure AD tenant for OneDrive OAuth'
+				},
+				{
+					name: 'AZURE_CLIENT_ID',
+					required: false,
+					description: 'Azure AD app client ID'
+				},
+				{
+					name: 'AZURE_CLIENT_SECRET',
+					required: false,
+					description: 'Azure AD app client secret'
+				}
+			],
+			dropbox: [
+				{
+					name: 'DROPBOX_CLIENT_ID',
+					required: false,
+					description: 'Dropbox app client ID'
+				},
+				{
+					name: 'DROPBOX_CLIENT_SECRET',
+					required: false,
+					description: 'Dropbox app client secret'
+				}
+			]
+		}
+
+		const byName = new Map<string, EnvVar>()
+		for (const id of selected) {
+			const vars =
+				manifestVarsByConnector.get(id) ?? fallbackByConnector[id] ?? []
+			for (const v of vars) {
+				const existing = byName.get(v.name)
+				if (!existing) {
+					byName.set(v.name, v)
+					continue
+				}
+				byName.set(v.name, {
+					name: v.name,
+					required: existing.required || v.required,
+					description: existing.description || v.description
+				})
+			}
+		}
+
+		return Array.from(byName.values()).sort((a, b) =>
+			a.name.localeCompare(b.name)
+		)
+	}, [manifest, state.modules.connectors])
+
 	const allEnvVars: EnvVar[] = React.useMemo(() => {
 		const vars: EnvVar[] = [
 			{
@@ -205,7 +326,8 @@ export function NextStepsDialog({
 				required: true,
 				description: 'PostgreSQL + pgvector connection string'
 			},
-			...embeddingVars
+			...embeddingVars,
+			...connectorEnvVars
 		]
 		if (state.modules.batteries?.includes('reranker')) {
 			vars.push({
@@ -214,8 +336,28 @@ export function NextStepsDialog({
 				description: 'Required for reranker'
 			})
 		}
-		return vars
-	}, [embeddingVars, state.modules.batteries])
+		// Deduplicate and keep required=true if any source marks it required.
+		const byName = new Map<string, EnvVar>()
+		for (const v of vars) {
+			const name = String(v.name ?? '').trim()
+			if (!name) {
+				continue
+			}
+			const existing = byName.get(name)
+			if (!existing) {
+				byName.set(name, {...v, name})
+				continue
+			}
+			byName.set(name, {
+				name,
+				required: existing.required || v.required,
+				description: existing.description || v.description
+			})
+		}
+		return Array.from(byName.values()).sort((a, b) =>
+			a.name.localeCompare(b.name)
+		)
+	}, [connectorEnvVars, embeddingVars, state.modules.batteries])
 
 	const codeSnippet = `import { createUnragEngine } from "@unrag/config";
 
@@ -304,7 +446,7 @@ const results = await engine.retrieve({
 							<div className="rounded-lg border border-olive-950/10 dark:border-white/10 bg-white/50 dark:bg-white/5 overflow-hidden">
 								<div className="flex items-center justify-between px-4 py-2 border-b border-olive-950/10 dark:border-white/10 bg-olive-950/5 dark:bg-white/5">
 									<span className="text-xs font-medium text-olive-600 dark:text-olive-400 uppercase tracking-wider">
-										Required variables
+										Environment variables
 									</span>
 									<PlainButton
 										size="md"

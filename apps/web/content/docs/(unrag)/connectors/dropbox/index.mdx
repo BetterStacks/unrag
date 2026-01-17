@@ -1,0 +1,278 @@
+---
+title: Dropbox Connector
+description: Ingest files from Dropbox into Unrag with incremental folder sync or explicit file IDs.
+---
+
+The Dropbox connector installs a small, vendored module into your project that fetches files from Dropbox and ingests them into your Unrag store.
+
+This connector supports two sync modes. The first is **folder sync**, where you point the connector at a folder path and it syncs everything inside using Dropbox's cursor-based listing for incremental updates—only processing files that have changed since the last run. The second is **explicit file sync**, where you pass specific file IDs (Dropbox's `id:...` format) and the connector fetches those files directly. Choose the mode that fits your use case.
+
+## Authentication
+
+Dropbox uses OAuth 2.0 for authentication. The connector supports two token patterns:
+
+**Access tokens** are the simplest form. If you already have an access token from your OAuth flow, you can use it directly. However, access tokens expire (typically after a few hours), so this is best for short-lived operations or testing.
+
+**Refresh tokens** enable long-lived access. When users authorize your app with the `offline` access type, you get a refresh token that the connector can exchange for fresh access tokens as needed. This is the recommended pattern for production use.
+
+The connector handles token refresh automatically when you provide the refresh token along with your app's client credentials.
+
+## Setting up Dropbox access
+
+Before using the connector, you need a Dropbox app with the appropriate permissions.
+
+### Creating a Dropbox app
+
+Go to the [Dropbox App Console](https://www.dropbox.com/developers/apps), create a new app, and choose the access type:
+
+**App folder access** restricts your app to a dedicated folder within each user's Dropbox. This is the most limited scope—good for single-purpose tools that don't need broad file access.
+
+**Full Dropbox access** lets your app access all files and folders in a user's Dropbox. This is what you need for knowledge base sync or document search use cases.
+
+Choose "Full Dropbox" unless you have a specific reason to use app folder access.
+
+### Configuring permissions
+
+Under **Permissions**, enable the scopes your app needs:
+
+- `files.metadata.read` for listing files and folders
+- `files.content.read` for downloading file contents
+
+If you want the connector to track deletions (for incremental sync), you'll also need these scopes to receive deletion events in list_folder results.
+
+### Getting OAuth credentials
+
+Under **Settings**, you'll find your app key and app secret. Store these securely:
+
+```bash
+DROPBOX_CLIENT_ID="your-app-key"
+DROPBOX_CLIENT_SECRET="your-app-secret"
+```
+
+To get a refresh token, users complete the OAuth flow with `token_access_type=offline`. Your app receives both an access token and a refresh token. Store the refresh token for long-lived access.
+
+## Installing the connector
+
+From your project root (where `unrag.json` exists), run:
+
+```bash
+bunx unrag@latest add dropbox
+```
+
+This installs the connector source files into your Unrag install directory—so you can read and change them like any other code:
+
+- `lib/unrag/connectors/dropbox/**` (or your chosen `--dir`)
+
+The connector uses native `fetch` for HTTP requests, so there are no additional npm dependencies to install.
+
+## Sync modes
+
+The connector offers two distinct ways to sync content: folder-based sync with incremental updates, or explicit file IDs.
+
+### Folder sync (streamFolder)
+
+When you want to sync everything in a folder (and optionally its subfolders), use folder sync. The connector uses Dropbox's `list_folder` cursor to track modifications since the last sync, so subsequent runs only process what's changed.
+
+This mode is ideal when:
+
+- Users connect a "Documents" or "knowledge base" folder and expect new files to sync automatically
+- You want incremental updates without tracking individual file IDs
+- You need to detect when files are deleted or moved
+
+The `sourceId` for each file is path-based: `dropbox:path:<path_lower>`. This means renames and moves create new documents (the old path becomes a deletion, the new path becomes an upsert). This is intentional—it keeps your index in sync with Dropbox's actual folder structure.
+
+### Explicit file sync (streamFiles)
+
+When you know exactly which files you want to sync, pass their IDs directly. Dropbox file IDs look like `id:abc123...` and are stable across renames and moves.
+
+This mode is ideal when:
+
+- Users select specific files to sync through a UI
+- You maintain a curated list of "important" documents
+- You want file identity to be stable across renames
+
+## Quickstart: sync a folder
+
+If you want to sync everything in a folder with incremental updates:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { dropboxConnector } from "@unrag/connectors/dropbox";
+
+export async function syncDropboxFolder(userRefreshToken: string) {
+  const engine = createUnragEngine();
+  const lastCheckpoint = await loadCheckpoint("dropbox-sync");
+
+  const stream = dropboxConnector.streamFolder({
+    auth: {
+      kind: "oauth_refresh_token",
+      clientId: process.env.DROPBOX_CLIENT_ID!,
+      clientSecret: process.env.DROPBOX_CLIENT_SECRET!,
+      refreshToken: userRefreshToken,
+    },
+    folderPath: "/Documents/Knowledge Base",
+    options: {
+      recursive: true,
+      deleteOnRemoved: true,
+    },
+    checkpoint: lastCheckpoint,
+  });
+
+  const result = await engine.runConnectorStream({
+    stream,
+    onCheckpoint: async (checkpoint) => {
+      await saveCheckpoint("dropbox-sync", checkpoint);
+    },
+  });
+
+  return result;
+}
+```
+
+The first run lists all files in the folder and captures a cursor. Subsequent runs use the cursor to fetch only changes—new files, modified files, and deletions.
+
+## Quickstart: sync specific files
+
+If you have a list of file IDs to sync:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { dropboxConnector } from "@unrag/connectors/dropbox";
+
+export async function syncSpecificFiles(accessToken: string, fileIds: string[]) {
+  const engine = createUnragEngine();
+
+  const stream = dropboxConnector.streamFiles({
+    auth: {
+      kind: "access_token",
+      accessToken,
+    },
+    fileIds, // e.g., ["id:abc123...", "id:def456..."]
+  });
+
+  return await engine.runConnectorStream({ stream });
+}
+```
+
+## Authentication patterns
+
+### Access token (short-lived)
+
+If you have a current access token:
+
+```ts
+const stream = dropboxConnector.streamFolder({
+  auth: {
+    kind: "access_token",
+    accessToken: currentAccessToken,
+  },
+  folderPath: "/Documents",
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+You're responsible for token refresh. If the token expires during sync, the connector will fail with a 401 error.
+
+### Refresh token (long-lived)
+
+For production use, provide a refresh token:
+
+```ts
+const stream = dropboxConnector.streamFolder({
+  auth: {
+    kind: "oauth_refresh_token",
+    clientId: process.env.DROPBOX_CLIENT_ID!,
+    clientSecret: process.env.DROPBOX_CLIENT_SECRET!,
+    refreshToken: userRefreshToken,
+  },
+  folderPath: "/Documents",
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+The connector exchanges the refresh token for a fresh access token before making API calls. This is the recommended pattern.
+
+## Server-only usage
+
+Access tokens, refresh tokens, and client secrets are sensitive and must never run in the browser. Treat Dropbox sync as a backend concern: run it from a route handler, server action, cron/worker job, or a Node script.
+
+## What it ingests
+
+Each file becomes one logical document in your store. The connector handles different file types based on their content:
+
+**Text-based files** (plain text, JSON, CSV, Markdown) are decoded and stored as the document's `content`. This is the searchable text that gets chunked and embedded.
+
+**Binary files** (PDFs, images, Office documents, etc.) are downloaded and emitted as `assets`. Whether those assets become searchable content depends on your engine's `assetProcessing` config—PDF extraction, image OCR, and file-extractor processing all happen at the engine level, not in the connector.
+
+The connector attaches metadata including the `connector` name (`"dropbox"`), `kind`, `path`, `name`, `size`, and `modifiedTime`.
+
+## Observability and progress tracking
+
+The streaming model makes it easy to track progress and log what's happening:
+
+```ts
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "progress" && event.message === "file:start") {
+      console.log(`Processing ${event.sourceId}...`);
+    }
+    if (event.type === "progress" && event.message === "file:success") {
+      console.log(`✓ Synced ${event.sourceId}`);
+    }
+    if (event.type === "warning") {
+      console.warn(`⚠ [${event.code}] ${event.message}`);
+    }
+  },
+});
+
+console.log(`Done: ${result.upserts} synced, ${result.warnings} warnings`);
+```
+
+## Resumable syncs with checkpoints
+
+For folder sync, checkpoints are essential. They contain the Dropbox cursor that enables incremental updates. Without a checkpoint, every sync processes all files from scratch.
+
+```ts
+const stream = dropboxConnector.streamFolder({
+  auth,
+  folderPath: "/Documents",
+  checkpoint: await loadCheckpoint(tenantId),
+});
+
+await engine.runConnectorStream({
+  stream,
+  onCheckpoint: async (checkpoint) => {
+    await saveCheckpoint(tenantId, checkpoint);
+  },
+});
+```
+
+Store checkpoints in your database, keyed by tenant or sync job. The checkpoint is a small JSON object containing the cursor, so storage overhead is minimal.
+
+## Path-based source IDs
+
+Unlike Google Drive and OneDrive which use file IDs in sourceIds, the Dropbox connector uses normalized paths: `dropbox:path:<path_lower>`.
+
+This design choice has tradeoffs:
+
+**Pros:**
+- Deletions are reliable: when a file is deleted, Dropbox reports the path, and we can emit a delete event
+- Source IDs are human-readable
+- Folder scoping is intuitive
+
+**Cons:**
+- Renames and moves create new documents (the old path is deleted, the new path is created)
+- If you need stable identity across renames, use explicit file sync with Dropbox file IDs
+
+For most knowledge base use cases, path-based IDs work well because you care about "what's in this folder" rather than "tracking this specific file forever."
+
+## Where to go next
+
+If you want to understand the full API surface and see more examples, continue to the [API](/docs/connectors/dropbox/api) page.
+
+For production deployment patterns, the [Best practices](/docs/connectors/dropbox/best-practices) page covers authentication, checkpointing, and error handling.
+
+If you hit authentication or permission issues, the [Troubleshooting](/docs/connectors/dropbox/troubleshooting) page covers common failure modes and how to diagnose them.

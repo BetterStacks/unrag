@@ -1,8 +1,8 @@
 import {defineConfig, resolveConfig} from '@registry/core/config'
 import {
-	runConnectorStream,
 	type RunConnectorStreamOptions,
-	type RunConnectorStreamResult
+	type RunConnectorStreamResult,
+	runConnectorStream
 } from '@registry/core/connectors'
 import {deleteDocuments} from '@registry/core/delete'
 import {ingest, planIngest} from '@registry/core/ingest'

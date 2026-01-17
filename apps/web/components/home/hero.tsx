@@ -102,8 +102,8 @@ export function HeroSection() {
 			className="py-16"
 			eyebrow={
 				<AnnouncementBadge
-					href="/docs/debugging"
-					text="Devtools for debugging RAG pipelines"
+					href="/docs/connectors"
+					text="New: OneDrive + Dropbox connectors"
 					cta="Learn more"
 				/>
 			}

@@ -128,23 +128,25 @@ The connector needs `googleapis` and `google-auth-library` to function.
 
 ## File handling issues
 
-### "Skipping folder (v1: files-only connector)"
+### "Skipping folder" warnings
 
-You passed a folder ID to `fileIds`. The v1 connector syncs individual files, not folders. If you want to sync a folder's contents, list the files first:
+If you're using `streamFiles` and pass a folder ID, the connector skips it with a warning. The explicit file sync mode only processes individual files.
+
+If you want to sync folder contents, use `streamFolder` instead:
 
 ```ts
-const { drive } = await createGoogleDriveClient({ auth });
-
-const files = await drive.files.list({
-  q: `'${folderId}' in parents and trashed = false`,
-  fields: "files(id)",
-  supportsAllDrives: true,
+// Instead of this (skips folders):
+const stream = googleDriveConnector.streamFiles({
+  auth,
+  fileIds: [folderId], // This will be skipped
 });
 
-const fileIds = files.data.files?.map((f: any) => f.id) ?? [];
-
-const stream = googleDriveConnector.streamFiles({ auth, fileIds });
-await engine.runConnectorStream({ stream });
+// Use this:
+const stream = googleDriveConnector.streamFolder({
+  auth,
+  folderId,
+  options: { recursive: true },
+});
 ```
 
 ### "Skipping Google-native file type because it has no supported export plan"
@@ -204,11 +206,90 @@ const stream = googleDriveConnector.streamFiles({
 
 If the PPTX fallback isn't being processed, make sure you have a file extractor installed that handles PPTX files.
 
+## Folder sync issues
+
+### First run processes no files
+
+If your first folder sync completes with zero upserts, check:
+
+1. **Folder ID is correct**: Make sure you're using the folder ID, not a file ID or URL
+2. **Folder has files**: The folder might be empty or contain only subfolders (if `recursive: false`)
+3. **Permissions**: The authenticated identity can list the folder's contents
+4. **Shared drives**: If the folder is in a shared drive, you need to specify `driveId`
+
+```ts
+// For shared drives:
+const stream = googleDriveConnector.streamFolder({
+  auth,
+  folderId,
+  options: {
+    driveId: sharedDriveId, // Required for shared drives
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  },
+});
+```
+
+### Subsequent runs re-process everything
+
+If folder sync processes all files every time instead of just changes, you're not persisting checkpoints correctly. Make sure you:
+
+1. **Load the checkpoint** before creating the stream
+2. **Pass the checkpoint** to `streamFolder`
+3. **Save each checkpoint** via `onCheckpoint`
+
+```ts
+// This pattern ensures incremental updates:
+const lastCheckpoint = await loadCheckpoint(syncId);
+
+const stream = googleDriveConnector.streamFolder({
+  auth,
+  folderId,
+  checkpoint: lastCheckpoint, // Must pass this
+});
+
+await engine.runConnectorStream({
+  stream,
+  onCheckpoint: async (cp) => {
+    await saveCheckpoint(syncId, cp); // Must save these
+  },
+});
+```
+
+If `checkpoint` is `undefined`, the connector fetches a fresh start token and processes all files.
+
+### Files deleted from Drive still appear in search
+
+By default, folder sync doesn't emit delete events. Enable `deleteOnRemoved` to sync deletions:
+
+```ts
+const stream = googleDriveConnector.streamFolder({
+  auth,
+  folderId,
+  options: {
+    deleteOnRemoved: true, // Required for deletion sync
+  },
+  checkpoint,
+});
+```
+
+Without this option, files removed from Drive will remain in your index until you manually delete them.
+
+### Changes API returns no changes
+
+The Changes API can have a delay before changes appear. If you just modified a file and it's not showing up:
+
+1. Wait a few seconds and try again
+2. Check that your service account has `drive.readonly` scope
+3. For shared drives, make sure `supportsAllDrives` and `includeItemsFromAllDrives` are true
+
+The delay is usually under a minute, but can occasionally be longer.
+
 ## Rate limiting
 
 ### "Rate Limit Exceeded" / 429 errors
 
-You're hitting Google's API quota. This typically happens when syncing many files quickly. Add delays between batches:
+You're hitting Google's API quota. This typically happens when syncing many files quickly. For explicit file sync, add delays between batches:
 
 ```ts
 const BATCH_SIZE = 20;
@@ -225,6 +306,8 @@ for (let i = 0; i < fileIds.length; i += BATCH_SIZE) {
   }
 }
 ```
+
+For folder sync, the connector processes files sequentially so rate limits are less common. If you hit them, the connector will retry with backoff.
 
 You can also request a quota increase in the Google Cloud Console if you have a legitimate need for higher throughput.
 

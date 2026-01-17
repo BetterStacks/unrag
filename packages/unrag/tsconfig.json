@@ -10,6 +10,7 @@
 	},
 	"include": [
 		"cli/**/*.ts",
+		"cli/**/*.d.ts",
 		"registry/**/*.ts",
 		"registry/**/*.tsx",
 		"registry/**/*.d.ts",

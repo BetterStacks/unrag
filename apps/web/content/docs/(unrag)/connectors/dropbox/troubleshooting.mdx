@@ -1,0 +1,314 @@
+---
+title: Troubleshooting
+description: Common issues with the Dropbox connector and how to resolve them.
+---
+
+Most problems with the Dropbox connector come down to authentication, permissions, or folder path issues. This page covers the common failure modes and how to diagnose them.
+
+## Authentication errors
+
+### "invalid_access_token" / 401 Unauthorized
+
+The access token is invalid or expired. This happens when:
+
+- The access token has expired (Dropbox tokens typically last 4 hours)
+- The user revoked access to your app
+- The token is malformed
+
+If you're using `access_token` auth, switch to `oauth_refresh_token` for automatic token refresh:
+
+```ts
+// Instead of this (expires quickly):
+auth: { kind: "access_token", accessToken: "..." }
+
+// Use this (handles refresh automatically):
+auth: {
+  kind: "oauth_refresh_token",
+  clientId: process.env.DROPBOX_CLIENT_ID!,
+  clientSecret: process.env.DROPBOX_CLIENT_SECRET!,
+  refreshToken: userRefreshToken,
+}
+```
+
+### "invalid_grant" / Refresh token invalid
+
+The refresh token is no longer valid. This happens when:
+
+- The user revoked access to your app in their Dropbox settings
+- You're using the wrong refresh token
+- The app's OAuth credentials changed
+
+Prompt the user to reconnect their Dropbox account to get a new refresh token.
+
+### "invalid_client" / Client credentials invalid
+
+Your app key or app secret is wrong. Double-check:
+
+1. The `clientId` matches your Dropbox app's "App key"
+2. The `clientSecret` matches your Dropbox app's "App secret"
+3. Neither value is undefined or empty
+
+```ts
+// Make sure all values are present and correct
+auth: {
+  kind: "oauth_refresh_token",
+  clientId: process.env.DROPBOX_CLIENT_ID!,      // Your app key
+  clientSecret: process.env.DROPBOX_CLIENT_SECRET!, // Your app secret
+  refreshToken: userRefreshToken,
+}
+```
+
+### "insufficient_scope"
+
+Your app doesn't have the required permissions. Make sure your Dropbox app has these scopes enabled:
+
+- `files.metadata.read` - for listing files and folders
+- `files.content.read` - for downloading file contents
+
+You can update scopes in the [Dropbox App Console](https://www.dropbox.com/developers/apps). After adding scopes, users need to reauthorize your app to grant the new permissions.
+
+## Permission errors
+
+### 403 Forbidden / "access denied"
+
+The authenticated user doesn't have access to the requested path. Common causes:
+
+- The folder path doesn't exist in the user's Dropbox
+- The folder is in a team space the user can't access
+- The file/folder was deleted after you obtained the file ID
+
+Verify the path exists by testing in the user's Dropbox web interface.
+
+### "path/not_found"
+
+The specified path doesn't exist. This can happen with both folder sync and file sync:
+
+**For folder sync:**
+```ts
+// Make sure the path exists and starts with /
+folderPath: "/Documents/Knowledge Base"  // Good
+folderPath: "Documents/Knowledge Base"   // Bad: missing leading slash
+```
+
+**For file sync with IDs:**
+The file ID you're using no longer exists. The file may have been permanently deleted.
+
+### "path/restricted_content"
+
+The file contains restricted content that Dropbox won't allow downloading. This is rare but can happen with certain file types or content flagged by Dropbox.
+
+The connector will emit a warning and skip the file.
+
+## Folder sync issues
+
+### First run processes no files
+
+If your first folder sync completes with zero upserts:
+
+1. **Folder path is correct**: Paths must start with `/` and are case-insensitive
+2. **Folder has files**: The folder might be empty or contain only subfolders (check `recursive` option)
+3. **App has correct scope**: Your app needs `files.metadata.read` and `files.content.read`
+
+```ts
+// Correct path format
+folderPath: "/Documents"  // Good
+folderPath: ""            // Good: syncs entire Dropbox root
+folderPath: "Documents"   // Bad: missing leading slash
+```
+
+### Subsequent runs re-process everything
+
+If folder sync processes all files every time instead of just changes:
+
+1. **Load the checkpoint** before creating the stream
+2. **Pass the checkpoint** to `streamFolder`
+3. **Save each checkpoint** via `onCheckpoint`
+
+```ts
+const lastCheckpoint = await loadCheckpoint(syncId);
+
+const stream = dropboxConnector.streamFolder({
+  auth,
+  folderPath: "/Documents",
+  checkpoint: lastCheckpoint, // Must pass this
+});
+
+await engine.runConnectorStream({
+  stream,
+  onCheckpoint: async (cp) => {
+    await saveCheckpoint(syncId, cp); // Must save these
+  },
+});
+```
+
+### Cursor expired
+
+Dropbox cursors can expire after extended periods of inactivity. When this happens, you'll get an error like:
+
+```
+reset: cursor has been invalidated
+```
+
+The connector handles this by starting fresh—it will process all files as if it's the first run and provide a new checkpoint. This is safe but may be slow for large folders.
+
+To prevent cursor expiration, run syncs regularly (at least weekly, ideally daily).
+
+### Files deleted from Dropbox still appear in search
+
+By default, folder sync doesn't emit delete events. Enable `deleteOnRemoved`:
+
+```ts
+const stream = dropboxConnector.streamFolder({
+  auth,
+  folderPath: "/Documents",
+  options: {
+    deleteOnRemoved: true, // Required for deletion sync
+  },
+  checkpoint,
+});
+```
+
+### Renamed files create duplicates
+
+This is expected behavior with path-based sourceIds. When a file is renamed:
+
+1. The old path's sourceId is deleted (if `deleteOnRemoved` is enabled)
+2. The new path's sourceId is created
+
+If `deleteOnRemoved` is disabled, you'll see both the old and new versions. Enable it to keep your index clean.
+
+## File handling issues
+
+### Large files are skipped
+
+Files larger than `maxBytesPerFile` (default 15MB) are skipped with a warning. To increase the limit:
+
+```ts
+const stream = dropboxConnector.streamFolder({
+  auth,
+  folderPath: "/Documents",
+  options: {
+    maxBytesPerFile: 50 * 1024 * 1024, // 50MB
+  },
+});
+```
+
+Be aware that very large files may cause memory issues or timeouts.
+
+### Binary files aren't being processed
+
+The connector emits binary files (PDFs, Office documents, images) as `assets`. Whether those assets become searchable content depends on your engine's `assetProcessing` configuration.
+
+Make sure you have appropriate extractors installed (e.g., `pdf-text-layer` for PDFs, `file-docx` for Word documents).
+
+### Folders are skipped
+
+The connector only ingests files, not folders. When it encounters a folder in the list results, it's processed for recursion but no document is created. This is expected behavior.
+
+## Rate limiting
+
+### 429 Too Many Requests
+
+You're hitting Dropbox's rate limits. The connector includes basic retry logic, but for very large syncs you might still hit limits.
+
+To reduce rate limiting:
+
+1. **Use checkpoints**: If rate-limited, the next run picks up where it left off
+2. **Batch across time**: For very large syncs, run in batches with delays
+3. **Monitor the 429 responses**: Dropbox includes a `Retry-After` header
+
+Dropbox's rate limits are per-user and fairly generous for normal use. If you're hitting them regularly, you might be syncing too aggressively.
+
+## Debugging tips
+
+### Enable verbose logging
+
+Use the `onEvent` callback to see what's happening:
+
+```ts
+await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    console.log(JSON.stringify(event, null, 2));
+  },
+});
+```
+
+### Test with a single file
+
+Before syncing a folder, test with explicit file sync on a single file:
+
+```ts
+const stream = dropboxConnector.streamFiles({
+  auth,
+  fileIds: ["id:known-file-id"],
+});
+
+const result = await engine.runConnectorStream({ stream });
+console.log(result);
+```
+
+### Verify auth independently
+
+Test that authentication works before involving the connector:
+
+```ts
+import { createDropboxClient } from "@unrag/connectors/dropbox";
+
+const { fetch: dbxFetch } = await createDropboxClient({ auth });
+
+// Try a simple API call
+const res = await dbxFetch("https://api.dropboxapi.com/2/users/get_current_account", {
+  method: "POST",
+});
+
+if (res.ok) {
+  const account = await res.json();
+  console.log("Authenticated as:", account.email);
+} else {
+  console.error("Auth failed:", await res.text());
+}
+```
+
+### Check if a path exists
+
+To verify a folder path exists:
+
+```ts
+const { fetch: dbxFetch } = await createDropboxClient({ auth });
+
+const res = await dbxFetch("https://api.dropboxapi.com/2/files/get_metadata", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ path: "/Documents/Knowledge Base" }),
+});
+
+if (res.ok) {
+  const metadata = await res.json();
+  console.log("Folder exists:", metadata);
+} else {
+  console.error("Folder not found:", await res.text());
+}
+```
+
+### List folder contents manually
+
+To see what's in a folder before syncing:
+
+```ts
+const { fetch: dbxFetch } = await createDropboxClient({ auth });
+
+const res = await dbxFetch("https://api.dropboxapi.com/2/files/list_folder", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ path: "/Documents", recursive: false }),
+});
+
+if (res.ok) {
+  const data = await res.json();
+  console.log(`Found ${data.entries.length} items`);
+  data.entries.forEach((e: any) => {
+    console.log(`  ${e[".tag"]}: ${e.name}`);
+  });
+}
+```

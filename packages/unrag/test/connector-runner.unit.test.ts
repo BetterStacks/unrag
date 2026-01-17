@@ -1,5 +1,10 @@
 import {describe, expect, test} from 'bun:test'
 import {runConnectorStream} from '@registry/core/connectors'
+import type {
+	ConnectorRunnerEngine,
+	ConnectorStream
+} from '@registry/core/connectors'
+import type {DeleteInput, IngestInput} from '@registry/core/types'
 
 describe('connector runner', () => {
 	test('applies upserts/deletes and tracks checkpoints', async () => {
@@ -8,12 +13,8 @@ describe('connector runner', () => {
 		const events: unknown[] = []
 		const checkpoints: unknown[] = []
 
-		const engine = {
-			ingest: async (input: {
-				sourceId: string
-				content: string
-				metadata?: Record<string, unknown>
-			}) => {
+		const engine: ConnectorRunnerEngine = {
+			ingest: async (input: IngestInput) => {
 				ingests.push(input)
 				return {
 					documentId: 'doc-1',
@@ -28,23 +29,35 @@ describe('connector runner', () => {
 					}
 				}
 			},
-			delete: async (input: {sourceId: string}) => {
+			delete: async (input: DeleteInput) => {
 				deletes.push(input)
 			}
 		}
 
-		async function* stream() {
-			yield {type: 'upsert', input: {sourceId: 'doc:a', content: 'hello'}}
+		const stream = (async function* (): ConnectorStream<{index: number}> {
+			yield {
+				type: 'upsert',
+				input: {
+					sourceId: 'doc:a',
+					content: 'hello',
+					metadata: {},
+					assets: []
+				}
+			}
 			yield {type: 'checkpoint', checkpoint: {index: 1}}
 			yield {type: 'warning', code: 'warn', message: 'note'}
 			yield {type: 'delete', input: {sourceId: 'doc:a'}}
-		}
+		})()
 
 		const result = await runConnectorStream({
 			engine,
-			stream: stream(),
-			onEvent: (event) => events.push(event),
-			onCheckpoint: (checkpoint) => checkpoints.push(checkpoint)
+			stream,
+			onEvent: (event) => {
+				events.push(event)
+			},
+			onCheckpoint: (checkpoint) => {
+				checkpoints.push(checkpoint)
+			}
 		})
 
 		expect(ingests.length).toBe(1)

@@ -6,6 +6,7 @@
 		"dev": "next dev",
 		"build": "next build",
 		"start": "next start",
+		"types:check": "tsc --noEmit",
 		"lint": "biome check .",
 		"db:push": "npx drizzle-kit push",
 		"seed": "tsx scripts/seed.ts",

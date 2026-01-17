@@ -7,7 +7,10 @@ import {
 	classifyDriveMimeType,
 	getNativeExportPlan
 } from '@registry/connectors/google-drive/mime'
-import {buildGoogleDriveFileIngestInput} from '@registry/connectors/google-drive/sync'
+import {
+	buildGoogleDriveFileIngestInput,
+	buildGoogleDriveFolderSourceId
+} from '@registry/connectors/google-drive/sync'
 import type {GoogleDriveAuth} from '@registry/connectors/google-drive/types'
 
 describe('google-drive connector: mime routing', () => {
@@ -82,6 +85,24 @@ describe('google-drive connector: sourceId prefixing', () => {
 				content: 'x'
 			}).sourceId
 		).toBe('gdrive:file:abc')
+	})
+
+	test('buildGoogleDriveFolderSourceId scopes sourceId to folder', () => {
+		expect(
+			buildGoogleDriveFolderSourceId(
+				'tenant:acme:',
+				'folder123',
+				'file456'
+			)
+		).toBe('tenant:acme:gdrive:folder:folder123:file:file456')
+
+		expect(
+			buildGoogleDriveFolderSourceId(
+				'tenant:acme',
+				'folder123',
+				'file456'
+			)
+		).toBe('tenant:acme:gdrive:folder:folder123:file:file456')
 	})
 })
 

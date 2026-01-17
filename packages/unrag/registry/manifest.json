@@ -276,6 +276,55 @@
 			]
 		},
 		{
+			"id": "onedrive",
+			"displayName": "OneDrive",
+			"types": ["files", "docs"],
+			"description": "Sync files and folders from Microsoft OneDrive",
+			"status": "available",
+			"docsPath": "/docs/connectors/onedrive",
+			"deps": {},
+			"devDeps": {},
+			"envVars": [
+				{
+					"name": "AZURE_TENANT_ID",
+					"required": false,
+					"notes": "Azure AD tenant for OneDrive OAuth."
+				},
+				{
+					"name": "AZURE_CLIENT_ID",
+					"required": false,
+					"notes": "Azure AD app client ID."
+				},
+				{
+					"name": "AZURE_CLIENT_SECRET",
+					"required": false,
+					"notes": "Azure AD app client secret."
+				}
+			]
+		},
+		{
+			"id": "dropbox",
+			"displayName": "Dropbox",
+			"types": ["files", "docs"],
+			"description": "Sync files and folders from Dropbox",
+			"status": "available",
+			"docsPath": "/docs/connectors/dropbox",
+			"deps": {},
+			"devDeps": {},
+			"envVars": [
+				{
+					"name": "DROPBOX_CLIENT_ID",
+					"required": false,
+					"notes": "Dropbox app client ID."
+				},
+				{
+					"name": "DROPBOX_CLIENT_SECRET",
+					"required": false,
+					"notes": "Dropbox app client secret."
+				}
+			]
+		},
+		{
 			"id": "github",
 			"displayName": "GitHub",
 			"types": ["code", "docs"],
@@ -320,26 +369,6 @@
 			"displayName": "Linear",
 			"types": ["issues", "project"],
 			"description": "Ingest issues and project updates for internal knowledge",
-			"status": "coming-soon",
-			"docsPath": null,
-			"deps": {},
-			"devDeps": {}
-		},
-		{
-			"id": "dropbox",
-			"displayName": "Dropbox",
-			"types": ["files"],
-			"description": "Ingest shared folders and exported docs/files",
-			"status": "coming-soon",
-			"docsPath": null,
-			"deps": {},
-			"devDeps": {}
-		},
-		{
-			"id": "onedrive",
-			"displayName": "OneDrive",
-			"types": ["files"],
-			"description": "Ingest files and Office exports from Microsoft 365",
 			"status": "coming-soon",
 			"docsPath": null,
 			"deps": {},

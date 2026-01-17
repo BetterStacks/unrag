@@ -141,7 +141,7 @@ export function depsForAdapter(adapter: 'drizzle' | 'prisma' | 'raw-sql') {
 	return {deps, devDeps}
 }
 
-export type ConnectorName = 'notion' | 'google-drive'
+export type ConnectorName = 'notion' | 'google-drive' | 'onedrive' | 'dropbox'
 
 export function depsForConnector(connector: ConnectorName) {
 	const deps: Record<string, string> = {}

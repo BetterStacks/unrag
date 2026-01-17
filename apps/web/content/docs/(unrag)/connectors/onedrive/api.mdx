@@ -1,0 +1,462 @@
+---
+title: API
+description: Method reference for the vendored OneDrive connector module.
+---
+
+The connector ships as vendored code inside your Unrag install directory at `<installDir>/connectors/onedrive/**`. In application code you typically import from your alias base:
+
+```ts
+import { oneDriveConnector } from "@unrag/connectors/onedrive";
+```
+
+## Primary API
+
+The connector exposes two main entry points: `streamFolder` for syncing everything in a folder with incremental updates, and `streamFiles` for syncing specific file IDs.
+
+### `oneDriveConnector.streamFolder(input)`
+
+Syncs all files within a OneDrive or SharePoint folder, using Microsoft Graph's delta API to track modifications since the last sync. Returns an async iterable that yields connector events—upserts, warnings, progress updates, and checkpoints.
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth: {
+    kind: "delegated_refresh_token",
+    tenantId: process.env.AZURE_TENANT_ID!,
+    clientId: process.env.AZURE_CLIENT_ID!,
+    clientSecret: process.env.AZURE_CLIENT_SECRET!,
+    refreshToken: userRefreshToken,
+  },
+  drive: { kind: "me" },
+  folder: { path: "/Documents/Knowledge Base" },
+  options: {
+    recursive: true,
+    deleteOnRemoved: true,
+  },
+  checkpoint: lastCheckpoint,
+});
+
+const result = await engine.runConnectorStream({
+  stream,
+  onCheckpoint: saveCheckpoint,
+});
+```
+
+The runner applies each event to your engine and returns a summary:
+
+<TypeTable
+  type={{
+    upserts: {
+      description: 'Number of files successfully ingested.',
+      type: 'number',
+    },
+    deletes: {
+      description: 'Number of documents deleted (when deleteOnRemoved is enabled).',
+      type: 'number',
+    },
+    warnings: {
+      description: 'Number of warning events (failed files, skipped files, etc.).',
+      type: 'number',
+    },
+    lastCheckpoint: {
+      description: 'The final checkpoint emitted by the stream, if any.',
+      type: 'OneDriveFolderCheckpoint | undefined',
+    },
+  }}
+/>
+
+#### streamFolder input
+
+<TypeTable
+  type={{
+    auth: {
+      description: 'An OneDriveAuth object describing how to authenticate. See Auth patterns below.',
+      type: 'OneDriveAuth',
+    },
+    drive: {
+      description: 'Which drive to access: the current user ("me"), a specific user, or a specific drive ID.',
+      type: 'OneDriveDriveSelector',
+    },
+    folder: {
+      description: 'The folder to sync, specified by path or item ID. Defaults to root if not provided.',
+      type: '{ path?: string; id?: string }',
+      default: 'root',
+    },
+    sourceIdPrefix: {
+      description: 'Prepends a namespace to every sourceId. Useful for multi-tenant apps.',
+      type: 'string',
+      default: 'undefined',
+    },
+    checkpoint: {
+      description: 'Optional checkpoint to resume from. Contains the delta link for incremental syncs.',
+      type: 'OneDriveFolderCheckpoint',
+      default: 'undefined',
+    },
+    options: {
+      description: 'Folder sync configuration including recursive, deleteOnRemoved, and maxBytesPerFile.',
+      type: 'StreamOneDriveFolderOptions',
+      default: 'undefined',
+    },
+  }}
+/>
+
+#### streamFolder options
+
+<TypeTable
+  type={{
+    recursive: {
+      description: 'Include files in subfolders, not just direct children.',
+      type: 'boolean',
+      default: 'true',
+    },
+    deleteOnRemoved: {
+      description: 'Emit delete events when files are removed from the folder, trashed, or moved out of scope.',
+      type: 'boolean',
+      default: 'false',
+    },
+    maxBytesPerFile: {
+      description: 'Skip files larger than this size in bytes.',
+      type: 'number',
+      default: '15 * 1024 * 1024 (15 MB)',
+    },
+  }}
+/>
+
+The folder sync uses a checkpoint structure containing the delta link:
+
+```ts
+type OneDriveFolderCheckpoint = {
+  deltaLink?: string;   // For resuming incremental sync
+  nextLink?: string;    // For resuming mid-page
+  driveId: string;      // The drive being synced
+  folderId: string;     // The folder being synced
+};
+```
+
+On the first run, the connector calls the delta API to get all items in the folder, then captures the delta link. On subsequent runs with a checkpoint, it fetches only changes since that link was issued.
+
+### `oneDriveConnector.streamFiles(input)`
+
+Syncs a list of specific OneDrive files by their item IDs. Useful when you know exactly which files to sync.
+
+```ts
+const stream = oneDriveConnector.streamFiles({
+  auth: {
+    kind: "delegated_access_token",
+    accessToken: currentAccessToken,
+  },
+  fileIds: ["01ABCDEF123456", "01ABCDEF789012"],
+  sourceIdPrefix: "tenant:acme:",
+});
+
+const result = await engine.runConnectorStream({ stream });
+```
+
+#### streamFiles input
+
+<TypeTable
+  type={{
+    auth: {
+      description: 'An OneDriveAuth object describing how to authenticate.',
+      type: 'OneDriveAuth',
+    },
+    fileIds: {
+      description: 'Array of OneDrive item IDs. The connector fetches metadata and content for each file.',
+      type: 'string[]',
+    },
+    sourceIdPrefix: {
+      description: 'Prepends a namespace to every sourceId.',
+      type: 'string',
+      default: 'undefined',
+    },
+    deleteOnNotFound: {
+      description: 'Delete the previously ingested document if a file is not found or inaccessible.',
+      type: 'boolean',
+      default: 'false',
+    },
+    checkpoint: {
+      description: 'Optional checkpoint to resume from (index-based for file lists).',
+      type: 'OneDriveFilesCheckpoint',
+      default: 'undefined',
+    },
+    options: {
+      description: 'Additional configuration for connector behavior.',
+      type: 'StreamOneDriveFilesOptions',
+      default: 'undefined',
+    },
+  }}
+/>
+
+## Auth patterns
+
+The `OneDriveAuth` type supports three authentication approaches:
+
+| Auth Kind | Use Case |
+|-----------|----------|
+| `delegated_access_token` | When you have a current access token from your OAuth flow |
+| `delegated_refresh_token` | When you have a refresh token and want the connector to handle token refresh |
+| `app_client_credentials` | For server-to-server access without user involvement |
+
+### Delegated access token
+
+The simplest form—pass an access token you already have:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth: {
+    kind: "delegated_access_token",
+    accessToken: currentAccessToken,
+  },
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+You're responsible for token refresh. If the token expires during sync, the connector will fail with a 401 error.
+
+### Delegated refresh token
+
+For long-running syncs or background jobs, provide a refresh token:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth: {
+    kind: "delegated_refresh_token",
+    tenantId: process.env.AZURE_TENANT_ID!,
+    clientId: process.env.AZURE_CLIENT_ID!,
+    clientSecret: process.env.AZURE_CLIENT_SECRET!,
+    refreshToken: userRefreshToken,
+  },
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+The connector exchanges the refresh token for a fresh access token before making API calls. This is the recommended pattern for production use with delegated permissions.
+
+### App-only (client credentials)
+
+For server-to-server access without user involvement:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth: {
+    kind: "app_client_credentials",
+    tenantId: process.env.AZURE_TENANT_ID!,
+    clientId: process.env.AZURE_CLIENT_ID!,
+    clientSecret: process.env.AZURE_CLIENT_SECRET!,
+  },
+  drive: { kind: "user", userId: "user@company.com" },
+  folder: { path: "/Documents" },
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+With app-only access, you must specify which user's drive to access—`{ kind: "me" }` doesn't work because there's no user context.
+
+## Drive selectors
+
+The `drive` parameter specifies which drive to access:
+
+```ts
+// Current user's OneDrive (delegated auth only)
+drive: { kind: "me" }
+
+// A specific user's OneDrive (by UPN or user ID)
+drive: { kind: "user", userId: "jane@company.com" }
+
+// A specific drive by ID (SharePoint document libraries, etc.)
+drive: { kind: "drive", driveId: "b!abc123..." }
+```
+
+For SharePoint document libraries, use `{ kind: "drive", driveId: "..." }` where the drive ID can be obtained from the SharePoint site's drives list via Graph API.
+
+## Consuming the stream
+
+The recommended way to consume a connector stream is via `engine.runConnectorStream(...)`, which handles all event types automatically:
+
+```ts
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    // Called for every event (progress, warning, upsert, delete, checkpoint)
+    console.log(event.type, event);
+  },
+  onCheckpoint: async (checkpoint) => {
+    // Called specifically for checkpoint events
+    await persistCheckpoint(checkpoint);
+  },
+  signal: abortController.signal, // Optional: abort early
+});
+```
+
+## Utilities
+
+### `createOneDriveClient({ auth })`
+
+Creates a OneDrive API client from auth credentials. Returns `{ fetch }` where `fetch` is a pre-configured fetch function that handles authentication headers.
+
+Most users don't need this unless they want to make custom Graph API calls:
+
+```ts
+import { createOneDriveClient } from "@unrag/connectors/onedrive";
+
+const { fetch: graphFetch } = await createOneDriveClient({
+  auth: {
+    kind: "delegated_refresh_token",
+    tenantId: process.env.AZURE_TENANT_ID!,
+    clientId: process.env.AZURE_CLIENT_ID!,
+    clientSecret: process.env.AZURE_CLIENT_SECRET!,
+    refreshToken: userRefreshToken,
+  },
+});
+
+// Now you can make direct Graph API calls
+const res = await graphFetch("https://graph.microsoft.com/v1.0/me/drive/root/children");
+const data = await res.json();
+```
+
+### `buildOneDriveSourceId(args)`
+
+A helper for constructing OneDrive sourceIds:
+
+```ts
+import { buildOneDriveSourceId } from "@unrag/connectors/onedrive";
+
+const sourceId = buildOneDriveSourceId({
+  driveId: "drive123",
+  itemId: "item456",
+  sourceIdPrefix: "tenant:acme:",
+});
+
+// sourceId === "tenant:acme:onedrive:item:drive123:item456"
+```
+
+## Stable source IDs
+
+The connector uses stable schemes for `sourceId` values:
+
+- Without a prefix: `onedrive:item:<driveId>:<itemId>`
+- With `sourceIdPrefix`: `<prefix>onedrive:item:<driveId>:<itemId>`
+
+This scheme is stable across file renames and moves within the same drive, enabling safe re-runs and clean deletion.
+
+## Event types
+
+The stream yields various event types that you can observe via `onEvent`:
+
+| Event Type | Description |
+|------------|-------------|
+| `progress` (file:start) | Processing begins for a file |
+| `progress` (file:success) | File successfully ingested |
+| `progress` (delta:page) | Folder sync: processed a page of delta results |
+| `warning` (file_not_found) | File not found or inaccessible |
+| `warning` (file_skipped) | File skipped due to folder type, size limit, etc. |
+| `warning` (file_error) | File processing failed with an error |
+| `upsert` | Document ready for ingestion |
+| `delete` | Document should be deleted |
+| `checkpoint` | Resumable position marker |
+
+---
+
+## Examples
+
+### Folder sync with automatic cleanup
+
+This example syncs a folder and removes documents when files are deleted:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { oneDriveConnector } from "@unrag/connectors/onedrive";
+
+const engine = createUnragEngine();
+
+async function syncUserDocuments(tenantId: string, refreshToken: string) {
+  const checkpoint = await loadCheckpoint(`onedrive:${tenantId}`);
+
+  const stream = oneDriveConnector.streamFolder({
+    auth: {
+      kind: "delegated_refresh_token",
+      tenantId: process.env.AZURE_TENANT_ID!,
+      clientId: process.env.AZURE_CLIENT_ID!,
+      clientSecret: process.env.AZURE_CLIENT_SECRET!,
+      refreshToken,
+    },
+    drive: { kind: "me" },
+    folder: { path: "/Documents" },
+    sourceIdPrefix: `tenant:${tenantId}:`,
+    options: {
+      recursive: true,
+      deleteOnRemoved: true,
+    },
+    checkpoint,
+  });
+
+  const result = await engine.runConnectorStream({
+    stream,
+    onCheckpoint: async (cp) => {
+      await saveCheckpoint(`onedrive:${tenantId}`, cp);
+    },
+  });
+
+  console.log(`Synced: ${result.upserts} upserts, ${result.deletes} deletes`);
+  return result;
+}
+```
+
+### Multi-tenant sync with app-only access
+
+For SaaS apps syncing across multiple users in an organization:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { oneDriveConnector } from "@unrag/connectors/onedrive";
+
+export async function syncOrgUserDocuments(userId: string, tenantId: string) {
+  const engine = createUnragEngine();
+  const checkpoint = await loadCheckpoint(`org:${tenantId}:user:${userId}`);
+
+  const stream = oneDriveConnector.streamFolder({
+    auth: {
+      kind: "app_client_credentials",
+      tenantId: process.env.AZURE_TENANT_ID!,
+      clientId: process.env.AZURE_CLIENT_ID!,
+      clientSecret: process.env.AZURE_CLIENT_SECRET!,
+    },
+    drive: { kind: "user", userId },
+    folder: { path: "/Documents/Shared Knowledge" },
+    sourceIdPrefix: `org:${tenantId}:`,
+    checkpoint,
+  });
+
+  return await engine.runConnectorStream({
+    stream,
+    onCheckpoint: async (cp) => {
+      await saveCheckpoint(`org:${tenantId}:user:${userId}`, cp);
+    },
+  });
+}
+```
+
+### Logging progress during sync
+
+```ts
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "progress" && event.message === "file:success") {
+      console.log(`✓ Synced ${event.entityId}`);
+    } else if (event.type === "warning") {
+      console.warn(`⚠ [${event.code}] ${event.message}`);
+    } else if (event.type === "delete") {
+      console.log(`🗑 Deleted ${event.input.sourceId}`);
+    }
+  },
+});
+
+console.log(`Done: ${result.upserts} synced, ${result.deletes} deleted, ${result.warnings} warnings`);
+```

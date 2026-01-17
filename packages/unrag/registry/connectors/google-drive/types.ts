@@ -98,6 +98,21 @@ export type GoogleDriveCheckpoint = {
 	fileId?: string
 }
 
+/**
+ * Checkpoint for folder-based Google Drive sync using Changes API.
+ */
+export type GoogleDriveFolderCheckpoint = {
+	/**
+	 * Page token for the Drive Changes API. On first run this is the
+	 * startPageToken; subsequent runs use the last saved token.
+	 */
+	pageToken: string
+	/** Folder being synced (for sanity checks). */
+	folderId: string
+	/** Optional driveId for shared drives. */
+	driveId?: string
+}
+
 export type GoogleDriveFileDocument = {
 	sourceId: string
 	content: string
@@ -137,6 +152,23 @@ export type StreamGoogleDriveFilesInput = {
 	checkpoint?: GoogleDriveCheckpoint
 }
 
+export type StreamGoogleDriveFolderInput = {
+	auth: GoogleDriveAuth
+	/** Folder ID to sync from (required). */
+	folderId: string
+	/**
+	 * Optional namespace prefix, useful for multi-tenant apps:
+	 * `tenant:acme:` -> `tenant:acme:gdrive:folder:<folderId>:file:<id>`
+	 */
+	sourceIdPrefix?: string
+	/** Optional connector-level knobs. */
+	options?: StreamGoogleDriveFolderOptions
+	/**
+	 * Optional checkpoint to resume from.
+	 */
+	checkpoint?: GoogleDriveFolderCheckpoint
+}
+
 export type StreamGoogleDriveFilesOptions = {
 	/** Max bytes to download/export per file. Default: 15MB. */
 	maxBytesPerFile?: number
@@ -151,6 +183,34 @@ export type StreamGoogleDriveFilesOptions = {
 	 * Default: false (best-effort fallback).
 	 */
 	strictNativeExport?: boolean
+	/** Override Drive API scopes if desired. */
+	scopes?: string[]
+}
+
+export type StreamGoogleDriveFolderOptions = {
+	/** Max bytes to download/export per file. Default: 15MB. */
+	maxBytesPerFile?: number
+	/**
+	 * If true, failures to export Google-native files (e.g., Slides -> text)
+	 * will cause the file to be skipped instead of falling back to a binary export.
+	 * Default: false (best-effort fallback).
+	 */
+	strictNativeExport?: boolean
+	/**
+	 * If true, treat 403 (forbidden) responses as not-found for cleanup purposes.
+	 * Default: true.
+	 */
+	treatForbiddenAsNotFound?: boolean
+	/** Whether to include nested folders. Default: true. */
+	recursive?: boolean
+	/** Emit delete events when items are removed or moved out. Default: false. */
+	deleteOnRemoved?: boolean
+	/** Drive Changes API options for shared drives. */
+	driveId?: string
+	supportsAllDrives?: boolean
+	includeItemsFromAllDrives?: boolean
+	/** Page size for Changes API. */
+	pageSize?: number
 	/** Override Drive API scopes if desired. */
 	scopes?: string[]
 }

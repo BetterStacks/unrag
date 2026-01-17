@@ -181,6 +181,14 @@ function ThemeIcon({
 	const Light = icon.light
 	const Dark = icon.dark
 
+	// If the icon is monochrome (same component for light/dark), render only once.
+	// Some SVGs rely on <defs> with IDs (clipPath/mask/gradient). Rendering two copies
+	// in the same document can cause ID collisions and make the icon disappear in
+	// one of the themes.
+	if (Light === Dark) {
+		return <Light {...props} className={className} />
+	}
+
 	return (
 		<>
 			<Light {...props} className={cn(className, 'dark:hidden')} />
@@ -1602,7 +1610,7 @@ export default function InstallWizardClient() {
 					manifest={manifest}
 				/>
 			) : null}
-			<header className="sticky top-0 z-50 border-b border-olive-950/10 bg-lemon-50/80 backdrop-blur-xl dark:border-[#757572]/20 dark:bg-lemon-950/80">
+			<header className="sticky top-0 z-40 border-b border-olive-950/10 bg-lemon-50/80 backdrop-blur-xl dark:border-[#757572]/20 dark:bg-lemon-950/80">
 				<div className="max-w-[1600px] mx-auto px-6 min-h-14 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:py-0">
 					<div className="flex flex-wrap items-center gap-4">
 						<Link
@@ -2680,24 +2688,24 @@ export default function InstallWizardClient() {
 																	isOpen
 																}
 															>
-																<div className="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center text-white/40">
+																<div className="w-6 h-6 rounded-md bg-olive-950/[0.04] dark:bg-white/5 flex items-center justify-center text-olive-700 dark:text-white/40">
 																	{EXTRACTOR_ICONS[
 																		group.toLowerCase()
 																	] ?? (
 																		<FileText className="w-3.5 h-3.5" />
 																	)}
 																</div>
-																<span className="text-sm font-medium text-white/60">
+																<span className="text-sm font-medium text-olive-950/90 dark:text-white/60">
 																	{group}
 																</span>
-																<span className="text-xs text-white/30">
+																<span className="text-xs text-olive-600 dark:text-white/30">
 																	(
 																	{exs.length}
 																	)
 																</span>
 																<ChevronDown
 																	className={cn(
-																		'w-4 h-4 ml-auto text-white/35 transition-transform duration-200',
+																		'w-4 h-4 ml-auto text-olive-700 dark:text-white/35 transition-transform duration-200',
 																		isOpen &&
 																			'rotate-180'
 																	)}

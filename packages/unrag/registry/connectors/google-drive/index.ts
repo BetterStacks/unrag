@@ -1,6 +1,7 @@
 export {createGoogleDriveClient} from '@registry/connectors/google-drive/client'
 export {
 	loadGoogleDriveFileDocument,
+	streamFolder,
 	streamFiles,
 	googleDriveConnector,
 	buildGoogleDriveFileIngestInput

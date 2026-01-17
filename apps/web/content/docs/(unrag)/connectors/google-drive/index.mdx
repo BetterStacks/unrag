@@ -1,11 +1,11 @@
 ---
 title: Google Drive Connector
-description: Ingest specific Google Drive files into Unrag by file ID with support for OAuth and service accounts.
+description: Ingest Google Drive files into Unrag by file ID or by syncing entire folders with incremental updates.
 ---
 
 The Google Drive connector installs a small, vendored module into your project that fetches files from Google Drive and ingests them into your Unrag store.
 
-This connector follows the same philosophy as the Notion connector: you decide exactly which files matter by passing their file IDs, and Unrag ingests those files into your existing vector tables. The goal is to make sync predictable, safe to run repeatedly, and idempotent.
+This connector supports two sync modes. The first is **explicit file sync**, where you pass specific file IDs and the connector fetches those files directly—predictable, safe to run repeatedly, and idempotent. The second is **folder sync**, where you point the connector at a folder and it syncs everything inside, using Google's Changes API to track what's new or deleted since the last run. Choose the mode that fits your use case.
 
 ## Authentication models
 
@@ -56,22 +56,6 @@ For the official references, see:
 - [Create and manage service account keys](https://cloud.google.com/iam/docs/keys-create-delete)
 - [Delegate domain-wide authority to a service account](https://developers.google.com/identity/protocols/oauth2/service-account#delegatingauthority)
 
-### Choosing which files to ingest
-
-You pass file IDs to the connector—not URLs or file paths. You can find a file's ID in its Google Drive URL:
-
-```
-https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs/view
-                               ↑ this is the file ID
-```
-
-For Google-native files (Docs, Sheets, Slides), the ID is in the URL similarly:
-
-```
-https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs/edit
-                                   ↑ file ID
-```
-
 ## Installing the connector
 
 From your project root (where `unrag.json` exists), run:
@@ -86,41 +70,43 @@ This installs the connector source files into your Unrag install directory—so 
 
 It also adds the `googleapis` and `google-auth-library` dependencies to your project.
 
-## Quickstart with OAuth2
+## Sync modes
 
-If your app has users connecting their own Google accounts:
+The connector offers two distinct ways to sync content: explicit file IDs or folder-based sync. Understanding which one to use is important because they serve different purposes and have different tradeoffs.
+
+### Explicit file sync (streamFiles)
+
+When you know exactly which files you want to sync, pass their IDs directly. The connector fetches each file, handles format conversion, and emits events for ingestion.
+
+This mode is ideal when:
+
+- Users select specific files to sync through a UI
+- You maintain a curated list of "important" documents
+- You want fine-grained control over what gets ingested
+
+The `sourceId` for each file follows the pattern `gdrive:file:<fileId>`, making re-runs idempotent—same file, same document in your store.
+
+### Folder sync (streamFolder)
+
+When you want to sync everything in a folder (and optionally its subfolders), use folder sync. The connector uses Google's Changes API to track modifications since the last sync, so subsequent runs only process what's changed.
+
+This mode is ideal when:
+
+- Users connect a "knowledge base" folder and expect new files to sync automatically
+- You want incremental updates without tracking individual file IDs
+- You need to detect when files are deleted or moved out of the folder
+
+The `sourceId` for folder sync uses a scoped pattern: `gdrive:folder:<folderId>:file:<fileId>`. This keeps folder-synced content separate from explicitly-synced files, even if they happen to be the same underlying Drive file.
+
+## Quickstart: sync specific files
+
+If you have a list of file IDs to sync:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
 import { googleDriveConnector } from "@unrag/connectors/google-drive";
 
-export async function syncUserDriveFiles(userRefreshToken: string, fileIds: string[]) {
-  const engine = createUnragEngine();
-
-  const stream = googleDriveConnector.streamFiles({
-    auth: {
-      kind: "oauth",
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      redirectUri: process.env.GOOGLE_REDIRECT_URI!,
-      refreshToken: userRefreshToken,
-    },
-    fileIds,
-  });
-
-  return await engine.runConnectorStream({ stream });
-}
-```
-
-## Quickstart with service account
-
-For server-to-server access where files are shared with the service account:
-
-```ts
-import { createUnragEngine } from "@unrag/config";
-import { googleDriveConnector } from "@unrag/connectors/google-drive";
-
-export async function syncSharedDriveFiles(fileIds: string[]) {
+export async function syncDriveFiles(fileIds: string[]) {
   const engine = createUnragEngine();
 
   const stream = googleDriveConnector.streamFiles({
@@ -133,6 +119,84 @@ export async function syncSharedDriveFiles(fileIds: string[]) {
 
   return await engine.runConnectorStream({ stream });
 }
+```
+
+You can find a file's ID in its Google Drive URL:
+
+```
+https://drive.google.com/file/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs/view
+                               ↑ this is the file ID
+```
+
+For Google-native files (Docs, Sheets, Slides), the ID is in the URL similarly:
+
+```
+https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs/edit
+                                   ↑ file ID
+```
+
+## Quickstart: sync a folder
+
+If you want to sync everything in a folder with incremental updates:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { googleDriveConnector } from "@unrag/connectors/google-drive";
+
+export async function syncDriveFolder(folderId: string) {
+  const engine = createUnragEngine();
+  const lastCheckpoint = await loadCheckpoint("drive-folder-sync");
+
+  const stream = googleDriveConnector.streamFolder({
+    auth: {
+      kind: "service_account",
+      credentialsJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON!,
+    },
+    folderId,
+    options: {
+      recursive: true,
+      deleteOnRemoved: true, // Remove docs when files leave the folder
+    },
+    checkpoint: lastCheckpoint,
+  });
+
+  const result = await engine.runConnectorStream({
+    stream,
+    onCheckpoint: async (checkpoint) => {
+      await saveCheckpoint("drive-folder-sync", checkpoint);
+    },
+  });
+
+  return result;
+}
+```
+
+The first run fetches a starting page token from the Changes API and processes all files currently in the folder. Subsequent runs use the checkpoint to fetch only changes since then—new files, modified files, and deletions.
+
+You can find a folder's ID in its URL:
+
+```
+https://drive.google.com/drive/folders/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs
+                                        ↑ this is the folder ID
+```
+
+## OAuth2 authentication
+
+If your app has users connecting their own Google accounts:
+
+```ts
+const stream = googleDriveConnector.streamFiles({
+  auth: {
+    kind: "oauth",
+    clientId: process.env.GOOGLE_CLIENT_ID!,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    redirectUri: process.env.GOOGLE_REDIRECT_URI!,
+    refreshToken: userRefreshToken,
+  },
+  fileIds,
+});
+
+await engine.runConnectorStream({ stream });
 ```
 
 ### With Workspace domain-wide delegation
@@ -170,8 +234,6 @@ Each file becomes one logical document in your store. The connector handles diff
 
 The connector attaches metadata including the `connector` name (`"google-drive"`), `kind`, `fileId`, `name`, `mimeType`, `modifiedTime`, and available Drive links.
 
-The `sourceId` is stable by file ID (`gdrive:file:<fileId>`), so repeated runs update the same logical document rather than creating duplicates.
-
 ## Observability and progress tracking
 
 The streaming model makes it easy to track progress and log what's happening:
@@ -202,7 +264,7 @@ console.log(`Done: ${result.upserts} synced, ${result.warnings} warnings`);
 
 ## Resumable syncs with checkpoints
 
-For large file lists or serverless environments with timeouts, persist checkpoints to resume interrupted syncs:
+For large syncs or serverless environments with timeouts, persist checkpoints to resume interrupted syncs:
 
 ```ts
 import { createUnragEngine } from "@unrag/config";
@@ -231,6 +293,8 @@ export async function syncDriveResumable(tenantId: string, fileIds: string[]) {
   return result;
 }
 ```
+
+For folder sync, checkpoints are even more important because they store the Changes API page token. Without a checkpoint, each run would process all files from scratch rather than just the changes.
 
 ## Where to go next
 

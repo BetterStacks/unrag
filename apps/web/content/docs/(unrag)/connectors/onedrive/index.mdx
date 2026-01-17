@@ -1,0 +1,305 @@
+---
+title: OneDrive Connector
+description: Ingest files from OneDrive and SharePoint into Unrag with incremental folder sync or explicit file IDs.
+---
+
+The OneDrive connector installs a small, vendored module into your project that fetches files from Microsoft OneDrive (personal or business) and SharePoint document libraries, then ingests them into your Unrag store.
+
+This connector supports two sync modes. The first is **folder sync**, where you point the connector at a folder and it syncs everything inside using Microsoft Graph's delta API for incremental updates—only processing files that have changed since the last run. The second is **explicit file sync**, where you pass specific file IDs (called "drive item IDs" in OneDrive parlance) and the connector fetches those files directly. Choose the mode that fits your use case.
+
+## Authentication models
+
+Microsoft Graph supports multiple authentication approaches, and the connector supports three that cover the most common scenarios.
+
+**Delegated tokens** are what you use when users sign into your app and grant access to their OneDrive. You get an access token (and often a refresh token) from the OAuth flow, and the connector accesses files as that user. This is the right choice for consumer apps or any situation where users control which files they share.
+
+**App-only (client credentials)** are for server-to-server access without user involvement. You register an app in Azure AD with application permissions, and the app can access files across the organization. This requires admin consent and is ideal for org-wide ingestion, automated backups, or internal tools.
+
+**Delegated refresh tokens** combine user-level access with long-lived credentials. The user authorizes once, you store their refresh token, and the connector exchanges it for fresh access tokens as needed. This is common for SaaS apps where users connect their accounts but don't sign in for every sync.
+
+The connector doesn't force you to choose upfront. You pass an `auth` object that describes how you want to authenticate, and the connector handles the rest.
+
+## Setting up Azure AD access
+
+Before using the connector, you need an Azure AD app registration with the appropriate permissions.
+
+### Creating an Azure AD app registration
+
+Go to the [Azure Portal](https://portal.azure.com/), navigate to **Azure Active Directory → App registrations**, and create a new registration. Choose the appropriate account type based on who will use your app (single tenant, multi-tenant, or personal accounts).
+
+Under **API permissions**, add the Microsoft Graph permissions you need:
+
+- `Files.Read.All` for reading files
+- `Sites.Read.All` for SharePoint access (if needed)
+
+For delegated access, these are delegated permissions. For app-only access, add them as application permissions and have an admin grant consent.
+
+### Setting up OAuth for delegated access
+
+If your app has users sign in with their Microsoft accounts, create a client secret under **Certificates & secrets**. Configure redirect URIs under **Authentication**.
+
+You'll get a client ID and can create a client secret. Store these securely:
+
+```bash
+AZURE_CLIENT_ID="your-app-client-id"
+AZURE_CLIENT_SECRET="your-client-secret"
+AZURE_TENANT_ID="your-tenant-id"
+```
+
+After the user completes the OAuth flow, you'll have tokens that the connector uses to access their files.
+
+### Setting up app-only access
+
+For server-to-server access, use the client credentials flow. Add `Files.Read.All` as an application permission (not delegated), and have an admin grant consent.
+
+With app-only access, your application can access files across the organization without user interaction—but this requires careful security consideration.
+
+## Installing the connector
+
+From your project root (where `unrag.json` exists), run:
+
+```bash
+bunx unrag@latest add onedrive
+```
+
+This installs the connector source files into your Unrag install directory—so you can read and change them like any other code:
+
+- `lib/unrag/connectors/onedrive/**` (or your chosen `--dir`)
+
+The connector uses native `fetch` for HTTP requests, so there are no additional npm dependencies to install.
+
+## Sync modes
+
+The connector offers two distinct ways to sync content: folder-based sync with incremental updates, or explicit file IDs. Understanding which one to use is important because they serve different purposes.
+
+### Folder sync (streamFolder)
+
+When you want to sync everything in a folder (and optionally its subfolders), use folder sync. The connector uses Microsoft Graph's delta API to track modifications since the last sync, so subsequent runs only process what's changed.
+
+This mode is ideal when:
+
+- Users connect a "Documents" or "knowledge base" folder and expect new files to sync automatically
+- You want incremental updates without tracking individual file IDs
+- You need to detect when files are deleted or moved out of the folder
+
+The `sourceId` for each file follows the pattern `onedrive:item:<driveId>:<itemId>`, making it stable across renames and moves within the same drive.
+
+### Explicit file sync (streamFiles)
+
+When you know exactly which files you want to sync, pass their item IDs directly. The connector fetches each file, handles format conversion, and emits events for ingestion.
+
+This mode is ideal when:
+
+- Users select specific files to sync through a UI
+- You maintain a curated list of "important" documents
+- You want fine-grained control over what gets ingested
+
+## Quickstart: sync a folder
+
+If you want to sync everything in a folder with incremental updates:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { oneDriveConnector } from "@unrag/connectors/onedrive";
+
+export async function syncOneDriveFolder(userRefreshToken: string) {
+  const engine = createUnragEngine();
+  const lastCheckpoint = await loadCheckpoint("onedrive-sync");
+
+  const stream = oneDriveConnector.streamFolder({
+    auth: {
+      kind: "delegated_refresh_token",
+      tenantId: process.env.AZURE_TENANT_ID!,
+      clientId: process.env.AZURE_CLIENT_ID!,
+      clientSecret: process.env.AZURE_CLIENT_SECRET!,
+      refreshToken: userRefreshToken,
+    },
+    drive: { kind: "me" },
+    folder: { path: "/Documents/Knowledge Base" },
+    options: {
+      recursive: true,
+      deleteOnRemoved: true,
+    },
+    checkpoint: lastCheckpoint,
+  });
+
+  const result = await engine.runConnectorStream({
+    stream,
+    onCheckpoint: async (checkpoint) => {
+      await saveCheckpoint("onedrive-sync", checkpoint);
+    },
+  });
+
+  return result;
+}
+```
+
+The first run uses Microsoft Graph's delta API to get an initial snapshot of all files. Subsequent runs use the checkpoint to fetch only changes—new files, modified files, and deletions.
+
+## Quickstart: sync specific files
+
+If you have a list of file IDs to sync:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { oneDriveConnector } from "@unrag/connectors/onedrive";
+
+export async function syncSpecificFiles(accessToken: string, fileIds: string[]) {
+  const engine = createUnragEngine();
+
+  const stream = oneDriveConnector.streamFiles({
+    auth: {
+      kind: "delegated_access_token",
+      accessToken,
+    },
+    fileIds,
+  });
+
+  return await engine.runConnectorStream({ stream });
+}
+```
+
+You can find a file's ID by fetching its metadata from the Graph API, or by using the OneDrive web interface (the ID appears in certain URLs and API responses).
+
+## Authentication patterns
+
+### Delegated access token
+
+If you already have an access token from your OAuth flow:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth: {
+    kind: "delegated_access_token",
+    accessToken: currentAccessToken,
+  },
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+This is the simplest auth form but requires you to manage token refresh yourself.
+
+### Delegated refresh token
+
+For long-running syncs or background jobs, use a refresh token and let the connector handle token refresh:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth: {
+    kind: "delegated_refresh_token",
+    tenantId: process.env.AZURE_TENANT_ID!,
+    clientId: process.env.AZURE_CLIENT_ID!,
+    clientSecret: process.env.AZURE_CLIENT_SECRET!,
+    refreshToken: userRefreshToken,
+  },
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+The connector exchanges the refresh token for a fresh access token before making API calls.
+
+### App-only (client credentials)
+
+For server-to-server access without user involvement:
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth: {
+    kind: "app_client_credentials",
+    tenantId: process.env.AZURE_TENANT_ID!,
+    clientId: process.env.AZURE_CLIENT_ID!,
+    clientSecret: process.env.AZURE_CLIENT_SECRET!,
+  },
+  drive: { kind: "user", userId: "user@company.com" },
+  folder: { path: "/Documents" },
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+With app-only access, you must specify which user's drive to access via the `drive` parameter.
+
+## Drive selectors
+
+The `drive` parameter tells the connector which OneDrive or SharePoint library to access:
+
+| Kind | Description |
+|------|-------------|
+| `{ kind: "me" }` | The current user's OneDrive (delegated auth only) |
+| `{ kind: "user", userId: "..." }` | A specific user's OneDrive (by UPN or user ID) |
+| `{ kind: "drive", driveId: "..." }` | A specific drive by ID (useful for SharePoint document libraries) |
+
+For delegated tokens, `{ kind: "me" }` is the most common choice. For app-only access, you must specify a user or drive explicitly.
+
+## Server-only usage
+
+Access tokens, refresh tokens, and client secrets are sensitive and must never run in the browser. Treat OneDrive sync as a backend concern: run it from a route handler, server action, cron/worker job, or a Node script.
+
+## What it ingests
+
+Each file becomes one logical document in your store. The connector handles different file types based on their content:
+
+**Text-based files** (plain text, JSON, CSV, Markdown) are decoded and stored as the document's `content`. This is the searchable text that gets chunked and embedded.
+
+**Binary files** (PDFs, images, Office documents, etc.) are downloaded and emitted as `assets`. Whether those assets become searchable content depends on your engine's `assetProcessing` config—PDF extraction, image OCR, and file-extractor processing all happen at the engine level, not in the connector.
+
+The connector attaches metadata including the `connector` name (`"onedrive"`), `kind`, `driveId`, `itemId`, `name`, `mimeType`, `modifiedTime`, and available web URLs.
+
+## Observability and progress tracking
+
+The streaming model makes it easy to track progress and log what's happening:
+
+```ts
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "progress" && event.message === "file:start") {
+      console.log(`Processing ${event.sourceId}...`);
+    }
+    if (event.type === "progress" && event.message === "file:success") {
+      console.log(`✓ Synced ${event.sourceId}`);
+    }
+    if (event.type === "warning") {
+      console.warn(`⚠ [${event.code}] ${event.message}`);
+    }
+  },
+});
+
+console.log(`Done: ${result.upserts} synced, ${result.warnings} warnings`);
+```
+
+## Resumable syncs with checkpoints
+
+For folder sync, checkpoints are essential. They contain the delta API link that enables incremental updates. Without a checkpoint, every sync processes all files from scratch.
+
+```ts
+const stream = oneDriveConnector.streamFolder({
+  auth,
+  drive: { kind: "me" },
+  folder: { path: "/Documents" },
+  checkpoint: await loadCheckpoint(tenantId),
+});
+
+await engine.runConnectorStream({
+  stream,
+  onCheckpoint: async (checkpoint) => {
+    await saveCheckpoint(tenantId, checkpoint);
+  },
+});
+```
+
+Store checkpoints in your database, keyed by tenant or sync job. The checkpoint is a small JSON object containing the delta link and folder path, so storage overhead is minimal.
+
+## Where to go next
+
+If you want to understand the full API surface and see more examples, continue to the [API](/docs/connectors/onedrive/api) page.
+
+For production deployment patterns, the [Best practices](/docs/connectors/onedrive/best-practices) page covers authentication, checkpointing, and error handling.
+
+If you hit authentication or permission issues, the [Troubleshooting](/docs/connectors/onedrive/troubleshooting) page covers common failure modes and how to diagnose them.

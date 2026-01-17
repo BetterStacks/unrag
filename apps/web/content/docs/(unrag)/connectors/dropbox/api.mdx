@@ -1,0 +1,460 @@
+---
+title: API
+description: Method reference for the vendored Dropbox connector module.
+---
+
+The connector ships as vendored code inside your Unrag install directory at `<installDir>/connectors/dropbox/**`. In application code you typically import from your alias base:
+
+```ts
+import { dropboxConnector } from "@unrag/connectors/dropbox";
+```
+
+## Primary API
+
+The connector exposes two main entry points: `streamFolder` for syncing everything in a folder with incremental updates, and `streamFiles` for syncing specific file IDs.
+
+### `dropboxConnector.streamFolder(input)`
+
+Syncs all files within a Dropbox folder, using Dropbox's cursor-based listing for incremental updates. Returns an async iterable that yields connector events—upserts, warnings, progress updates, and checkpoints.
+
+```ts
+const stream = dropboxConnector.streamFolder({
+  auth: {
+    kind: "oauth_refresh_token",
+    clientId: process.env.DROPBOX_CLIENT_ID!,
+    clientSecret: process.env.DROPBOX_CLIENT_SECRET!,
+    refreshToken: userRefreshToken,
+  },
+  folderPath: "/Documents/Knowledge Base",
+  options: {
+    recursive: true,
+    deleteOnRemoved: true,
+  },
+  checkpoint: lastCheckpoint,
+});
+
+const result = await engine.runConnectorStream({
+  stream,
+  onCheckpoint: saveCheckpoint,
+});
+```
+
+The runner applies each event to your engine and returns a summary:
+
+<TypeTable
+  type={{
+    upserts: {
+      description: 'Number of files successfully ingested.',
+      type: 'number',
+    },
+    deletes: {
+      description: 'Number of documents deleted (when deleteOnRemoved is enabled).',
+      type: 'number',
+    },
+    warnings: {
+      description: 'Number of warning events (failed files, skipped files, etc.).',
+      type: 'number',
+    },
+    lastCheckpoint: {
+      description: 'The final checkpoint emitted by the stream, if any.',
+      type: 'DropboxFolderCheckpoint | undefined',
+    },
+  }}
+/>
+
+#### streamFolder input
+
+<TypeTable
+  type={{
+    auth: {
+      description: 'A DropboxAuth object describing how to authenticate. See Auth patterns below.',
+      type: 'DropboxAuth',
+    },
+    folderPath: {
+      description: 'The folder path to sync. Use empty string or "/" for root.',
+      type: 'string',
+    },
+    sourceIdPrefix: {
+      description: 'Prepends a namespace to every sourceId. Useful for multi-tenant apps.',
+      type: 'string',
+      default: 'undefined',
+    },
+    checkpoint: {
+      description: 'Optional checkpoint to resume from. Contains the Dropbox cursor for incremental syncs.',
+      type: 'DropboxFolderCheckpoint',
+      default: 'undefined',
+    },
+    options: {
+      description: 'Folder sync configuration including recursive, deleteOnRemoved, and maxBytesPerFile.',
+      type: 'StreamDropboxFolderOptions',
+      default: 'undefined',
+    },
+  }}
+/>
+
+#### streamFolder options
+
+<TypeTable
+  type={{
+    recursive: {
+      description: 'Include files in subfolders, not just direct children.',
+      type: 'boolean',
+      default: 'true',
+    },
+    deleteOnRemoved: {
+      description: 'Emit delete events when files are removed from the folder or moved out of scope.',
+      type: 'boolean',
+      default: 'false',
+    },
+    maxBytesPerFile: {
+      description: 'Skip files larger than this size in bytes.',
+      type: 'number',
+      default: '15 * 1024 * 1024 (15 MB)',
+    },
+  }}
+/>
+
+The folder sync uses a checkpoint structure containing the cursor:
+
+```ts
+type DropboxFolderCheckpoint = {
+  cursor: string;       // Dropbox cursor for incremental sync
+  folderPath: string;   // The folder being synced
+};
+```
+
+On the first run, the connector calls `files/list_folder` to get all items, then captures the cursor. On subsequent runs with a checkpoint, it calls `files/list_folder/continue` to fetch only changes since that cursor.
+
+### `dropboxConnector.streamFiles(input)`
+
+Syncs a list of specific Dropbox files by their IDs. Useful when you know exactly which files to sync and want stable identity across renames.
+
+```ts
+const stream = dropboxConnector.streamFiles({
+  auth: {
+    kind: "access_token",
+    accessToken: currentAccessToken,
+  },
+  fileIds: ["id:abc123...", "id:def456..."],
+  sourceIdPrefix: "tenant:acme:",
+});
+
+const result = await engine.runConnectorStream({ stream });
+```
+
+#### streamFiles input
+
+<TypeTable
+  type={{
+    auth: {
+      description: 'A DropboxAuth object describing how to authenticate.',
+      type: 'DropboxAuth',
+    },
+    fileIds: {
+      description: 'Array of Dropbox file IDs (in "id:..." format). The connector fetches metadata and content for each file.',
+      type: 'string[]',
+    },
+    sourceIdPrefix: {
+      description: 'Prepends a namespace to every sourceId.',
+      type: 'string',
+      default: 'undefined',
+    },
+    deleteOnNotFound: {
+      description: 'Delete the previously ingested document if a file is not found or inaccessible.',
+      type: 'boolean',
+      default: 'false',
+    },
+    checkpoint: {
+      description: 'Optional checkpoint to resume from (index-based for file lists).',
+      type: 'DropboxFilesCheckpoint',
+      default: 'undefined',
+    },
+    options: {
+      description: 'Additional configuration for connector behavior.',
+      type: 'StreamDropboxFilesOptions',
+      default: 'undefined',
+    },
+  }}
+/>
+
+Note that `streamFiles` uses the file's **path** (resolved from its ID) for the sourceId, maintaining consistency with folder sync. This means the sourceId is `dropbox:path:<path_lower>` even when syncing by ID.
+
+## Auth patterns
+
+The `DropboxAuth` type supports two authentication approaches:
+
+| Auth Kind | Use Case |
+|-----------|----------|
+| `access_token` | When you have a current access token (short-lived) |
+| `oauth_refresh_token` | When you have a refresh token and want the connector to handle token refresh |
+
+### Access token
+
+The simplest form—pass an access token you already have:
+
+```ts
+const stream = dropboxConnector.streamFolder({
+  auth: {
+    kind: "access_token",
+    accessToken: currentAccessToken,
+  },
+  folderPath: "/Documents",
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+You're responsible for token refresh. If the token expires during sync, the connector will fail.
+
+### Refresh token (recommended)
+
+For production use, provide a refresh token:
+
+```ts
+const stream = dropboxConnector.streamFolder({
+  auth: {
+    kind: "oauth_refresh_token",
+    clientId: process.env.DROPBOX_CLIENT_ID!,
+    clientSecret: process.env.DROPBOX_CLIENT_SECRET!,
+    refreshToken: userRefreshToken,
+  },
+  folderPath: "/Documents",
+});
+
+await engine.runConnectorStream({ stream });
+```
+
+The connector exchanges the refresh token for a fresh access token before making API calls.
+
+## Consuming the stream
+
+The recommended way to consume a connector stream is via `engine.runConnectorStream(...)`, which handles all event types automatically:
+
+```ts
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    // Called for every event (progress, warning, upsert, delete, checkpoint)
+    console.log(event.type, event);
+  },
+  onCheckpoint: async (checkpoint) => {
+    // Called specifically for checkpoint events
+    await persistCheckpoint(checkpoint);
+  },
+  signal: abortController.signal, // Optional: abort early
+});
+```
+
+## Utilities
+
+### `createDropboxClient({ auth })`
+
+Creates a Dropbox API client from auth credentials. Returns `{ fetch }` where `fetch` is a pre-configured fetch function that handles authentication and the Dropbox API conventions.
+
+Most users don't need this unless they want to make custom Dropbox API calls:
+
+```ts
+import { createDropboxClient } from "@unrag/connectors/dropbox";
+
+const { fetch: dbxFetch } = await createDropboxClient({
+  auth: {
+    kind: "oauth_refresh_token",
+    clientId: process.env.DROPBOX_CLIENT_ID!,
+    clientSecret: process.env.DROPBOX_CLIENT_SECRET!,
+    refreshToken: userRefreshToken,
+  },
+});
+
+// Now you can make direct Dropbox API calls
+const res = await dbxFetch("https://api.dropboxapi.com/2/files/list_folder", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ path: "/Documents" }),
+});
+
+const data = await res.json();
+```
+
+### `buildDropboxSourceId(args)`
+
+A helper for constructing Dropbox sourceIds:
+
+```ts
+import { buildDropboxSourceId } from "@unrag/connectors/dropbox";
+
+const sourceId = buildDropboxSourceId({
+  pathLower: "/documents/readme.md",
+  sourceIdPrefix: "tenant:acme:",
+});
+
+// sourceId === "tenant:acme:dropbox:path:/documents/readme.md"
+```
+
+## Stable source IDs
+
+The connector uses path-based source IDs:
+
+- Without a prefix: `dropbox:path:<path_lower>`
+- With `sourceIdPrefix`: `<prefix>dropbox:path:<path_lower>`
+
+The `path_lower` is Dropbox's normalized, lowercase version of the path. This ensures consistent sourceIds regardless of how the user capitalizes folder names.
+
+Because sourceIds are path-based:
+- Renames create a new document (old path deleted, new path created)
+- Moves create a new document
+- The same file at the same path always has the same sourceId
+
+This design makes folder sync reliable—when Dropbox reports a file at a path, we know exactly which sourceId it maps to.
+
+## Event types
+
+The stream yields various event types that you can observe via `onEvent`:
+
+| Event Type | Description |
+|------------|-------------|
+| `progress` (file:start) | Processing begins for a file |
+| `progress` (file:success) | File successfully ingested |
+| `progress` (list:page) | Folder sync: processed a page of list results |
+| `warning` (file_not_found) | File not found or inaccessible |
+| `warning` (file_skipped) | File skipped due to folder type, size limit, etc. |
+| `warning` (file_error) | File processing failed with an error |
+| `upsert` | Document ready for ingestion |
+| `delete` | Document should be deleted |
+| `checkpoint` | Resumable position marker |
+
+---
+
+## Examples
+
+### Folder sync with automatic cleanup
+
+This example syncs a folder and removes documents when files are deleted:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { dropboxConnector } from "@unrag/connectors/dropbox";
+
+const engine = createUnragEngine();
+
+async function syncUserDocuments(tenantId: string, refreshToken: string) {
+  const checkpoint = await loadCheckpoint(`dropbox:${tenantId}`);
+
+  const stream = dropboxConnector.streamFolder({
+    auth: {
+      kind: "oauth_refresh_token",
+      clientId: process.env.DROPBOX_CLIENT_ID!,
+      clientSecret: process.env.DROPBOX_CLIENT_SECRET!,
+      refreshToken,
+    },
+    folderPath: "/Documents",
+    sourceIdPrefix: `tenant:${tenantId}:`,
+    options: {
+      recursive: true,
+      deleteOnRemoved: true,
+    },
+    checkpoint,
+  });
+
+  const result = await engine.runConnectorStream({
+    stream,
+    onCheckpoint: async (cp) => {
+      await saveCheckpoint(`dropbox:${tenantId}`, cp);
+    },
+  });
+
+  console.log(`Synced: ${result.upserts} upserts, ${result.deletes} deletes`);
+  return result;
+}
+```
+
+### Multi-tenant sync
+
+For SaaS apps where each tenant connects their Dropbox:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { dropboxConnector } from "@unrag/connectors/dropbox";
+
+export async function syncTenantDropbox(tenantId: string, refreshToken: string) {
+  const engine = createUnragEngine();
+  const checkpoint = await loadCheckpoint(`dropbox:${tenantId}`);
+
+  const stream = dropboxConnector.streamFolder({
+    auth: {
+      kind: "oauth_refresh_token",
+      clientId: process.env.DROPBOX_CLIENT_ID!,
+      clientSecret: process.env.DROPBOX_CLIENT_SECRET!,
+      refreshToken,
+    },
+    folderPath: "/",  // Sync entire Dropbox
+    sourceIdPrefix: `tenant:${tenantId}:`,
+    options: {
+      recursive: true,
+      deleteOnRemoved: true,
+    },
+    checkpoint,
+  });
+
+  return await engine.runConnectorStream({
+    stream,
+    onCheckpoint: async (cp) => {
+      await saveCheckpoint(`dropbox:${tenantId}`, cp);
+    },
+  });
+}
+
+// Later, retrieve only that tenant's content:
+const { chunks } = await engine.retrieve({
+  query: "project requirements",
+  topK: 5,
+  scope: { sourceId: `tenant:${tenantId}:` },
+});
+```
+
+### Logging progress during sync
+
+```ts
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => {
+    if (event.type === "progress" && event.message === "file:success") {
+      console.log(`✓ Synced ${event.sourceId}`);
+    } else if (event.type === "warning") {
+      console.warn(`⚠ [${event.code}] ${event.message}`);
+    } else if (event.type === "delete") {
+      console.log(`🗑 Deleted ${event.input.sourceId}`);
+    }
+  },
+});
+
+console.log(`Done: ${result.upserts} synced, ${result.deletes} deleted, ${result.warnings} warnings`);
+```
+
+### Syncing specific files by ID
+
+When you have file IDs from user selection or an external source:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { dropboxConnector } from "@unrag/connectors/dropbox";
+
+const engine = createUnragEngine();
+
+const stream = dropboxConnector.streamFiles({
+  auth: {
+    kind: "oauth_refresh_token",
+    clientId: process.env.DROPBOX_CLIENT_ID!,
+    clientSecret: process.env.DROPBOX_CLIENT_SECRET!,
+    refreshToken: userRefreshToken,
+  },
+  fileIds: [
+    "id:abc123...",
+    "id:def456...",
+    "id:ghi789...",
+  ],
+  deleteOnNotFound: true,  // Clean up if files are deleted
+});
+
+const result = await engine.runConnectorStream({ stream });
+console.log(`Synced ${result.upserts} files`);
+```
