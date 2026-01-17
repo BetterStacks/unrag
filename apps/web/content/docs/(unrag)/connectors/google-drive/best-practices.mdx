@@ -5,6 +5,16 @@ description: Production patterns for Google Drive ingestion with Unrag.
 
 The Google Drive connector is designed to be safe and idempotent, but production deployments benefit from a few patterns that handle edge cases gracefully.
 
+## Choose the right sync mode
+
+The connector offers two sync modes, and choosing the right one affects both complexity and behavior.
+
+**Explicit file sync (`streamFiles`)** is the simpler model. You maintain a list of file IDs and sync those specific files. This works well when users select files through a UI, when you have a curated knowledge base, or when you need predictable, fine-grained control.
+
+**Folder sync (`streamFolder`)** is more powerful but requires checkpoint persistence. The connector uses Google's Changes API to track what's new since the last sync, so you get incremental updates without re-processing unchanged files. This works well when users connect a "knowledge base folder" and expect new files to sync automatically.
+
+If you're unsure, start with explicit file sync. It's easier to reason about and doesn't require checkpoint persistence. You can always add folder sync later when the need arises.
+
 ## Choose the right authentication model
 
 The authentication model you choose affects both security and operational complexity.
@@ -61,61 +71,54 @@ This makes retrieval scoping simple and prevents accidental cross-tenant data le
 await engine.delete({ sourceIdPrefix: `tenant:${tenantId}:` });
 ```
 
-## Track which files to sync
+## Persist checkpoints religiously
 
-The connector ingests specific files by ID—it doesn't crawl folders or discover new files automatically. You need a way to track which files should be synced.
-
-For small, static file sets, a configuration file or environment variable works fine:
+For folder sync, checkpoints are essential. They contain the Changes API page token that enables incremental updates. Without a checkpoint, every sync processes all files from scratch.
 
 ```ts
-const fileIds = process.env.DRIVE_FILE_IDS?.split(",") ?? [];
-```
-
-For larger or dynamic sets, store file IDs in your database. When users add files to sync, record the IDs. Your sync job then queries the database for the current list.
-
-If you need folder-level syncing, use the Drive API to list files in a folder before syncing:
-
-```ts
-import { createGoogleDriveClient, googleDriveConnector } from "@unrag/connectors/google-drive";
-
-const { drive } = await createGoogleDriveClient({ auth });
-
-const files: string[] = [];
-let pageToken: string | undefined;
-
-do {
-  const res = await drive.files.list({
-    q: `'${folderId}' in parents and trashed = false`,
-    fields: "nextPageToken, files(id)",
-    pageSize: 100,
-    pageToken,
-    supportsAllDrives: true,
-    includeItemsFromAllDrives: true,
-  });
-  
-  files.push(...(res.data.files?.map((f: any) => f.id) ?? []));
-  pageToken = res.data.nextPageToken ?? undefined;
-} while (pageToken);
-
-const stream = googleDriveConnector.streamFiles({ auth, fileIds: files });
-await engine.runConnectorStream({ stream });
-```
-
-## Enable deleteOnNotFound for full sync
-
-If you maintain a list of file IDs and want your index to stay in sync when files are deleted or permissions are revoked, enable `deleteOnNotFound`:
-
-```ts
-const stream = googleDriveConnector.streamFiles({
+const stream = googleDriveConnector.streamFolder({
   auth,
-  fileIds: getCurrentFileIds(),
-  deleteOnNotFound: true,
+  folderId,
+  checkpoint: await loadCheckpoint(tenantId),
 });
 
-await engine.runConnectorStream({ stream });
+await engine.runConnectorStream({
+  stream,
+  onCheckpoint: async (checkpoint) => {
+    await saveCheckpoint(tenantId, checkpoint);
+  },
+});
 ```
 
-When the connector can't access a file (404 or 403), it emits a delete event that removes the corresponding document from your store. This keeps your index clean without requiring manual cleanup.
+Store checkpoints in your database, keyed by tenant or sync job. The checkpoint is a small JSON object, so storage overhead is minimal.
+
+For explicit file sync, checkpoints are less critical—they just track progress through the file list—but they're still valuable for large syncs or serverless environments with timeout limits.
+
+## Enable deleteOnRemoved for folder sync
+
+When using folder sync, consider enabling `deleteOnRemoved` to keep your index in sync with reality:
+
+```ts
+const stream = googleDriveConnector.streamFolder({
+  auth,
+  folderId,
+  options: {
+    recursive: true,
+    deleteOnRemoved: true,
+  },
+  checkpoint,
+});
+
+await engine.runConnectorStream({ stream, onCheckpoint: saveCheckpoint });
+```
+
+With this option, the connector emits delete events when:
+
+- A file is deleted from Drive
+- A file is moved to trash
+- A file is moved out of the synced folder
+
+This keeps your search index accurate without manual cleanup. If you don't enable it, removed files will remain in your index until you delete them manually.
 
 ## Set appropriate file size limits
 
@@ -135,27 +138,6 @@ await engine.runConnectorStream({ stream });
 
 But be thoughtful about this. Large files take longer to download, cost more to process (especially for LLM extraction), and may produce many chunks. Consider whether you actually need to ingest huge files, or whether a size limit that skips them is the right behavior.
 
-## Persist checkpoints for large syncs
-
-For syncs with many files—especially in serverless environments with timeout limits—persist checkpoints so you can resume if interrupted:
-
-```ts
-const stream = googleDriveConnector.streamFiles({
-  auth,
-  fileIds: largeFileList,
-  checkpoint: await loadLastCheckpoint(tenantId),
-});
-
-await engine.runConnectorStream({
-  stream,
-  onCheckpoint: async (checkpoint) => {
-    await saveCheckpoint(tenantId, checkpoint);
-  },
-});
-```
-
-Each checkpoint includes the index of the next file to process. If the sync times out, the next invocation picks up exactly where it left off.
-
 ## Run sync in background jobs
 
 For production deployments, don't run sync in request handlers. File downloads, exports, and ingestion can be slow, and you don't want to block user-facing requests or risk timeouts.
@@ -169,9 +151,9 @@ Instead, run sync from background jobs: cron scripts, BullMQ workers, Inngest fu
 
 See the [Next.js Production Recipe](/docs/guides/nextjs-production-recipe) for patterns that work well on Vercel.
 
-## Batch large file lists
+## Batch large file lists for explicit sync
 
-If you're syncing hundreds or thousands of files, batch your calls and add pauses to stay within Google's rate limits:
+If you're syncing hundreds or thousands of explicit file IDs, batch your calls and add pauses to stay within Google's rate limits:
 
 ```ts
 const BATCH_SIZE = 20;
@@ -195,6 +177,8 @@ for (let i = 0; i < allFileIds.length; i += BATCH_SIZE) {
 
 Google Drive has quota limits that vary by API and account type. For most use cases, 20 files with a 2-second pause between batches keeps you safely under the limits.
 
+For folder sync, batching isn't necessary—the Changes API handles pagination internally, and the connector processes one file at a time.
+
 ## Use onEvent for observability
 
 The streaming model makes it easy to log exactly what's happening during a sync:
@@ -208,6 +192,9 @@ await engine.runConnectorStream({
     }
     if (event.type === "warning") {
       console.warn(`Warning: [${event.code}] ${event.message}`);
+    }
+    if (event.type === "delete") {
+      console.log(`Deleted: ${event.input.sourceId}`);
     }
   },
 });
@@ -248,13 +235,31 @@ await engine.runConnectorStream({
 });
 ```
 
-## Test with a small file set first
+## Test with a small scope first
 
-Before running sync on your full file list, test with 2-3 files to verify:
+Before running sync on your full file list or folder:
 
-- Authentication works (correct credentials, proper permissions)
-- File types are handled as expected (Google Docs export to text, PDFs emit as assets)
-- Chunking and embedding produce reasonable results
-- Your asset processing config handles the file types you have
+1. **For explicit file sync**: Test with 2-3 files to verify authentication works, file types are handled as expected, and chunking produces reasonable results.
+
+2. **For folder sync**: Test with a folder containing a handful of files. Run twice—once to establish the baseline, once to verify incremental updates work.
 
 Once the small test works, scale up gradually. This catches configuration issues early before you've spent time and API credits on a large sync.
+
+## Consider shared drives carefully
+
+If you're syncing from shared drives (Team Drives), you need to pass additional options:
+
+```ts
+const stream = googleDriveConnector.streamFolder({
+  auth,
+  folderId: sharedDriveFolderId,
+  options: {
+    driveId: sharedDriveId, // Required for shared drives
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
+  },
+  checkpoint,
+});
+```
+
+The `driveId` is typically the ID of the shared drive itself. You can find it in the Drive URL when viewing the shared drive root. Without it, the Changes API won't return items from shared drives.
