@@ -6,7 +6,7 @@
 	"bin": {
 		"unrag": "./dist/cli/index.js"
 	},
-	"version": "0.3.1",
+	"version": "0.3.2",
 	"private": false,
 	"license": "Apache-2.0",
 	"devDependencies": {
@@ -47,7 +47,11 @@
 		"unrag:doctor:db": "unrag doctor --config .unrag/doctor.json --db",
 		"unrag:doctor:ci": "unrag doctor --config .unrag/doctor.json --db --strict --json"
 	},
-	"files": ["dist/**", "registry/**", "README.md"],
+	"files": [
+		"dist/**",
+		"registry/**",
+		"README.md"
+	],
 	"publishConfig": {
 		"access": "public"
 	}
