@@ -1,5 +1,13 @@
 # unrag
 
+## 0.2.12
+
+### Patch Changes
+
+- Added `upgrade` command with three-way merge support for seamless code upgrades
+- Added `--version` flag for version checking in CLI
+- Slimmed down generated config file for minimal installations
+
 ## 0.2.11
 
 ### Patch Changes
