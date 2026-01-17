@@ -1,5 +1,47 @@
 # unrag
 
+## 0.3.0
+
+### Minor Changes
+
+- New OneDrive connector with Microsoft Graph API integration
+- New Dropbox connector with full OAuth2 authentication flow
+- Added new capabilities in Google Drive connector to sync entire folders and file paths
+
+### Breaking Changes
+
+- `syncPages` and `syncFiles` methods are replaced by `streamPages` and `streamFiles`
+- `onProgress` callbacks are removed in favor of [onEvent](cci:1://file:///Users/subho/Documents/Workspace/Work/unrag/packages/unrag/test/connector-runner.unit.test.ts:45:3-45:41) via [runConnectorStream](cci:1://file:///Users/subho/Documents/Workspace/Work/unrag/packages/unrag/registry/core/connectors.ts:107:0-160:1)
+- The `engine` parameter is no longer passed to connector functions; instead, pass the stream to `engine.runConnectorStream()`
+
+### Migration Guide
+
+**Before:**
+```ts
+await notionConnector.syncPages({
+  engine
+  token,
+  pageIds,
+  onProgress: (event) => console.log(event),
+});
+```
+
+**After:**
+```ts
+const stream = notionConnector.streamPages({
+  token,
+  pageIds,
+});
+
+const result = await engine.runConnectorStream({
+  stream,
+  onEvent: (event) => console.log(event),
+  onCheckpoint: async (checkpoint) => {
+    await saveCheckpoint(checkpoint);
+  },
+});
+```
+
 ## 0.2.12
 
 ### Patch Changes
