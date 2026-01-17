@@ -13,7 +13,6 @@ import {Pool} from 'pg'
  * treated like vendored source code.
  */
 import {defineUnragConfig} from './lib/unrag/core'
-import {createCohereReranker} from './lib/unrag/rerank'
 import {createDrizzleVectorStore} from './lib/unrag/store/drizzle'
 
 export const unrag = defineUnragConfig({
@@ -35,10 +34,6 @@ export const unrag = defineUnragConfig({
 	},
 	engine: {
 		/**
-		 * Reranker for second-stage ranking after retrieval.
-		 */
-		reranker: createCohereReranker(),
-		/**
 		 * Storage controls.
 		 *
 		 * - storeChunkContent: whether `chunk.content` is persisted and returned by retrieval.
@@ -58,28 +53,7 @@ export const unrag = defineUnragConfig({
 		 * - `import { createPdfLlmExtractor } from "./lib/unrag/extractors/pdf-llm";`
 		 * - `extractors: [createPdfLlmExtractor()]`
 		 */
-		extractors: [
-			// __UNRAG_EXTRACTORS__
-		],
-		/**
-		 * Rich media processing controls.
-		 *
-		 * Notes:
-		 * - This generated config is cost-safe by default (all extraction is off).
-		 * - `unrag init --rich-media` can enable rich media ingestion for you (extractors + assetProcessing flags).
-		 * - Tighten fetch allowlists/limits in production if you ingest URL-based assets.
-		 */
-		assetProcessing: {
-			onUnsupportedAsset: 'skip',
-			onError: 'skip',
-			concurrency: 4,
-			fetch: {
-				enabled: true,
-				maxBytes: 15 * 1024 * 1024,
-				timeoutMs: 20_000
-				// allowedHosts: ["..."], // recommended to mitigate SSRF
-			}
-		}
+		extractors: []
 	}
 } as const)
 

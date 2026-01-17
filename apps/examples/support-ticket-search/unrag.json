@@ -35,6 +35,7 @@
 		"lib/unrag/embedding/ollama.ts",
 		"lib/unrag/embedding/openai.ts",
 		"lib/unrag/embedding/openrouter.ts",
+		"lib/unrag/embedding/providers.ts",
 		"lib/unrag/embedding/together.ts",
 		"lib/unrag/embedding/vertex.ts",
 		"lib/unrag/embedding/voyage.ts",
@@ -55,5 +56,9 @@
 		"lib/unrag/store/drizzle/store.ts",
 		"lib/unrag/unrag.md",
 		"unrag.config.ts"
-	]
+	],
+	"scaffold": {
+		"mode": "full",
+		"withDocs": true
+	}
 }

@@ -24,18 +24,7 @@ import type {
 	RetrieveResult,
 	UnragCreateEngineRuntime
 } from '@unrag/core/types'
-import {createAiEmbeddingProvider} from '@unrag/embedding/ai'
-import {createAzureEmbeddingProvider} from '@unrag/embedding/azure'
-import {createBedrockEmbeddingProvider} from '@unrag/embedding/bedrock'
-import {createCohereEmbeddingProvider} from '@unrag/embedding/cohere'
-import {createGoogleEmbeddingProvider} from '@unrag/embedding/google'
-import {createMistralEmbeddingProvider} from '@unrag/embedding/mistral'
-import {createOllamaEmbeddingProvider} from '@unrag/embedding/ollama'
-import {createOpenAiEmbeddingProvider} from '@unrag/embedding/openai'
-import {createOpenRouterEmbeddingProvider} from '@unrag/embedding/openrouter'
-import {createTogetherEmbeddingProvider} from '@unrag/embedding/together'
-import {createVertexEmbeddingProvider} from '@unrag/embedding/vertex'
-import {createVoyageEmbeddingProvider} from '@unrag/embedding/voyage'
+import {createEmbeddingProviderFromConfig} from '@unrag/embedding/providers'
 
 export class ContextEngine {
 	private readonly config: ResolvedContextEngineConfig
@@ -249,92 +238,7 @@ export const defineUnragConfig = <T extends DefineUnragConfigInput>(
 		if (embeddingProvider) {
 			return embeddingProvider
 		}
-
-		if (config.embedding.provider === 'ai') {
-			embeddingProvider = createAiEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		if (config.embedding.provider === 'openai') {
-			embeddingProvider = createOpenAiEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		if (config.embedding.provider === 'google') {
-			embeddingProvider = createGoogleEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		if (config.embedding.provider === 'openrouter') {
-			embeddingProvider = createOpenRouterEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		if (config.embedding.provider === 'azure') {
-			embeddingProvider = createAzureEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		if (config.embedding.provider === 'vertex') {
-			embeddingProvider = createVertexEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		if (config.embedding.provider === 'bedrock') {
-			embeddingProvider = createBedrockEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		if (config.embedding.provider === 'cohere') {
-			embeddingProvider = createCohereEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		if (config.embedding.provider === 'mistral') {
-			embeddingProvider = createMistralEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		if (config.embedding.provider === 'together') {
-			embeddingProvider = createTogetherEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		if (config.embedding.provider === 'ollama') {
-			embeddingProvider = createOllamaEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		if (config.embedding.provider === 'voyage') {
-			embeddingProvider = createVoyageEmbeddingProvider(
-				config.embedding.config
-			)
-			return embeddingProvider
-		}
-
-		embeddingProvider = config.embedding.create()
+		embeddingProvider = createEmbeddingProviderFromConfig(config.embedding)
 		return embeddingProvider
 	}
 

@@ -605,9 +605,9 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 	// Inject extractor list (or remove placeholder) without depending on exact indentation.
 	out = out.replace(
 		/^([ \t]*)\/\/ __UNRAG_EXTRACTORS__\s*$/m,
-		(m: string, indent: string) => {
+		(_m: string, indent: string) => {
 			if (!(richMedia.enabled && selectedExtractors.length > 0)) {
-				return m
+				return ''
 			}
 			return selectedExtractors
 				.map((ex) => `${indent}${EXTRACTOR_FACTORY[ex]}(),`)
