@@ -58,7 +58,7 @@
 		"unrag.config.ts"
 	],
 	"scaffold": {
-		"mode": "full",
-		"withDocs": true
+		"mode": "slim",
+		"withDocs": false
 	}
 }
