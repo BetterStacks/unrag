@@ -171,7 +171,7 @@ export function HomeNavbar() {
 				</>
 			}
 			logo={
-				<NavbarLogo href="/home">
+				<NavbarLogo href="/">
 					<img
 						src="/logo.svg"
 						alt="Unrag"
