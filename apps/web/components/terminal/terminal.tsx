@@ -18,16 +18,19 @@ const TUI_REVEAL_DELAY = 400
 
 function TerminalPrompt({
 	command,
-	isTyping
+	isTyping,
+	showCursor = true
 }: {
 	command: string
 	isTyping: boolean
+	showCursor?: boolean
 }) {
 	return (
-		<div className="px-4 py-6 flex items-center gap-2 text-[13px]">
-			<span className="text-white/50">$</span>
+		<div className="px-5 py-4 flex items-center gap-2 text-[13px]">
+			<span className="text-white/60">vercel</span>
+			<span className="text-white/40">$</span>
 			<span className="text-white">{command}</span>
-			{isTyping && (
+			{isTyping && showCursor && (
 				<motion.span
 					className="inline-block w-2 h-4 bg-white"
 					animate={{opacity: [1, 0]}}
@@ -116,16 +119,13 @@ function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
 }
 
 function TerminalInner({autoPlay, className}: TerminalProps) {
-	const [phase, setPhase] = useState<'typing' | 'tui'>(
-		autoPlay ? 'typing' : 'tui'
-	)
-	const [typedCommand, setTypedCommand] = useState('')
-	const [_hasInteracted, setHasInteracted] = useState(false)
+	const [isTyping, setIsTyping] = useState(autoPlay)
+	const [typedCommand, setTypedCommand] = useState(autoPlay ? '' : COMMAND)
+	const [showTUI, setShowTUI] = useState(!autoPlay)
+	const [hasInteracted, setHasInteracted] = useState(false)
 
 	useEffect(() => {
-		if (!autoPlay || phase !== 'typing') {
-			return
-		}
+		if (!autoPlay || !isTyping) return
 
 		let charIndex = 0
 		const typeInterval = setInterval(() => {
@@ -134,19 +134,17 @@ function TerminalInner({autoPlay, className}: TerminalProps) {
 				charIndex++
 			} else {
 				clearInterval(typeInterval)
+				setIsTyping(false)
 				setTimeout(() => {
-					setPhase('tui')
+					setShowTUI(true)
 				}, TUI_REVEAL_DELAY)
 			}
 		}, TYPING_SPEED)
 
-		const initialDelay = setTimeout(() => {}, COMMAND_DELAY)
-
 		return () => {
 			clearInterval(typeInterval)
-			clearTimeout(initialDelay)
 		}
-	}, [autoPlay, phase])
+	}, [autoPlay, isTyping])
 
 	const handleInteraction = useCallback(() => {
 		setHasInteracted(true)
@@ -155,24 +153,23 @@ function TerminalInner({autoPlay, className}: TerminalProps) {
 	return (
 		<div
 			className={clsx(
-				'font-mono text-[11px] leading-tight bg-[#1A1A1A] text-white overflow-hidden select-none',
+				'font-mono text-[11px] leading-tight bg-[#1A1A1A] text-white overflow-hidden select-none min-h-[600px]',
 				className
 			)}
 		>
-			<AnimatePresence mode="wait">
-				{phase === 'typing' ? (
-					<motion.div
-						key="typing"
-						exit={{opacity: 0}}
-						transition={{duration: 0.2}}
-					>
-						<TerminalPrompt
-							command={typedCommand}
-							isTyping={true}
-						/>
-					</motion.div>
-				) : (
-					<TerminalTUI key="tui" onInteraction={handleInteraction} />
+			{/* Command line - always visible once typing starts */}
+			<TerminalPrompt
+				command={typedCommand}
+				isTyping={isTyping}
+				showCursor={isTyping}
+			/>
+
+			{/* TUI content - appears after typing completes */}
+			<AnimatePresence>
+				{showTUI && (
+					<TerminalTUI
+						onInteraction={handleInteraction}
+					/>
 				)}
 			</AnimatePresence>
 		</div>

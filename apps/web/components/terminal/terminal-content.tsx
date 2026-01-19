@@ -9,7 +9,7 @@ export function TerminalContent() {
 	const {activeTab} = useTerminal()
 
 	return (
-		<div className="h-[280px] overflow-hidden">
+		<div className="h-[360px] overflow-hidden">
 			<AnimatePresence mode="wait">
 				<motion.div
 					key={activeTab}
