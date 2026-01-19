@@ -11,6 +11,7 @@ import {
 	Text
 } from '../elements'
 import {ArrowNarrowRightIcon} from '../icons'
+import {Terminal} from '../terminal'
 
 function HeroLeftAlignedWithDemo({
 	eyebrow,
@@ -54,8 +55,8 @@ function HeroLeftAlignedWithDemo({
 
 function HeroImageFrame({
 	className,
-	imageClassName
-}: {className?: string; imageClassName?: string}) {
+	children
+}: {className?: string; children?: ReactNode}) {
 	return (
 		<div
 			className={clsx(
@@ -66,11 +67,7 @@ function HeroImageFrame({
 		>
 			<div className="relative [--padding:min(10%,--spacing(16))] max-h-[700px] overflow-hidden px-(--padding) pt-(--padding)">
 				<div className="*:relative *:ring-1 *:ring-black/10 *:rounded-t-sm">
-					<img
-						src="/hero-image.png"
-						alt="Unrag product interface"
-						className={clsx('block w-full', imageClassName)}
-					/>
+					{children}
 				</div>
 			</div>
 		</div>
@@ -128,8 +125,20 @@ export function HeroSection() {
 			}
 			demo={
 				<>
-					<HeroImageFrame className="rounded-md lg:hidden" />
-					<HeroImageFrame className="rounded-lg max-lg:hidden" />
+					<HeroImageFrame className="rounded-md lg:hidden">
+						<Terminal
+							className="rounded-t-sm overflow-hidden"
+							autoPlay
+							initialTab="docs"
+						/>
+					</HeroImageFrame>
+					<HeroImageFrame className="rounded-lg max-lg:hidden">
+						<Terminal
+							className="rounded-t-sm overflow-hidden"
+							autoPlay
+							initialTab="docs"
+						/>
+					</HeroImageFrame>
 				</>
 			}
 			footer={
