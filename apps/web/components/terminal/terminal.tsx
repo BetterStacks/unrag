@@ -12,9 +12,23 @@ import {TerminalTabBar} from './terminal-tab-bar'
 import type {TabId, TerminalProps} from './terminal-types'
 
 const COMMAND = 'bunx unrag debug'
-const TYPING_SPEED = 80
-const COMMAND_DELAY = 500
-const TUI_REVEAL_DELAY = 400
+const TYPING_SPEED = 50
+const TUI_REVEAL_DELAY = 300
+
+function TerminalTitleBar() {
+	return (
+		<div className="flex items-center gap-2 px-4 py-3 border-b border-white/5">
+			<div className="flex items-center gap-1.5">
+				<span className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+				<span className="w-3 h-3 rounded-full bg-[#febc2e]" />
+				<span className="w-3 h-3 rounded-full bg-[#28c840]" />
+			</div>
+			<span className="flex-1 text-center text-[11px] text-white/40 -ml-12">
+				Terminal
+			</span>
+		</div>
+	)
+}
 
 function TerminalPrompt({
 	command,
@@ -101,9 +115,9 @@ function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
 
 	return (
 		<motion.div
-			initial={{opacity: 0, y: 10}}
-			animate={{opacity: 1, y: 0}}
-			transition={{duration: 0.3}}
+			initial={{opacity: 0}}
+			animate={{opacity: 1}}
+			transition={{duration: 0.4, ease: 'easeOut'}}
 			onMouseEnter={stopAutoPlay}
 			onClick={stopAutoPlay}
 			onTouchStart={stopAutoPlay}
@@ -157,6 +171,9 @@ function TerminalInner({autoPlay, className}: TerminalProps) {
 				className
 			)}
 		>
+			{/* macOS-style title bar - always visible */}
+			<TerminalTitleBar />
+
 			{/* Command line - always visible once typing starts */}
 			<TerminalPrompt
 				command={typedCommand}
