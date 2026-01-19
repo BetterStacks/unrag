@@ -31,6 +31,51 @@ export type Snapshot = {
 
 const toPosixPath = (p: string) => p.replace(/\\/g, '/')
 
+type ExternalRunner = {
+	cmd: string
+	argsPrefix: string[]
+	label: string
+}
+
+const inferExternalRunners = (): ExternalRunner[] => {
+	// Note: `bunx` can execute Node-targeted CLIs without actually running the CLI in the Bun runtime.
+	// In that case `process.versions.bun` is undefined, so we also look at the package-manager user agent.
+	const versions = (
+		process as unknown as {versions?: Record<string, unknown>}
+	).versions
+	const ua = (process.env.npm_config_user_agent ?? '').toLowerCase()
+
+	const candidates: ExternalRunner[] = []
+
+	if (typeof versions?.bun === 'string' || ua.includes('bun')) {
+		candidates.push({cmd: 'bunx', argsPrefix: [], label: 'bunx'})
+	}
+	if (ua.includes('pnpm')) {
+		candidates.push({cmd: 'pnpm', argsPrefix: ['dlx'], label: 'pnpm dlx'})
+	}
+	if (ua.includes('yarn')) {
+		candidates.push({cmd: 'yarn', argsPrefix: ['dlx'], label: 'yarn dlx'})
+	}
+
+	// Default/fallback runner (works on Node/npm installs).
+	if (process.platform === 'win32') {
+		candidates.push({cmd: 'npx.cmd', argsPrefix: ['-y'], label: 'npx.cmd -y'})
+	}
+	candidates.push({cmd: 'npx', argsPrefix: ['-y'], label: 'npx -y'})
+	// Last resort: even if we can't detect Bun, `bunx` may still be available (e.g. when this CLI
+	// is being executed via `bunx`, which can sanitize PATH and hide `npx`).
+	candidates.push({cmd: 'bunx', argsPrefix: [], label: 'bunx'})
+
+	// De-dupe while preserving order.
+	const seen = new Set<string>()
+	return candidates.filter((c) => {
+		const key = `${c.cmd} ${c.argsPrefix.join(' ')}`
+		if (seen.has(key)) return false
+		seen.add(key)
+		return true
+	})
+}
+
 const writeMinimalPackageJson = async (root: string) => {
 	const pkg = {
 		name: 'unrag-upgrade-snapshot',
@@ -75,49 +120,65 @@ const runExternalUnrag = async (
 	args: string[],
 	options?: {verbose?: boolean}
 ) => {
-	const versions = (
-		process as unknown as {versions?: Record<string, unknown>}
-	).versions
-	const useBun = typeof versions?.bun === 'string'
-	const cmd = useBun ? 'bunx' : 'npx'
-	const prefix = useBun ? [] : ['-y']
-	const fullArgs = [...prefix, `unrag@${version}`, ...args]
 	const verbose = Boolean(options?.verbose)
 
-	await new Promise<void>((resolve, reject) => {
-		const child = spawn(cmd, fullArgs, {
-			cwd: projectRoot,
-			stdio: verbose ? 'inherit' : ['ignore', 'pipe', 'pipe'],
-			env: process.env
-		})
-		let stdout = ''
-		let stderr = ''
-		if (!verbose) {
-			child.stdout?.on('data', (chunk) => {
-				stdout += chunk.toString()
+	const runners = inferExternalRunners()
+	let lastSpawnErr: unknown = null
+
+	for (const runner of runners) {
+		const fullArgs = [...runner.argsPrefix, `unrag@${version}`, ...args]
+		try {
+			await new Promise<void>((resolve, reject) => {
+				const child = spawn(runner.cmd, fullArgs, {
+					cwd: projectRoot,
+					stdio: verbose ? 'inherit' : ['ignore', 'pipe', 'pipe'],
+					env: process.env
+				})
+				let stdout = ''
+				let stderr = ''
+				if (!verbose) {
+					child.stdout?.on('data', (chunk) => {
+						stdout += chunk.toString()
+					})
+					child.stderr?.on('data', (chunk) => {
+						stderr += chunk.toString()
+					})
+				}
+				child.on('error', (err) => reject(err))
+				child.on('exit', (code, signal) => {
+					if (code === 0) {
+						return resolve()
+					}
+					const combined = [stdout.trim(), stderr.trim()]
+						.filter(Boolean)
+						.join('\n')
+					const output = combined ? `\n\nOutput:\n${combined}` : ''
+					reject(
+						new Error(
+							`Failed to run ${runner.cmd} ${fullArgs.join(' ')} (code: ${
+								code ?? 'null'
+							}, signal: ${signal ?? 'null'})${output}`
+						)
+					)
+				})
 			})
-			child.stderr?.on('data', (chunk) => {
-				stderr += chunk.toString()
-			})
-		}
-		child.on('error', (err) => reject(err))
-		child.on('exit', (code, signal) => {
-			if (code === 0) {
-				return resolve()
+			return
+		} catch (err) {
+			const code = (err as {code?: unknown} | null)?.code
+			if (code === 'ENOENT') {
+				lastSpawnErr = err
+				continue
 			}
-			const combined = [stdout.trim(), stderr.trim()]
-				.filter(Boolean)
-				.join('\n')
-			const output = combined ? `\n\nOutput:\n${combined}` : ''
-			reject(
-				new Error(
-					`Failed to run ${cmd} ${fullArgs.join(' ')} (code: ${
-						code ?? 'null'
-					}, signal: ${signal ?? 'null'})${output}`
-				)
-			)
-		})
-	})
+			throw err
+		}
+	}
+
+	const tried = runners.map((r) => r.label).join(', ')
+	const details =
+		lastSpawnErr instanceof Error ? `\n\nLast error: ${lastSpawnErr.message}` : ''
+	throw new Error(
+		`Could not find a package runner to execute unrag@${version}. Tried: ${tried}.${details}`
+	)
 }
 
 const runCurrentInitAndAdds = async (
