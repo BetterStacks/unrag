@@ -1,8 +1,8 @@
 'use client'
 
 import {cn} from '@/lib/utils'
-import type {ComponentProps, PointerEventHandler} from 'react'
 import {motion, useMotionValue} from 'motion/react'
+import type {ComponentProps, PointerEventHandler} from 'react'
 import {useCallback, useRef, useState} from 'react'
 import {Terminal} from '../terminal'
 
@@ -11,7 +11,10 @@ type DraggableTerminalProps = Omit<
 	'onTitleBarPointerDown'
 >
 
-export function DraggableTerminal({className, ...props}: DraggableTerminalProps) {
+export function DraggableTerminal({
+	className,
+	...props
+}: DraggableTerminalProps) {
 	const dragX = useMotionValue(0)
 	const dragY = useMotionValue(0)
 	const dragStateRef = useRef<{
@@ -156,15 +159,17 @@ export function DraggableTerminal({className, ...props}: DraggableTerminalProps)
 			className="absolute left-0 top-0"
 			style={
 				isResized
-					? {width: size.width, height: size.height, x: dragX, y: dragY}
+					? {
+							width: size.width,
+							height: size.height,
+							x: dragX,
+							y: dragY
+						}
 					: {width: '100%', height: '100%', x: dragX, y: dragY}
 			}
 		>
 			<Terminal
-				className={cn(
-					'w-full h-full max-h-none',
-					className
-				)}
+				className={cn('w-full h-full max-h-none', className)}
 				onTitleBarPointerDown={handleTitleBarPointerDown}
 				resizable
 				{...props}

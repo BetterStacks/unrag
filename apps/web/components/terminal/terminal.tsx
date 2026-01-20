@@ -3,7 +3,7 @@
 import {cn} from '@/lib/utils'
 import {useHotkeys} from '@mantine/hooks'
 import {AnimatePresence, motion} from 'motion/react'
-import type {CSSProperties, PointerEventHandler} from 'react'
+import type {PointerEventHandler} from 'react'
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {TerminalContent} from './terminal-content'
 import {TerminalProvider, useTerminal} from './terminal-context'
@@ -269,7 +269,7 @@ function TerminalInner({
 	return (
 		<div
 			className={cn(
-				'font-mono text-[9px] leading-tight bg-[#141411] text-white select-none sm:text-[11px]',
+				'font-mono text-[9px] leading-tight bg-[#141411]/90 text-white select-none backdrop-blur-lg sm:text-[11px]',
 				resizable
 					? 'h-full max-h-none overflow-y-auto no-scrollbar'
 					: 'h-[560px] max-h-[560px] overflow-hidden sm:h-[700px] sm:max-h-[700px]',
