@@ -3,7 +3,7 @@
 import {theme} from './terminal-theme'
 
 const shortcuts = [
-	{key: '1-8', action: 'tabs'},
+	{key: '1-6', action: 'tabs'},
 	{key: 'j/k', action: 'navigate'},
 	{key: 'enter', action: 'select'},
 	{key: '?', action: 'help'},

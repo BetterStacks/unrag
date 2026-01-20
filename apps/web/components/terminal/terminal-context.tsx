@@ -183,6 +183,7 @@ export function TerminalProvider({
 			return
 		}
 
+		const traceId = generateId()
 		const sourceId = input.sourceId.trim() || `debug:${generateId()}`
 		const chunkSize = Math.max(40, input.chunkSize ?? 120)
 		const overlap = Math.min(
@@ -228,9 +229,28 @@ export function TerminalProvider({
 			}
 		]
 
+		const newTrace: TerminalTrace = {
+			id: traceId,
+			opName: 'INGEST',
+			time,
+			label: `source ${sourceId.slice(0, 28)}${sourceId.length > 28 ? '...' : ''} [${(totalMs / 1000).toFixed(1)}s]`,
+			totalMs: totalMs.toString(),
+			stages: [
+				{name: 'CHUNK', ms: chunkMs, color: '#ffffff'},
+				{name: 'EMBED', ms: embedMs, color: theme.accent}
+			],
+			events: [
+				{time, type: 'ingest:start'},
+				{time, type: 'ingest:chunk-complete'},
+				{time, type: 'ingest:embedding-complete'},
+				{time, type: 'ingest:complete'}
+			]
+		}
+
 		setIngestedDocuments((prev) => [document, ...prev])
 		setIngestedChunks((prev) => [...chunks, ...prev])
 		setEvents((prev) => [...newEvents, ...prev])
+		setTraces((prev) => [newTrace, ...prev])
 	}, [])
 
 	const runQuery = useCallback(

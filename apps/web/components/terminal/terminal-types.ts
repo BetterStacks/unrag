@@ -9,8 +9,6 @@ export type TabId =
 	| 'query'
 	| 'docs'
 	| 'ingest'
-	| 'doctor'
-	| 'eval'
 
 export interface Tab {
 	id: TabId
