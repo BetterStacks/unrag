@@ -5,6 +5,7 @@
 	"pages": [
 		"index",
 		"changelog",
+		"agent-skills",
 		"getting-started",
 		"upgrade",
 		"concepts",
