@@ -3,6 +3,7 @@
 import {cn} from '@/lib/utils'
 import {useHotkeys} from '@mantine/hooks'
 import {AnimatePresence, motion} from 'motion/react'
+import type {PointerEventHandler} from 'react'
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {TerminalContent} from './terminal-content'
 import {TerminalProvider, useTerminal} from './terminal-context'
@@ -42,9 +43,16 @@ function isEditableTarget() {
 	return false
 }
 
-function TerminalTitleBar() {
+function TerminalTitleBar({
+	onPointerDown
+}: {
+	onPointerDown?: PointerEventHandler<HTMLDivElement>
+}) {
 	return (
-		<div className="flex items-center gap-2 border-b border-white/5 px-3 py-1.5 sm:px-4 sm:py-3">
+		<div
+			onPointerDown={onPointerDown}
+			className="flex items-center gap-2 border-b border-white/5 px-3 py-1.5 sm:px-4 sm:py-3"
+		>
 			<div className="flex items-center gap-1.5">
 				<span className="size-3 rounded-full bg-[#ff5f57]" />
 				<span className="size-3 rounded-full bg-[#febc2e]" />
@@ -221,7 +229,11 @@ function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
 	)
 }
 
-function TerminalInner({autoPlay = false, className}: TerminalProps) {
+function TerminalInner({
+	autoPlay = false,
+	className,
+	onTitleBarPointerDown
+}: TerminalProps) {
 	const [isTyping, setIsTyping] = useState(autoPlay)
 	const [typedCommand, setTypedCommand] = useState(autoPlay ? '' : COMMAND)
 	const [showTUI, setShowTUI] = useState(!autoPlay)
@@ -260,7 +272,7 @@ function TerminalInner({autoPlay = false, className}: TerminalProps) {
 			)}
 		>
 			{/* macOS-style title bar - always visible */}
-			<TerminalTitleBar />
+			<TerminalTitleBar onPointerDown={onTitleBarPointerDown} />
 
 			{/* Command line - always visible once typing starts */}
 			<TerminalPrompt
@@ -280,11 +292,16 @@ function TerminalInner({autoPlay = false, className}: TerminalProps) {
 export function Terminal({
 	className,
 	autoPlay = false,
-	initialTab = 'dashboard'
+	initialTab = 'dashboard',
+	onTitleBarPointerDown
 }: TerminalProps) {
 	return (
 		<TerminalProvider initialTab={initialTab}>
-			<TerminalInner autoPlay={autoPlay} className={className} />
+			<TerminalInner
+				autoPlay={autoPlay}
+				className={className}
+				onTitleBarPointerDown={onTitleBarPointerDown}
+			/>
 		</TerminalProvider>
 	)
 }
