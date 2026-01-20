@@ -2,7 +2,7 @@
  * TypeScript interfaces for the Terminal component.
  */
 
-import type {PointerEventHandler} from 'react'
+import type {CSSProperties, PointerEventHandler} from 'react'
 
 export type TabId =
 	| 'dashboard'
@@ -137,4 +137,6 @@ export interface TerminalProps {
 	autoPlay?: boolean
 	initialTab?: TabId
 	onTitleBarPointerDown?: PointerEventHandler<HTMLDivElement>
+	style?: CSSProperties
+	resizable?: boolean
 }

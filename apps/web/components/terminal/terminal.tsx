@@ -3,7 +3,7 @@
 import {cn} from '@/lib/utils'
 import {useHotkeys} from '@mantine/hooks'
 import {AnimatePresence, motion} from 'motion/react'
-import type {PointerEventHandler} from 'react'
+import type {CSSProperties, PointerEventHandler} from 'react'
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {TerminalContent} from './terminal-content'
 import {TerminalProvider, useTerminal} from './terminal-context'
@@ -232,7 +232,9 @@ function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
 function TerminalInner({
 	autoPlay = false,
 	className,
-	onTitleBarPointerDown
+	onTitleBarPointerDown,
+	style,
+	resizable
 }: TerminalProps) {
 	const [isTyping, setIsTyping] = useState(autoPlay)
 	const [typedCommand, setTypedCommand] = useState(autoPlay ? '' : COMMAND)
@@ -267,9 +269,13 @@ function TerminalInner({
 	return (
 		<div
 			className={cn(
-				'font-mono text-[9px] leading-tight bg-[#1A1A1A] text-white overflow-hidden select-none h-[560px] max-h-[560px] sm:text-[11px] sm:h-[700px] sm:max-h-[700px]',
+				'font-mono text-[9px] leading-tight bg-[#141411] text-white select-none sm:text-[11px]',
+				resizable
+					? 'h-full max-h-none overflow-y-auto no-scrollbar'
+					: 'h-[560px] max-h-[560px] overflow-hidden sm:h-[700px] sm:max-h-[700px]',
 				className
 			)}
+			style={style}
 		>
 			{/* macOS-style title bar - always visible */}
 			<TerminalTitleBar onPointerDown={onTitleBarPointerDown} />
@@ -293,7 +299,9 @@ export function Terminal({
 	className,
 	autoPlay = false,
 	initialTab = 'dashboard',
-	onTitleBarPointerDown
+	onTitleBarPointerDown,
+	style,
+	resizable
 }: TerminalProps) {
 	return (
 		<TerminalProvider initialTab={initialTab}>
@@ -301,6 +309,8 @@ export function Terminal({
 				autoPlay={autoPlay}
 				className={className}
 				onTitleBarPointerDown={onTitleBarPointerDown}
+				style={style}
+				resizable={resizable}
 			/>
 		</TerminalProvider>
 	)

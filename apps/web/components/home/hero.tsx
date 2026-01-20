@@ -66,7 +66,7 @@ function HeroImageFrame({
 			style={{backgroundImage: "url('/hero-image-bg.png')"}}
 		>
 			<div className="relative [--padding:min(10%,--spacing(16))] max-h-[700px] overflow-hidden px-(--padding) pt-(--padding)">
-				<div className="*:relative *:ring-1 *:ring-black/10 *:rounded-t-sm">
+				<div className="*:relative *:rounded-sm">
 					{children}
 				</div>
 			</div>
@@ -126,18 +126,22 @@ export function HeroSection() {
 			demo={
 				<>
 					<HeroImageFrame className="rounded-md lg:hidden">
-						<DraggableTerminal
-							className="rounded-t-sm overflow-hidden"
-							autoPlay
-							initialTab="docs"
-						/>
+						<div className="relative h-[560px] sm:h-[700px]">
+							<DraggableTerminal
+								className="rounded-sm overflow-hidden ring-1 ring-black/10"
+								autoPlay
+								initialTab="docs"
+							/>
+						</div>
 					</HeroImageFrame>
 					<HeroImageFrame className="rounded-lg max-lg:hidden">
-						<DraggableTerminal
-							className="rounded-t-sm overflow-hidden"
-							autoPlay
-							initialTab="docs"
-						/>
+						<div className="relative h-[560px] sm:h-[700px]">
+							<DraggableTerminal
+								className="rounded-sm overflow-hidden ring-1 ring-black/10"
+								autoPlay
+								initialTab="docs"
+							/>
+						</div>
 					</HeroImageFrame>
 				</>
 			}

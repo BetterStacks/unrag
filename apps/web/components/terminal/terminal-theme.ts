@@ -16,7 +16,7 @@ export const theme = {
 	accent: '#8AA170',
 	accentBg: '#8AA170',
 	// Background colors
-	panelBg: '#1A1A1A',
+	panelBg: '#141411',
 	headerBg: 'white',
 	// Status colors
 	success: '#22c55e',
