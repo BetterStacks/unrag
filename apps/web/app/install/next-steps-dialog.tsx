@@ -497,9 +497,9 @@ const results = await engine.retrieve({
 							<div className="rounded-lg border border-olive-950/10 dark:border-white/10 bg-white/50 dark:bg-white/5 p-4">
 								<code className="font-mono text-sm text-olive-950 dark:text-white">
 									{state.install.storeAdapter === 'drizzle' &&
-										'npx drizzle-kit push'}
+										'bunx drizzle-kit push'}
 									{state.install.storeAdapter === 'prisma' &&
-										'npx prisma db push'}
+										'bunx prisma db push'}
 									{state.install.storeAdapter === 'raw-sql' &&
 										'psql $DATABASE_URL -f lib/unrag/schema.sql'}
 								</code>

@@ -1,0 +1,156 @@
+---
+title: AI Assisted Coding
+description: Give your AI coding assistant deep knowledge of Unrag to write correct, production-ready RAG code without hallucinating APIs.
+new: true
+---
+
+AI coding assistants often hallucinate method signatures and configuration options when working with Unrag—they invent imports like `@unrag/client`, call `engine.search()` instead of `engine.retrieve()`, or use environment variable names that don't exist. Agent Skills fix this by giving your AI assistant complete, version-controlled knowledge of Unrag's actual API.
+
+## Installing the Unrag skill
+
+Installing the skill is straightforward. You use the `add-skill` CLI, a tool from Vercel Labs that installs Agent Skills into your project:
+
+```bash
+bunx add-skill betterstacks/unrag
+```
+
+This command downloads the skill and places it in your project's `.claude/skills/` directory (or the equivalent location for your AI assistant). From that point forward, your AI assistant has access to the complete Unrag reference when working in your codebase.
+
+<Callout type="info">
+  The skill is designed with Claude Code in mind, but the format works with other AI assistants that support similar knowledge structures. The underlying content is just markdown files with structured information—any assistant that can read and reason over project files can benefit.
+</Callout>
+
+## What the skill includes
+
+The Unrag skill is comprehensive because it's designed to handle everything you might ask about. There's no point in giving the AI partial knowledge—that just leads to confident-sounding answers that are wrong in the details. Here's what the skill covers:
+
+### Core API knowledge
+
+The skill includes complete type definitions for the `ContextEngine` class and all its methods. This means the AI knows that `ingest()` accepts a `sourceId`, `content`, optional `metadata`, and optional per-call `chunking` overrides. It knows that `retrieve()` accepts a `query`, `topK` count, and optional `scope` for filtering results. It knows the shape of the objects returned by each method, including fields like `durations` that break down where time was spent.
+
+The skill also covers `defineUnragConfig()`, the function you use to set up your engine. The AI understands the full configuration schema—defaults for chunking, retrieval settings, embedding provider options, engine configuration, and how everything fits together.
+
+### All twelve embedding providers
+
+Embeddings are the foundation of vector search, but each provider has its own configuration quirks. OpenAI uses `OPENAI_API_KEY` and model names like `text-embedding-3-small`. Google uses `GOOGLE_GENERATIVE_AI_API_KEY` and supports task type hints for better embeddings. Cohere has input type parameters. Azure OpenAI requires resource names and API versions. Each provider has its own way of working, and getting the details wrong means your embeddings don't generate.
+
+The skill documents all twelve providers in complete detail. For each one, it includes the configuration structure, required environment variables, available models, and any provider-specific options. When you ask the AI to set up Voyage embeddings or switch from OpenAI to local Ollama models, it knows exactly how to configure them.
+
+### Extractors for rich media
+
+Text is just one kind of content. Real applications need to ingest PDFs, images, audio transcriptions, and video. Unrag includes twelve extractors that handle different content types:
+
+**PDFs** can be processed in three ways: `pdf-text-layer` extracts text directly from the PDF structure (fast and accurate when the PDF has a text layer), `pdf-llm` uses a language model to read the PDF (better for scanned documents), and `pdf-ocr` runs optical character recognition (works when all else fails).
+
+**Images** can be processed with `image-ocr` to extract visible text, or with `image-caption-llm` to generate descriptive captions that can be embedded.
+
+**Audio** uses `audio-transcribe` to convert speech to text via transcription APIs.
+
+**Video** can be processed with `video-transcribe` (extracts audio and transcribes it) or `video-frames` (samples frames and describes them visually).
+
+**Files** like Word documents, PowerPoint presentations, and Excel spreadsheets have dedicated extractors: `file-docx`, `file-pptx`, `file-xlsx`, and a generic `file-text` extractor for plain text files.
+
+The skill knows how to configure each extractor, what environment variables they need, and how to wire them into your `unrag.config.ts`.
+
+### Connectors for data sources
+
+Unrag includes connectors for syncing content from external sources—Notion, Google Drive, OneDrive, and Dropbox. Each connector has its own authentication flow, API quirks, and configuration options.
+
+The skill understands how to set up each connector, configure OAuth credentials, and use the sync methods. It knows that connectors emit events as they sync, that you can scope syncs to specific folders or databases, and how to handle the assets (PDFs, images) that connectors extract from your source content.
+
+### Batteries and optional features
+
+Beyond the core ingest/retrieve flow, Unrag includes optional "batteries" that add functionality:
+
+**The Reranker** adds two-stage retrieval for better precision. You retrieve a larger candidate set with fast vector search, then rerank the results with a more expensive cross-encoder model. The skill knows how to set this up with Cohere's reranking API.
+
+**The Eval harness** lets you evaluate your retrieval quality. You define test cases with queries and expected results, then run evaluations to see how well your system performs. The skill knows the eval API and configuration.
+
+**The Debug panel** provides a real-time terminal UI for watching what Unrag is doing. The skill knows the CLI commands and how to interpret the debug output.
+
+### Production patterns and recipes
+
+Knowing the API is only part of the picture. The skill also includes common patterns for using Unrag in production:
+
+- Building a search endpoint with proper scoping and error handling
+- Implementing multi-tenant data isolation using source ID prefixes
+- Integrating retrieved chunks into chat prompts for RAG-powered conversations
+- Designing ingestion strategies for different content types (static documentation, user-generated content, periodic syncs from external sources)
+- Framework integration patterns for Next.js, Express, Hono, and other common setups
+
+These patterns help the AI suggest architecturally sound approaches, not just syntactically correct code.
+
+## What this looks like in practice
+
+When you work with an AI assistant that has the Unrag skill installed, the interaction quality changes noticeably. Here's an example of what the difference feels like.
+
+**Without the skill**, you might ask: "Help me set up Unrag with Google embeddings and Prisma." The AI produces something that looks plausible—it imports from a package, creates some configuration object, calls some methods. But the import path is invented, the configuration keys are wrong, and the environment variable names don't match what Unrag actually expects. You spend the next ten minutes debugging.
+
+**With the skill installed**, the same request yields accurate code. The AI knows the correct import path from your generated config file. It knows that Google embeddings use `GOOGLE_GENERATIVE_AI_API_KEY`, not `GOOGLE_API_KEY`. It knows the `defineUnragConfig()` schema and produces configuration that actually matches the types. It knows to mention that you need to run the init command to generate the Prisma adapter files. The code works the first time you try it.
+
+The difference becomes even more apparent with complex requests. If you ask for help extracting text from PDFs, the AI knows about the three different PDF extractors, understands their tradeoffs (text layer extraction is fast but fails on scanned documents; LLM extraction is slower but handles complex layouts), and can recommend the right one for your situation. If you ask about performance tuning, it knows about the `durations` object returned from each operation and can suggest where to look for bottlenecks.
+
+Debugging also improves. When you report that "searches return empty results," the AI doesn't just guess at common issues. It knows the actual architecture—that content needs to be ingested before it can be retrieved, that scope filters use prefix matching on `sourceId`, that embedding dimension mismatches cause problems if you change models after ingesting data. It can walk you through specific diagnostic steps based on how Unrag actually works.
+
+## How the skill is structured
+
+Understanding the skill's structure helps you appreciate what's happening when the AI consults it. The skill is organized into focused reference files:
+
+```
+skills/unrag/
+├── SKILL.md                    # Main overview and entry point
+└── references/
+    ├── api-reference.md        # Complete type definitions and method signatures
+    ├── embedding-providers.md  # All 12 providers with configuration details
+    ├── store-adapters.md       # Drizzle, Prisma, and Raw SQL adapters
+    ├── extractors.md           # All 12 extractors for rich media
+    ├── connectors.md           # Notion, Drive, OneDrive, Dropbox
+    ├── batteries.md            # Reranker, Eval, Debug panel
+    ├── cli-commands.md         # init, add, upgrade, doctor, debug
+    ├── patterns.md             # Common recipes and architectures
+    └── troubleshooting.md      # Debug guides and issue resolution
+```
+
+This organization ensures the AI can quickly find relevant information without overwhelming its context window. When you ask about embedding providers, it loads the provider reference. When you ask about debugging, it loads the troubleshooting guide. The structure mirrors how you'd naturally navigate documentation, making the AI's reasoning more predictable and reliable.
+
+## Keeping the skill up to date
+
+The Unrag skill is versioned to track Unrag releases:
+
+| Component | Version |
+|-----------|---------|
+| Skill Version | 1.0.0 |
+| Unrag CLI Version | 0.3.2 |
+| Config Version | 2 |
+
+When Unrag releases new features—additional embedding providers, new extractors, changed APIs—the skill is updated to match. You should periodically update your installed skill to keep your AI assistant's knowledge current:
+
+```bash
+bunx add-skill betterstacks/unrag --update
+```
+
+This is especially important if you upgrade your Unrag installation. If you're running Unrag 0.4.0 but your AI has the 0.3.0 skill, it might suggest patterns or options that have changed. Keeping both in sync ensures the AI's advice matches your actual codebase.
+
+## A new way to work with AI
+
+Agent Skills represent a shift in how we collaborate with AI coding assistants. Instead of treating the AI as a general-purpose tool that knows a little about everything, skills let us give it deep expertise in the specific tools we're using.
+
+For Unrag, this means your AI assistant becomes a genuine expert on Unrag—not because it memorized general RAG patterns, but because it has access to the exact types, methods, and configuration options that Unrag uses. It can answer questions about obscure extractors, suggest the right embedding provider for your use case, and help you debug issues based on what Unrag actually does under the hood.
+
+The practical benefits are significant. You move faster because you're not constantly cross-referencing documentation. You write correct code earlier because the AI isn't hallucinating APIs. You learn more because the AI can explain concepts in context, drawing on complete and accurate knowledge. And you build more confidently because the patterns the AI suggests are production-tested approaches, not plausible-sounding inventions.
+
+If you're building RAG systems with Unrag and using an AI coding assistant, installing the skill is one of the highest-leverage things you can do to improve your workflow.
+
+## Next steps
+
+<Cards>
+  <Card title="Install Unrag" href="/docs/getting-started/quickstart">
+    Get Unrag running in your project from scratch
+  </Card>
+  <Card title="Choose an Embedding Provider" href="/docs/providers">
+    Explore all 12 embedding providers and pick the right one
+  </Card>
+  <Card title="Build a Search Endpoint" href="/docs/examples/docs-search">
+    Create your first production retrieval API
+  </Card>
+</Cards>
