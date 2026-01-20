@@ -8,13 +8,25 @@ AI coding assistants often hallucinate method signatures and configuration optio
 
 ## Installing the Unrag skill
 
-Installing the skill is straightforward. You use the `add-skill` CLI, a tool from Vercel Labs that installs Agent Skills into your project:
+There are two ways to install the Unrag skill:
+
+### Option 1: Using the Unrag CLI (recommended)
+
+```bash
+bunx unrag@latest add skills
+```
+
+This launches an interactive prompt where you can select which AI coding assistants to install the skill for. You can install for multiple agents at once—Claude Code, Cursor, Windsurf, Antigravity, or Codex.
+
+### Option 2: Using add-skill
+
+You can also use the `add-skill` CLI from Vercel Labs:
 
 ```bash
 bunx add-skill betterstacks/unrag
 ```
 
-This command downloads the skill and places it in your project's `.claude/skills/` directory (or the equivalent location for your AI assistant). From that point forward, your AI assistant has access to the complete Unrag reference when working in your codebase.
+This installs the skill specifically for Claude Code into your project's `.claude/skills/` directory.
 
 <Callout type="info">
   The skill is designed with Claude Code in mind, but the format works with other AI assistants that support similar knowledge structures. The underlying content is just markdown files with structured information—any assistant that can read and reason over project files can benefit.
