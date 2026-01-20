@@ -1,4 +1,4 @@
-import {clsx} from 'clsx/lite'
+import {cn} from '@/lib/utils'
 import Link from 'next/link'
 import type {ComponentProps, ReactNode} from 'react'
 import {ChevronIcon} from './icons'
@@ -26,8 +26,8 @@ export function AnnouncementBadge({
 			href={href}
 			{...props}
 			data-variant={variant}
-			className={clsx(
-				'group relative inline-flex max-w-full gap-x-3 overflow-hidden rounded-md px-3.5 py-2 text-sm/6 max-sm:flex-col sm:items-center sm:rounded-full sm:px-3 sm:py-0.5',
+			className={cn(
+				'group relative inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 overflow-hidden rounded-md px-2 py-1.5 text-xs/5 sm:gap-x-3 sm:gap-y-0 sm:rounded-full sm:px-3 sm:py-0.5 sm:text-sm/6',
 				variant === 'normal' &&
 					'bg-olive-950/5 text-olive-950 hover:bg-olive-950/10 dark:bg-white/5 dark:text-white dark:inset-ring-1 dark:inset-ring-white/5 dark:hover:bg-white/10',
 				variant === 'overlay' &&
@@ -37,15 +37,15 @@ export function AnnouncementBadge({
 		>
 			<span className="text-pretty sm:truncate">{text}</span>
 			<span
-				className={clsx(
+				className={cn(
 					'h-3 w-px max-sm:hidden',
 					variant === 'normal' && 'bg-olive-950/20 dark:bg-white/10',
 					variant === 'overlay' && 'bg-white/20'
 				)}
 			/>
 			<span
-				className={clsx(
-					'inline-flex shrink-0 items-center gap-2 font-semibold',
+				className={cn(
+					'inline-flex shrink-0 items-center gap-1.5 font-semibold sm:gap-2',
 					variant === 'normal' && 'text-olive-950 dark:text-white'
 				)}
 			>
@@ -68,7 +68,7 @@ export function Button({
 	return (
 		<button
 			type={type}
-			className={clsx(
+			className={cn(
 				'inline-flex shrink-0 items-center justify-center gap-1 rounded-full text-sm/7 font-medium',
 				color === 'dark/light' &&
 					'bg-olive-950 text-white hover:bg-olive-800 dark:bg-olive-300 dark:text-olive-950 dark:hover:bg-olive-200',
@@ -96,7 +96,7 @@ export function ButtonLink({
 	return (
 		<Link
 			href={href}
-			className={clsx(
+			className={cn(
 				'inline-flex shrink-0 items-center justify-center gap-1 rounded-full text-sm/7 font-medium',
 				color === 'dark/light' &&
 					'bg-olive-950 text-white hover:bg-olive-800 dark:bg-olive-300 dark:text-olive-950 dark:hover:bg-olive-200',
@@ -121,7 +121,7 @@ export function SoftButton({
 	return (
 		<button
 			type={type}
-			className={clsx(
+			className={cn(
 				'inline-flex shrink-0 items-center justify-center gap-1 rounded-full bg-olive-950/10 text-sm/7 font-medium text-olive-950 hover:bg-olive-950/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20',
 				sizes[size],
 				className
@@ -143,7 +143,7 @@ export function SoftButtonLink({
 	return (
 		<Link
 			href={href}
-			className={clsx(
+			className={cn(
 				'inline-flex shrink-0 items-center justify-center gap-1 rounded-full bg-olive-950/10 text-sm/7 font-medium text-olive-950 hover:bg-olive-950/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/20',
 				sizes[size],
 				className
@@ -166,7 +166,7 @@ export function PlainButton({
 	return (
 		<button
 			type={type}
-			className={clsx(
+			className={cn(
 				'inline-flex shrink-0 items-center justify-center gap-2 rounded-full text-sm/7 font-medium',
 				color === 'dark/light' &&
 					'text-olive-950 hover:bg-olive-950/10 dark:text-white dark:hover:bg-white/10',
@@ -194,7 +194,7 @@ export function PlainButtonLink({
 	return (
 		<Link
 			href={href}
-			className={clsx(
+			className={cn(
 				'inline-flex shrink-0 items-center justify-center gap-2 rounded-full text-sm/7 font-medium',
 				color === 'dark/light' &&
 					'text-olive-950 hover:bg-olive-950/10 dark:text-white dark:hover:bg-white/10',
@@ -218,7 +218,7 @@ export function TextLink({
 	return (
 		<Link
 			href={href}
-			className={clsx(
+			className={cn(
 				'inline-flex items-center gap-2 text-sm/7 font-medium text-olive-950 dark:text-white',
 				className
 			)}
@@ -229,17 +229,14 @@ export function TextLink({
 
 export function Logo({className, ...props}: ComponentProps<'span'>) {
 	return (
-		<span
-			className={clsx('flex h-8 items-stretch', className)}
-			{...props}
-		/>
+		<span className={cn('flex h-8 items-stretch', className)} {...props} />
 	)
 }
 
 export function LogoGrid({className, ...props}: ComponentProps<'div'>) {
 	return (
 		<div
-			className={clsx(
+			className={cn(
 				'mx-auto grid w-full grid-cols-2 place-items-center gap-x-6 gap-y-10 sm:grid-cols-3 sm:gap-x-10 lg:mx-auto lg:inline-grid lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-1 lg:gap-12',
 				className
 			)}
@@ -255,7 +252,7 @@ export function Container({
 }: ComponentProps<'div'>) {
 	return (
 		<div
-			className={clsx(
+			className={cn(
 				'mx-auto w-full max-w-2xl px-6 md:max-w-3xl lg:max-w-7xl lg:px-10',
 				className
 			)}
@@ -268,7 +265,7 @@ export function Container({
 
 export function Main({children, className, ...props}: ComponentProps<'main'>) {
 	return (
-		<main className={clsx('isolate overflow-clip', className)} {...props}>
+		<main className={cn('isolate overflow-clip', className)} {...props}>
 			{children}
 		</main>
 	)
@@ -301,7 +298,7 @@ export function Wallpaper({
 	return (
 		<div
 			data-color={color}
-			className={clsx(
+			className={cn(
 				'relative overflow-hidden bg-linear-to-b data-[color=blue]:from-[#637c86] data-[color=blue]:to-[#778599] data-[color=brown]:from-[#8d7359] data-[color=brown]:to-[#765959] data-[color=green]:from-[#9ca88f] data-[color=green]:to-[#596352] data-[color=purple]:from-[#7b627d] data-[color=purple]:to-[#8f6976] dark:data-[color=blue]:from-[#243a42] dark:data-[color=blue]:to-[#232f40] dark:data-[color=brown]:from-[#382d23] dark:data-[color=brown]:to-[#3d2323] dark:data-[color=green]:from-[#333a2b] dark:data-[color=green]:to-[#26361b] dark:data-[color=purple]:from-[#412c42] dark:data-[color=purple]:to-[#3c1a26]',
 				className
 			)}
@@ -339,7 +336,7 @@ export function Screenshot({
 		<Wallpaper
 			color={wallpaper}
 			data-placement={placement}
-			className={clsx('group', className)}
+			className={cn('group', className)}
 			{...props}
 		>
 			<div className="relative [--padding:min(10%,--spacing(16))] group-data-[placement=bottom]:px-(--padding) group-data-[placement=bottom]:pt-(--padding) group-data-[placement=bottom-left]:pt-(--padding) group-data-[placement=bottom-left]:pr-(--padding) group-data-[placement=bottom-right]:pt-(--padding) group-data-[placement=bottom-right]:pl-(--padding) group-data-[placement=top]:px-(--padding) group-data-[placement=top]:pb-(--padding) group-data-[placement=top-left]:pr-(--padding) group-data-[placement=top-left]:pb-(--padding) group-data-[placement=top-right]:pb-(--padding) group-data-[placement=top-right]:pl-(--padding)">
@@ -358,7 +355,7 @@ export function Eyebrow({
 }: ComponentProps<'div'>) {
 	return (
 		<div
-			className={clsx(
+			className={cn(
 				'text-sm/7 font-semibold text-olive-700 dark:text-olive-400',
 				className
 			)}
@@ -377,7 +374,7 @@ export function Heading({
 }: {color?: 'dark/light' | 'light'} & ComponentProps<'h1'>) {
 	return (
 		<h1
-			className={clsx(
+			className={cn(
 				'font-display text-5xl/12 tracking-tight text-balance sm:text-[5rem]/20',
 				color === 'dark/light' && 'text-olive-950 dark:text-white',
 				color === 'light' && 'text-white',
@@ -398,7 +395,7 @@ export function Text({
 }: ComponentProps<'div'> & {size?: 'md' | 'lg'}) {
 	return (
 		<div
-			className={clsx(
+			className={cn(
 				size === 'md' && 'text-base/7',
 				size === 'lg' && 'text-lg/8',
 				'text-olive-700 dark:text-olive-400',
@@ -418,7 +415,7 @@ export function Subheading({
 }: ComponentProps<'h2'>) {
 	return (
 		<h2
-			className={clsx(
+			className={cn(
 				'font-display text-[2rem]/10 tracking-tight text-pretty text-olive-950 sm:text-5xl/14 dark:text-white',
 				className
 			)}
@@ -444,7 +441,7 @@ export function Section({
 	cta?: ReactNode
 } & ComponentProps<'section'>) {
 	return (
-		<section className={clsx('py-16', className)} {...props}>
+		<section className={cn('py-16', className)} {...props}>
 			<Container className="flex flex-col gap-10 sm:gap-16">
 				{headline && (
 					<div className="flex max-w-2xl flex-col gap-6">

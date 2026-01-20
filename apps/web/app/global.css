@@ -232,6 +232,15 @@
 	animation-delay: var(--unrag-reveal-delay, 0ms);
 }
 
+.no-scrollbar {
+	scrollbar-width: none;
+	-ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+	display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.unrag-fade-in {
 		animation: none;

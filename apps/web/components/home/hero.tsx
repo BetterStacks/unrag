@@ -11,6 +11,7 @@ import {
 	Text
 } from '../elements'
 import {ArrowNarrowRightIcon} from '../icons'
+import {DraggableTerminal} from './draggable-terminal'
 
 function HeroLeftAlignedWithDemo({
 	eyebrow,
@@ -32,7 +33,7 @@ function HeroLeftAlignedWithDemo({
 	return (
 		<section className={className} {...props}>
 			<Container className="flex flex-col gap-16">
-				<div className="flex flex-col gap-32">
+				<div className="flex flex-col gap-16">
 					<div className="flex flex-col items-start gap-6">
 						{eyebrow}
 						<Heading className="max-w-5xl">{headline}</Heading>
@@ -54,8 +55,8 @@ function HeroLeftAlignedWithDemo({
 
 function HeroImageFrame({
 	className,
-	imageClassName
-}: {className?: string; imageClassName?: string}) {
+	children
+}: {className?: string; children?: ReactNode}) {
 	return (
 		<div
 			className={clsx(
@@ -65,13 +66,7 @@ function HeroImageFrame({
 			style={{backgroundImage: "url('/hero-image-bg.png')"}}
 		>
 			<div className="relative [--padding:min(10%,--spacing(16))] max-h-[700px] overflow-hidden px-(--padding) pt-(--padding)">
-				<div className="*:relative *:ring-1 *:ring-black/10 *:rounded-t-sm">
-					<img
-						src="/hero-image.png"
-						alt="Unrag product interface"
-						className={clsx('block w-full', imageClassName)}
-					/>
-				</div>
+				<div className="*:relative *:rounded-sm">{children}</div>
 			</div>
 		</div>
 	)
@@ -128,8 +123,24 @@ export function HeroSection() {
 			}
 			demo={
 				<>
-					<HeroImageFrame className="rounded-md lg:hidden" />
-					<HeroImageFrame className="rounded-lg max-lg:hidden" />
+					<HeroImageFrame className="rounded-md lg:hidden">
+						<div className="relative h-[560px] sm:h-[700px]">
+							<DraggableTerminal
+								className="rounded-sm overflow-hidden ring-1 ring-black/10"
+								autoPlay
+								initialTab="docs"
+							/>
+						</div>
+					</HeroImageFrame>
+					<HeroImageFrame className="rounded-lg max-lg:hidden">
+						<div className="relative h-[560px] sm:h-[700px]">
+							<DraggableTerminal
+								className="rounded-sm overflow-hidden ring-1 ring-black/10"
+								autoPlay
+								initialTab="docs"
+							/>
+						</div>
+					</HeroImageFrame>
 				</>
 			}
 			footer={
