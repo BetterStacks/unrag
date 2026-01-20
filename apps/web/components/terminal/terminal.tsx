@@ -3,7 +3,7 @@
 import {cn} from '@/lib/utils'
 import {useHotkeys} from '@mantine/hooks'
 import {AnimatePresence, motion} from 'motion/react'
-import type {CSSProperties, PointerEventHandler} from 'react'
+import type {PointerEventHandler} from 'react'
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {TerminalContent} from './terminal-content'
 import {TerminalProvider, useTerminal} from './terminal-context'

@@ -66,9 +66,7 @@ function HeroImageFrame({
 			style={{backgroundImage: "url('/hero-image-bg.png')"}}
 		>
 			<div className="relative [--padding:min(10%,--spacing(16))] max-h-[700px] overflow-hidden px-(--padding) pt-(--padding)">
-				<div className="*:relative *:rounded-sm">
-					{children}
-				</div>
+				<div className="*:relative *:rounded-sm">{children}</div>
 			</div>
 		</div>
 	)
