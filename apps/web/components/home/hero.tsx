@@ -11,8 +11,8 @@ import {
 	Text
 } from '../elements'
 import {ArrowNarrowRightIcon} from '../icons'
-import {DraggableTerminal} from './draggable-terminal'
 import {Terminal} from '../terminal'
+import {DraggableTerminal} from './draggable-terminal'
 
 function HeroLeftAlignedWithDemo({
 	eyebrow,
