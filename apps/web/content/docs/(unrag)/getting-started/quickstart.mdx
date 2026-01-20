@@ -203,9 +203,18 @@ This presents a list of extractors to install (PDF, image, audio, video, files) 
 
 If you prefer to configure things manually, the generated `unrag.config.ts` includes `assetProcessing` settings you can edit directly.
 
-When you're ready to ingest content with embedded PDFs or images, check out:
+## Speeding up development with AI
+
+If you're using an AI coding assistant like Claude Code, Cursor, or Windsurf, you can give it deep knowledge of Unrag's API to help you write correct code faster. Out of the box, AI assistants often hallucinate method names or configuration options because Unrag wasn't heavily represented in their training data. By installing the [Unrag Agent Skill](/docs/ai-assisted-coding), your AI gets access to complete type definitions, all twelve embedding providers, extractors, connectors, and production patterns—so it can produce working code instead of plausible-looking guesses.
+
+This is especially helpful as you move beyond the basics and start configuring specific embedding providers, adding extractors for different file types, or building production search endpoints. Instead of context-switching between your editor and documentation, you can ask your AI assistant and get accurate answers.
+
+When you're ready to ingest content with embedded PDFs or images, explore AI-assisted workflows, or dive deeper:
 
 <Cards>
+  <Card title="AI Assisted Coding" href="/docs/ai-assisted-coding">
+    Install the Agent Skill for your AI coding assistant
+  </Card>
   <Card title="Multimodal Ingestion" href="/docs/concepts/multimodal">
     How PDFs and images are processed
   </Card>

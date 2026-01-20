@@ -5,6 +5,7 @@
 	"pages": [
 		"index",
 		"changelog",
+		"ai-assisted-coding",
 		"getting-started",
 		"upgrade",
 		"concepts",

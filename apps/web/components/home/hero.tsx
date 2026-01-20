@@ -11,6 +11,7 @@ import {
 	Text
 } from '../elements'
 import {ArrowNarrowRightIcon} from '../icons'
+import {Terminal} from '../terminal'
 import {DraggableTerminal} from './draggable-terminal'
 
 function HeroLeftAlignedWithDemo({
@@ -97,8 +98,8 @@ export function HeroSection() {
 			className="py-16"
 			eyebrow={
 				<AnnouncementBadge
-					href="/docs/connectors"
-					text="New: OneDrive + Dropbox connectors"
+					href="/docs/agent-skills"
+					text="New: Agent Skills for AI-powered development"
 					cta="Learn more"
 				/>
 			}
@@ -125,7 +126,7 @@ export function HeroSection() {
 				<>
 					<HeroImageFrame className="rounded-md lg:hidden">
 						<div className="relative h-[560px] sm:h-[700px]">
-							<DraggableTerminal
+							<Terminal
 								className="rounded-sm overflow-hidden ring-1 ring-black/10"
 								autoPlay
 								initialTab="docs"
