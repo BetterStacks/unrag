@@ -1,12 +1,12 @@
-import {readFile, writeFile} from 'node:fs/promises'
+import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import {fileURLToPath} from 'node:url'
-import {cancel, confirm, isCancel, outro, select, text} from '@clack/prompts'
-import {readCliPackageVersion} from '../lib/cliVersion'
-import {docsUrl} from '../lib/constants'
-import {ensureDir, exists, findUp, tryFindProjectRoot} from '../lib/fs'
-import {readJsonFile, writeJsonFile} from '../lib/json'
-import {readRegistryManifest} from '../lib/manifest'
+import { fileURLToPath } from 'node:url'
+import { cancel, confirm, isCancel, outro, select, text } from '@clack/prompts'
+import { readCliPackageVersion } from '../lib/cliVersion'
+import { docsUrl } from '../lib/constants'
+import { ensureDir, exists, findUp, tryFindProjectRoot } from '../lib/fs'
+import { readJsonFile, writeJsonFile } from '../lib/json'
+import { readRegistryManifest } from '../lib/manifest'
 import {
 	type BatteryName,
 	type ConnectorName,
@@ -31,7 +31,7 @@ type InitConfig = {
 	storeAdapter: 'drizzle' | 'prisma' | 'raw-sql'
 	aliasBase?: string
 	version: number
-	installedFrom?: {unragVersion: string}
+	installedFrom?: { unragVersion: string }
 	connectors?: string[]
 	extractors?: string[]
 	batteries?: string[]
@@ -228,40 +228,40 @@ async function patchUnragConfig(args: {
 				// Map short flag keys to nested paths
 				if (flagKey === 'pdf_textLayer') {
 					const pdf = _ensureObject(minimalOverrides, 'pdf')
-					pdf.textLayer = {enabled: true}
+					pdf.textLayer = { enabled: true }
 				} else if (flagKey === 'pdf_llmExtraction') {
 					const pdf = _ensureObject(minimalOverrides, 'pdf')
-					pdf.llmExtraction = {enabled: true}
+					pdf.llmExtraction = { enabled: true }
 				} else if (flagKey === 'pdf_ocr') {
 					const pdf = _ensureObject(minimalOverrides, 'pdf')
-					pdf.ocr = {enabled: true}
+					pdf.ocr = { enabled: true }
 				} else if (flagKey === 'image_ocr') {
 					const image = _ensureObject(minimalOverrides, 'image')
-					image.ocr = {enabled: true}
+					image.ocr = { enabled: true }
 				} else if (flagKey === 'image_captionLlm') {
 					const image = _ensureObject(minimalOverrides, 'image')
-					image.captionLlm = {enabled: true}
+					image.captionLlm = { enabled: true }
 				} else if (flagKey === 'audio_transcription') {
 					const audio = _ensureObject(minimalOverrides, 'audio')
-					audio.transcription = {enabled: true}
+					audio.transcription = { enabled: true }
 				} else if (flagKey === 'video_transcription') {
 					const video = _ensureObject(minimalOverrides, 'video')
-					video.transcription = {enabled: true}
+					video.transcription = { enabled: true }
 				} else if (flagKey === 'video_frames') {
 					const video = _ensureObject(minimalOverrides, 'video')
-					video.frames = {enabled: true}
+					video.frames = { enabled: true }
 				} else if (flagKey === 'file_text') {
 					const file = _ensureObject(minimalOverrides, 'file')
-					file.text = {enabled: true}
+					file.text = { enabled: true }
 				} else if (flagKey === 'file_docx') {
 					const file = _ensureObject(minimalOverrides, 'file')
-					file.docx = {enabled: true}
+					file.docx = { enabled: true }
 				} else if (flagKey === 'file_pptx') {
 					const file = _ensureObject(minimalOverrides, 'file')
-					file.pptx = {enabled: true}
+					file.pptx = { enabled: true }
 				} else if (flagKey === 'file_xlsx') {
 					const file = _ensureObject(minimalOverrides, 'file')
-					file.xlsx = {enabled: true}
+					file.xlsx = { enabled: true }
 				}
 			}
 
@@ -392,12 +392,12 @@ const addPackageJsonScripts = async (args: {
 	pkg: PackageJsonWithScripts
 	scripts: Record<string, string>
 	nonInteractive: boolean
-}): Promise<{added: string[]; kept: string[]}> => {
+}): Promise<{ added: string[]; kept: string[] }> => {
 	const existing = args.pkg.scripts ?? {}
 	const desired = args.scripts
 	const conflicting = Object.keys(desired).filter((k) => k in existing)
 
-	const toAdd: Record<string, string> = {...desired}
+	const toAdd: Record<string, string> = { ...desired }
 
 	if (conflicting.length > 0 && args.nonInteractive) {
 		// In non-interactive mode, keep existing scripts (non-destructive).
@@ -431,7 +431,7 @@ const addPackageJsonScripts = async (args: {
 			})
 			if (isCancel(action)) {
 				cancel('Cancelled.')
-				return {added: [], kept: Object.keys(desired)}
+				return { added: [], kept: Object.keys(desired) }
 			}
 
 			if (action === 'keep') {
@@ -456,7 +456,7 @@ const addPackageJsonScripts = async (args: {
 				})
 				if (isCancel(newName)) {
 					cancel('Cancelled.')
-					return {added: [], kept: Object.keys(desired)}
+					return { added: [], kept: Object.keys(desired) }
 				}
 				const nextName = String(newName).trim()
 				const value = toAdd[scriptName]
@@ -472,16 +472,16 @@ const addPackageJsonScripts = async (args: {
 
 	const added = Object.keys(toAdd)
 	if (added.length > 0) {
-		args.pkg.scripts = {...existing, ...toAdd}
+		args.pkg.scripts = { ...existing, ...toAdd }
 		await writePackageJson(args.projectRoot, args.pkg)
 	}
 
 	const kept = conflicting.filter((k) => !(k in toAdd))
-	return {added, kept}
+	return { added, kept }
 }
 
 type ParsedAddArgs = {
-	kind?: 'connector' | 'extractor' | 'battery'
+	kind?: 'connector' | 'extractor' | 'battery' | 'skills'
 	name?: string
 	yes?: boolean
 	noInstall?: boolean
@@ -515,6 +515,10 @@ const parseAddArgs = (args: string[]): ParsedAddArgs => {
 				out.kind = 'battery'
 				continue
 			}
+			if (a === 'skills') {
+				out.kind = 'skills'
+				continue
+			}
 			out.kind = 'connector'
 			out.name = a
 			continue
@@ -534,6 +538,14 @@ const parseAddArgs = (args: string[]): ParsedAddArgs => {
 }
 
 export async function addCommand(args: string[]) {
+	// Handle skills subcommand early (doesn't require project root)
+	const parsed = parseAddArgs(args)
+	if (parsed.kind === 'skills') {
+		const { skillsCommand } = await import('./skills')
+		await skillsCommand(args)
+		return
+	}
+
 	const root = await tryFindProjectRoot(process.cwd())
 	if (!root) {
 		throw new Error(
@@ -541,12 +553,13 @@ export async function addCommand(args: string[]) {
 		)
 	}
 
-	const parsed = parseAddArgs(args)
+
 	const kind = parsed.kind ?? 'connector'
 	const name = parsed.name
 	const noInstall =
 		Boolean(parsed.noInstall) || process.env.UNRAG_SKIP_INSTALL === '1'
 	const quiet = Boolean(parsed.quiet)
+
 
 	const configPath = path.join(root, CONFIG_FILE)
 	const config = await readJsonFile<InitConfig>(configPath)
@@ -626,7 +639,7 @@ export async function addCommand(args: string[]) {
 			managedFiles.add(file)
 		}
 
-		const {deps, devDeps} = depsForBattery(battery)
+		const { deps, devDeps } = depsForBattery(battery)
 		const merged = mergeDeps(pkg, deps, devDeps)
 		if (merged.changes.length > 0) {
 			await writePackageJson(root, merged.pkg)
@@ -643,7 +656,7 @@ export async function addCommand(args: string[]) {
 			...config,
 			batteries,
 			version: CONFIG_VERSION,
-			installedFrom: {unragVersion: cliPackageVersion},
+			installedFrom: { unragVersion: cliPackageVersion },
 			managedFiles: Array.from(managedFiles).sort()
 		})
 
@@ -664,7 +677,7 @@ export async function addCommand(args: string[]) {
 					topK: 10,
 					scopePrefix: 'eval:sample:',
 					mode: 'retrieve',
-					thresholds: {min: {recallAtK: 0.75}}
+					thresholds: { min: { recallAtK: 0.75 } }
 				},
 				documents: [
 					{
@@ -682,7 +695,7 @@ export async function addCommand(args: string[]) {
 					{
 						id: 'q_refund_window',
 						query: 'How long do I have to request a refund?',
-						relevant: {sourceIds: ['eval:sample:doc:refund-policy']}
+						relevant: { sourceIds: ['eval:sample:doc:refund-policy'] }
 					},
 					{
 						id: 'q_contact_support',
@@ -695,7 +708,7 @@ export async function addCommand(args: string[]) {
 			}
 
 			const evalConfig = {
-				thresholds: {min: {recallAtK: 0.75}},
+				thresholds: { min: { recallAtK: 0.75 } },
 				cleanup: 'none',
 				ingest: true
 			}
@@ -1085,21 +1098,21 @@ main().catch((err) => {
 		const wiringSnippet =
 			battery === 'reranker'
 				? [
-						'',
-						'Next steps:',
-						'1. Import the reranker in unrag.config.ts:',
-						`   import { createCohereReranker } from "./${config.installDir}/rerank";`,
-						'',
-						'2. Add reranker to your engine config:',
-						'   const reranker = createCohereReranker();',
-						'   return unrag.createEngine({ store, reranker });',
-						'',
-						'3. Use reranking in your retrieval flow:',
-						'   const retrieved = await engine.retrieve({ query, topK: 30 });',
-						'   const reranked = await engine.rerank({ query, candidates: retrieved.chunks, topK: 8 });',
-						'',
-						'Env: COHERE_API_KEY (required for Cohere rerank-v3.5)'
-					]
+					'',
+					'Next steps:',
+					'1. Import the reranker in unrag.config.ts:',
+					`   import { createCohereReranker } from "./${config.installDir}/rerank";`,
+					'',
+					'2. Add reranker to your engine config:',
+					'   const reranker = createCohereReranker();',
+					'   return unrag.createEngine({ store, reranker });',
+					'',
+					'3. Use reranking in your retrieval flow:',
+					'   const retrieved = await engine.retrieve({ query, topK: 30 });',
+					'   const reranked = await engine.rerank({ query, candidates: retrieved.chunks, topK: 8 });',
+					'',
+					'Env: COHERE_API_KEY (required for Cohere rerank-v3.5)'
+				]
 				: []
 
 		if (!quiet) {
@@ -1150,7 +1163,7 @@ main().catch((err) => {
 			managedFiles.add(file)
 		}
 
-		const {deps, devDeps} = depsForConnector(connector)
+		const { deps, devDeps } = depsForConnector(connector)
 		const merged = mergeDeps(pkg, deps, devDeps)
 		if (merged.changes.length > 0) {
 			await writePackageJson(root, merged.pkg)
@@ -1167,7 +1180,7 @@ main().catch((err) => {
 			...config,
 			connectors,
 			version: CONFIG_VERSION,
-			installedFrom: {unragVersion: cliPackageVersion},
+			installedFrom: { unragVersion: cliPackageVersion },
 			managedFiles: Array.from(managedFiles).sort()
 		})
 
@@ -1226,7 +1239,7 @@ main().catch((err) => {
 		managedFiles.add(file)
 	}
 
-	const {deps, devDeps} = depsForExtractor(extractor)
+	const { deps, devDeps } = depsForExtractor(extractor)
 	const merged = mergeDeps(pkg, deps, devDeps)
 	if (merged.changes.length > 0) {
 		await writePackageJson(root, merged.pkg)
@@ -1246,7 +1259,7 @@ main().catch((err) => {
 		...config,
 		extractors,
 		version: CONFIG_VERSION,
-		installedFrom: {unragVersion: cliPackageVersion},
+		installedFrom: { unragVersion: cliPackageVersion },
 		managedFiles: Array.from(managedFiles).sort()
 	})
 

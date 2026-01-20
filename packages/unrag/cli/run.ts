@@ -1,14 +1,14 @@
 import path from 'node:path'
-import {fileURLToPath} from 'node:url'
-import {intro, outro} from '@clack/prompts'
-import {addCommand} from './commands/add'
-import {debugCommand} from './commands/debug'
-import {doctorCommand} from './commands/doctor'
-import {initCommand} from './commands/init'
-import {upgradeCommand} from './commands/upgrade'
-import {readCliPackageVersion} from './lib/cliVersion'
-import {UNRAG_GITHUB_REPO_URL, docsUrl} from './lib/constants'
-import {findUp} from './lib/fs'
+import { fileURLToPath } from 'node:url'
+import { intro, outro } from '@clack/prompts'
+import { addCommand } from './commands/add'
+import { debugCommand } from './commands/debug'
+import { doctorCommand } from './commands/doctor'
+import { initCommand } from './commands/init'
+import { upgradeCommand } from './commands/upgrade'
+import { readCliPackageVersion } from './lib/cliVersion'
+import { UNRAG_GITHUB_REPO_URL, docsUrl } from './lib/constants'
+import { findUp } from './lib/fs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -34,6 +34,7 @@ function renderHelp() {
 		'  add <connector>     Install a connector (notion, google-drive)',
 		'  add extractor <n>   Install an extractor (pdf-llm, image-ocr, etc.)',
 		'  add battery <name>  Install a battery module (reranker, eval, debug)',
+		'  add skills          Install Unrag agent skills for your IDE/agent',
 		'  upgrade             Upgrade vendored sources (git-style merge)',
 		'  doctor              Validate installation and configuration',
 		'  doctor setup        Generate project-specific doctor config and scripts',
