@@ -59,7 +59,7 @@ function TerminalPrompt({
 }
 
 function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
-	const {setSelectedDocIndex, setActiveTab} = useTerminal()
+	const {setSelectedDocIndex, setActiveTab, runQuery, stopAllAnimations, hasUserInteracted} = useTerminal()
 	const autoPlayRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const [isAutoPlaying, setIsAutoPlaying] = useState(true)
 
@@ -69,8 +69,20 @@ function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
 			autoPlayRef.current = null
 		}
 		setIsAutoPlaying(false)
+		stopAllAnimations()
 		onInteraction()
-	}, [onInteraction])
+	}, [onInteraction, stopAllAnimations])
+
+	// Also stop if user interacted elsewhere
+	useEffect(() => {
+		if (hasUserInteracted && isAutoPlaying) {
+			if (autoPlayRef.current) {
+				clearTimeout(autoPlayRef.current)
+				autoPlayRef.current = null
+			}
+			setIsAutoPlaying(false)
+		}
+	}, [hasUserInteracted, isAutoPlaying])
 
 	useEffect(() => {
 		if (!isAutoPlaying) {
@@ -78,11 +90,21 @@ function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
 		}
 
 		const sequence: Array<{action: () => void; delay: number}> = [
-			{action: () => setSelectedDocIndex(1), delay: 2500},
-			{action: () => setSelectedDocIndex(2), delay: 1800},
-			{action: () => setSelectedDocIndex(0), delay: 1800},
-			{action: () => setActiveTab('dashboard' as TabId), delay: 3000},
-			{action: () => setActiveTab('docs' as TabId), delay: 2500}
+			// Run initial query to populate events/traces
+			{action: () => runQuery('how does unrag ingest work?'), delay: 1500},
+			// Show events
+			{action: () => setActiveTab('events' as TabId), delay: 2000},
+			// Show traces with waterfall
+			{action: () => setActiveTab('traces' as TabId), delay: 2500},
+			// Go to query and run another query
+			{action: () => setActiveTab('query' as TabId), delay: 2500},
+			// Go to docs
+			{action: () => setActiveTab('docs' as TabId), delay: 3500},
+			{action: () => setSelectedDocIndex(1), delay: 2000},
+			{action: () => setSelectedDocIndex(2), delay: 1500},
+			{action: () => setSelectedDocIndex(0), delay: 1500},
+			// Back to dashboard
+			{action: () => setActiveTab('dashboard' as TabId), delay: 2500}
 		]
 
 		let currentIndex = 0
@@ -111,7 +133,7 @@ function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
 				clearTimeout(autoPlayRef.current)
 			}
 		}
-	}, [isAutoPlaying, setSelectedDocIndex, setActiveTab])
+	}, [isAutoPlaying, setSelectedDocIndex, setActiveTab, runQuery])
 
 	return (
 		<motion.div
@@ -196,7 +218,7 @@ function TerminalInner({autoPlay, className}: TerminalProps) {
 export function Terminal({
 	className,
 	autoPlay = false,
-	initialTab = 'docs'
+	initialTab = 'dashboard'
 }: TerminalProps) {
 	return (
 		<TerminalProvider initialTab={initialTab}>

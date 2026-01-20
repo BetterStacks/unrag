@@ -10,10 +10,10 @@ export function TerminalHeader() {
 		<div className="flex items-center justify-between px-4 py-1.5 border-y border-white/10">
 			<div className="flex items-center gap-3">
 				<span
-					className="font-bold px-1.5 py-0.5 text-black text-[10px]"
-					style={{backgroundColor: theme.accent}}
+					className="px-1.5 py-0.5 uppercase text-neutral-300 text-[10px]"
+					style={{backgroundColor: 'transparent'}}
 				>
-					UNRAG DEBUG
+					Unrag debug
 				</span>
 				<span className="text-white/50">
 					session {shortSessionId}...

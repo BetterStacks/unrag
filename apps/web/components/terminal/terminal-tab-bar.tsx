@@ -21,12 +21,10 @@ export function TerminalTabBar() {
 							'px-2 py-0.5 text-[10px] transition-colors duration-150 whitespace-nowrap',
 							isActive
 								? 'text-black font-medium'
-								: 'text-white/60 hover:text-white/80'
+								: 'text-white/50 hover:text-white/70'
 						)}
 						style={
-							isActive
-								? {backgroundColor: theme.accent}
-								: undefined
+							isActive ? {backgroundColor: theme.accent} : undefined
 						}
 					>
 						{tab.shortcut} {tab.label}

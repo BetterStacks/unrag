@@ -1,7 +1,6 @@
 'use client'
 
 import {clsx} from 'clsx/lite'
-import {motion} from 'motion/react'
 import {useTerminal} from './terminal-context'
 import {
 	mockChunkDetails,
@@ -22,28 +21,16 @@ function DocumentList() {
 				{mockDocuments.slice(0, 12).map((doc, idx) => {
 					const isSelected = idx === selectedDocIndex
 					return (
-						<motion.button
+						<button
 							type="button"
 							key={doc.sourceId}
 							onClick={() => setSelectedDocIndex(idx)}
 							className={clsx(
 								'w-full text-left px-3 py-1 text-[10px] flex items-center justify-between transition-colors duration-150',
 								isSelected
-									? 'text-black'
-									: 'text-white/70 hover:bg-white/5'
+									? 'text-white font-medium'
+									: 'text-white/50 hover:text-white/70'
 							)}
-							style={
-								isSelected
-									? {backgroundColor: theme.accent}
-									: undefined
-							}
-							initial={false}
-							animate={{
-								backgroundColor: isSelected
-									? theme.accent
-									: 'transparent'
-							}}
-							transition={{duration: 0.15}}
 						>
 							<span className="truncate flex-1 mr-2">
 								{chars.arrow} {doc.sourceId}
@@ -51,14 +38,12 @@ function DocumentList() {
 							<span
 								className={clsx(
 									'tabular-nums',
-									isSelected
-										? 'text-black/70'
-										: 'text-white/40'
+									isSelected ? 'text-white/70' : 'text-white/40'
 								)}
 							>
 								{doc.chunks}
 							</span>
-						</motion.button>
+						</button>
 					)
 				})}
 			</div>
@@ -132,11 +117,19 @@ function ChunkDetails() {
 						onClick={() => setSelectedChunkIndex(chunk.idx)}
 						className={clsx(
 							'w-full text-left px-3 py-1.5 text-[10px] border-b border-white/5 transition-colors duration-150',
-							isSelected ? 'bg-white/10' : 'hover:bg-white/5'
+							isSelected ? 'bg-white/5' : 'hover:bg-white/5'
 						)}
 					>
 						<div className="flex items-center justify-between mb-0.5">
-							<span className="text-white/70">#{chunk.idx}</span>
+							<span
+								className={
+									isSelected
+										? 'text-white font-medium'
+										: 'text-white/70'
+								}
+							>
+								#{chunk.idx}
+							</span>
 							<span className="text-white/40">
 								{chunk.tokens} tokens
 							</span>

@@ -4,6 +4,9 @@ import {AnimatePresence, motion} from 'motion/react'
 import {useTerminal} from './terminal-context'
 import {TerminalDashboard} from './terminal-dashboard'
 import {TerminalDocs} from './terminal-docs'
+import {TerminalEvents} from './terminal-events'
+import {TerminalQuery} from './terminal-query'
+import {TerminalTraces} from './terminal-traces'
 
 export function TerminalContent() {
 	const {activeTab} = useTerminal()
@@ -19,11 +22,16 @@ export function TerminalContent() {
 					transition={{duration: 0.15}}
 					className="h-full"
 				>
-					{activeTab === 'docs' && <TerminalDocs />}
 					{activeTab === 'dashboard' && <TerminalDashboard />}
-					{activeTab !== 'docs' && activeTab !== 'dashboard' && (
-						<TerminalPlaceholder tab={activeTab} />
-					)}
+					{activeTab === 'events' && <TerminalEvents />}
+					{activeTab === 'traces' && <TerminalTraces />}
+					{activeTab === 'query' && <TerminalQuery />}
+					{activeTab === 'docs' && <TerminalDocs />}
+					{activeTab !== 'dashboard' &&
+						activeTab !== 'events' &&
+						activeTab !== 'traces' &&
+						activeTab !== 'query' &&
+						activeTab !== 'docs' && <TerminalPlaceholder tab={activeTab} />}
 				</motion.div>
 			</AnimatePresence>
 		</div>

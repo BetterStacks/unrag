@@ -24,10 +24,7 @@ const mockRecentEvents = [
 function SectionHeader({title}: {title: string}) {
 	return (
 		<div className="mb-2">
-			<span
-				className="px-1.5 py-0.5 text-[10px] font-bold"
-				style={{backgroundColor: theme.border, color: theme.fg}}
-			>
+			<span className="text-[10px] text-white/40">
 				{chars.section} {title.toUpperCase()}
 			</span>
 		</div>

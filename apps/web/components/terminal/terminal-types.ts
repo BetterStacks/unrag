@@ -17,11 +17,52 @@ export interface Tab {
 	shortcut: number
 }
 
+export interface TerminalEvent {
+	id: string
+	type: string
+	time: string
+	duration: string
+	results?: string
+	query?: string
+	embed?: string
+	db?: string
+	total?: string
+}
+
+export interface TerminalTrace {
+	id: string
+	opName: string
+	time: string
+	label: string
+	totalMs: string
+	stages: Array<{
+		name: string
+		ms: number
+		color: string
+	}>
+	events: Array<{
+		time: string
+		type: string
+	}>
+}
+
+export interface QueryResult {
+	id: string
+	sourceId: string
+	score: number
+	content: string
+}
+
 export interface TerminalState {
 	activeTab: TabId
 	selectedDocIndex: number
 	selectedChunkIndex: number
 	isAnimating: boolean
+	events: TerminalEvent[]
+	traces: TerminalTrace[]
+	queryResults: QueryResult[]
+	lastQuery: string
+	hasUserInteracted: boolean
 }
 
 export interface TerminalActions {
@@ -29,6 +70,8 @@ export interface TerminalActions {
 	setSelectedDocIndex: (index: number) => void
 	setSelectedChunkIndex: (index: number) => void
 	setIsAnimating: (animating: boolean) => void
+	runQuery: (query: string) => void
+	stopAllAnimations: () => void
 }
 
 export interface TerminalContextValue extends TerminalState, TerminalActions {}
