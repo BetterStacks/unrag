@@ -12,6 +12,7 @@ import {
 } from '../elements'
 import {ArrowNarrowRightIcon} from '../icons'
 import {DraggableTerminal} from './draggable-terminal'
+import {Terminal} from '../terminal'
 
 function HeroLeftAlignedWithDemo({
 	eyebrow,
@@ -125,7 +126,7 @@ export function HeroSection() {
 				<>
 					<HeroImageFrame className="rounded-md lg:hidden">
 						<div className="relative h-[560px] sm:h-[700px]">
-							<DraggableTerminal
+							<Terminal
 								className="rounded-sm overflow-hidden ring-1 ring-black/10"
 								autoPlay
 								initialTab="docs"
