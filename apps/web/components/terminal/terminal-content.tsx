@@ -5,6 +5,7 @@ import {useTerminal} from './terminal-context'
 import {TerminalDashboard} from './terminal-dashboard'
 import {TerminalDocs} from './terminal-docs'
 import {TerminalEvents} from './terminal-events'
+import {TerminalIngest} from './terminal-ingest'
 import {TerminalQuery} from './terminal-query'
 import {TerminalTraces} from './terminal-traces'
 
@@ -12,7 +13,7 @@ export function TerminalContent() {
 	const {activeTab} = useTerminal()
 
 	return (
-		<div className="h-[360px] overflow-hidden">
+		<div className="h-[280px] overflow-hidden sm:h-[360px]">
 			<AnimatePresence mode="wait">
 				<motion.div
 					key={activeTab}
@@ -27,11 +28,15 @@ export function TerminalContent() {
 					{activeTab === 'traces' && <TerminalTraces />}
 					{activeTab === 'query' && <TerminalQuery />}
 					{activeTab === 'docs' && <TerminalDocs />}
+					{activeTab === 'ingest' && <TerminalIngest />}
 					{activeTab !== 'dashboard' &&
 						activeTab !== 'events' &&
 						activeTab !== 'traces' &&
 						activeTab !== 'query' &&
-						activeTab !== 'docs' && <TerminalPlaceholder tab={activeTab} />}
+						activeTab !== 'docs' &&
+						activeTab !== 'ingest' && (
+							<TerminalPlaceholder tab={activeTab} />
+						)}
 				</motion.div>
 			</AnimatePresence>
 		</div>

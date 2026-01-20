@@ -1,6 +1,6 @@
 'use client'
 
-import {clsx} from 'clsx/lite'
+import {cn} from '@/lib/utils'
 import {useTerminal} from './terminal-context'
 import {
 	mockChunkDetails,
@@ -13,11 +13,11 @@ function DocumentList() {
 	const {selectedDocIndex, setSelectedDocIndex} = useTerminal()
 
 	return (
-		<div className="flex flex-col h-full border-r border-white/10">
-			<div className="px-3 py-1.5 border-b border-white/10 text-white/50 text-[10px]">
+		<div className="flex h-full flex-col border-b border-white/10 sm:border-b-0 sm:border-r">
+			<div className="px-2 py-1 border-b border-white/10 text-white/50 text-[9px] text-balance sm:px-3 sm:py-1.5 sm:text-[10px]">
 				Documents ({mockDocuments.length})
 			</div>
-			<div className="flex-1 overflow-y-auto">
+			<div className="flex-1 overflow-y-auto no-scrollbar">
 				{mockDocuments.slice(0, 12).map((doc, idx) => {
 					const isSelected = idx === selectedDocIndex
 					return (
@@ -25,8 +25,8 @@ function DocumentList() {
 							type="button"
 							key={doc.sourceId}
 							onClick={() => setSelectedDocIndex(idx)}
-							className={clsx(
-								'w-full text-left px-3 py-1 text-[10px] flex items-center justify-between transition-colors duration-150',
+							className={cn(
+								'w-full text-left px-2 py-1 text-[9px] flex items-center justify-between transition-colors duration-150 sm:px-3 sm:text-[10px]',
 								isSelected
 									? 'text-white font-medium'
 									: 'text-white/50 hover:text-white/70'
@@ -36,9 +36,11 @@ function DocumentList() {
 								{chars.arrow} {doc.sourceId}
 							</span>
 							<span
-								className={clsx(
+								className={cn(
 									'tabular-nums',
-									isSelected ? 'text-white/70' : 'text-white/40'
+									isSelected
+										? 'text-white/70'
+										: 'text-white/40'
 								)}
 							>
 								{doc.chunks}
@@ -55,11 +57,11 @@ function ChunkHistogram() {
 	const maxCount = Math.max(...mockChunkRanges.map((r) => r.count), 1)
 
 	return (
-		<div className="px-3 py-2 border-b border-white/10">
-			<div className="text-[10px] text-white/50 mb-2">
+		<div className="px-2 py-2 border-b border-white/10 sm:px-3">
+			<div className="text-[9px] text-white/50 text-balance mb-2 sm:text-[10px]">
 				Chunk Size Distribution
 			</div>
-			<div className="flex items-end gap-1 h-8">
+			<div className="flex items-end gap-1 h-6 sm:h-8">
 				{mockChunkRanges.map((range) => {
 					const height =
 						range.count > 0 ? (range.count / maxCount) * 100 : 4
@@ -79,7 +81,7 @@ function ChunkHistogram() {
 											: 'rgba(255,255,255,0.1)'
 								}}
 							/>
-							<span className="text-[8px] text-white/40">
+							<span className="text-[7px] text-white/40 sm:text-[8px]">
 								{range.range}
 							</span>
 						</div>
@@ -104,8 +106,8 @@ function ChunkDetails() {
 		: []
 
 	return (
-		<div className="flex-1 overflow-y-auto">
-			<div className="px-3 py-1.5 border-b border-white/10 text-white/50 text-[10px]">
+		<div className="flex-1 overflow-y-auto no-scrollbar">
+			<div className="px-2 py-1 border-b border-white/10 text-white/50 text-[9px] text-balance sm:px-3 sm:py-1.5 sm:text-[10px]">
 				Chunks ({chunks.length})
 			</div>
 			{chunks.map((chunk) => {
@@ -115,8 +117,8 @@ function ChunkDetails() {
 						type="button"
 						key={chunk.idx}
 						onClick={() => setSelectedChunkIndex(chunk.idx)}
-						className={clsx(
-							'w-full text-left px-3 py-1.5 text-[10px] border-b border-white/5 transition-colors duration-150',
+						className={cn(
+							'w-full text-left px-2 py-1.5 text-[9px] border-b border-white/5 transition-colors duration-150 sm:px-3 sm:text-[10px]',
 							isSelected ? 'bg-white/5' : 'hover:bg-white/5'
 						)}
 					>
@@ -155,7 +157,7 @@ function DocumentDetails() {
 
 export function TerminalDocs() {
 	return (
-		<div className="grid grid-cols-2 h-full">
+		<div className="grid h-full grid-cols-1 sm:grid-cols-2">
 			<DocumentList />
 			<DocumentDetails />
 		</div>

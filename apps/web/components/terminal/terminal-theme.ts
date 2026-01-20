@@ -62,6 +62,7 @@ export const TABS = [
 	{id: 'traces', label: 'Traces', shortcut: 3},
 	{id: 'query', label: 'Query', shortcut: 4},
 	{id: 'docs', label: 'DOCS', shortcut: 5},
-	{id: 'doctor', label: 'Doctor', shortcut: 6},
-	{id: 'eval', label: 'Eval', shortcut: 7}
+	{id: 'ingest', label: 'Ingest', shortcut: 6},
+	{id: 'doctor', label: 'Doctor', shortcut: 7},
+	{id: 'eval', label: 'Eval', shortcut: 8}
 ] as const

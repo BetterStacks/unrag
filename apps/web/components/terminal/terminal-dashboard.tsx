@@ -24,7 +24,7 @@ const mockRecentEvents = [
 function SectionHeader({title}: {title: string}) {
 	return (
 		<div className="mb-2">
-			<span className="text-[10px] text-white/40">
+			<span className="text-[9px] text-white/40 text-balance sm:text-[10px]">
 				{chars.section} {title.toUpperCase()}
 			</span>
 		</div>
@@ -44,11 +44,13 @@ function MetricCard({
 }) {
 	return (
 		<div className="flex-1 min-w-0">
-			<div className="text-[10px] text-white/50 mb-1">{title}</div>
-			<div className="text-lg font-bold text-white tabular-nums">
+			<div className="text-[9px] text-white/50 mb-1 sm:text-[10px]">
+				{title}
+			</div>
+			<div className="text-base font-bold text-white tabular-nums sm:text-lg">
 				{count}
 			</div>
-			<div className="text-[9px] text-white/40 tabular-nums">
+			<div className="text-[9px] text-white/40 tabular-nums sm:text-[10px]">
 				{lastMs}ms last {chars.dot} {avgMs}ms avg
 			</div>
 		</div>
@@ -61,7 +63,7 @@ function Sparkline({data}: {data: number[]}) {
 	const range = max - min || 1
 
 	return (
-		<div className="flex items-end gap-px h-6">
+		<div className="flex items-end gap-px h-5 sm:h-6">
 			{data.map((value, idx) => {
 				const height = ((value - min) / range) * 100
 				return (
@@ -91,12 +93,12 @@ function EventRow({
 }) {
 	const isComplete = type.includes('complete')
 	return (
-		<div className="flex items-center gap-2 py-0.5 text-[10px]">
+		<div className="flex items-center gap-2 py-0.5 text-[9px] sm:text-[10px]">
 			<span style={{color: isComplete ? theme.success : theme.error}}>
 				{isComplete ? chars.check : chars.cross}
 			</span>
 			<span className="text-white/50 tabular-nums">{time}</span>
-			<span className="flex-1 text-white/70">{type}</span>
+			<span className="flex-1 truncate text-white/70">{type}</span>
 			<span className="text-white/40 tabular-nums">{duration}</span>
 		</div>
 	)
@@ -104,11 +106,11 @@ function EventRow({
 
 export function TerminalDashboard() {
 	return (
-		<div className="p-3 h-full overflow-y-auto">
+		<div className="p-3 h-full overflow-y-auto no-scrollbar sm:p-4">
 			{/* Stats row */}
 			<div className="mb-4">
 				<SectionHeader title="Operations" />
-				<div className="grid grid-cols-4 gap-3">
+				<div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
 					{mockOperations.map((op) => (
 						<MetricCard key={op.title} {...op} />
 					))}

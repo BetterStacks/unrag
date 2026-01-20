@@ -1,6 +1,7 @@
 'use client'
 
-import {clsx} from 'clsx/lite'
+import {cn} from '@/lib/utils'
+import {useHotkeys} from '@mantine/hooks'
 import {AnimatePresence, motion} from 'motion/react'
 import {useCallback, useEffect, useRef, useState} from 'react'
 import {TerminalContent} from './terminal-content'
@@ -9,21 +10,47 @@ import {TerminalHeader} from './terminal-header'
 import {TerminalLogo} from './terminal-logo'
 import {TerminalStatusBar} from './terminal-status-bar'
 import {TerminalTabBar} from './terminal-tab-bar'
+import {TABS} from './terminal-theme'
 import type {TabId, TerminalProps} from './terminal-types'
 
 const COMMAND = 'bunx unrag debug'
 const TYPING_SPEED = 50
 const TUI_REVEAL_DELAY = 300
+const AUTO_INGEST = {
+	sourceId: 'debug:hello-world',
+	content:
+		'Hello from Unrag Debug TUI. Ingesting content creates chunks so queries can retrieve matching passages.',
+	metadata: '{"source":"debug"}',
+	chunkSize: 120,
+	overlap: 20
+}
+
+function isEditableTarget() {
+	const active = document.activeElement
+	if (!active) {
+		return false
+	}
+	if (active instanceof HTMLInputElement) {
+		return true
+	}
+	if (active instanceof HTMLTextAreaElement) {
+		return true
+	}
+	if (active instanceof HTMLElement && active.isContentEditable) {
+		return true
+	}
+	return false
+}
 
 function TerminalTitleBar() {
 	return (
-		<div className="flex items-center gap-2 px-4 py-3 border-b border-white/5">
+		<div className="flex items-center gap-2 border-b border-white/5 px-3 py-1.5 sm:px-4 sm:py-3">
 			<div className="flex items-center gap-1.5">
-				<span className="w-3 h-3 rounded-full bg-[#ff5f57]" />
-				<span className="w-3 h-3 rounded-full bg-[#febc2e]" />
-				<span className="w-3 h-3 rounded-full bg-[#28c840]" />
+				<span className="size-3 rounded-full bg-[#ff5f57]" />
+				<span className="size-3 rounded-full bg-[#febc2e]" />
+				<span className="size-3 rounded-full bg-[#28c840]" />
 			</div>
-			<span className="flex-1 text-center text-[11px] text-white/40 -ml-12">
+			<span className="flex-1 text-center text-[10px] text-white/40 -ml-12 sm:text-[11px]">
 				Terminal
 			</span>
 		</div>
@@ -40,7 +67,7 @@ function TerminalPrompt({
 	showCursor?: boolean
 }) {
 	return (
-		<div className="px-5 py-4 flex items-center gap-2 text-[13px]">
+		<div className="flex items-center gap-2 px-3 py-2 text-[10px] sm:px-5 sm:py-4 sm:text-[13px]">
 			<span className="text-white/60">vercel</span>
 			<span className="text-white/40">$</span>
 			<span className="text-white">{command}</span>
@@ -59,7 +86,14 @@ function TerminalPrompt({
 }
 
 function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
-	const {setSelectedDocIndex, setActiveTab, runQuery, stopAllAnimations, hasUserInteracted} = useTerminal()
+	const {
+		setSelectedDocIndex,
+		setActiveTab,
+		stopAllAnimations,
+		hasUserInteracted,
+		resetTerminal,
+		ingestDocument
+	} = useTerminal()
 	const autoPlayRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 	const [isAutoPlaying, setIsAutoPlaying] = useState(true)
 
@@ -72,6 +106,20 @@ function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
 		stopAllAnimations()
 		onInteraction()
 	}, [onInteraction, stopAllAnimations])
+
+	useHotkeys(
+		TABS.map((tab) => [
+			String(tab.shortcut),
+			() => {
+				if (!hasUserInteracted || isEditableTarget()) {
+					return
+				}
+				stopAllAnimations()
+				setActiveTab(tab.id as TabId)
+			},
+			{preventDefault: true}
+		])
+	)
 
 	// Also stop if user interacted elsewhere
 	useEffect(() => {
@@ -89,22 +137,36 @@ function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
 			return
 		}
 
+		resetTerminal()
+		setActiveTab('dashboard' as TabId)
+
 		const sequence: Array<{action: () => void; delay: number}> = [
-			// Run initial query to populate events/traces
-			{action: () => runQuery('how does unrag ingest work?'), delay: 1500},
-			// Show events
-			{action: () => setActiveTab('events' as TabId), delay: 2000},
+			// Show ingest and run a sample document
+			{action: () => setActiveTab('ingest' as TabId), delay: 1400},
+			{action: () => ingestDocument(AUTO_INGEST), delay: 1000},
+			// Let ingest logs show before moving on
+			{action: () => setActiveTab('ingest' as TabId), delay: 3200},
+			// Show query and let it type + run
+			{action: () => setActiveTab('query' as TabId), delay: 1400},
+			// Wait for query loading + results before switching
+			{action: () => setActiveTab('query' as TabId), delay: 10000},
 			// Show traces with waterfall
-			{action: () => setActiveTab('traces' as TabId), delay: 2500},
-			// Go to query and run another query
-			{action: () => setActiveTab('query' as TabId), delay: 2500},
+			{action: () => setActiveTab('traces' as TabId), delay: 2000},
+			// Show events
+			{action: () => setActiveTab('events' as TabId), delay: 2200},
 			// Go to docs
-			{action: () => setActiveTab('docs' as TabId), delay: 3500},
-			{action: () => setSelectedDocIndex(1), delay: 2000},
-			{action: () => setSelectedDocIndex(2), delay: 1500},
-			{action: () => setSelectedDocIndex(0), delay: 1500},
-			// Back to dashboard
-			{action: () => setActiveTab('dashboard' as TabId), delay: 2500}
+			{action: () => setActiveTab('docs' as TabId), delay: 2000},
+			{action: () => setSelectedDocIndex(1), delay: 1600},
+			{action: () => setSelectedDocIndex(2), delay: 1200},
+			{action: () => setSelectedDocIndex(0), delay: 1200},
+			// Reset data, back to dashboard
+			{
+				action: () => {
+					resetTerminal()
+					setActiveTab('dashboard' as TabId)
+				},
+				delay: 2200
+			}
 		]
 
 		let currentIndex = 0
@@ -133,14 +195,19 @@ function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
 				clearTimeout(autoPlayRef.current)
 			}
 		}
-	}, [isAutoPlaying, setSelectedDocIndex, setActiveTab, runQuery])
+	}, [
+		ingestDocument,
+		isAutoPlaying,
+		resetTerminal,
+		setActiveTab,
+		setSelectedDocIndex
+	])
 
 	return (
 		<motion.div
 			initial={{opacity: 0}}
 			animate={{opacity: 1}}
 			transition={{duration: 0.4, ease: 'easeOut'}}
-			onMouseEnter={stopAutoPlay}
 			onClick={stopAutoPlay}
 			onTouchStart={stopAutoPlay}
 			className="cursor-default"
@@ -154,14 +221,15 @@ function TerminalTUI({onInteraction}: {onInteraction: () => void}) {
 	)
 }
 
-function TerminalInner({autoPlay, className}: TerminalProps) {
+function TerminalInner({autoPlay = false, className}: TerminalProps) {
 	const [isTyping, setIsTyping] = useState(autoPlay)
 	const [typedCommand, setTypedCommand] = useState(autoPlay ? '' : COMMAND)
 	const [showTUI, setShowTUI] = useState(!autoPlay)
-	const [hasInteracted, setHasInteracted] = useState(false)
 
 	useEffect(() => {
-		if (!autoPlay || !isTyping) return
+		if (!autoPlay || !isTyping) {
+			return
+		}
 
 		let charIndex = 0
 		const typeInterval = setInterval(() => {
@@ -182,14 +250,12 @@ function TerminalInner({autoPlay, className}: TerminalProps) {
 		}
 	}, [autoPlay, isTyping])
 
-	const handleInteraction = useCallback(() => {
-		setHasInteracted(true)
-	}, [])
+	const handleInteraction = useCallback(() => {}, [])
 
 	return (
 		<div
-			className={clsx(
-				'font-mono text-[11px] leading-tight bg-[#1A1A1A] text-white overflow-hidden select-none min-h-[600px]',
+			className={cn(
+				'font-mono text-[9px] leading-tight bg-[#1A1A1A] text-white overflow-hidden select-none h-[560px] max-h-[560px] sm:text-[11px] sm:h-[700px] sm:max-h-[700px]',
 				className
 			)}
 		>
@@ -205,11 +271,7 @@ function TerminalInner({autoPlay, className}: TerminalProps) {
 
 			{/* TUI content - appears after typing completes */}
 			<AnimatePresence>
-				{showTUI && (
-					<TerminalTUI
-						onInteraction={handleInteraction}
-					/>
-				)}
+				{showTUI && <TerminalTUI onInteraction={handleInteraction} />}
 			</AnimatePresence>
 		</div>
 	)

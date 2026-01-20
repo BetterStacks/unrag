@@ -33,7 +33,7 @@ function HeroLeftAlignedWithDemo({
 	return (
 		<section className={className} {...props}>
 			<Container className="flex flex-col gap-16">
-				<div className="flex flex-col gap-32">
+				<div className="flex flex-col gap-16 sm:gap-32">
 					<div className="flex flex-col items-start gap-6">
 						{eyebrow}
 						<Heading className="max-w-5xl">{headline}</Heading>

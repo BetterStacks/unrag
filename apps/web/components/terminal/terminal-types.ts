@@ -8,6 +8,7 @@ export type TabId =
 	| 'traces'
 	| 'query'
 	| 'docs'
+	| 'ingest'
 	| 'doctor'
 	| 'eval'
 
@@ -53,16 +54,44 @@ export interface QueryResult {
 	content: string
 }
 
+export interface IngestInput {
+	sourceId: string
+	content: string
+	metadata?: string
+	chunkSize?: number
+	overlap?: number
+}
+
+export interface IngestChunk {
+	id: string
+	sourceId: string
+	content: string
+	tokens: number
+}
+
+export interface IngestDocument {
+	id: string
+	sourceId: string
+	content: string
+	metadata: string
+	chunkCount: number
+	time: string
+}
+
 export interface TerminalState {
 	activeTab: TabId
 	selectedDocIndex: number
 	selectedChunkIndex: number
 	isAnimating: boolean
+	isQuerying: boolean
+	isIngesting: boolean
 	events: TerminalEvent[]
 	traces: TerminalTrace[]
 	queryResults: QueryResult[]
 	lastQuery: string
 	hasUserInteracted: boolean
+	ingestedDocuments: IngestDocument[]
+	ingestedChunks: IngestChunk[]
 }
 
 export interface TerminalActions {
@@ -72,6 +101,8 @@ export interface TerminalActions {
 	setIsAnimating: (animating: boolean) => void
 	runQuery: (query: string) => void
 	stopAllAnimations: () => void
+	resetTerminal: () => void
+	ingestDocument: (input: IngestInput) => void
 }
 
 export interface TerminalContextValue extends TerminalState, TerminalActions {}
