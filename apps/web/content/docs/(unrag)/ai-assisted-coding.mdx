@@ -20,10 +20,10 @@ This launches an interactive prompt where you can select which AI coding assista
 
 ### Option 2: Using add-skill
 
-You can also use the `add-skill` CLI from Vercel Labs:
+You can also use the `skill` CLI from Vercel Labs:
 
 ```bash
-bunx add-skill betterstacks/unrag
+bunx skills add betterstacks/unrag
 ```
 
 This installs the skill specifically for Claude Code into your project's `.claude/skills/` directory.
@@ -138,7 +138,7 @@ The Unrag skill is versioned to track Unrag releases:
 When Unrag releases new features—additional embedding providers, new extractors, changed APIs—the skill is updated to match. You should periodically update your installed skill to keep your AI assistant's knowledge current:
 
 ```bash
-bunx add-skill betterstacks/unrag --update
+bunx skills add betterstacks/unrag --update
 ```
 
 This is especially important if you upgrade your Unrag installation. If you're running Unrag 0.4.0 but your AI has the 0.3.0 skill, it might suggest patterns or options that have changed. Keeping both in sync ensures the AI's advice matches your actual codebase.
