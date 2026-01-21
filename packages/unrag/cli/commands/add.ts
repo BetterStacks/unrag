@@ -481,7 +481,7 @@ const addPackageJsonScripts = async (args: {
 }
 
 type ParsedAddArgs = {
-	kind?: 'connector' | 'extractor' | 'battery'
+	kind?: 'connector' | 'extractor' | 'battery' | 'skills'
 	name?: string
 	yes?: boolean
 	noInstall?: boolean
@@ -515,6 +515,10 @@ const parseAddArgs = (args: string[]): ParsedAddArgs => {
 				out.kind = 'battery'
 				continue
 			}
+			if (a === 'skills') {
+				out.kind = 'skills'
+				continue
+			}
 			out.kind = 'connector'
 			out.name = a
 			continue
@@ -534,6 +538,14 @@ const parseAddArgs = (args: string[]): ParsedAddArgs => {
 }
 
 export async function addCommand(args: string[]) {
+	// Handle skills subcommand early (doesn't require project root)
+	const parsed = parseAddArgs(args)
+	if (parsed.kind === 'skills') {
+		const {skillsCommand} = await import('./skills')
+		await skillsCommand(args)
+		return
+	}
+
 	const root = await tryFindProjectRoot(process.cwd())
 	if (!root) {
 		throw new Error(
@@ -541,7 +553,6 @@ export async function addCommand(args: string[]) {
 		)
 	}
 
-	const parsed = parseAddArgs(args)
 	const kind = parsed.kind ?? 'connector'
 	const name = parsed.name
 	const noInstall =

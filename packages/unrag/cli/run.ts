@@ -34,6 +34,7 @@ function renderHelp() {
 		'  add <connector>     Install a connector (notion, google-drive)',
 		'  add extractor <n>   Install an extractor (pdf-llm, image-ocr, etc.)',
 		'  add battery <name>  Install a battery module (reranker, eval, debug)',
+		'  add skills          Install Unrag agent skills for your IDE/agent',
 		'  upgrade             Upgrade vendored sources (git-style merge)',
 		'  doctor              Validate installation and configuration',
 		'  doctor setup        Generate project-specific doctor config and scripts',

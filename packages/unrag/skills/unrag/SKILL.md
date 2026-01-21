@@ -1,7 +1,7 @@
 ---
 name: unrag
 description: Covers RAG installation, ContextEngine API, embedding providers, store adapters, extractors, connectors, batteries, and CLI commands for the unrag TypeScript library.
-version: 1.0.0
+version: 0.3.2
 ---
 
 # Unrag Agent Skill

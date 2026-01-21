@@ -47,7 +47,7 @@
 		"unrag:doctor:db": "unrag doctor --config .unrag/doctor.json --db",
 		"unrag:doctor:ci": "unrag doctor --config .unrag/doctor.json --db --strict --json"
 	},
-	"files": ["dist/**", "registry/**", "README.md"],
+	"files": ["dist/**", "registry/**", "skills/**", "README.md"],
 	"publishConfig": {
 		"access": "public"
 	}
