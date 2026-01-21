@@ -9,7 +9,19 @@ export {ingest, planIngest} from '@registry/core/ingest'
 export {rerank} from '@registry/core/rerank'
 export {retrieve} from '@registry/core/retrieve'
 export * from '@registry/core/connectors'
-export {defaultChunker, resolveChunkingOptions} from '@registry/core/chunking'
+export {
+	defaultChunker,
+	defaultChunkingOptions,
+	getAvailableChunkers,
+	getChunkerPlugin,
+	isChunkerAvailable,
+	listChunkerPlugins,
+	recursiveChunker,
+	registerChunkerPlugin,
+	resolveChunker,
+	resolveChunkingOptions,
+	wordChunker
+} from '@registry/core/chunking'
 export {
 	defaultAssetProcessingConfig,
 	defaultContentStorageConfig,

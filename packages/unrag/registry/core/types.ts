@@ -87,6 +87,65 @@ export type ChunkingOptions = {
 
 export type Chunker = (content: string, options: ChunkingOptions) => ChunkText[]
 
+// ---------------------------------------------------------------------------
+// Chunking method & plugin types
+// ---------------------------------------------------------------------------
+
+/**
+ * Built-in chunking methods shipped with core.
+ */
+export type BuiltInChunkingMethod = 'recursive' | 'word'
+
+/**
+ * Plugin chunking methods (installed via CLI).
+ */
+export type PluginChunkingMethod =
+	| 'token'
+	| 'semantic'
+	| 'markdown'
+	| 'hierarchical'
+	| 'code'
+	| 'agentic'
+	| 'late'
+	| 'maxmin'
+	| 'proposition'
+
+/**
+ * All supported chunking methods.
+ */
+export type ChunkingMethod = BuiltInChunkingMethod | PluginChunkingMethod | 'custom'
+
+/**
+ * Chunking configuration for unrag.config.ts.
+ */
+export type ChunkingConfig = {
+	/**
+	 * Chunking method to use. Default: "recursive".
+	 * Built-in: "recursive", "word"
+	 * Plugins: "token", "semantic", "markdown", "hierarchical", "code", "agentic", "late", "maxmin", "proposition"
+	 */
+	method?: ChunkingMethod
+	/**
+	 * Method-specific options. Shape depends on the chosen method.
+	 */
+	options?: ChunkingOptions & Record<string, unknown>
+	/**
+	 * Custom chunker function. Only used when method is "custom".
+	 */
+	chunker?: Chunker
+}
+
+/**
+ * Plugin interface for chunker modules.
+ * Installed via `bunx unrag add chunker:<name>`.
+ */
+export type ChunkerPlugin = {
+	/** Unique name matching the method (e.g. "semantic", "token"). */
+	name: string
+	/** Create a chunker function with the given options. */
+	createChunker: (options?: ChunkingOptions & Record<string, unknown>) => Chunker
+}
+
 /**
  * Data reference for an ingested asset.
  *
