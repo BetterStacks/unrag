@@ -116,13 +116,8 @@ export async function skillsCommand(args: string[]) {
 		return
 	}
 
-	// Skills are bundled in the registry
-	const skillsSource = path.join(
-		cliPackageRoot,
-		'registry',
-		'skills',
-		'unrag'
-	)
+	// Skills are bundled in the package
+	const skillsSource = path.join(cliPackageRoot, 'skills', 'unrag')
 	if (!(await exists(skillsSource))) {
 		outro('Skills bundle not found in CLI package.')
 		process.exitCode = 1
