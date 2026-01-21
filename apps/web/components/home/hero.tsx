@@ -98,7 +98,7 @@ export function HeroSection() {
 			className="py-16"
 			eyebrow={
 				<AnnouncementBadge
-					href="/docs/agent-skills"
+					href="/docs/ai-assisted-coding"
 					text="New: Agent Skills for AI-powered development"
 					cta="Learn more"
 				/>
