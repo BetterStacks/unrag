@@ -25,8 +25,13 @@ export const unrag = defineUnragConfig({
 	 *
 	 * Available methods:
 	 * - "recursive" (built-in, default)
+	 * - "token" (built-in, fixed-size tokens)
 	 * - "semantic", "markdown", "hierarchical", "code", "agentic", "late", "maxmin", "proposition" (plugins)
 	 * - "custom" (bring your own chunker)
+	 *
+	 * Plugin notes:
+	 * - semantic/agentic: options.model (default "openai/gpt-5-mini")
+	 * - code: options.language ("typescript" | "javascript" | "python" | "go")
 	 */
 	chunking: {
 		method: 'recursive', // __UNRAG_CHUNKING_METHOD__

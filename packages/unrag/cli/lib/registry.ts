@@ -1212,6 +1212,143 @@ export async function copyExtractorFiles(
 	return Array.from(managedFiles)
 }
 
+export type ChunkerSelection = {
+	projectRoot: string
+	registryRoot: string
+	installDir: string // project-relative posix
+	aliasBase: string // e.g. "@unrag"
+	chunker: string // e.g. "semantic"
+	yes?: boolean // non-interactive skip-overwrite
+	overwrite?: 'skip' | 'force'
+}
+
+export async function copyChunkerFiles(
+	selection: ChunkerSelection
+): Promise<string[]> {
+	const toAbs = (projectRelative: string) =>
+		path.join(selection.projectRoot, projectRelative)
+
+	const installBaseAbs = toAbs(selection.installDir)
+	const chunkerRegistryAbs = path.join(
+		selection.registryRoot,
+		'chunkers',
+		selection.chunker
+	)
+	const sharedRegistryAbs = path.join(
+		selection.registryRoot,
+		'chunkers',
+		'_shared'
+	)
+
+	if (!(await exists(chunkerRegistryAbs))) {
+		throw new Error(
+			`Unknown chunker registry: ${path.relative(selection.registryRoot, chunkerRegistryAbs)}`
+		)
+	}
+
+	const chunkerFiles = await listFilesRecursive(chunkerRegistryAbs)
+	const sharedFiles = (await exists(sharedRegistryAbs))
+		? await listFilesRecursive(sharedRegistryAbs)
+		: []
+
+	const destRootAbs = path.join(
+		installBaseAbs,
+		'chunkers',
+		selection.chunker
+	)
+	const sharedDestRootAbs = path.join(installBaseAbs, 'chunkers', '_shared')
+
+	const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY
+	const overwritePolicy = selection.overwrite ?? 'skip'
+
+	const shouldWrite = async (src: string, dest: string): Promise<boolean> => {
+		if (!(await exists(dest))) {
+			return true
+		}
+
+		if (overwritePolicy === 'force') {
+			return true
+		}
+
+		if (nonInteractive) {
+			return false
+		}
+
+		try {
+			const [srcRaw, destRaw] = await Promise.all([
+				readText(src),
+				readText(dest)
+			])
+			const nextSrc = rewriteRegistryAliasImports(
+				srcRaw,
+				selection.aliasBase
+			)
+			if (nextSrc === destRaw) {
+				return false
+			}
+		} catch {
+			// Fall back to prompting below.
+		}
+
+		const answer = await confirm({
+			message: `Overwrite ${path.relative(selection.projectRoot, dest)}?`,
+			initialValue: false
+		})
+		if (isCancel(answer)) {
+			cancel('Cancelled.')
+			return false
+		}
+		return Boolean(answer)
+	}
+
+	const managedFiles = new Set<string>()
+
+	for (const src of chunkerFiles) {
+		if (!(await exists(src))) {
+			throw new Error(`Registry file missing: ${src}`)
+		}
+
+		const rel = path.relative(chunkerRegistryAbs, src)
+		const dest = path.join(destRootAbs, rel)
+		if (!(await shouldWrite(src, dest))) {
+			continue
+		}
+
+		const raw = await readText(src)
+		const content = rewriteRegistryAliasImports(raw, selection.aliasBase)
+		await writeText(dest, content)
+	}
+
+	for (const src of sharedFiles) {
+		if (!(await exists(src))) {
+			throw new Error(`Registry file missing: ${src}`)
+		}
+
+		const rel = path.relative(sharedRegistryAbs, src)
+		const dest = path.join(sharedDestRootAbs, rel)
+		if (!(await shouldWrite(src, dest))) {
+			continue
+		}
+
+		const raw = await readText(src)
+		const content = rewriteRegistryAliasImports(raw, selection.aliasBase)
+		await writeText(dest, content)
+	}
+
+	for (const src of chunkerFiles) {
+		const rel = path.relative(chunkerRegistryAbs, src)
+		const dest = path.join(destRootAbs, rel)
+		managedFiles.add(toProjectRelative(selection.projectRoot, dest))
+	}
+	for (const src of sharedFiles) {
+		const rel = path.relative(sharedRegistryAbs, src)
+		const dest = path.join(sharedDestRootAbs, rel)
+		managedFiles.add(toProjectRelative(selection.projectRoot, dest))
+	}
+
+	return Array.from(managedFiles)
+}
+
 export type BatterySelection = {
 	projectRoot: string
 	registryRoot: string

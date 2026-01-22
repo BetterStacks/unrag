@@ -50,6 +50,15 @@ export type RegistryManifestV1 = {
 		defaultModel?: string
 		envVars?: Array<{name: string; required?: boolean; notes?: string}>
 	}>
+	/** Optional chunkers (semantic, markdown, etc.) */
+	chunkers?: Array<{
+		id: string // e.g. "semantic"
+		label?: string
+		description?: string
+		status?: 'available' | 'coming-soon'
+		deps?: Record<string, string>
+		devDeps?: Record<string, string>
+	}>
 }
 
 export async function readRegistryManifest(

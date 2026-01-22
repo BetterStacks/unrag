@@ -18,6 +18,7 @@ export {
 	isChunkerAvailable,
 	listChunkerPlugins,
 	recursiveChunker,
+	tokenChunker,
 	registerChunkerPlugin,
 	resolveChunker,
 	resolveChunkingOptions

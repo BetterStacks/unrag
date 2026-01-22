@@ -105,9 +105,30 @@ export type ChunkingOptions = {
 	 * Default: ['\n\n', '\n', '. ', '? ', '! ', '; ', ': ', ', ', ' ', '']
 	 */
 	separators?: string[]
+	/**
+	 * Optional model override for LLM-driven chunkers (semantic/agentic).
+	 */
+	model?: string
+	/**
+	 * Optional language hint for code chunker (typescript, javascript, python, go).
+	 */
+	language?: string
+	/**
+	 * Source identifier for the current document (used for per-file inference).
+	 */
+	sourceId?: string
+	/**
+	 * Document metadata available during chunking.
+	 */
+	metadata?: Metadata
 }
 
-export type Chunker = (content: string, options: ChunkingOptions) => ChunkText[]
+export type ChunkerResult = ChunkText[] | Promise<ChunkText[]>
+
+export type Chunker = (
+	content: string,
+	options: ChunkingOptions
+) => ChunkerResult
 
 // ---------------------------------------------------------------------------
 // Chunking method & plugin types
@@ -117,7 +138,7 @@ export type Chunker = (content: string, options: ChunkingOptions) => ChunkText[]
  * Built-in chunking methods shipped with core.
  * Uses token-based recursive chunking with js-tiktoken (o200k_base encoding).
  */
-export type BuiltInChunkingMethod = 'recursive'
+export type BuiltInChunkingMethod = 'recursive' | 'token'
 
 /**
  * Plugin chunking methods (installed via CLI).
@@ -143,7 +164,7 @@ export type ChunkingMethod = BuiltInChunkingMethod | PluginChunkingMethod | 'cus
 export type ChunkingConfig = {
 	/**
 	 * Chunking method to use. Default: "recursive".
-	 * Built-in: "recursive" (token-based with o200k_base encoding)
+	 * Built-in: "recursive" (token-based recursive), "token" (fixed-size tokens)
 	 * Plugins: "semantic", "markdown", "hierarchical", "code", "agentic", "late", "maxmin", "proposition"
 	 */
 	method?: ChunkingMethod

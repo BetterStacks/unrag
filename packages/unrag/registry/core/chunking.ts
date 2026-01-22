@@ -308,6 +308,41 @@ export const recursiveChunker: Chunker = (
 	}))
 }
 
+/**
+ * Token-based fixed-size chunker.
+ *
+ * Splits text strictly by token count with overlap, without recursive separators.
+ */
+export const tokenChunker: Chunker = (
+	content: string,
+	options: ChunkingOptions
+): ChunkText[] => {
+	const {
+		chunkSize,
+		chunkOverlap,
+		minChunkSize = DEFAULT_MIN_CHUNK_SIZE
+	} = options
+
+	if (!content.trim()) {
+		return []
+	}
+
+	const chunks = forceSplitByTokens(content, chunkSize, chunkOverlap)
+	if (chunks.length > 1) {
+		const last = chunks[chunks.length - 1]
+		if (last && countTokens(last) < minChunkSize) {
+			const prev = chunks[chunks.length - 2]
+			chunks.splice(chunks.length - 2, 2, `${prev} ${last}`.trim())
+		}
+	}
+
+	return chunks.map((chunkContent, index) => ({
+		index,
+		content: chunkContent,
+		tokenCount: countTokens(chunkContent)
+	}))
+}
+
 // ---------------------------------------------------------------------------
 // Default chunker
 // ---------------------------------------------------------------------------
@@ -350,7 +385,8 @@ export const listChunkerPlugins = (): string[] => {
 // ---------------------------------------------------------------------------
 
 const builtInChunkers: Record<string, Chunker> = {
-	recursive: recursiveChunker
+	recursive: recursiveChunker,
+	token: tokenChunker
 }
 
 // ---------------------------------------------------------------------------

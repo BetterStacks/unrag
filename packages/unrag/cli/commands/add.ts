@@ -9,10 +9,12 @@ import {readJsonFile, writeJsonFile} from '../lib/json'
 import {readRegistryManifest} from '../lib/manifest'
 import {
 	type BatteryName,
+	type ChunkerName,
 	type ConnectorName,
 	type DepChange,
 	type ExtractorName,
 	depsForBattery,
+	depsForChunker,
 	depsForConnector,
 	depsForExtractor,
 	installDependencies,
@@ -22,6 +24,7 @@ import {
 } from '../lib/packageJson'
 import {
 	copyBatteryFiles,
+	copyChunkerFiles,
 	copyConnectorFiles,
 	copyExtractorFiles
 } from '../lib/registry'
@@ -35,6 +38,7 @@ type InitConfig = {
 	connectors?: string[]
 	extractors?: string[]
 	batteries?: string[]
+	chunkers?: string[]
 	managedFiles?: string[]
 }
 
@@ -365,6 +369,129 @@ async function patchUnragConfig(args: {
 	}
 }
 
+/**
+ * Patch unrag.config.ts to add chunker import (registers plugin on import).
+ */
+async function patchUnragConfigChunker(args: {
+	projectRoot: string
+	installDir: string
+	chunker: ChunkerName
+}): Promise<boolean> {
+	const configPath = path.join(args.projectRoot, 'unrag.config.ts')
+
+	if (!(await exists(configPath))) {
+		return false
+	}
+
+	try {
+		const content = await readFile(configPath, 'utf8')
+		const installImportBase = `./${args.installDir.replace(/\\/g, '/')}`
+		const importLine = `import "${installImportBase}/chunkers/${args.chunker}";`
+
+		let newContent = content
+		let modified = false
+
+		if (
+			!content.includes(importLine) &&
+			!content.includes(`/chunkers/${args.chunker}`)
+		) {
+			const importMarker = '// __UNRAG_IMPORTS__'
+			if (content.includes(importMarker)) {
+				newContent = newContent.replace(
+					importMarker,
+					`${importMarker}\n${importLine}`
+				)
+			} else {
+				const importMatch = newContent.match(/^(import .+?\n)+/m)
+				if (importMatch) {
+					newContent = newContent.replace(
+						importMatch[0],
+						`${importMatch[0] + importLine}\n`
+					)
+				} else {
+					const headerDocComment = newContent.match(
+						/^\s*\/\*\*[\s\S]*?\*\/\s*\n/
+					)
+					if (headerDocComment?.[0]) {
+						newContent = `${headerDocComment[0]}${importLine}\n${newContent.slice(
+							headerDocComment[0].length
+						)}`
+					} else {
+						newContent = `${importLine}\n${newContent}`
+					}
+				}
+			}
+			modified = true
+		}
+
+		const needsModel =
+			args.chunker === 'semantic' || args.chunker === 'agentic'
+		if (needsModel) {
+			const optionsRegex =
+				/(chunking:\s*{[\s\S]*?options:\s*{)([\s\S]*?)(\n\s*}\s*,?)/
+			const match = newContent.match(optionsRegex)
+			if (match) {
+				const prefix = match[1] ?? ''
+				const suffix = match[3] ?? ''
+				let block = match[2] ?? ''
+				if (!/model\s*:/m.test(block)) {
+					const ensureTrailingComma = (input: string): string => {
+						const lines = input.split('\n')
+						for (let i = lines.length - 1; i >= 0; i--) {
+							const line = lines[i]
+							if (!line || line.trim().length === 0) {
+								continue
+							}
+							if (!line.trim().endsWith(',')) {
+								lines[i] = `${line},`
+							}
+							break
+						}
+						return lines.join('\n')
+					}
+
+					if (/^[ \t]*minChunkSize:/m.test(block)) {
+						block = block.replace(
+							/^[ \t]*minChunkSize:[^\n]*$/m,
+							(line) => {
+								const indent = line.match(/^([ \t]*)/)?.[1] ?? ''
+								const withComma = line.trim().endsWith(',')
+									? line
+									: `${line},`
+								return `${withComma}\n${indent}model: "openai/gpt-5-mini",`
+							}
+						)
+					} else {
+						const withComma = ensureTrailingComma(block)
+						const indentMatch =
+							withComma.match(/\n([ \t]*)chunkSize:/) ??
+							withComma.match(/\n([ \t]*)\w/)
+						const indent = indentMatch?.[1] ?? '\t\t\t'
+						block = `${withComma}\n${indent}model: "openai/gpt-5-mini",`
+					}
+
+					newContent = newContent.replace(
+						optionsRegex,
+						`${prefix}${block}${suffix}`
+					)
+					modified = true
+				}
+			}
+		}
+
+		if (modified && newContent !== content) {
+			await writeFile(configPath, newContent, 'utf8')
+			return true
+		}
+	} catch (err) {
+		console.warn(
+			`[unrag:add] Could not patch unrag.config.ts for chunker: ${err instanceof Error ? err.message : String(err)}`
+		)
+	}
+
+	return false
+}
+
 const shouldWriteFile = async (
 	absPath: string,
 	projectRoot: string,
@@ -481,7 +608,7 @@ const addPackageJsonScripts = async (args: {
 }
 
 type ParsedAddArgs = {
-	kind?: 'connector' | 'extractor' | 'battery' | 'skills'
+	kind?: 'connector' | 'extractor' | 'battery' | 'chunker' | 'skills'
 	name?: string
 	yes?: boolean
 	noInstall?: boolean
@@ -515,8 +642,17 @@ const parseAddArgs = (args: string[]): ParsedAddArgs => {
 				out.kind = 'battery'
 				continue
 			}
+			if (a === 'chunker') {
+				out.kind = 'chunker'
+				continue
+			}
 			if (a === 'skills') {
 				out.kind = 'skills'
+				continue
+			}
+			if (a.startsWith('chunker:')) {
+				out.kind = 'chunker'
+				out.name = a.slice('chunker:'.length)
 				continue
 			}
 			out.kind = 'connector'
@@ -525,7 +661,9 @@ const parseAddArgs = (args: string[]): ParsedAddArgs => {
 		}
 
 		if (
-			(out.kind === 'extractor' || out.kind === 'battery') &&
+			(out.kind === 'extractor' ||
+				out.kind === 'battery' ||
+				out.kind === 'chunker') &&
 			!out.name &&
 			a &&
 			!a.startsWith('-')
@@ -589,6 +727,11 @@ export async function addCommand(args: string[]) {
 			.filter((b) => b.status === 'available')
 			.map((b) => b.id as BatteryName)
 	)
+	const availableChunkers = new Set(
+		(manifest.chunkers ?? [])
+			.filter((c) => c.status === 'available')
+			.map((c) => c.id as ChunkerName)
+	)
 
 	if (!name) {
 		if (!quiet) {
@@ -598,10 +741,12 @@ export async function addCommand(args: string[]) {
 					'  unrag add <connector>',
 					'  unrag add extractor <name>',
 					'  unrag add battery <name>',
+					'  unrag add chunker <name>',
 					'',
 					`Available connectors: ${Array.from(availableConnectors).join(', ')}`,
 					`Available extractors: ${Array.from(availableExtractors).join(', ')}`,
-					`Available batteries: ${Array.from(availableBatteries).join(', ')}`
+					`Available batteries: ${Array.from(availableBatteries).join(', ')}`,
+					`Available chunkers: ${Array.from(availableChunkers).join(', ')}`
 				].join('\n')
 			)
 		}
@@ -1132,6 +1277,77 @@ main().catch((err) => {
 				]
 					.filter(Boolean)
 					.join('\n')
+			)
+		}
+
+		return
+	}
+
+	if (kind === 'chunker') {
+		const chunker = name as ChunkerName | undefined
+		if (!chunker || !availableChunkers.has(chunker)) {
+			if (!quiet) {
+				outro(
+					`Unknown chunker: ${name}\n\nAvailable chunkers: ${Array.from(availableChunkers).join(', ')}`
+				)
+			}
+			return
+		}
+
+		const chunkerFiles = await copyChunkerFiles({
+			projectRoot: root,
+			registryRoot,
+			installDir: config.installDir,
+			aliasBase: config.aliasBase ?? '@unrag',
+			chunker,
+			yes: nonInteractive
+		})
+		for (const file of chunkerFiles) {
+			managedFiles.add(file)
+		}
+
+		const {deps, devDeps} = depsForChunker(chunker)
+		const merged = mergeDeps(pkg, deps, devDeps)
+		if (merged.changes.length > 0) {
+			await writePackageJson(root, merged.pkg)
+			if (!noInstall) {
+				await installDependencies(root)
+			}
+		}
+
+		const chunkers = Array.from(
+			new Set([...(config.chunkers ?? []), chunker])
+		).sort()
+
+		await writeJsonFile(configPath, {
+			...config,
+			chunkers,
+			version: CONFIG_VERSION,
+			installedFrom: {unragVersion: cliPackageVersion},
+			managedFiles: Array.from(managedFiles).sort()
+		})
+
+		const patched = await patchUnragConfigChunker({
+			projectRoot: root,
+			installDir: config.installDir,
+			chunker
+		})
+
+		if (!quiet) {
+			const installImportBase = `./${config.installDir.replace(/\\/g, '/')}`
+			const importHint = `import "${installImportBase}/chunkers/${chunker}";`
+			outro(
+				[
+					`Installed chunker: ${chunker}.`,
+					'',
+					`- Code: ${path.join(config.installDir, 'chunkers', chunker)}`,
+					patched
+						? '- Config: unrag.config.ts (updated)'
+						: `- Config: unrag.config.ts (add import: ${importHint})`,
+					'',
+					'Next:',
+					`  - Set chunking.method = "${chunker}" in unrag.config.ts`
+				].join('\n')
 			)
 		}
 

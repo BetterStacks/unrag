@@ -68,6 +68,7 @@ type InitConfig = {
 	connectors?: string[]
 	extractors?: string[]
 	batteries?: string[]
+	chunkers?: string[]
 	managedFiles?: string[]
 }
 
