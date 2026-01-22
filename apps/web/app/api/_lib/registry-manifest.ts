@@ -5,6 +5,13 @@ export type RegistryManifest = {
 	version: number
 	extractors: Array<{id: string; status?: 'available' | 'coming-soon'}>
 	connectors: Array<{id: string; status?: 'available' | 'coming-soon'}>
+	chunkers?: Array<{
+		id: string
+		label?: string
+		description?: string
+		status?: 'available' | 'coming-soon'
+		docsPath?: string | null
+	}>
 	batteries?: Array<{
 		id: string
 		status?: 'available' | 'coming-soon'

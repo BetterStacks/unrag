@@ -30,6 +30,7 @@ type WizardStateV1 = {
 		extractors: string[]
 		connectors: string[]
 		batteries?: string[]
+		chunkers?: string[]
 	}
 	defaults: {
 		chunkSize: number
@@ -63,6 +64,7 @@ type PresetPayloadV1 = {
 		extractors: string[]
 		connectors: string[]
 		batteries: string[]
+		chunkers: string[]
 	}
 	config: {
 		defaults: {
@@ -110,6 +112,15 @@ function isWizardStateV1(x: unknown): x is WizardStateV1 {
 	) {
 		return false
 	}
+	if (
+		o.modules &&
+		typeof o.modules === 'object' &&
+		'chunkers' in o.modules &&
+		(o.modules as Record<string, unknown>).chunkers != null &&
+		!Array.isArray((o.modules as Record<string, unknown>).chunkers)
+	) {
+		return false
+	}
 	return true
 }
 
@@ -126,6 +137,9 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 		: []
 	const batteries = Array.isArray(input.modules.batteries)
 		? input.modules.batteries.map(String).filter(Boolean)
+		: []
+	const chunkers = Array.isArray(input.modules.chunkers)
+		? input.modules.chunkers.map(String).filter(Boolean)
 		: []
 
 	const chunkSize = Number(input.defaults.chunkSize) || 200
@@ -160,7 +174,7 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 	return {
 		v: 1,
 		install: {installDir, storeAdapter, aliasBase},
-		modules: {extractors, connectors, batteries},
+		modules: {extractors, connectors, batteries, chunkers},
 		defaults: {chunkSize, chunkOverlap, topK},
 		embedding: {
 			type: embeddingType,
@@ -187,7 +201,8 @@ function makePresetFromWizard(state: WizardStateV1): PresetPayloadV1 {
 			connectors: state.modules.connectors,
 			batteries: (state.modules.batteries ?? [])
 				.map(String)
-				.filter(Boolean)
+				.filter(Boolean),
+			chunkers: (state.modules.chunkers ?? []).map(String).filter(Boolean)
 		},
 		config: {
 			defaults: {
@@ -281,6 +296,11 @@ export async function POST(req: NextRequest) {
 			.filter((b) => b.status === 'available')
 			.map((b) => b.id)
 	)
+	const allowedChunkers = new Set(
+		(manifest.chunkers ?? [])
+			.filter((c) => c.status === 'available')
+			.map((c) => c.id)
+	)
 
 	const unknownExtractors = state.modules.extractors.filter(
 		(x) => !allowedExtractors.has(x)
@@ -309,6 +329,17 @@ export async function POST(req: NextRequest) {
 	if (unknownBatteries.length > 0) {
 		return NextResponse.json(
 			{error: 'Unknown or unavailable batteries', unknownBatteries},
+			{status: 400}
+		)
+	}
+
+	const chunkerIds = (state.modules.chunkers ?? [])
+		.map(String)
+		.filter(Boolean)
+	const unknownChunkers = chunkerIds.filter((x) => !allowedChunkers.has(x))
+	if (unknownChunkers.length > 0) {
+		return NextResponse.json(
+			{error: 'Unknown or unavailable chunkers', unknownChunkers},
 			{status: 400}
 		)
 	}

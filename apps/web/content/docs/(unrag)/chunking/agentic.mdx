@@ -1,0 +1,159 @@
+---
+title: Agentic Chunking
+description: LLM-powered chunking optimized for maximum retrieval quality.
+---
+
+Agentic chunking uses an LLM to intelligently split documents with the explicit goal of maximizing retrieval quality. It keeps coherent ideas together and preserves nearby context, producing chunks optimized for semantic search.
+
+## Installation
+
+```bash
+bunx unrag add chunker:agentic
+```
+
+This installs the agentic chunker plugin and adds the `ai` SDK dependency.
+
+## Configuration
+
+```ts
+export default defineUnragConfig({
+  chunking: {
+    method: "agentic",
+    options: {
+      chunkSize: 512,
+      chunkOverlap: 50,
+      model: "gpt-4o",  // optional: specify LLM model
+    },
+  },
+  // ...
+});
+```
+
+### Options
+
+<TypeTable
+  type={{
+    chunkSize: {
+      description: 'Maximum tokens per chunk.',
+      type: 'number',
+      default: '512',
+    },
+    chunkOverlap: {
+      description: 'Overlap tokens between chunks.',
+      type: 'number',
+      default: '50',
+    },
+    minChunkSize: {
+      description: 'Minimum tokens per chunk.',
+      type: 'number',
+      default: '24',
+    },
+    model: {
+      description: 'LLM model for chunking decisions. More capable models produce better results.',
+      type: 'string',
+      default: 'Provider default',
+    },
+  }}
+/>
+
+## How it works
+
+1. **Analyze content** — The LLM reads the document and identifies optimal split points
+2. **Optimize for retrieval** — Split points are chosen to maximize chunk coherence and queryability
+3. **Preserve context** — Related information stays together even across paragraph boundaries
+4. **Respect limits** — Chunks are sized to stay within token limits while maximizing quality
+
+The LLM is prompted to:
+- Keep coherent ideas together
+- Preserve nearby context that aids understanding
+- Create chunks that would match natural user queries
+- Avoid splitting mid-explanation or mid-example
+
+## When to use
+
+Agentic chunking is ideal for:
+
+- **High-value content** where retrieval quality is critical
+- **Complex documents** with nuanced structure
+- **Customer-facing search** where poor results have business impact
+- **Content that justifies LLM costs** (legal, medical, financial)
+
+Consider alternatives when:
+
+- **Cost is a concern** — Every document requires LLM processing
+- **Latency matters** — LLM calls add significant processing time
+- **Content is structured** — Markdown or code already has clear boundaries
+- **Bulk ingestion** — Thousands of documents would be expensive
+
+## Cost considerations
+
+Agentic chunking is the most expensive chunking method. For a 10,000 token document:
+
+| Model | Input cost | Output cost | Total |
+|-------|------------|-------------|-------|
+| gpt-4o-mini | ~$0.002 | ~$0.001 | ~$0.003 |
+| gpt-4o | ~$0.025 | ~$0.010 | ~$0.035 |
+| claude-3-opus | ~$0.15 | ~$0.075 | ~$0.225 |
+
+For 10,000 documents, costs range from $30 to $2,250 depending on model choice.
+
+**Recommendations:**
+- Start with `gpt-4o-mini` for most use cases
+- Use `gpt-4o` for complex, high-value content
+- Reserve `claude-3-opus` for critical content where quality justifies cost
+
+## Agentic vs semantic chunking
+
+Both use LLMs, but with different goals:
+
+| Aspect | Semantic | Agentic |
+|--------|----------|---------|
+| Goal | Find semantic boundaries | Maximize retrieval quality |
+| Prompt | "Split at topic changes" | "Optimize for search" |
+| Output | Clean topic boundaries | Query-optimized chunks |
+| Cost | Similar | Similar |
+| Best for | Narrative content | Search-critical content |
+
+For most LLM-chunking use cases, try **semantic** first. Use **agentic** when you need the highest possible retrieval quality.
+
+## Example
+
+Input text about a software feature:
+
+```
+The export feature allows users to download their data in multiple formats.
+CSV exports include all fields by default, while JSON exports use a nested
+structure that mirrors the API response format.
+
+To export data, navigate to Settings > Data > Export. Select the format and
+date range, then click "Generate Export". Large exports may take several
+minutes to process. You'll receive an email when the export is ready.
+
+Export files are available for download for 7 days. After that, you'll need
+to generate a new export. Enterprise customers can configure automatic
+scheduled exports via the API.
+```
+
+With agentic chunking, the LLM might produce:
+
+```
+Chunk 1: "The export feature allows users to download their data in multiple formats.
+CSV exports include all fields by default, while JSON exports use a nested
+structure that mirrors the API response format."
+
+Chunk 2: "To export data, navigate to Settings > Data > Export. Select the format and
+date range, then click \"Generate Export\". Large exports may take several
+minutes to process. You'll receive an email when the export is ready."
+
+Chunk 3: "Export files are available for download for 7 days. After that, you'll need
+to generate a new export. Enterprise customers can configure automatic
+scheduled exports via the API."
+```
+
+The LLM groups content by user intent: format options, how-to steps, and availability/enterprise features.
+
+## Fallback behavior
+
+If the LLM call fails, agentic chunking falls back to sentence-based splitting. This ensures ingestion completes, though chunk quality will be lower.
+
+Monitor `result.warnings` to detect fallback usage and retry important documents later.

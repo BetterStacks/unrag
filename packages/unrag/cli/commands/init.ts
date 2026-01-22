@@ -28,12 +28,14 @@ import {readJsonFile, writeJsonFile} from '../lib/json'
 import {readRegistryManifest} from '../lib/manifest'
 import {
 	type BatteryName,
+	type ChunkerName,
 	type ConnectorName,
 	type DepChange,
 	type EmbeddingProviderName,
 	type ExtractorName,
 	depsForAdapter,
 	depsForBattery,
+	depsForChunker,
 	depsForConnector,
 	depsForEmbeddingProvider,
 	depsForExtractor,
@@ -48,6 +50,7 @@ import {type PresetPayloadV1, fetchPreset} from '../lib/preset'
 import {
 	type RegistrySelection,
 	copyBatteryFiles,
+	copyChunkerFiles,
 	copyConnectorFiles,
 	copyExtractorFiles,
 	copyRegistryFiles
@@ -222,6 +225,11 @@ const toBatteries = (xs: string[] | undefined): BatteryName[] =>
 	(Array.isArray(xs) ? xs : [])
 		.map((s) => String(s).trim())
 		.filter(Boolean) as BatteryName[]
+
+const toChunkers = (xs: string[] | undefined): ChunkerName[] =>
+	(Array.isArray(xs) ? xs : [])
+		.map((s) => String(s).trim())
+		.filter(Boolean) as ChunkerName[]
 
 function getPresetEmbeddingProvider(
 	preset: PresetPayloadV1 | null
@@ -561,6 +569,25 @@ export async function initCommand(args: string[]) {
 		)
 	).sort()
 
+	const chunkersFromPreset = preset
+		? Array.from(new Set(toChunkers(preset.modules?.chunkers))).sort()
+		: []
+	const availableChunkerIds = new Set(
+		(manifest.chunkers ?? [])
+			.filter((c) => c.status === 'available')
+			.map((c) => c.id as ChunkerName)
+	)
+	if (preset) {
+		const unknown = chunkersFromPreset.filter(
+			(c) => !availableChunkerIds.has(c)
+		)
+		if (unknown.length > 0) {
+			throw new Error(
+				`Preset contains unknown/unavailable chunkers: ${unknown.join(', ')}`
+			)
+		}
+	}
+
 	const selection: RegistrySelection = {
 		installDir,
 		storeAdapter: storeAdapterAnswer as RegistrySelection['storeAdapter'],
@@ -575,6 +602,7 @@ export async function initCommand(args: string[]) {
 		presetConfig:
 			(preset?.config as RegistrySelection['presetConfig'] | undefined) ??
 			undefined,
+		chunkers: chunkersFromPreset,
 		richMedia: richMediaEnabled
 			? {
 					enabled: true,
@@ -587,6 +615,24 @@ export async function initCommand(args: string[]) {
 	const coreFiles = await copyRegistryFiles(selection)
 	for (const file of coreFiles) {
 		managedFiles.add(file)
+	}
+
+	// Install chunker modules (vendor code) before updating deps.
+	if (chunkersFromPreset.length > 0) {
+		for (const chunker of chunkersFromPreset) {
+			const chunkerFiles = await copyChunkerFiles({
+				projectRoot: root,
+				registryRoot,
+				installDir,
+				aliasBase,
+				chunker,
+				yes: nonInteractive,
+				overwrite: overwritePolicy
+			})
+			for (const file of chunkerFiles) {
+				managedFiles.add(file)
+			}
+		}
 	}
 
 	// Install selected extractor modules (vendor code) before updating deps.
@@ -616,6 +662,14 @@ export async function initCommand(args: string[]) {
 		const r = depsForExtractor(ex)
 		Object.assign(extractorDeps, r.deps)
 		Object.assign(extractorDevDeps, r.devDeps)
+	}
+
+	const chunkerDeps: Record<string, string> = {}
+	const chunkerDevDeps: Record<string, string> = {}
+	for (const chunker of chunkersFromPreset) {
+		const r = depsForChunker(chunker)
+		Object.assign(chunkerDeps, r.deps)
+		Object.assign(chunkerDevDeps, r.devDeps)
 	}
 
 	const connectorsFromPreset = preset
@@ -714,6 +768,7 @@ export async function initCommand(args: string[]) {
 			...deps,
 			...embeddingDeps.deps,
 			...extractorDeps,
+			...chunkerDeps,
 			...connectorDeps,
 			...batteryDeps
 		},
@@ -721,6 +776,7 @@ export async function initCommand(args: string[]) {
 			...devDeps,
 			...embeddingDeps.devDeps,
 			...extractorDevDeps,
+			...chunkerDevDeps,
 			...connectorDevDeps,
 			...batteryDevDeps
 		}
@@ -754,6 +810,9 @@ export async function initCommand(args: string[]) {
 		).sort(),
 		batteries: Array.from(
 			new Set([...(existing?.batteries ?? []), ...batteriesFromPreset])
+		).sort(),
+		chunkers: Array.from(
+			new Set([...(existing?.chunkers ?? []), ...chunkersFromPreset])
 		).sort()
 	}
 	config.managedFiles = Array.from(managedFiles).sort()

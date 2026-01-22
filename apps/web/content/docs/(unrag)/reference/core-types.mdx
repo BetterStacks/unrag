@@ -14,7 +14,7 @@ type IngestInput = {
   sourceId: string;
   content: string;
   metadata?: Metadata;
-  chunking?: { chunkSize?: number; chunkOverlap?: number };
+  chunking?: { chunkSize?: number; chunkOverlap?: number; minChunkSize?: number };
   assets?: AssetInput[];
   assetProcessing?: DeepPartial<AssetProcessingConfig>;
 };
@@ -37,7 +37,7 @@ type IngestInput = {
       default: '{}',
     },
     chunking: {
-      description: 'Optional per-call chunking override (chunkSize, chunkOverlap).',
+      description: 'Optional per-call chunking override (chunkSize, chunkOverlap, minChunkSize). All sizes are in tokens.',
       type: 'object',
     },
     assets: {
@@ -451,11 +451,13 @@ type ContextEngineConfig = {
 };
 
 type ChunkingOptions = {
-  chunkSize: number;
-  chunkOverlap: number;
+  chunkSize: number;      // Max tokens per chunk (default: 512)
+  chunkOverlap: number;   // Overlap tokens between chunks (default: 50)
+  minChunkSize?: number;  // Minimum tokens per chunk (default: 24)
+  separators?: string[];  // Custom separator hierarchy for recursive splitting
 };
 
-type Chunker = (content: string, options: ChunkingOptions) => ChunkText[];
+type Chunker = (content: string, options: ChunkingOptions) => ChunkText[] | Promise<ChunkText[]>;
 
 type ChunkText = {
   index: number;
@@ -492,7 +494,7 @@ type ChunkText = {
       type: 'Partial<ChunkingOptions>',
     },
     chunker: {
-      description: 'Optional custom chunking function. Defaults to recursive text splitter.',
+      description: 'Optional custom chunking function. Defaults to token-based recursive splitter using o200k_base encoding.',
       type: 'Chunker',
     },
     idGenerator: {

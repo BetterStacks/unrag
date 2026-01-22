@@ -1,0 +1,137 @@
+---
+title: Semantic Chunking
+description: LLM-guided chunking that splits at natural semantic boundaries.
+---
+
+Semantic chunking uses an LLM to identify natural semantic boundaries in your text—places where topics shift or ideas complete. This produces chunks that are more coherent and self-contained than rule-based splitting.
+
+## Installation
+
+```bash
+bunx unrag add chunker:semantic
+```
+
+This installs the semantic chunker plugin and adds the `ai` SDK dependency.
+
+## Configuration
+
+```ts
+export default defineUnragConfig({
+  chunking: {
+    method: "semantic",
+    options: {
+      chunkSize: 512,
+      chunkOverlap: 50,
+      model: "gpt-4o-mini",  // optional: specify LLM model
+    },
+  },
+  // ...
+});
+```
+
+### Options
+
+<TypeTable
+  type={{
+    chunkSize: {
+      description: 'Maximum tokens per chunk.',
+      type: 'number',
+      default: '512',
+    },
+    chunkOverlap: {
+      description: 'Overlap tokens between chunks.',
+      type: 'number',
+      default: '50',
+    },
+    minChunkSize: {
+      description: 'Minimum tokens per chunk.',
+      type: 'number',
+      default: '24',
+    },
+    model: {
+      description: 'LLM model for semantic analysis. Uses your configured AI provider.',
+      type: 'string',
+      default: 'Provider default',
+    },
+  }}
+/>
+
+## How it works
+
+1. The chunker sends your content to an LLM with instructions to identify semantic boundaries
+2. The LLM returns suggested split points based on topic shifts and idea completions
+3. Text is split at these boundaries, then merged/split further to respect token limits
+4. If the LLM call fails, it falls back to sentence-based splitting
+
+The LLM is prompted to prefer boundaries between:
+- Distinct topics or subjects
+- Completed thoughts or arguments
+- Paragraph transitions
+- Section changes
+
+## When to use
+
+Semantic chunking is ideal for:
+
+- **Long-form content** where topic boundaries aren't marked by formatting
+- **Narrative text** with flowing prose (essays, articles, stories)
+- **Mixed-topic documents** where you want each chunk to be about one thing
+- **High-value content** where retrieval precision matters more than cost
+
+Consider alternatives when:
+
+- **Cost is a concern** — Each document requires an LLM call
+- **Content is structured** — Markdown or code already has clear boundaries
+- **Latency matters** — LLM calls add processing time
+
+## Cost considerations
+
+Semantic chunking calls an LLM for every document ingested. For a 10,000 token document:
+
+- Input: ~10,000 tokens
+- Output: ~500 tokens (boundary markers)
+- Cost: ~$0.01-0.05 per document (varies by model)
+
+For bulk ingestion of thousands of documents, this adds up. Consider:
+
+- Using semantic chunking only for high-value content
+- Using [markdown](/docs/chunking/markdown) or [recursive](/docs/chunking/recursive) for structured content
+- Batching ingestion during off-peak hours
+
+## Fallback behavior
+
+If the LLM call fails (rate limits, API errors, timeouts), the semantic chunker automatically falls back to sentence-based splitting. This ensures ingestion doesn't fail, though chunk quality may be lower.
+
+Check `result.warnings` after ingestion to detect fallback usage:
+
+```ts
+const result = await engine.ingest({ sourceId, content });
+if (result.warnings.some(w => w.code === "semantic_fallback")) {
+  console.warn("Semantic chunking fell back to sentence splitting");
+}
+```
+
+## Example
+
+Input text about machine learning:
+
+```
+Machine learning models learn patterns from data. They identify relationships
+that humans might miss. This makes them powerful for prediction tasks.
+
+However, ML models have limitations. They require large amounts of training data.
+They can also encode biases present in that data. Careful validation is essential.
+```
+
+With semantic chunking, this might produce:
+
+```
+Chunk 1: "Machine learning models learn patterns from data. They identify
+relationships that humans might miss. This makes them powerful for prediction tasks."
+
+Chunk 2: "However, ML models have limitations. They require large amounts of
+training data. They can also encode biases present in that data. Careful
+validation is essential."
+```
+
+The LLM identifies that "However" marks a topic shift from benefits to limitations, creating a clean semantic boundary.

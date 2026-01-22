@@ -1,0 +1,169 @@
+---
+title: Hierarchical Chunking
+description: Section-first chunking that preserves header context in every chunk.
+---
+
+Hierarchical chunking splits documents by sections (headings) and prepends the section header to each chunk. This ensures every chunk carries its structural context, improving retrieval relevance.
+
+## Installation
+
+```bash
+bunx unrag add chunker:hierarchical
+```
+
+No additional dependencies required.
+
+## Configuration
+
+```ts
+export default defineUnragConfig({
+  chunking: {
+    method: "hierarchical",
+    options: {
+      chunkSize: 512,
+      chunkOverlap: 50,
+    },
+  },
+  // ...
+});
+```
+
+### Options
+
+<TypeTable
+  type={{
+    chunkSize: {
+      description: 'Maximum tokens per chunk (including header).',
+      type: 'number',
+      default: '512',
+    },
+    chunkOverlap: {
+      description: 'Overlap tokens between chunks within the same section.',
+      type: 'number',
+      default: '50',
+    },
+    minChunkSize: {
+      description: 'Minimum tokens per chunk.',
+      type: 'number',
+      default: '24',
+    },
+  }}
+/>
+
+## How it works
+
+1. **Split by headings** — Document is divided into sections at `# H1` through `###### H6` boundaries
+2. **Chunk section content** — Each section's body is chunked using recursive token-based splitting
+3. **Prepend headers** — The section header is prepended to each chunk from that section
+4. **Preserve code blocks** — Fenced code blocks are kept intact during section splitting
+
+This creates chunks like:
+
+```
+## Configuration
+
+The config file supports these options...
+```
+
+Instead of just:
+
+```
+The config file supports these options...
+```
+
+## When to use
+
+Hierarchical chunking is ideal for:
+
+- **Technical documentation** with clear section structure
+- **Reference manuals** where section context matters
+- **Long documents** where chunks might lose their place
+- **Multi-level content** with nested headings
+
+Consider alternatives when:
+
+- Document has no headings → [Recursive chunker](/docs/chunking/recursive)
+- You need semantic boundaries, not structural → [Semantic chunker](/docs/chunking/semantic)
+- You're chunking source code → [Code chunker](/docs/chunking/code)
+
+## Example
+
+Input markdown:
+
+```markdown
+# API Reference
+
+This document covers the REST API.
+
+## Authentication
+
+All requests require an API key in the header:
+
+```
+Authorization: Bearer YOUR_API_KEY
+```
+
+Keys can be generated in the dashboard.
+
+## Endpoints
+
+### GET /users
+
+Returns a list of users.
+
+### POST /users
+
+Creates a new user. Requires name and email fields.
+```
+
+With hierarchical chunking:
+
+```
+Chunk 1: "# API Reference\n\nThis document covers the REST API."
+
+Chunk 2: "## Authentication\n\nAll requests require an API key in the header:\n\n```\nAuthorization: Bearer <api-key>\n```\n\nKeys can be generated in the dashboard."
+
+Chunk 3: "### GET /users\n\nReturns a list of users."
+
+Chunk 4: "### POST /users\n\nCreates a new user. Requires name and email fields."
+```
+
+Notice how each chunk starts with its heading, providing immediate context.
+
+## Long sections
+
+If a section's body exceeds `chunkSize`, it's split into multiple chunks. Each chunk gets the same header prepended:
+
+```
+## Installation
+
+Chunk 1 content about package managers...
+```
+
+```
+## Installation
+
+Chunk 2 content about manual installation...
+```
+
+This means the header counts toward each chunk's token budget. Account for this when setting `chunkSize`.
+
+## Comparison with markdown chunker
+
+| Feature | Markdown | Hierarchical |
+|---------|----------|--------------|
+| Splits at headings | Yes | Yes |
+| Preserves code blocks | Yes | Yes |
+| Prepends header to chunks | No | Yes |
+| Multi-chunk sections | Header only on first | Header on all |
+| Best for | Code-heavy docs | Reference docs |
+
+Use **markdown chunking** when chunks are self-contained and headers add overhead.
+
+Use **hierarchical chunking** when context matters and you want every chunk to know where it came from.
+
+## Header-only chunks
+
+If a section has no body (just a heading), it becomes a single-token chunk containing only the header. These small chunks are useful for navigation but may be filtered during retrieval if `minChunkSize` is set high.
+
+Consider lowering `minChunkSize` if you have many header-only sections you want to keep.

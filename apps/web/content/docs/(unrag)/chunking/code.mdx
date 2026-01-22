@@ -1,0 +1,179 @@
+---
+title: Code Chunking
+description: AST-based chunking that splits code at function and class boundaries.
+---
+
+Code chunking uses Abstract Syntax Tree (AST) parsing to split source code at meaningful boundaries—functions, classes, type definitions—rather than arbitrary line or character counts.
+
+## Installation
+
+```bash
+bunx unrag add chunker:code
+```
+
+This installs tree-sitter and language grammars for TypeScript, JavaScript, Python, and Go.
+
+## Configuration
+
+```ts
+export default defineUnragConfig({
+  chunking: {
+    method: "code",
+    options: {
+      chunkSize: 512,
+      chunkOverlap: 50,
+      language: "typescript",  // optional: auto-detected from file extension
+    },
+  },
+  // ...
+});
+```
+
+### Options
+
+<TypeTable
+  type={{
+    chunkSize: {
+      description: 'Maximum tokens per chunk.',
+      type: 'number',
+      default: '512',
+    },
+    chunkOverlap: {
+      description: 'Overlap tokens between chunks.',
+      type: 'number',
+      default: '50',
+    },
+    minChunkSize: {
+      description: 'Minimum tokens per chunk.',
+      type: 'number',
+      default: '24',
+    },
+    language: {
+      description: 'Programming language. Auto-detected from sourceId file extension if not specified.',
+      type: '"typescript" | "javascript" | "python" | "go"',
+      default: 'Auto-detected',
+    },
+  }}
+/>
+
+## Supported languages
+
+| Language | Extensions | Major boundaries |
+|----------|------------|------------------|
+| TypeScript | `.ts`, `.tsx` | Functions, classes, interfaces, types, enums |
+| JavaScript | `.js`, `.jsx`, `.mjs`, `.cjs` | Functions, classes |
+| Python | `.py` | Functions, classes, decorated definitions |
+| Go | `.go` | Functions, methods, type declarations |
+
+## How it works
+
+1. **Parse the AST** using tree-sitter
+2. **Identify major boundaries** (functions, classes, etc.)
+3. **Split at boundaries** keeping each definition intact
+4. **Merge small pieces** that fall under `minChunkSize`
+5. **Fall back gracefully** if parsing fails
+
+The chunker prioritizes keeping complete definitions together. A 200-token function stays in one chunk rather than being split mid-body.
+
+## Language detection
+
+The code chunker auto-detects language from the `sourceId` or file metadata:
+
+```ts
+// Auto-detected as TypeScript from sourceId
+await engine.ingest({
+  sourceId: "src/utils/helpers.ts",
+  content: codeContent,
+});
+
+// Auto-detected from metadata
+await engine.ingest({
+  sourceId: "code:123",
+  content: codeContent,
+  metadata: { filePath: "lib/main.py" },
+});
+
+// Explicit override
+await engine.ingest({
+  sourceId: "code:snippet",
+  content: codeContent,
+  chunking: { language: "go" },
+});
+```
+
+## When to use
+
+Code chunking is ideal for:
+
+- **Source code repositories** — Indexing codebases for search
+- **Code documentation** — When you want function-level retrieval
+- **Code assistants** — RAG for coding help
+- **Multi-language projects** — Each file detected independently
+
+Consider alternatives when:
+
+- Content is markdown with code blocks → [Markdown chunker](/docs/chunking/markdown)
+- Content is prose, not code → [Recursive chunker](/docs/chunking/recursive)
+- You need the entire file in one chunk → Increase `chunkSize`
+
+## Example
+
+Input TypeScript:
+
+```ts
+import { db } from "./db";
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export async function getUser(id: string): Promise<User | null> {
+  const result = await db.query("SELECT * FROM users WHERE id = $1", [id]);
+  return result.rows[0] ?? null;
+}
+
+export async function createUser(data: Omit<User, "id">): Promise<User> {
+  const id = crypto.randomUUID();
+  await db.query(
+    "INSERT INTO users (id, name, email) VALUES ($1, $2, $3)",
+    [id, data.name, data.email]
+  );
+  return { id, ...data };
+}
+```
+
+With code chunking, this produces:
+
+```
+Chunk 1: "import { db } from \"./db\";\n\ninterface User {\n  id: string;\n  name: string;\n  email: string;\n}"
+
+Chunk 2: "export async function getUser(id: string): Promise<User | null> {\n  const result = await db.query(\"SELECT * FROM users WHERE id = $1\", [id]);\n  return result.rows[0] ?? null;\n}"
+
+Chunk 3: "export async function createUser(data: Omit<User, \"id\">): Promise<User> {\n  const id = crypto.randomUUID();\n  await db.query(\n    \"INSERT INTO users (id, name, email) VALUES ($1, $2, $3)\",\n    [id, data.name, data.email]\n  );\n  return { id, ...data };\n}"
+```
+
+Each function and the interface become separate chunks, enabling precise retrieval.
+
+## Fallback behavior
+
+If tree-sitter fails to parse the code (syntax errors, unsupported constructs), the chunker falls back to treating the content as a single block and uses token-based splitting. This ensures ingestion doesn't fail, though chunk boundaries may be less optimal.
+
+## Dependencies
+
+The code chunker requires native tree-sitter bindings:
+
+```json
+{
+  "dependencies": {
+    "tree-sitter": "^0.22.6",
+    "tree-sitter-typescript": "^0.21.2",
+    "tree-sitter-javascript": "^0.21.4",
+    "tree-sitter-python": "^0.21.0",
+    "tree-sitter-go": "^0.21.0"
+  }
+}
+```
+
+These are installed automatically by `bunx unrag add chunker:code`.

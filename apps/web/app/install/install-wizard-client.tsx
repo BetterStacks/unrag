@@ -110,6 +110,7 @@ type WizardStateV1 = {
 		extractors: string[]
 		connectors: string[]
 		batteries: string[]
+		chunkers: string[]
 	}
 	defaults: {
 		chunkSize: number
@@ -146,6 +147,13 @@ type RegistryManifest = {
 		description?: string
 		status?: 'available' | 'coming-soon'
 		types?: string[]
+		docsPath?: string | null
+	}>
+	chunkers?: Array<{
+		id: string
+		label?: string
+		description?: string
+		status?: 'available' | 'coming-soon'
 		docsPath?: string | null
 	}>
 	batteries?: Array<{
@@ -214,6 +222,11 @@ const STEPS: Step[] = [
 		icon: <Sparkles className="w-4 h-4" />
 	},
 	{
+		id: 'chunkers',
+		label: 'Chunkers',
+		icon: <FileText className="w-4 h-4" />
+	},
+	{
 		id: 'extractors',
 		label: 'Extractors',
 		icon: <Puzzle className="w-4 h-4" />
@@ -241,7 +254,8 @@ const DEFAULT_STATE: WizardStateV1 = {
 	modules: {
 		extractors: [],
 		connectors: [],
-		batteries: []
+		batteries: [],
+		chunkers: []
 	},
 	defaults: {
 		chunkSize: 200,
@@ -732,6 +746,9 @@ function normalizeState(s: WizardStateV1): WizardStateV1 {
 	const batteries = Array.isArray(s.modules?.batteries)
 		? s.modules.batteries.map(String)
 		: []
+	const chunkers = Array.isArray(s.modules?.chunkers)
+		? s.modules.chunkers.map(String)
+		: []
 	const chunkSize =
 		Number(s.defaults?.chunkSize ?? DEFAULT_STATE.defaults.chunkSize) ||
 		DEFAULT_STATE.defaults.chunkSize
@@ -779,7 +796,7 @@ function normalizeState(s: WizardStateV1): WizardStateV1 {
 	return {
 		v: 1,
 		install: {installDir, storeAdapter, aliasBase},
-		modules: {extractors, connectors, batteries},
+		modules: {extractors, connectors, batteries, chunkers},
 		defaults: {chunkSize, chunkOverlap, topK},
 		embedding: {
 			type: embeddingType,
@@ -1130,6 +1147,95 @@ function ConnectorCard({
 	)
 }
 
+function ChunkerCard({
+	id,
+	label,
+	description,
+	status,
+	docsHref,
+	selected,
+	onToggle
+}: {
+	id: string
+	label?: string
+	description?: string
+	status?: 'available' | 'coming-soon'
+	docsHref?: string | null
+	selected: boolean
+	onToggle: () => void
+}) {
+	const isAvailable = status !== 'coming-soon'
+
+	return (
+		<ClickableCard
+			onClick={onToggle}
+			disabled={!isAvailable}
+			className={cn(
+				'rounded-xl border p-4',
+				selected
+					? 'border-olive-950/15 bg-white/70 dark:border-white/25 dark:bg-white/[0.05]'
+					: 'border-olive-950/10 bg-white/60 dark:border-[#757572]/15 dark:bg-white/[0.02]',
+				isAvailable
+					? 'hover:border-olive-950/20 hover:bg-white/70 dark:hover:border-[#757572]/30 dark:hover:bg-white/[0.03]'
+					: 'opacity-50 cursor-not-allowed'
+			)}
+		>
+			<div className="flex items-start gap-3">
+				<div
+					className={cn(
+						'w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-colors',
+						selected
+							? 'bg-olive-950/[0.05] text-olive-950 dark:bg-white/10 dark:text-white'
+							: 'bg-olive-950/[0.04] text-olive-700 dark:bg-white/5 dark:text-white/40'
+					)}
+				>
+					<FileText className="w-5 h-5" />
+				</div>
+				<div className="flex-1 min-w-0">
+					<div className="flex items-center gap-2">
+						<span className="font-medium text-olive-950/90 dark:text-white/90">
+							{label || id}
+						</span>
+						<span
+							className={cn(
+								'text-[10px] px-2 py-0.5 rounded-full border capitalize',
+								isAvailable
+									? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-400/80'
+									: 'bg-olive-950/[0.04] text-olive-700 border-olive-950/10 dark:bg-white/5 dark:text-white/40 dark:border-[#757572]/20'
+							)}
+						>
+							{isAvailable ? 'available' : 'coming soon'}
+						</span>
+						{isAvailable && docsHref ? (
+							<div className="ml-auto">
+								<DocsIconLink
+									href={docsHref}
+									label={`${label || id} docs`}
+								/>
+							</div>
+						) : null}
+					</div>
+					{description && (
+						<p className="mt-1 text-sm text-olive-700 dark:text-white/50">
+							{description}
+						</p>
+					)}
+				</div>
+				<div
+					className={cn(
+						'w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-all',
+						selected
+							? 'border-olive-950/40 bg-olive-950 text-lemon-50 dark:border-white/40 dark:bg-white dark:text-black'
+							: 'border-olive-950/20 group-hover:border-olive-950/25 dark:border-[#757572]/20 dark:group-hover:border-white/25'
+					)}
+				>
+					{selected && <Check className="w-3 h-3" strokeWidth={3} />}
+				</div>
+			</div>
+		</ClickableCard>
+	)
+}
+
 function BatteryCard({
 	id,
 	displayName,
@@ -1376,6 +1482,12 @@ export default function InstallWizardClient() {
 			.sort((a, b) => String(a.id).localeCompare(String(b.id)))
 	}, [manifest])
 
+	const availableChunkers = useMemo(() => {
+		return (manifest?.chunkers ?? [])
+			.slice()
+			.sort((a, b) => String(a.id).localeCompare(String(b.id)))
+	}, [manifest])
+
 	const availableBatteries = useMemo(() => {
 		return (manifest?.batteries ?? [])
 			.slice()
@@ -1393,6 +1505,14 @@ export default function InstallWizardClient() {
 	const connectorDocsById = useMemo(() => {
 		const m = new Map<string, string | null>()
 		for (const c of manifest?.connectors ?? []) {
+			m.set(String(c.id), c.docsPath ?? null)
+		}
+		return m
+	}, [manifest])
+
+	const chunkerDocsById = useMemo(() => {
+		const m = new Map<string, string | null>()
+		for (const c of manifest?.chunkers ?? []) {
 			m.set(String(c.id), c.docsPath ?? null)
 		}
 		return m
@@ -1504,7 +1624,8 @@ export default function InstallWizardClient() {
 				)?.name ?? state.embedding.provider,
 			extractorCount: state.modules.extractors.length,
 			connectorCount: state.modules.connectors.length,
-			batteryCount: state.modules.batteries.length
+			batteryCount: state.modules.batteries.length,
+			chunkerCount: state.modules.chunkers.length
 		}
 	}, [state])
 
@@ -2637,6 +2758,72 @@ export default function InstallWizardClient() {
 							</div>
 						)}
 
+						{currentStepId === 'chunkers' && (
+							<div
+								className={cn(
+									'animate-in fade-in duration-300',
+									slideDirection === 'right'
+										? 'slide-in-from-right-4'
+										: 'slide-in-from-left-4'
+								)}
+							>
+								<SectionHeader
+									title="Chunking Strategies"
+									description="Install optional chunkers to split content by semantics, markdown structure, or code syntax. Switch methods later via unrag.config.ts."
+								/>
+								{!manifest ? (
+									<div className="flex items-center justify-center h-40 text-white/40">
+										Loading chunkers...
+									</div>
+								) : availableChunkers.length === 0 ? (
+									<div className="rounded-xl border border-[#757572]/15 bg-white/[0.02] p-6 text-center">
+										<FileText className="w-8 h-8 mx-auto mb-3 text-white/20" />
+										<div className="text-sm text-white/50">
+											No chunkers available yet.
+										</div>
+										<div className="mt-1 text-xs text-white/30">
+											Chunkers like markdown and semantic
+											will appear here when available.
+										</div>
+									</div>
+								) : (
+									<div className="space-y-3">
+										{availableChunkers.map((c) => {
+											const id = String(c.id)
+											return (
+												<ChunkerCard
+													key={id}
+													id={id}
+													label={c.label}
+													description={c.description}
+													status={c.status}
+													docsHref={c.docsPath ?? null}
+													selected={state.modules.chunkers.includes(
+														id
+													)}
+													onToggle={() =>
+														setState((prev) => ({
+															...prev,
+															modules: {
+																...prev.modules,
+																chunkers:
+																	toggleInList(
+																		prev
+																			.modules
+																			.chunkers,
+																		id
+																	)
+															}
+														}))
+													}
+												/>
+											)
+										})}
+									</div>
+								)}
+							</div>
+						)}
+
 						{currentStepId === 'extractors' && (
 							<div
 								className={cn(
@@ -2987,6 +3174,21 @@ export default function InstallWizardClient() {
 										</div>
 										<div className="rounded-xl border border-olive-950/10 bg-white/70 p-4 dark:border-[#757572]/15 dark:bg-olive-800/10">
 											<div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">
+												Chunkers
+											</div>
+											<div className="text-lg font-medium text-olive-950 dark:text-olive-100">
+												{summary.chunkerCount} selected
+											</div>
+											{summary.chunkerCount > 0 && (
+												<div className="mt-1 text-xs text-olive-600 dark:text-olive-400">
+													{state.modules.chunkers.join(
+														', '
+													)}
+												</div>
+											)}
+										</div>
+										<div className="rounded-xl border border-olive-950/10 bg-white/70 p-4 dark:border-[#757572]/15 dark:bg-olive-800/10">
+											<div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">
 												Extractors
 											</div>
 											<div className="text-lg font-medium text-olive-950 dark:text-olive-100">
@@ -3254,6 +3456,14 @@ export default function InstallWizardClient() {
 							</div>
 							<div className="flex items-center justify-between text-sm">
 								<span className="text-olive-400">
+									Chunkers
+								</span>
+								<span className="text-olive-800 dark:text-olive-200">
+									{state.modules.chunkers.length}
+								</span>
+							</div>
+							<div className="flex items-center justify-between text-sm">
+								<span className="text-olive-400">
 									Batteries
 								</span>
 								<span className="text-olive-800 dark:text-olive-200">
@@ -3344,6 +3554,7 @@ export default function InstallWizardClient() {
 
 						{(state.modules.extractors.length > 0 ||
 							state.modules.connectors.length > 0 ||
+							state.modules.chunkers.length > 0 ||
 							state.modules.batteries.length > 0) && (
 							<div className="mt-6 pt-6 border-t border-olive-950/10 dark:border-[#757572]/20">
 								{state.modules.extractors.length > 0 && (
@@ -3375,6 +3586,33 @@ export default function InstallWizardClient() {
 													)
 												}
 											)}
+										</div>
+									</div>
+								)}
+								{state.modules.chunkers.length > 0 && (
+									<div className="mb-4">
+										<div className="text-xs text-olive-500 mb-2">
+											Chunkers
+										</div>
+										<div className="flex flex-wrap gap-1.5">
+											{state.modules.chunkers.map((id) => {
+												const href =
+													chunkerDocsById.get(id) ??
+													'/docs/chunkers'
+												return (
+													<Link
+														key={id}
+														href={href}
+														target="_blank"
+														rel="noreferrer"
+														className="text-xs px-2 py-1 rounded bg-olive-950/[0.04] text-olive-800 font-mono transition-colors hover:bg-olive-950/[0.06] hover:text-olive-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-500/30 dark:bg-olive-700/20 dark:text-olive-300 dark:hover:bg-olive-600/30 dark:hover:text-olive-200"
+														title="Open docs"
+														aria-label={`Open docs for ${id}`}
+													>
+														{id}
+													</Link>
+												)
+											})}
 										</div>
 									</div>
 								)}

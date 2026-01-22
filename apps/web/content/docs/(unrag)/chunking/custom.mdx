@@ -1,0 +1,238 @@
+---
+title: Custom Chunking
+description: Build your own chunker for specialized content or unique requirements.
+---
+
+When built-in and plugin chunkers don't fit your needs, you can implement a custom chunker function. This gives you complete control over how documents are split.
+
+## Configuration
+
+```ts
+import { defineUnragConfig, countTokens } from "unrag";
+import type { Chunker, ChunkText, ChunkingOptions } from "unrag";
+
+const myChunker: Chunker = (content: string, options: ChunkingOptions): ChunkText[] => {
+  // Your chunking logic here
+  return [
+    { index: 0, content: "First chunk", tokenCount: countTokens("First chunk") },
+    { index: 1, content: "Second chunk", tokenCount: countTokens("Second chunk") },
+  ];
+};
+
+export default defineUnragConfig({
+  chunking: {
+    method: "custom",
+    chunker: myChunker,
+    options: {
+      chunkSize: 512,
+      chunkOverlap: 50,
+    },
+  },
+  // ...
+});
+```
+
+## The Chunker interface
+
+```ts
+type ChunkingOptions = {
+  chunkSize: number;      // Max tokens per chunk
+  chunkOverlap: number;   // Overlap tokens between chunks
+  minChunkSize?: number;  // Minimum tokens per chunk
+  separators?: string[];  // Optional separator hierarchy
+  // Plus any custom options you add
+};
+
+type ChunkText = {
+  index: number;    // Position in document (0, 1, 2, ...)
+  content: string;  // The chunk text
+  tokenCount: number; // Token count for this chunk
+};
+
+type Chunker = (
+  content: string,
+  options: ChunkingOptions
+) => ChunkText[] | Promise<ChunkText[]>;
+```
+
+Your chunker receives the document content and options, and returns an array of chunks. It can be sync or async.
+
+## Token counting
+
+Use the built-in `countTokens` utility for accurate token counts:
+
+```ts
+import { countTokens } from "unrag";
+
+const tokens = countTokens("Hello world"); // 2
+```
+
+This uses the same `o200k_base` tokenizer as the default chunker, ensuring consistency with OpenAI embeddings.
+
+## Example: Sentence-based chunker
+
+A chunker that never splits mid-sentence:
+
+```ts
+import { countTokens } from "unrag";
+import type { Chunker, ChunkText, ChunkingOptions } from "unrag";
+
+const sentenceChunker: Chunker = (
+  content: string,
+  options: ChunkingOptions
+): ChunkText[] => {
+  const { chunkSize, minChunkSize = 24 } = options;
+
+  // Split into sentences
+  const sentences = content.split(/(?<=[.!?])\s+/);
+  const chunks: ChunkText[] = [];
+
+  let current = "";
+  let currentTokens = 0;
+  let index = 0;
+
+  for (const sentence of sentences) {
+    const sentenceTokens = countTokens(sentence);
+
+    // Would adding this sentence exceed the limit?
+    if (currentTokens + sentenceTokens > chunkSize && current) {
+      // Save current chunk if it meets minimum size
+      if (currentTokens >= minChunkSize) {
+        chunks.push({
+          index: index++,
+          content: current.trim(),
+          tokenCount: currentTokens,
+        });
+      }
+      current = "";
+      currentTokens = 0;
+    }
+
+    current += sentence + " ";
+    currentTokens += sentenceTokens + 1; // +1 for space
+  }
+
+  // Don't forget the last chunk
+  if (current.trim()) {
+    chunks.push({
+      index: index++,
+      content: current.trim(),
+      tokenCount: countTokens(current.trim()),
+    });
+  }
+
+  return chunks;
+};
+```
+
+## Example: Async chunker with LLM
+
+A custom chunker that uses an LLM for decisions:
+
+```ts
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { countTokens } from "unrag";
+import type { Chunker, ChunkText, ChunkingOptions } from "unrag";
+
+const llmChunker: Chunker = async (
+  content: string,
+  options: ChunkingOptions
+): Promise<ChunkText[]> => {
+  const { chunkSize } = options;
+
+  // Ask LLM for split points
+  const { text } = await generateText({
+    model: openai("gpt-4o-mini"),
+    prompt: `Split this text into chunks of roughly ${chunkSize} tokens each.
+Return the text with "---SPLIT---" markers where chunks should be divided.
+Keep related content together. Never split mid-sentence.
+
+Text:
+${content}`,
+  });
+
+  // Parse the LLM response
+  const parts = text.split("---SPLIT---").map(s => s.trim()).filter(Boolean);
+
+  return parts.map((part, index) => ({
+    index,
+    content: part,
+    tokenCount: countTokens(part),
+  }));
+};
+```
+
+## Example: Domain-specific chunker
+
+A chunker for legal documents that splits by section numbers:
+
+```ts
+import { countTokens } from "unrag";
+import type { Chunker, ChunkText, ChunkingOptions } from "unrag";
+
+const legalChunker: Chunker = (
+  content: string,
+  options: ChunkingOptions
+): ChunkText[] => {
+  // Split on section markers like "1.", "1.1", "Section 2", etc.
+  const sectionPattern = /(?=(?:^|\n)(?:\d+\.[\d.]*|\bSection\s+\d+))/gi;
+  const sections = content.split(sectionPattern).filter(s => s.trim());
+
+  const chunks: ChunkText[] = [];
+  let index = 0;
+
+  for (const section of sections) {
+    const tokens = countTokens(section);
+
+    if (tokens <= options.chunkSize) {
+      // Section fits in one chunk
+      chunks.push({ index: index++, content: section.trim(), tokenCount: tokens });
+    } else {
+      // Section too large—split by paragraphs
+      const paragraphs = section.split(/\n\n+/);
+      let current = "";
+      let currentTokens = 0;
+
+      for (const para of paragraphs) {
+        const paraTokens = countTokens(para);
+
+        if (currentTokens + paraTokens > options.chunkSize && current) {
+          chunks.push({ index: index++, content: current.trim(), tokenCount: currentTokens });
+          current = "";
+          currentTokens = 0;
+        }
+
+        current += para + "\n\n";
+        currentTokens += paraTokens;
+      }
+
+      if (current.trim()) {
+        chunks.push({ index: index++, content: current.trim(), tokenCount: countTokens(current.trim()) });
+      }
+    }
+  }
+
+  return chunks;
+};
+```
+
+## Best practices
+
+1. **Always use `countTokens`** for accurate token counting
+2. **Respect `chunkSize`** — chunks should not exceed this limit
+3. **Consider `minChunkSize`** — merge tiny chunks with neighbors
+4. **Handle edge cases** — empty content, single sentences, huge documents
+5. **Return sequential indices** — 0, 1, 2, ... in order
+6. **Trim whitespace** — chunks should not start/end with excess whitespace
+
+## When to build custom
+
+Build a custom chunker when:
+
+- Your content has **domain-specific structure** (legal, medical, financial)
+- You need **multi-language handling** with different rules per language
+- You want to **combine strategies** based on content detection
+- Built-in chunkers **consistently produce poor results** for your content
+
+For most use cases, start with [recursive](/docs/chunking/recursive) or a [plugin chunker](/docs/chunking) before building custom.

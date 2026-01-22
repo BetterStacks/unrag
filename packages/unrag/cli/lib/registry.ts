@@ -36,6 +36,7 @@ export type RegistrySelection = {
 			assetProcessing?: unknown
 		}
 	}
+	chunkers?: string[]
 	richMedia?: {
 		enabled: boolean
 		extractors: ExtractorName[]
@@ -324,9 +325,20 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 		}
 	}
 
+	const chunkerImports = Array.from(
+		new Set((selection.chunkers ?? []).map((c) => String(c).trim()))
+	)
+		.filter(Boolean)
+		.sort()
+		.map(
+			(chunker) =>
+				`import "${installImportBase}/chunkers/${chunker}";`
+		)
+
 	const importsBlock = [
 		...baseImports,
 		...storeImports,
+		...chunkerImports,
 		...extractorImports
 	].join('\n')
 

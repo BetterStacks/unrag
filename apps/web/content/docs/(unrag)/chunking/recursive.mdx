@@ -1,0 +1,133 @@
+---
+title: Recursive Chunking
+description: Token-based recursive text splitting—the default chunking method.
+---
+
+Recursive chunking is Unrag's default chunking method. It splits text using a hierarchy of separators while counting actual tokens, ensuring chunks stay within embedding model limits while preserving semantic boundaries.
+
+## How it works
+
+The recursive chunker uses a 10-level separator hierarchy:
+
+1. `\n\n` — Paragraph breaks
+2. `\n` — Line breaks
+3. `. ` — Sentences (period)
+4. `? ` — Sentences (question)
+5. `! ` — Sentences (exclamation)
+6. `; ` — Semicolon clauses
+7. `: ` — Colon clauses
+8. `, ` — Comma phrases
+9. ` ` — Words
+10. `` — Characters (last resort)
+
+The algorithm tries to split at the largest possible boundary first. If a chunk is still too large after splitting on paragraphs, it moves to lines, then sentences, and so on. This preserves semantic structure while ensuring all chunks fit within token limits.
+
+## Configuration
+
+The recursive chunker is built-in and used by default. Configure it in `unrag.config.ts`:
+
+```ts
+export default defineUnragConfig({
+  chunking: {
+    method: "recursive",  // or omit—recursive is the default
+    options: {
+      chunkSize: 512,      // max tokens per chunk
+      chunkOverlap: 50,    // overlap tokens between chunks
+      minChunkSize: 24,    // minimum tokens per chunk
+    },
+  },
+  // ...
+});
+```
+
+### Options
+
+<TypeTable
+  type={{
+    chunkSize: {
+      description: 'Maximum tokens per chunk.',
+      type: 'number',
+      default: '512',
+    },
+    chunkOverlap: {
+      description: 'Number of tokens to repeat at chunk boundaries for context preservation.',
+      type: 'number',
+      default: '50',
+    },
+    minChunkSize: {
+      description: 'Minimum tokens per chunk. Smaller chunks are merged with neighbors.',
+      type: 'number',
+      default: '24',
+    },
+    separators: {
+      description: 'Custom separator hierarchy. Override to change splitting behavior.',
+      type: 'string[]',
+      default: '[\"\\n\\n\", \"\\n\", \". \", \"? \", \"! \", \"; \", \": \", \", \", \" \", \"\"]',
+    },
+  }}
+/>
+
+## Tokenizer
+
+The recursive chunker uses the `o200k_base` encoding from `js-tiktoken`—the same tokenizer used by:
+
+- GPT-5
+- GPT-4o
+- o1, o3, o4-mini
+- gpt-4.1
+
+This ensures 100% accuracy when chunking for OpenAI embeddings. Token counts match exactly what the embedding model sees.
+
+## When to use
+
+Recursive chunking works well for:
+
+- **General prose content** — Documentation, articles, help center pages
+- **Mixed content** — Documents with varied structure
+- **Default starting point** — When you're not sure which chunker to use
+
+Consider switching to a specialized chunker when:
+
+- You're chunking **markdown** with code blocks and headers → [Markdown chunker](/docs/chunking/markdown)
+- You're chunking **source code** → [Code chunker](/docs/chunking/code)
+- You need **semantic boundaries** detected by LLM → [Semantic chunker](/docs/chunking/semantic)
+- You have **structured documents** with clear sections → [Hierarchical chunker](/docs/chunking/hierarchical)
+
+## Example output
+
+Given this input text:
+
+```
+Unrag is a RAG installer for TypeScript projects. It installs a small,
+composable module into your codebase as vendored source files.
+
+The two core operations are ingest and retrieve. Ingestion takes content,
+splits it into chunks, generates embeddings for each chunk, and stores
+everything in Postgres with pgvector.
+```
+
+With default settings (512 tokens, 50 overlap), this produces a single chunk because the text is under 512 tokens. With `chunkSize: 50`:
+
+```
+Chunk 1: "Unrag is a RAG installer for TypeScript projects. It installs a small,
+composable module into your codebase as vendored source files."
+
+Chunk 2: "The two core operations are ingest and retrieve. Ingestion takes content,
+splits it into chunks, generates embeddings for each chunk, and stores
+everything in Postgres with pgvector."
+```
+
+Notice how the chunker splits at the paragraph boundary (`\n\n`) rather than mid-sentence.
+
+## Token vs fixed-size chunking
+
+Unrag also provides a `token` method that splits strictly by token count without the recursive separator logic:
+
+```ts
+chunking: {
+  method: "token",
+  options: { chunkSize: 512, chunkOverlap: 50 },
+}
+```
+
+This is faster but may split mid-sentence. Use `recursive` (the default) for better semantic preservation.
