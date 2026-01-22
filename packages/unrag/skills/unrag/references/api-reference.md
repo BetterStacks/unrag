@@ -37,12 +37,66 @@ type Metadata = Record<
 
 ### ChunkingOptions
 
-Controls how documents are split:
+Controls how documents are split. All sizes are in **tokens** (using o200k_base encoding):
 
 ```ts
 type ChunkingOptions = {
-  chunkSize: number;    // Max tokens per chunk
-  chunkOverlap: number; // Overlap between chunks
+  chunkSize: number;       // Max tokens per chunk (default: 512)
+  chunkOverlap: number;    // Overlap tokens between chunks (default: 50)
+  minChunkSize?: number;   // Minimum tokens per chunk (default: 24)
+  separators?: string[];   // Custom separator hierarchy for recursive splitting
+  model?: string;          // LLM model for semantic/agentic chunkers
+  language?: string;       // Language hint for code chunker
+};
+```
+
+### ChunkingConfig
+
+Top-level chunking configuration:
+
+```ts
+type ChunkingMethod =
+  | "recursive"      // Token-based recursive (default)
+  | "token"          // Fixed token splitting
+  | "semantic"       // LLM-guided semantic boundaries
+  | "markdown"       // Markdown-aware
+  | "hierarchical"   // Section-first with headers
+  | "code"           // AST-based for source code
+  | "agentic"        // LLM-powered highest quality
+  | "custom";        // Bring your own
+
+type ChunkingConfig = {
+  method?: ChunkingMethod;                    // Default: "recursive"
+  options?: ChunkingOptions;                  // Method-specific options
+  chunker?: Chunker;                          // Custom chunker (when method="custom")
+};
+```
+
+### Chunker
+
+Interface for custom chunker functions:
+
+```ts
+type ChunkText = {
+  index: number;      // Position in document (0, 1, 2, ...)
+  content: string;    // Chunk text
+  tokenCount: number; // Token count for this chunk
+};
+
+type Chunker = (
+  content: string,
+  options: ChunkingOptions
+) => ChunkText[] | Promise<ChunkText[]>;
+```
+
+### ChunkerPlugin
+
+Interface for plugin chunkers (installed via CLI):
+
+```ts
+type ChunkerPlugin = {
+  name: string;                                // e.g., "semantic", "markdown"
+  createChunker: (options?: ChunkingOptions) => Chunker;
 };
 ```
 
@@ -55,7 +109,7 @@ type IngestInput = {
   sourceId: string;                    // Stable document identifier
   content: string;                     // Document text
   metadata?: Metadata;                 // Optional metadata
-  chunking?: Partial<ChunkingOptions>; // Override chunking
+  chunking?: Partial<ChunkingOptions>; // Override chunking (all sizes in tokens)
   assets?: AssetInput[];               // Rich media attachments
   assetProcessing?: DeepPartial<AssetProcessingConfig>;
 };
@@ -388,12 +442,13 @@ type ImageEmbeddingInput = {
 ```ts
 type DefineUnragConfigInput = {
   defaults?: UnragDefaultsConfig;
+  chunking?: ChunkingConfig;       // Top-level chunking config (recommended)
   engine?: UnragEngineConfig;
   embedding: UnragEmbeddingConfig;
 };
 
 type UnragDefaultsConfig = {
-  chunking?: Partial<ChunkingOptions>;
+  chunking?: Partial<ChunkingOptions>;  // Legacy: use top-level chunking instead
   embedding?: Partial<EmbeddingProcessingConfig>;
   retrieval?: { topK?: number };
 };

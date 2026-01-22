@@ -1,7 +1,7 @@
 ---
 name: unrag
-description: Covers RAG installation, ContextEngine API, embedding providers, store adapters, extractors, connectors, batteries, and CLI commands for the unrag TypeScript library.
-version: 0.3.2
+description: Covers RAG installation, ContextEngine API, embedding providers, store adapters, extractors, connectors, chunkers, batteries, and CLI commands for the unrag TypeScript library.
+version: 0.4.0
 ---
 
 # Unrag Agent Skill
@@ -129,15 +129,18 @@ const result = await engine.retrieve({
 
 ### Chunking
 
-Documents are split into chunks before embedding:
+Documents are split into chunks before embedding. Unrag uses **token-based recursive chunking** by default with the `o200k_base` tokenizer (GPT-5, GPT-4o, o1, o3, o4-mini, gpt-4.1).
 
 ```ts
 // Global defaults in unrag.config.ts
 export const unrag = defineUnragConfig({
-  defaults: {
-    chunking: {
-      chunkSize: 512,    // tokens per chunk
-      chunkOverlap: 50,  // overlap between chunks
+  // Method 1: Top-level chunking config (recommended)
+  chunking: {
+    method: "recursive",  // or "semantic", "markdown", "code", etc.
+    options: {
+      chunkSize: 512,     // tokens per chunk
+      chunkOverlap: 50,   // overlap between chunks
+      minChunkSize: 24,   // minimum tokens per chunk
     },
   },
   // ...
@@ -149,6 +152,53 @@ await engine.ingest({
   content: longDocument,
   chunking: { chunkSize: 256 },
 });
+```
+
+#### Plugin Chunkers
+
+Install specialized chunkers for different content types:
+
+```bash
+bunx unrag add chunker:semantic      # LLM-guided semantic boundaries
+bunx unrag add chunker:markdown      # Markdown-aware (headers, code blocks)
+bunx unrag add chunker:code          # AST-based (TypeScript, JavaScript, Python, Go)
+bunx unrag add chunker:hierarchical  # Section-first with header context
+bunx unrag add chunker:agentic       # LLM-powered highest quality
+```
+
+| Method | Best for | Dependencies |
+|--------|----------|--------------|
+| `recursive` | General text (default) | Built-in |
+| `token` | Fixed token splitting | Built-in |
+| `semantic` | LLM-guided boundaries | `ai` SDK |
+| `markdown` | Documentation, READMEs | None |
+| `code` | Source code files | `tree-sitter` |
+| `hierarchical` | Structured docs | None |
+| `agentic` | High-value content | `ai` SDK |
+| `custom` | Your own logic | Bring your own |
+
+#### Custom Chunker
+
+```ts
+import { countTokens } from "unrag";
+
+export const unrag = defineUnragConfig({
+  chunking: {
+    method: "custom",
+    chunker: (content, options) => {
+      // Your custom logic
+      return [{ index: 0, content, tokenCount: countTokens(content) }];
+    },
+  },
+});
+```
+
+#### Token Counting
+
+```ts
+import { countTokens } from "unrag";
+
+const tokens = countTokens("Hello world");  // 2
 ```
 
 ### Asset Processing
@@ -180,7 +230,7 @@ const result = await engine.ingest({
   sourceId: string,           // Stable document identifier
   content: string,            // Document text
   metadata?: Metadata,        // Optional key-value pairs
-  chunking?: { chunkSize?, chunkOverlap? },
+  chunking?: { chunkSize?, chunkOverlap?, minChunkSize? },  // All in tokens
   assets?: AssetInput[],      // Optional rich media
   assetProcessing?: DeepPartial<AssetProcessingConfig>,
 });
@@ -324,8 +374,8 @@ This skill includes detailed reference files for specific topics:
 
 ## Version Information
 
-- **Skill Version:** 1.0.0
-- **Unrag CLI Version:** 0.3.2
+- **Skill Version:** 0.4.0
+- **Unrag CLI Version:** 0.4.0
 - **Config Version:** 2
 
 ## Key Source Files
@@ -336,6 +386,8 @@ When you need to look at source code:
 |------|---------|
 | `packages/unrag/registry/core/types.ts` | All TypeScript types |
 | `packages/unrag/registry/core/context-engine.ts` | ContextEngine class |
-| `packages/unrag/registry/manifest.json` | Extractors, connectors, batteries metadata |
+| `packages/unrag/registry/core/chunking.ts` | Chunking logic and plugin registry |
+| `packages/unrag/registry/chunkers/*/index.ts` | Plugin chunker implementations |
+| `packages/unrag/registry/manifest.json` | Extractors, connectors, chunkers, batteries metadata |
 | `packages/unrag/cli/commands/*.ts` | CLI command implementations |
 | `apps/web/content/docs/**/*.mdx` | Documentation pages |
