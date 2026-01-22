@@ -2797,7 +2797,9 @@ export default function InstallWizardClient() {
 													label={c.label}
 													description={c.description}
 													status={c.status}
-													docsHref={c.docsPath ?? null}
+													docsHref={
+														c.docsPath ?? null
+													}
 													selected={state.modules.chunkers.includes(
 														id
 													)}
@@ -3455,9 +3457,7 @@ export default function InstallWizardClient() {
 								</span>
 							</div>
 							<div className="flex items-center justify-between text-sm">
-								<span className="text-olive-400">
-									Chunkers
-								</span>
+								<span className="text-olive-400">Chunkers</span>
 								<span className="text-olive-800 dark:text-olive-200">
 									{state.modules.chunkers.length}
 								</span>
@@ -3595,24 +3595,27 @@ export default function InstallWizardClient() {
 											Chunkers
 										</div>
 										<div className="flex flex-wrap gap-1.5">
-											{state.modules.chunkers.map((id) => {
-												const href =
-													chunkerDocsById.get(id) ??
-													'/docs/chunkers'
-												return (
-													<Link
-														key={id}
-														href={href}
-														target="_blank"
-														rel="noreferrer"
-														className="text-xs px-2 py-1 rounded bg-olive-950/[0.04] text-olive-800 font-mono transition-colors hover:bg-olive-950/[0.06] hover:text-olive-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-500/30 dark:bg-olive-700/20 dark:text-olive-300 dark:hover:bg-olive-600/30 dark:hover:text-olive-200"
-														title="Open docs"
-														aria-label={`Open docs for ${id}`}
-													>
-														{id}
-													</Link>
-												)
-											})}
+											{state.modules.chunkers.map(
+												(id) => {
+													const href =
+														chunkerDocsById.get(
+															id
+														) ?? '/docs/chunkers'
+													return (
+														<Link
+															key={id}
+															href={href}
+															target="_blank"
+															rel="noreferrer"
+															className="text-xs px-2 py-1 rounded bg-olive-950/[0.04] text-olive-800 font-mono transition-colors hover:bg-olive-950/[0.06] hover:text-olive-950 focus:outline-none focus-visible:ring-2 focus-visible:ring-olive-500/30 dark:bg-olive-700/20 dark:text-olive-300 dark:hover:bg-olive-600/30 dark:hover:text-olive-200"
+															title="Open docs"
+															aria-label={`Open docs for ${id}`}
+														>
+															{id}
+														</Link>
+													)
+												}
+											)}
 										</div>
 									</div>
 								)}

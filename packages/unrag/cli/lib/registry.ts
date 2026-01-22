@@ -330,10 +330,7 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 	)
 		.filter(Boolean)
 		.sort()
-		.map(
-			(chunker) =>
-				`import "${installImportBase}/chunkers/${chunker}";`
-		)
+		.map((chunker) => `import "${installImportBase}/chunkers/${chunker}";`)
 
 	const importsBlock = [
 		...baseImports,

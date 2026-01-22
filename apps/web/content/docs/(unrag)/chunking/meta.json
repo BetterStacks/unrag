@@ -1,4 +1,13 @@
 {
 	"title": "Chunking",
-	"pages": ["index", "recursive", "semantic", "markdown", "code", "hierarchical", "agentic", "custom"]
+	"pages": [
+		"index",
+		"recursive",
+		"semantic",
+		"markdown",
+		"code",
+		"hierarchical",
+		"agentic",
+		"custom"
+	]
 }
