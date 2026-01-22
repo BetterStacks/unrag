@@ -1251,11 +1251,7 @@ export async function copyChunkerFiles(
 		? await listFilesRecursive(sharedRegistryAbs)
 		: []
 
-	const destRootAbs = path.join(
-		installBaseAbs,
-		'chunkers',
-		selection.chunker
-	)
+	const destRootAbs = path.join(installBaseAbs, 'chunkers', selection.chunker)
 	const sharedDestRootAbs = path.join(installBaseAbs, 'chunkers', '_shared')
 
 	const nonInteractive = Boolean(selection.yes) || !process.stdin.isTTY

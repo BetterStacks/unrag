@@ -1,5 +1,3 @@
-import {Tiktoken} from 'js-tiktoken/lite'
-import o200k_base from 'js-tiktoken/ranks/o200k_base'
 import type {
 	ChunkText,
 	Chunker,
@@ -8,6 +6,8 @@ import type {
 	ChunkingMethod,
 	ChunkingOptions
 } from '@registry/core/types'
+import {Tiktoken} from 'js-tiktoken/lite'
+import o200k_base from 'js-tiktoken/ranks/o200k_base'
 
 // ---------------------------------------------------------------------------
 // Tokenizer (GPT-5 / o200k_base encoding)
@@ -76,7 +76,9 @@ const splitWithSeparator = (text: string, separator: string): string[] => {
 
 	for (let i = 0; i < parts.length; i++) {
 		const part = parts[i]
-		if (part === undefined) continue
+		if (part === undefined) {
+			continue
+		}
 
 		// Add separator back to the end of each part (except the last)
 		if (i < parts.length - 1) {
@@ -134,7 +136,7 @@ const mergeSplits = (
 		// Merge small last chunk with previous
 		const lastChunk = chunks.pop()
 		if (lastChunk) {
-			chunks.push((lastChunk + ' ' + currentChunk).trim())
+			chunks.push(`${lastChunk} ${currentChunk}`.trim())
 		}
 	} else if (currentChunk.trim()) {
 		// Single chunk that's smaller than min - still include it
@@ -214,7 +216,9 @@ const recursiveSplit = (
 			goodSplits.push(...subSplits)
 		} else {
 			// No more separators - force split by tokens
-			goodSplits.push(...forceSplitByTokens(split, chunkSize, chunkOverlap))
+			goodSplits.push(
+				...forceSplitByTokens(split, chunkSize, chunkOverlap)
+			)
 		}
 	}
 
@@ -441,8 +445,12 @@ export const resolveChunker = (config?: ChunkingConfig): Chunker => {
  * Check if a chunking method is available (built-in or plugin installed).
  */
 export const isChunkerAvailable = (method: ChunkingMethod): boolean => {
-	if (method === 'custom') return true
-	if (method in builtInChunkers) return true
+	if (method === 'custom') {
+		return true
+	}
+	if (method in builtInChunkers) {
+		return true
+	}
 	return loadedPlugins.has(method)
 }
 

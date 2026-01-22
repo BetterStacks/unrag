@@ -1,4 +1,9 @@
-import {resolveChunkingOptions, registerChunkerPlugin} from '@registry/core/chunking'
+import {requireOptional} from '@registry/chunkers/_shared/optional'
+import {countTokens, mergeSplits} from '@registry/chunkers/_shared/text'
+import {
+	registerChunkerPlugin,
+	resolveChunkingOptions
+} from '@registry/core/chunking'
 import type {
 	ChunkText,
 	Chunker,
@@ -7,8 +12,6 @@ import type {
 	Metadata,
 	MetadataValue
 } from '@registry/core/types'
-import {requireOptional} from '@registry/chunkers/_shared/optional'
-import {countTokens, mergeSplits} from '@registry/chunkers/_shared/text'
 
 type TreeSitterModule = {
 	default?: new () => {
@@ -37,10 +40,18 @@ const DEFAULT_LANGUAGE = 'typescript'
 
 const normalizeLanguage = (language?: string): string => {
 	const normalized = (language ?? '').toLowerCase().trim()
-	if (normalized === 'ts' || normalized === 'tsx' || normalized === 'typescript') {
+	if (
+		normalized === 'ts' ||
+		normalized === 'tsx' ||
+		normalized === 'typescript'
+	) {
 		return 'typescript'
 	}
-	if (normalized === 'js' || normalized === 'jsx' || normalized === 'javascript') {
+	if (
+		normalized === 'js' ||
+		normalized === 'jsx' ||
+		normalized === 'javascript'
+	) {
 		return 'javascript'
 	}
 	if (normalized === 'py' || normalized === 'python') {
@@ -136,7 +147,11 @@ const MAJOR_TYPES: Record<string, Set<string>> = {
 		'class_definition',
 		'decorated_definition'
 	]),
-	go: new Set(['function_declaration', 'method_declaration', 'type_declaration'])
+	go: new Set([
+		'function_declaration',
+		'method_declaration',
+		'type_declaration'
+	])
 }
 
 const loadParser = () => {
@@ -197,11 +212,7 @@ export const codeChunker: Chunker = (
 	options: ChunkingOptions
 ): ChunkText[] => {
 	const resolved = resolveChunkingOptions(options)
-	const {
-		chunkSize,
-		chunkOverlap,
-		minChunkSize = 24
-	} = resolved
+	const {chunkSize, chunkOverlap, minChunkSize = 24} = resolved
 
 	if (!content.trim()) {
 		return []

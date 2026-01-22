@@ -1,11 +1,14 @@
-import {resolveChunkingOptions, registerChunkerPlugin} from '@registry/core/chunking'
+import {countTokens, mergeSplits} from '@registry/chunkers/_shared/text'
+import {
+	registerChunkerPlugin,
+	resolveChunkingOptions
+} from '@registry/core/chunking'
 import type {
 	ChunkText,
 	Chunker,
 	ChunkerPlugin,
 	ChunkingOptions
 } from '@registry/core/types'
-import {countTokens, mergeSplits} from '@registry/chunkers/_shared/text'
 
 const isFence = (line: string): boolean =>
 	line.trim().startsWith('```') || line.trim().startsWith('~~~')
@@ -54,11 +57,7 @@ export const markdownChunker: Chunker = (
 	options: ChunkingOptions
 ): ChunkText[] => {
 	const resolved = resolveChunkingOptions(options)
-	const {
-		chunkSize,
-		chunkOverlap,
-		minChunkSize = 24
-	} = resolved
+	const {chunkSize, chunkOverlap, minChunkSize = 24} = resolved
 
 	if (!content.trim()) {
 		return []

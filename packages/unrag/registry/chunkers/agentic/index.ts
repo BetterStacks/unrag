@@ -1,3 +1,5 @@
+import {splitWithLlm} from '@registry/chunkers/_shared/llm'
+import {countTokens, mergeSplits} from '@registry/chunkers/_shared/text'
 import {
 	registerChunkerPlugin,
 	resolveChunkingOptions
@@ -8,8 +10,6 @@ import type {
 	ChunkerPlugin,
 	ChunkingOptions
 } from '@registry/core/types'
-import {splitWithLlm} from '@registry/chunkers/_shared/llm'
-import {countTokens, mergeSplits} from '@registry/chunkers/_shared/text'
 
 const splitSentences = (text: string): string[] => {
 	const splits: string[] = []
@@ -47,11 +47,7 @@ export const agenticChunker: Chunker = async (
 	options: ChunkingOptions
 ): Promise<ChunkText[]> => {
 	const resolved = resolveChunkingOptions(options)
-	const {
-		chunkSize,
-		chunkOverlap,
-		minChunkSize = 24
-	} = resolved
+	const {chunkSize, chunkOverlap, minChunkSize = 24} = resolved
 
 	if (!content.trim()) {
 		return []

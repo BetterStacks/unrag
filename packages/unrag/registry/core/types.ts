@@ -156,7 +156,10 @@ export type PluginChunkingMethod =
 /**
  * All supported chunking methods.
  */
-export type ChunkingMethod = BuiltInChunkingMethod | PluginChunkingMethod | 'custom'
+export type ChunkingMethod =
+	| BuiltInChunkingMethod
+	| PluginChunkingMethod
+	| 'custom'
 
 /**
  * Chunking configuration for unrag.config.ts.
@@ -186,7 +189,9 @@ export type ChunkerPlugin = {
 	/** Unique name matching the method (e.g. "semantic", "markdown"). */
 	name: string
 	/** Create a chunker function with the given options. */
-	createChunker: (options?: ChunkingOptions & Record<string, unknown>) => Chunker
+	createChunker: (
+		options?: ChunkingOptions & Record<string, unknown>
+	) => Chunker
 }
 
 /**

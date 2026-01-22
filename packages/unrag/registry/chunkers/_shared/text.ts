@@ -67,7 +67,7 @@ export const mergeSplits = (
 				} else if (chunks.length > 0) {
 					const lastChunk = chunks.pop()
 					if (lastChunk) {
-						chunks.push((lastChunk + ' ' + currentChunk).trim())
+						chunks.push(`${lastChunk} ${currentChunk}`.trim())
 					}
 				} else {
 					chunks.push(currentChunk.trim())
@@ -109,7 +109,7 @@ export const mergeSplits = (
 	} else if (currentChunk.trim() && chunks.length > 0) {
 		const lastChunk = chunks.pop()
 		if (lastChunk) {
-			chunks.push((lastChunk + ' ' + currentChunk).trim())
+			chunks.push(`${lastChunk} ${currentChunk}`.trim())
 		}
 	} else if (currentChunk.trim()) {
 		chunks.push(currentChunk.trim())

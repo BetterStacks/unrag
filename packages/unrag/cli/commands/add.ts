@@ -454,7 +454,8 @@ async function patchUnragConfigChunker(args: {
 						block = block.replace(
 							/^[ \t]*minChunkSize:[^\n]*$/m,
 							(line) => {
-								const indent = line.match(/^([ \t]*)/)?.[1] ?? ''
+								const indent =
+									line.match(/^([ \t]*)/)?.[1] ?? ''
 								const withComma = line.trim().endsWith(',')
 									? line
 									: `${line},`
