@@ -2,7 +2,8 @@
  * Root Unrag config (generated).
  *
  * This file is meant to be the single place you tweak:
- * - Defaults (chunking + retrieval)
+ * - Chunking (method + options)
+ * - Defaults (retrieval)
  * - Engine settings (storage, asset processing, extractors)
  * - Embedding provider/model/timeouts
  * - How you construct your DB client (Pool/Prisma/etc) and vector store adapter
@@ -16,11 +17,26 @@
 // __UNRAG_IMPORTS__
 
 export const unrag = defineUnragConfig({
+	/**
+	 * Chunking configuration.
+	 *
+	 * Default method: "recursive" (token-based with js-tiktoken o200k_base encoding)
+	 * Supports GPT-5, GPT-4o, o1, o3, o4-mini, gpt-4.1
+	 *
+	 * Available methods:
+	 * - "recursive" (built-in, default)
+	 * - "semantic", "markdown", "hierarchical", "code", "agentic", "late", "maxmin", "proposition" (plugins)
+	 * - "custom" (bring your own chunker)
+	 */
+	chunking: {
+		method: 'recursive', // __UNRAG_CHUNKING_METHOD__
+		options: {
+			chunkSize: 512, // __UNRAG_DEFAULT_chunkSize__ (in tokens)
+			chunkOverlap: 50, // __UNRAG_DEFAULT_chunkOverlap__ (in tokens)
+			minChunkSize: 24 // __UNRAG_DEFAULT_minChunkSize__ (in tokens)
+		}
+	},
 	defaults: {
-		chunking: {
-			chunkSize: 200, // __UNRAG_DEFAULT_chunkSize__
-			chunkOverlap: 40 // __UNRAG_DEFAULT_chunkOverlap__
-		},
 		retrieval: {
 			topK: 8 // __UNRAG_DEFAULT_topK__
 		}

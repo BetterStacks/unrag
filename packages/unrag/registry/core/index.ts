@@ -10,6 +10,7 @@ export {rerank} from '@registry/core/rerank'
 export {retrieve} from '@registry/core/retrieve'
 export * from '@registry/core/connectors'
 export {
+	countTokens,
 	defaultChunker,
 	defaultChunkingOptions,
 	getAvailableChunkers,
@@ -19,8 +20,7 @@ export {
 	recursiveChunker,
 	registerChunkerPlugin,
 	resolveChunker,
-	resolveChunkingOptions,
-	wordChunker
+	resolveChunkingOptions
 } from '@registry/core/chunking'
 export {
 	defaultAssetProcessingConfig,

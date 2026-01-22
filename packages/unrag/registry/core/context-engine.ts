@@ -1,3 +1,4 @@
+import {resolveChunker, resolveChunkingOptions} from '@registry/core/chunking'
 import {defineConfig, resolveConfig} from '@registry/core/config'
 import {
 	type RunConnectorStreamOptions,
@@ -242,13 +243,19 @@ export const defineUnragConfig = <T extends DefineUnragConfigInput>(
 		return embeddingProvider
 	}
 
+	// Resolve chunking options from config
+	const chunkingOptions = resolveChunkingOptions(config.chunking?.options)
+
 	const defaults = {
-		chunking: config.defaults?.chunking ?? {},
+		chunking: chunkingOptions,
 		embedding: config.defaults?.embedding ?? {},
 		retrieval: {
 			topK: config.defaults?.retrieval?.topK ?? 8
 		}
 	} as const
+
+	// Resolve chunker based on config (supports method selection + plugins)
+	const chunker = resolveChunker(config.chunking)
 
 	const createEngineConfig = (
 		runtime: UnragCreateEngineRuntime
@@ -263,6 +270,7 @@ export const defineUnragConfig = <T extends DefineUnragConfigInput>(
 		return defineConfig({
 			...(config.engine ?? {}),
 			defaults: defaults.chunking,
+			chunker,
 			embeddingProcessing: {
 				...(defaults.embedding ?? {}),
 				...(config.engine?.embeddingProcessing ?? {})

@@ -80,9 +80,31 @@ export type ChunkText = {
 	tokenCount: number
 }
 
+/**
+ * Chunking options for token-based recursive chunking.
+ * All sizes are in TOKENS (not characters or words).
+ */
 export type ChunkingOptions = {
+	/**
+	 * Maximum chunk size in tokens.
+	 * Default: 512
+	 */
 	chunkSize: number
+	/**
+	 * Number of overlapping tokens between consecutive chunks.
+	 * Default: 50
+	 */
 	chunkOverlap: number
+	/**
+	 * Minimum chunk size in tokens. Chunks smaller than this will be merged.
+	 * Default: 24
+	 */
+	minChunkSize?: number
+	/**
+	 * Custom separator hierarchy for recursive splitting.
+	 * Default: ['\n\n', '\n', '. ', '? ', '! ', '; ', ': ', ', ', ' ', '']
+	 */
+	separators?: string[]
 }
 
 export type Chunker = (content: string, options: ChunkingOptions) => ChunkText[]
@@ -93,14 +115,14 @@ export type Chunker = (content: string, options: ChunkingOptions) => ChunkText[]
 
 /**
  * Built-in chunking methods shipped with core.
+ * Uses token-based recursive chunking with js-tiktoken (o200k_base encoding).
  */
-export type BuiltInChunkingMethod = 'recursive' | 'word'
+export type BuiltInChunkingMethod = 'recursive'
 
 /**
  * Plugin chunking methods (installed via CLI).
  */
 export type PluginChunkingMethod =
-	| 'token'
 	| 'semantic'
 	| 'markdown'
 	| 'hierarchical'
@@ -121,8 +143,8 @@ export type ChunkingMethod = BuiltInChunkingMethod | PluginChunkingMethod | 'cus
 export type ChunkingConfig = {
 	/**
 	 * Chunking method to use. Default: "recursive".
-	 * Built-in: "recursive", "word"
-	 * Plugins: "token", "semantic", "markdown", "hierarchical", "code", "agentic", "late", "maxmin", "proposition"
+	 * Built-in: "recursive" (token-based with o200k_base encoding)
+	 * Plugins: "semantic", "markdown", "hierarchical", "code", "agentic", "late", "maxmin", "proposition"
 	 */
 	method?: ChunkingMethod
 	/**
@@ -140,7 +162,7 @@ export type ChunkingConfig = {
  * Installed via `bunx unrag add chunker:<name>`.
  */
 export type ChunkerPlugin = {
-	/** Unique name matching the method (e.g. "semantic", "token"). */
+	/** Unique name matching the method (e.g. "semantic", "markdown"). */
 	name: string
 	/** Create a chunker function with the given options. */
 	createChunker: (options?: ChunkingOptions & Record<string, unknown>) => Chunker
@@ -1057,6 +1079,23 @@ export type UnragEmbeddingConfig =
 
 export type DefineUnragConfigInput = {
 	defaults?: UnragDefaultsConfig
+	/**
+	 * Chunking configuration.
+	 * Controls how documents are split into chunks for embedding.
+	 *
+	 * @example
+	 * ```typescript
+	 * chunking: {
+	 *   method: "recursive",  // default, uses js-tiktoken with o200k_base
+	 *   options: {
+	 *     chunkSize: 512,     // max tokens per chunk
+	 *     chunkOverlap: 50,   // overlap tokens between chunks
+	 *     minChunkSize: 24    // minimum tokens per chunk
+	 *   }
+	 * }
+	 * ```
+	 */
+	chunking?: ChunkingConfig
 	/**
 	 * Engine configuration (everything except embedding/store/defaults).
 	 * This is where you configure storage, asset processing, chunker/idGenerator, etc.

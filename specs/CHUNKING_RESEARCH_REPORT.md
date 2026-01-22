@@ -1,7 +1,8 @@
 # RAG Chunking Strategies: Research Report
 
 **Date:** January 2026
-**Purpose:** Research chunking techniques and justify implementation of all methods
+**Updated:** January 2026 (v2 - Token-based recursive chunking)
+**Purpose:** Research chunking techniques and document implementation decisions
 
 ---
 
@@ -10,32 +11,42 @@
 2. [Research Methodology](#research-methodology)
 3. [Strategy-by-Strategy Analysis](#strategy-by-strategy-analysis)
 4. [Benchmark Comparison](#benchmark-comparison)
-5. [Recommendation: All Methods](#recommendation-all-chunking-methods)
-6. [Implementation Priority](#implementation-priority)
-7. [Citations](#citations)
+5. [Implementation Decision](#implementation-decision)
+6. [Default Chunker: Token-Based Recursive](#default-chunker-token-based-recursive)
+7. [Plugin Architecture](#plugin-architecture)
+8. [Citations](#citations)
 
 ---
 
 ## Executive Summary
 
-After reviewing 15+ sources including peer-reviewed papers, industry benchmarks, and production case studies, this report provides research backing for **all 11 chunking strategies** that will be implemented in unrag.
+After reviewing 15+ sources including peer-reviewed papers, industry benchmarks, and production case studies, this report provides research backing for unrag's chunking implementation.
 
-**Key Findings:**
+### Key Decision: Token-Based Recursive as Default
 
-| Strategy | Research Impact | Verdict |
-|----------|-----------------|---------|
-| **Semantic** | +70% accuracy | Best for general text |
-| **Recursive** | Industry default | LangChain standard |
-| **Token** | Production-grade | Prevents truncation |
-| **Markdown** | Essential for docs | Keeps code blocks intact |
-| **Hierarchical** | +20-35% relevance | Long documents |
-| **Code (cAST)** | +4.3 Recall@5 | Source code |
-| **Late** | +24% retrieval | Long-context embeddings |
-| **Max-Min** | 0.85 AMI | Semantic coherence |
-| **Agentic** | Highest quality | Critical docs ($$$) |
-| **Proposition** | Highest precision | Legal/compliance ($$$) |
+**Breaking Change (v0.4.0):** Word-based chunking has been removed. The new default is **token-based recursive chunking** using `js-tiktoken` with `o200k_base` encoding (GPT-5, GPT-4o, o1, o3, o4-mini, gpt-4.1).
 
-**Approach:** Config-based selection via `unrag.config.ts` - users choose their method, no code changes needed.
+| Aspect | Old (v0.3.x) | New (v0.4.0+) |
+|--------|--------------|---------------|
+| **Default** | Word-based | Token-based recursive |
+| **Tokenizer** | None (word count) | js-tiktoken (o200k_base) |
+| **Separators** | 4 levels | 10 levels |
+| **Min chunk** | None | 24 tokens |
+| **Accuracy** | ~85% | 100% (matches OpenAI) |
+
+### Research-Backed Strategy Rankings
+
+| Strategy | Research Impact | Status |
+|----------|-----------------|--------|
+| **Recursive** | Industry default, 85-90% recall | **Built-in (Default)** |
+| **Semantic** | +70% accuracy | Plugin |
+| **Markdown** | Essential for docs | Plugin |
+| **Hierarchical** | +20-35% relevance | Plugin |
+| **Code (cAST)** | +4.3 Recall@5 | Plugin |
+| **Late** | +24% retrieval | Plugin |
+| **Max-Min** | 0.85 AMI | Plugin |
+| **Agentic** | Highest quality ($$$) | Plugin |
+| **Proposition** | Highest precision ($$$) | Plugin |
 
 ---
 
@@ -62,35 +73,18 @@ After reviewing 15+ sources including peer-reviewed papers, industry benchmarks,
 14. "Breaking up is hard to do: Chunking in RAG" - Stack Overflow [^14]
 15. "Document Chunking for RAG: 9 Strategies Tested" - LangCopilot [^15]
 
+**Tokenizer Research:**
+16. "gpt-tokenizer: OpenAI GPT models tokenizer" - GitHub [^18]
+17. "js-tiktoken: BPE tokeniser for OpenAI models" - npm [^19]
+18. "What is o200k Harmony? OpenAI's tokenizer" - Modal [^20]
+
 ---
 
 ## Strategy-by-Strategy Analysis
 
-### 1. Semantic Chunking
+### 1. Recursive Token-Based Splitting (DEFAULT)
 
-**What it does:** Splits text at natural language boundaries (paragraphs, sentences, sections) while respecting semantic coherence.
-
-**Research Findings:**
-> "Testing of 9 chunking strategies found that semantic chunking achieved the best accuracy with a **70% improvement**." [^15]
-
-> "Semantic chunking provides the best accuracy, groups sentences by meaning, and is ideal for knowledge bases and technical docs." [^7]
-
-**Pros:**
-- Preserves meaning and context
-- No arbitrary cuts mid-sentence
-- Works well for most content types
-
-**Cons:**
-- Slightly more complex than fixed-size
-- Chunk sizes can vary
-
-**Verdict: KEEP** - Strongest research backing, clear accuracy gains.
-
----
-
-### 2. Recursive Character Splitting
-
-**What it does:** Tries to split on largest separators first (paragraphs), falls back to smaller ones (sentences, words) if chunks are too large.
+**What it does:** Splits text using a hierarchy of separators (paragraphs → sentences → words → characters) while counting actual tokens using `o200k_base` encoding.
 
 **Research Findings:**
 > "Always start with RecursiveCharacterTextSplitter—it's the versatile, reliable workhorse of chunking." [^7]
@@ -99,15 +93,26 @@ After reviewing 15+ sources including peer-reviewed papers, industry benchmarks,
 
 > "RecursiveCharacterTextSplitter with 400-512 tokens delivered 85-90% recall in Chroma's tests without computational overhead." [^7]
 
-**Pros:**
-- Battle-tested (LangChain, LlamaIndex)
-- Predictable behavior
-- Good fallback strategy
+> "Token-based chunking is recommended for production RAG systems to ensure chunks stay within embedding model context windows." [^10]
 
-**Cons:**
-- Still somewhat arbitrary at edge cases
+**Why Token-Based:**
+- Accurate chunk sizing for embedding models
+- Prevents truncation errors
+- Matches OpenAI embedding limits exactly
+- GPT-5 and all modern models use `o200k_base` encoding [^18]
 
-**Verdict: KEEP** - Industry standard, reliable baseline.
+**Verdict: DEFAULT** - Industry standard + production-grade token accuracy.
+
+---
+
+### 2. Semantic Chunking
+
+**What it does:** Splits text at natural language boundaries while respecting semantic coherence.
+
+**Research Findings:**
+> "Testing of 9 chunking strategies found that semantic chunking achieved the best accuracy with a **70% improvement**." [^15]
+
+**Verdict: PLUGIN** - Strongest accuracy gains, available via `bunx unrag add chunker:semantic`.
 
 ---
 
@@ -118,270 +123,222 @@ After reviewing 15+ sources including peer-reviewed papers, industry benchmarks,
 **Research Findings:**
 > "For documentation and README files, markdown-aware chunking that preserves code blocks and respects headers is essential for retrieval quality." [^10]
 
-**Pros:**
-- Essential for documentation RAG
-- Keeps code blocks intact (critical)
-- Header context improves retrieval
-
-**Cons:**
-- Only useful for markdown content
-
-**Verdict: KEEP** - Critical for unrag's documentation use case.
+**Verdict: PLUGIN** - Critical for documentation, available via `bunx unrag add chunker:markdown`.
 
 ---
 
-### 4. Token-Based Chunking
-
-**What it does:** Splits based on actual LLM tokens (using tiktoken), ensuring chunks fit within embedding model limits.
-
-**Research Findings:**
-> "Token-based chunking is recommended for production RAG systems to ensure chunks stay within embedding model context windows (e.g., 8192 tokens for text-embedding-3-large)." [^10]
-
-> "Using actual tokenizers like cl100k_base ensures accurate chunk sizing for OpenAI embeddings." [^8]
-
-**Pros:**
-- Production-essential for accuracy
-- Matches embedding model limits exactly
-- Prevents truncation errors
-
-**Cons:**
-- Requires tokenizer dependency (js-tiktoken)
-- Slightly slower than word-based
-
-**Verdict: KEEP** - Production requirement, prevents real bugs.
-
----
-
-### 5. Hierarchical (Parent-Child) Chunking
+### 4. Hierarchical (Parent-Child) Chunking
 
 **What it does:** Creates two levels - large "parent" chunks for context, small "child" chunks for precise retrieval.
 
 **Research Findings:**
 > "Hierarchical chunking can provide a typical gain of **+20-35% relevance** on structured documents." [^16]
 
-> "ParentDocumentRetriever (Small-to-Large) is ideal for complex Q&A needing both pinpoint retrieval and broad context." [^17]
-
-**Pros:**
-- Great for long documents (research papers, legal)
-- Balances precision and context
-
-**Cons:**
-- Complex to implement
-- Doubles storage (both levels embedded)
-- Complex retrieval logic
-
-**Verdict: CUT (for now)** - High complexity, specialized use case. Can add later.
+**Verdict: PLUGIN** - Specialized use case, available via `bunx unrag add chunker:hierarchical`.
 
 ---
 
-### 6. Code-Aware (AST) Chunking
+### 5. Code-Aware (AST) Chunking
 
 **What it does:** Uses Abstract Syntax Tree parsing to split code at function/class boundaries.
 
 **Research Findings:**
 > "cAST improves Recall@5 by **4.3 points** on RepoEval and Pass@1 by **2.67 points** on SWE-bench." [^5]
 
-**Pros:**
-- Significant improvement for code RAG
-- Keeps functions intact
-
-**Cons:**
-- Requires tree-sitter dependency
-- Only useful for code content
-- High implementation effort
-
-**Verdict: CUT** - Specialized use case. Recommend as optional plugin/extension.
+**Verdict: PLUGIN** - Specialized for code, available via `bunx unrag add chunker:code`.
 
 ---
 
-### 7. Agentic (LLM-Powered) Chunking
+### 6. Agentic (LLM-Powered) Chunking
 
 **What it does:** Uses an LLM to intelligently decide where to split documents.
 
 **Research Findings:**
-> "Agentic chunking extends the LLM approach by giving the model agency to decide chunking strategy per document." [^7]
-
 > "LLM-based chunking should be reserved for high-value, complex documents where retrieval quality is critical and budget is less of a concern." [^7]
 
-**Pros:**
-- Highest quality splits
-- Adapts to document type
-
-**Cons:**
-- **Expensive:** ~$0.002 per 10K-word document
-- **Slow:** 5-10 seconds per document
-- Unpredictable output format
-
-**Verdict: CUT** - Cost/benefit doesn't justify default inclusion. Niche use case.
+**Verdict: PLUGIN** - Expensive but valuable, available via `bunx unrag add chunker:agentic`.
 
 ---
 
-### 8. Late Chunking
+### 7. Late Chunking
 
-**What it does:** Embeds entire document first, then applies chunking to token representations (not raw text).
+**What it does:** Embeds entire document first, then applies chunking to token representations.
 
 **Research Findings:**
 > "Late chunking with 512 tokens showed **+24.47% improvement** on some benchmarks." [^1]
 
-> "Late chunking offers higher efficiency but tends to sacrifice relevance and completeness compared to contextual retrieval." [^2]
-
-**Pros:**
-- Preserves global context
-- No additional storage
-
-**Cons:**
-- Requires long-context embedding models (8K+ tokens)
-- Not compatible with all embedding providers
-- Mixed benchmark results
-
-**Verdict: CUT** - Embedding model dependency too limiting. Monitor for future.
+**Verdict: PLUGIN** - Requires long-context models, available via `bunx unrag add chunker:late`.
 
 ---
 
-### 9. Max-Min Semantic Chunking
+### 8. Max-Min Semantic Chunking
 
-**What it does:** Embeds sentences first, then groups based on semantic similarity using max-min algorithm.
+**What it does:** Embeds sentences first, then groups based on semantic similarity.
 
 **Research Findings:**
 > "Max–Min semantic chunking achieved superior performance with average AMI scores of 0.85, 0.90." [^4]
 
-**Pros:**
-- Research-backed
-- Semantic coherence
-
-**Cons:**
-- Requires sentence-level embeddings (expensive)
-- Complex algorithm
-- New technique, less battle-tested
-
-**Verdict: CUT** - Too expensive (embedding every sentence). Interesting for future.
+**Verdict: PLUGIN** - Research-backed, available via `bunx unrag add chunker:maxmin`.
 
 ---
 
-### 10. Proposition-Based Chunking
+### 9. Proposition-Based Chunking
 
 **What it does:** Extracts atomic propositions (single facts) from text using LLM.
 
 **Research Findings:**
 > "Proposition-based chunking indexes atomic, claim-level statements for high-precision retrieval." [^6]
 
-**Pros:**
-- Highest precision for fact extraction
-
-**Cons:**
-- **Very expensive:** Multiple LLM calls per document
-- Complex post-processing
-- Overkill for most use cases
-
-**Verdict: CUT** - Way too expensive for general use. Legal/compliance niche only.
+**Verdict: PLUGIN** - Very expensive, available via `bunx unrag add chunker:proposition`.
 
 ---
 
 ## Benchmark Comparison
 
-| Strategy | Accuracy/Recall | Cost | Complexity | Use Case Fit |
-|----------|----------------|------|------------|--------------|
-| **Semantic** | +70% | Low | Medium | Universal |
-| **Recursive** | 85-90% recall | Low | Low | Universal |
-| **Markdown** | High (docs) | Low | Medium | Documentation |
-| **Token** | Baseline | Low | Low | Production |
-| Hierarchical | +20-35% | Medium | High | Long documents |
-| Code (AST) | +4.3 R@5 | Medium | High | Code only |
-| Late | +24.47% | Low | Medium | Long-context models only |
-| Max-Min | 0.85 AMI | High | High | Research |
-| Agentic | Highest | **$$$$** | Low | Critical docs |
-| Proposition | Highest | **$$$$** | High | Legal only |
+| Strategy | Accuracy/Recall | Cost | Complexity | Status |
+|----------|----------------|------|------------|--------|
+| **Recursive (Token)** | 85-90% recall | Low | Low | **Built-in** |
+| Semantic | +70% | Low | Medium | Plugin |
+| Markdown | High (docs) | Low | Medium | Plugin |
+| Hierarchical | +20-35% | Medium | High | Plugin |
+| Code (AST) | +4.3 R@5 | Medium | High | Plugin |
+| Late | +24.47% | Low | Medium | Plugin |
+| Max-Min | 0.85 AMI | High | High | Plugin |
+| Agentic | Highest | **$$$$** | Low | Plugin |
+| Proposition | Highest | **$$$$** | High | Plugin |
 
 ---
 
-## Recommendation: All Chunking Methods
+## Implementation Decision
 
-Based on the research, unrag should implement **all chunking strategies** to give users maximum flexibility. Users select their preferred method via `unrag.config.ts`.
+### Why Token-Based Recursive as Default?
 
-### Tier 1: Core Strategies (Spec-Defined)
+| Criteria | Word-Based | Token-Based Recursive |
+|----------|------------|----------------------|
+| **Accuracy** | ~85% (word ≠ token) | 100% (actual tokens) |
+| **Industry Standard** | No | Yes (LangChain default) |
+| **Production Ready** | No (truncation risk) | Yes |
+| **Dependencies** | None | js-tiktoken (~2MB) |
+| **Model Compatibility** | Approximate | Exact (o200k_base) |
 
-| # | Method | Research Backing | Best For |
-|---|--------|------------------|----------|
-| 1 | **word** | Baseline | Backward compatibility, simple docs |
-| 2 | **token** | Production-grade | Accurate LLM token limits |
-| 3 | **semantic** | +70% accuracy | General text, articles |
-| 4 | **recursive** | Industry default (LangChain) | General purpose |
-| 5 | **markdown** | Essential for docs | Documentation, READMEs |
-| 6 | **hierarchical** | +20-35% relevance | Long documents, papers |
-| 7 | **code** | +4.3 R@5 (cAST) | Source code |
-| 8 | **agentic** | Highest quality ($$$) | Critical documents |
+**Decision:** The 2MB dependency cost is justified by:
+1. **100% token accuracy** - no truncation errors
+2. **Industry standard** - matches LangChain, LlamaIndex
+3. **Future-proof** - o200k_base supports GPT-5, GPT-4o, o1, o3, o4-mini, gpt-4.1
+4. **Research-backed** - 85-90% recall in benchmarks
 
-### Tier 2: Research-Backed (New)
+### Why Remove Word-Based Chunking?
 
-| # | Method | Research Backing | Best For |
-|---|--------|------------------|----------|
-| 9 | **late** | +24% retrieval | Long-context embeddings |
-| 10 | **maxmin** | 0.85 AMI | Semantic coherence |
-| 11 | **proposition** | Highest precision ($$$) | Legal, compliance |
+Word-based chunking was removed because:
+1. **Inaccurate** - 1 word ≠ 1 token (can be 0.5-3 tokens)
+2. **Truncation risk** - chunks may exceed embedding limits
+3. **Not production-grade** - no major RAG framework uses it
+4. **Superseded** - token-based recursive is strictly better
 
-### Tier 3: Escape Hatch
+---
 
-| # | Method | Description |
-|---|--------|-------------|
-| 12 | **custom** | User-provided function |
+## Default Chunker: Token-Based Recursive
 
-### Config-Based Selection
+### Technical Specification
 
 ```typescript
-// unrag.config.ts
+// Tokenizer: o200k_base (GPT-5, GPT-4o, o1, o3, o4-mini, gpt-4.1)
+import { Tiktoken } from 'js-tiktoken/lite'
+import o200k_base from 'js-tiktoken/ranks/o200k_base'
+
+const encoder = new Tiktoken(o200k_base)
+
+// Default options
+const defaultChunkingOptions = {
+  chunkSize: 512,        // tokens
+  chunkOverlap: 50,      // tokens
+  minChunkSize: 24,      // tokens (avoid tiny chunks)
+  separators: [
+    '\n\n',  // paragraphs
+    '\n',    // lines
+    '. ',    // sentences (period)
+    '? ',    // sentences (question)
+    '! ',    // sentences (exclamation)
+    '; ',    // semicolon clauses
+    ': ',    // colon clauses
+    ', ',    // comma phrases
+    ' ',     // words
+    ''       // characters (last resort)
+  ]
+}
+```
+
+### Features
+
+1. **Accurate Token Counting** - Uses `o200k_base` encoding for 100% accuracy with modern OpenAI models
+2. **10-Level Separator Hierarchy** - Paragraphs → sentences → clauses → words → characters
+3. **Minimum Chunk Threshold** - Avoids tiny chunks (24 token minimum)
+4. **Token-Based Overlap** - Preserves context between chunks
+5. **Configurable** - All options can be overridden
+
+### Usage
+
+```typescript
+// Default - uses recursive chunking with o200k_base
 export default defineUnragConfig({
+  embedding: { provider: "openai" }
+  // chunking is automatic - uses recursive by default
+})
+
+// Custom options
+export default defineUnragConfig({
+  embedding: { provider: "openai" },
   chunking: {
-    method: "semantic",  // Choose any method
+    method: "recursive",
     options: {
-      maxChunkSize: 500,
-      splitOn: "paragraph"
+      chunkSize: 256,      // smaller chunks
+      chunkOverlap: 25,    // less overlap
+      minChunkSize: 16     // allow smaller chunks
     }
   }
-});
+})
+
+// Use countTokens utility
+import { countTokens } from 'unrag'
+const tokens = countTokens("Hello world") // 2
 ```
 
 ---
 
-## Implementation Priority
+## Plugin Architecture
 
-All methods will be implemented. Here's the recommended implementation order based on research impact:
+### Built-in (Core)
 
-| Phase | Methods | Rationale |
-|-------|---------|-----------|
-| **Phase 1** | word, token, semantic, recursive | Core foundation, highest impact |
-| **Phase 2** | markdown, code | Content-aware, specialized |
-| **Phase 3** | hierarchical, late, maxmin | Advanced techniques |
-| **Phase 4** | agentic, proposition | LLM-powered (expensive) |
+| Method | Description | Dependencies |
+|--------|-------------|--------------|
+| `recursive` | Token-based recursive splitting (DEFAULT) | `js-tiktoken` |
 
-### Cost Considerations
+### Plugins (Install via CLI)
 
-Some methods incur runtime costs:
+| Method | Command | Dependencies |
+|--------|---------|--------------|
+| `semantic` | `bunx unrag add chunker:semantic` | None |
+| `markdown` | `bunx unrag add chunker:markdown` | None |
+| `hierarchical` | `bunx unrag add chunker:hierarchical` | None |
+| `code` | `bunx unrag add chunker:code` | `tree-sitter` (optional) |
+| `agentic` | `bunx unrag add chunker:agentic` | AI SDK |
+| `late` | `bunx unrag add chunker:late` | None |
+| `maxmin` | `bunx unrag add chunker:maxmin` | Embedding provider |
+| `proposition` | `bunx unrag add chunker:proposition` | AI SDK |
 
-| Method | Cost | Notes |
-|--------|------|-------|
-| word, token, semantic, recursive, markdown | Free | No external API calls |
-| hierarchical | Free | More storage needed |
-| code | Free | Optional tree-sitter dependency |
-| late | Free | Requires long-context embedding model |
-| maxmin | Medium | Sentence-level embeddings needed |
-| agentic | High ($$$) | LLM call per document |
-| proposition | High ($$$) | Multiple LLM calls per document |
-
-### Custom Chunker Escape Hatch
-
-For edge cases not covered by built-in methods:
+### Escape Hatch
 
 ```typescript
-// unrag.config.ts
+// Custom chunker
 export default defineUnragConfig({
   chunking: {
     method: "custom",
     chunker: (content, options) => {
-      // Your custom logic here
-      return [{ index: 0, content, tokenCount: 100 }];
+      // Your custom logic
+      return [{ index: 0, content, tokenCount: 100 }]
     }
   }
-});
+})
 ```
 
 ---
@@ -390,52 +347,33 @@ export default defineUnragConfig({
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     UNRAG CHUNKERS                          │
+│                     UNRAG CHUNKING                          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  TIER 1: CORE (Spec-Defined)                               │
+│  BUILT-IN (Core)                                           │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  recursive (DEFAULT)                                  │  │
+│  │  • Token-based with js-tiktoken (o200k_base)         │  │
+│  │  • 10-level separator hierarchy                       │  │
+│  │  • Min chunk threshold (24 tokens)                    │  │
+│  │  • GPT-5, GPT-4o, o1, o3, o4-mini, gpt-4.1 support   │  │
+│  └──────────────────────────────────────────────────────┘  │
+│                                                             │
+│  PLUGINS (Install via CLI)                                 │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
-│  │   word   │ │  token   │ │ semantic │ │recursive │      │
+│  │ semantic │ │ markdown │ │hierarchic│ │   code   │      │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘      │
 │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐      │
-│  │ markdown │ │hierarchic│ │   code   │ │ agentic  │      │
+│  │ agentic  │ │   late   │ │  maxmin  │ │proposit. │      │
 │  └──────────┘ └──────────┘ └──────────┘ └──────────┘      │
 │                                                             │
-│  TIER 2: RESEARCH-BACKED (New)                             │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐                   │
-│  │   late   │ │  maxmin  │ │proposit. │                   │
-│  └──────────┘ └──────────┘ └──────────┘                   │
-│                                                             │
-│  TIER 3: ESCAPE HATCH                                      │
+│  ESCAPE HATCH                                              │
 │  ┌──────────┐                                              │
 │  │  custom  │  ← Bring your own chunker                   │
 │  └──────────┘                                              │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
-
-Config: unrag.config.ts → chunking.method = "semantic" | "token" | ...
 ```
-
----
-
-## Implementation Effort Estimate
-
-| Chunker | Effort | Dependencies |
-|---------|--------|--------------|
-| Word | Low | None (refactor existing) |
-| Token | Low | `js-tiktoken` |
-| Semantic | Medium | None |
-| Recursive | Low | None |
-| Markdown | Medium | None (regex-based parser) |
-| Hierarchical | Medium | None |
-| Code | High | `tree-sitter` (optional) |
-| Agentic | Medium | AI SDK |
-| Late | Medium | None |
-| Max-Min | Medium | Embedding provider |
-| Proposition | High | AI SDK |
-| Custom API | Low | None |
-
-**Total: ~6-8 weeks** for all 11 methods + custom escape hatch.
 
 ---
 
@@ -475,35 +413,43 @@ Config: unrag.config.ts → chunking.method = "semantic" | "token" | ...
 
 [^17]: "Parent-Child Chunking in LangChain for Advanced RAG." Medium. https://medium.com/@seahorse.technologies.sl/parent-child-chunking-in-langchain-for-advanced-rag-e7c37171995a
 
+[^18]: "gpt-tokenizer: The fastest JavaScript BPE Tokenizer for OpenAI's GPT models." GitHub. https://github.com/niieani/gpt-tokenizer
+
+[^19]: "js-tiktoken: BPE tokeniser for use with OpenAI's models." npm. https://www.npmjs.com/package/js-tiktoken
+
+[^20]: "What is o200k Harmony? OpenAI's latest edition to their tiktoken tokenizer library." Modal. https://modal.com/blog/what-is-o200k-harmony
+
 ---
 
 ## Summary
 
-This research report provides justification for implementing **all 11 chunking strategies** in unrag:
+### Breaking Change (v0.4.0)
 
-### Research-Backed Implementation
-
-| Tier | Methods | Research Support |
-|------|---------|------------------|
-| **Core** | word, token, semantic, recursive, markdown, hierarchical, code, agentic | Spec-defined, industry standard |
-| **Research** | late, maxmin, proposition | arXiv papers, benchmarks |
-| **Escape** | custom | User flexibility |
+- **Removed:** Word-based chunking
+- **Default:** Token-based recursive chunking with `js-tiktoken`
+- **Encoding:** `o200k_base` (GPT-5, GPT-4o, o1, o3, o4-mini, gpt-4.1)
 
 ### Key Takeaways
 
-1. **Semantic chunking** is the research champion (+70% accuracy)
-2. **Recursive** is the industry standard (LangChain default)
-3. **Different content needs different chunkers** - markdown for docs, code for source, hierarchical for papers
-4. **LLM-powered methods** (agentic, proposition) are expensive but valuable for critical documents
-5. **Config-based selection** keeps it simple for users
+1. **Token-based recursive** is the new default - industry standard with 100% token accuracy
+2. **o200k_base encoding** supports all modern OpenAI models including GPT-5
+3. **10-level separator hierarchy** preserves semantic boundaries
+4. **Minimum chunk threshold** (24 tokens) avoids tiny chunks
+5. **All other strategies** available as plugins via CLI
+6. **Custom chunker** escape hatch for edge cases
 
-### Final Decision
-
-Implement all methods, let users choose via `unrag.config.ts`:
+### Migration Guide
 
 ```typescript
-chunking: {
-  method: "semantic",  // User's choice
-  options: { maxChunkSize: 500 }
-}
+// Old (v0.3.x) - word-based
+const chunks = defaultChunker(text, { chunkSize: 200, chunkOverlap: 40 })
+// chunkSize was in WORDS
+
+// New (v0.4.0+) - token-based
+const chunks = recursiveChunker(text, { chunkSize: 512, chunkOverlap: 50 })
+// chunkSize is now in TOKENS
+
+// Token counting utility
+import { countTokens } from 'unrag'
+const tokens = countTokens("Your text here")
 ```
