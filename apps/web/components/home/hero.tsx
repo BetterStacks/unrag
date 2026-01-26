@@ -98,8 +98,8 @@ export function HeroSection() {
 			className="py-16"
 			eyebrow={
 				<AnnouncementBadge
-					href="/docs/ai-assisted-coding"
-					text="New: Agent Skills for AI-powered development"
+					href="/docs/chunking"
+					text="New: Advanced chunking algorithms"
 					cta="Learn more"
 				/>
 			}
