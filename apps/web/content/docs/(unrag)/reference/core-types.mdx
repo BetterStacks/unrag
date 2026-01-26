@@ -3,11 +3,11 @@ title: Core Types Reference
 description: TypeScript types for the Unrag engine, inputs, outputs, and interfaces.
 ---
 
-Unrag's type system is intentionally small. Understanding these types helps you work with the engine effectively and build custom components.
+Unrag's type system is intentionally small. A handful of types cover the core operations—ingesting content, retrieving chunks, managing documents. Understanding these types helps you work with the engine effectively and build custom components when you need them.
 
 ## IngestInput
 
-The input to `engine.ingest()`:
+When you call `engine.ingest()`, you pass an object matching this type:
 
 ```ts
 type IngestInput = {
@@ -21,48 +21,62 @@ type IngestInput = {
 };
 ```
 
+The `sourceId` is the logical identifier for your document. This is how you'll reference it later—for updates, deletes, or scoped retrieval. Use consistent, meaningful identifiers like `docs:getting-started` or `ticket:12345`. If you ingest with the same `sourceId` again, you're updating that document; the old chunks are replaced with new ones.
+
+The `content` string is the text you want to chunk and embed. This is the searchable content.
+
+The optional `metadata` object stores structured data alongside the document. It appears in retrieval results and can help with filtering or display. Keep values simple and serializable—the adapter stores metadata as JSONB.
+
+The `chunker` parameter lets you override the chunking algorithm for this specific ingest. Pass a chunker function to use different splitting logic without changing your engine's default configuration. This is useful when you're ingesting heterogeneous content—documentation, code, and prose—with a single engine instance.
+
+The `chunking` parameter overrides chunking options (chunk size, overlap, minimum size) for this ingest while keeping your configured chunker. Use this when the same algorithm should behave differently for specific content.
+
+The `assets` array contains rich media inputs like images and PDFs. Connectors like Notion and Google Drive populate this automatically. Each asset can be processed into additional chunks.
+
+The `assetProcessing` parameter overrides asset handling behavior for this ingest, such as enabling or disabling PDF extraction.
+
 <TypeTable
   type={{
     sourceId: {
       description:
-        "Logical document identifier. Re-ingesting with the same sourceId replaces the previously stored content for that document (idempotent ingest).",
-      type: 'string',
+        "Logical document identifier. Re-ingesting with the same sourceId replaces the previous content (idempotent update).",
+      type: "string",
     },
     content: {
-      description: 'The text to chunk and embed.',
-      type: 'string',
+      description: "The text to chunk and embed.",
+      type: "string",
     },
     metadata: {
-      description: 'Optional JSON metadata stored with the document. Appears in retrieval results.',
-      type: 'Metadata',
-      default: '{}',
-    },
-    chunking: {
-      description: 'Optional per-call chunking override (chunkSize, chunkOverlap, minChunkSize). All sizes are in tokens.',
-      type: 'object',
+      description: "Optional JSON metadata stored with the document. Appears in retrieval results.",
+      type: "Metadata",
+      default: "{}",
     },
     chunker: {
       description:
-        'Optional per-call chunker override. Use this to switch chunking algorithms for a single ingest() call without changing your engine config.',
-      type: 'Chunker',
+        "Optional per-call chunker override. Use this to switch chunking algorithms for a single ingest without changing your engine config.",
+      type: "Chunker",
+    },
+    chunking: {
+      description: "Optional per-call override for chunking options (chunkSize, chunkOverlap, minChunkSize). All sizes are in tokens.",
+      type: "object",
     },
     assets: {
       description:
-        'Optional rich media inputs (images, PDFs, audio, etc.) that can be processed into chunks. Connectors like Notion and Google Drive populate this for you.',
-      type: 'AssetInput[]',
-      default: '[]',
+        "Optional rich media inputs (images, PDFs, audio, etc.) that can be processed into chunks. Connectors like Notion populate this for you.",
+      type: "AssetInput[]",
+      default: "[]",
     },
     assetProcessing: {
       description:
-        'Optional per-call override for asset processing behavior (e.g., enable/disable PDF LLM extraction, adjust fetch limits, strict vs skip).',
-      type: 'DeepPartial<AssetProcessingConfig>',
+        "Optional per-call override for asset processing behavior (enable/disable extraction, adjust limits, etc.).",
+      type: "DeepPartial<AssetProcessingConfig>",
     },
   }}
 />
 
 ## AssetInput
 
-Assets are non-text inputs attached to a document (e.g., a PDF embed in Notion). They can be turned into text chunks (via extraction) or embedded directly (for images when using a multimodal embedding provider).
+Assets are non-text inputs attached to a document—a PDF embedded in a Notion page, an image in a knowledge base article. The engine can process these into text chunks (via extraction) or embed them directly (for images when using a multimodal embedding provider).
 
 ```ts
 type AssetInput = {
@@ -72,14 +86,16 @@ type AssetInput = {
     | { kind: "url"; url: string; headers?: Record<string, string>; mediaType?: string; filename?: string }
     | { kind: "bytes"; bytes: Uint8Array; mediaType: string; filename?: string };
   uri?: string;
-  text?: string; // caption / alt text
+  text?: string;
   metadata?: Metadata;
 };
 ```
 
+The `assetId` uniquely identifies the asset within the document. The `kind` indicates what type of media it is. The `data` field provides either a URL to fetch or raw bytes. The optional `text` field can contain a caption or alt text, which is used for embedding when direct processing isn't available.
+
 ## IngestResult
 
-The output from `engine.ingest()`:
+After ingestion completes, you get back information about what was stored:
 
 ```ts
 type IngestResult = {
@@ -91,122 +107,73 @@ type IngestResult = {
 };
 ```
 
+The `documentId` is the UUID assigned to this document in the database. The `chunkCount` tells you how many chunks were created. The `durations` object breaks down where time was spent—embedding typically dominates because of API latency.
+
+The `warnings` array contains structured information about anything that didn't go perfectly. If an asset was skipped because extraction wasn't enabled, or if a PDF produced no text, you'll find that information here. Treat warnings as observability signals:
+
+```ts
+const result = await engine.ingest(input);
+if (result.warnings.length > 0) {
+  console.warn("Ingest warnings:", result.warnings);
+}
+```
+
 <TypeTable
   type={{
     documentId: {
-      description: 'UUID of the created/updated document.',
-      type: 'string',
+      description: "UUID of the created or updated document.",
+      type: "string",
     },
     chunkCount: {
-      description: 'How many chunks were created.',
-      type: 'number',
+      description: "How many chunks were created from this document.",
+      type: "number",
     },
     embeddingModel: {
-      description: 'Which model was used (e.g., "ai-sdk:openai/...").',
-      type: 'string',
+      description: 'Which model was used (e.g., "ai-sdk:openai/text-embedding-3-small").',
+      type: "string",
     },
     warnings: {
       description:
-        'Structured warnings emitted during ingestion. This is how you detect skipped rich media (unsupported assets, disabled extraction) without silently missing content.',
-      type: 'IngestWarning[]',
-      default: '[]',
+        "Structured warnings about skipped assets or processing issues. Check these to detect silently skipped content.",
+      type: "IngestWarning[]",
+      default: "[]",
     },
     durations: {
-      description: 'Timing breakdown: totalMs, chunkingMs, embeddingMs, storageMs. Useful for identifying bottlenecks.',
-      type: 'object',
+      description: "Timing breakdown: totalMs, chunkingMs, embeddingMs, storageMs. Useful for identifying bottlenecks.",
+      type: "object",
     },
   }}
 />
 
 ## IngestWarning
 
-Warnings emitted by `engine.ingest()` when rich media assets are skipped or best-effort processing fails (while continuing).
+When assets are skipped or processing partially fails, the engine emits structured warnings rather than throwing errors. This keeps ingestion flowing while giving you visibility into what was missed.
 
 ```ts
 type IngestWarning =
-  | {
-      code: "asset_skipped_unsupported_kind";
-      message: string;
-      assetId: string;
-      assetKind: AssetKind;
-      assetUri?: string;
-      assetMediaType?: string;
-    }
-  | {
-      code: "asset_skipped_extraction_disabled";
-      message: string;
-      assetId: string;
-      assetKind: AssetKind;
-      assetUri?: string;
-      assetMediaType?: string;
-    }
-  | {
-      code: "asset_skipped_pdf_llm_extraction_disabled";
-      message: string;
-      assetId: string;
-      assetKind: "pdf";
-      assetUri?: string;
-      assetMediaType?: string;
-    }
-  | {
-      code: "asset_skipped_image_no_multimodal_and_no_caption";
-      message: string;
-      assetId: string;
-      assetKind: "image";
-      assetUri?: string;
-      assetMediaType?: string;
-    }
-  | {
-      code: "asset_skipped_pdf_empty_extraction";
-      message: string;
-      assetId: string;
-      assetKind: "pdf";
-      assetUri?: string;
-      assetMediaType?: string;
-    }
-  | {
-      code: "asset_skipped_extraction_empty";
-      message: string;
-      assetId: string;
-      assetKind: AssetKind;
-      assetUri?: string;
-      assetMediaType?: string;
-    }
-  | {
-      code: "asset_processing_error";
-      message: string;
-      assetId: string;
-      assetKind: AssetKind;
-      stage: "fetch" | "extract" | "embed" | "unknown";
-      assetUri?: string;
-      assetMediaType?: string;
-    };
+  | { code: "asset_skipped_unsupported_kind"; message: string; assetId: string; assetKind: AssetKind; ... }
+  | { code: "asset_skipped_extraction_disabled"; message: string; assetId: string; assetKind: AssetKind; ... }
+  | { code: "asset_skipped_pdf_llm_extraction_disabled"; message: string; assetId: string; assetKind: "pdf"; ... }
+  | { code: "asset_skipped_image_no_multimodal_and_no_caption"; message: string; assetId: string; ... }
+  | { code: "asset_skipped_pdf_empty_extraction"; message: string; assetId: string; assetKind: "pdf"; ... }
+  | { code: "asset_skipped_extraction_empty"; message: string; assetId: string; assetKind: AssetKind; ... }
+  | { code: "asset_processing_error"; message: string; assetId: string; stage: "fetch" | "extract" | "embed" | "unknown"; ... };
 ```
 
-The `stage` field in `asset_processing_error` indicates where the failure occurred:
+Each warning includes the `assetId` so you can identify which asset had the issue, plus a human-readable `message`. The `code` field lets you programmatically categorize and handle warnings.
 
-| Stage | Description |
-|-------|-------------|
-| `fetch` | Failed to fetch URL-based asset data (applies to extractors and image embedding) |
-| `extract` | Extractor threw an error while processing asset bytes |
-| `embed` | Embedding provider threw an error |
-| `unknown` | Fallback for unexpected error locations |
+For processing errors, the `stage` field indicates where the failure occurred:
 
-**Recommended practice**: treat warnings as observability signals.
-
-```ts
-const result = await engine.ingest(input);
-if (result.warnings.length > 0) {
-  // Send to logs/metrics/alerts in production
-  console.warn("unrag ingest warnings", result.warnings);
-}
-```
-
-For configuration knobs that control when assets are skipped vs failed, see [Asset Processing Reference](/docs/reference/asset-processing).
+| Stage | What happened |
+|-------|---------------|
+| `fetch` | Failed to download URL-based asset data |
+| `extract` | Extractor threw an error while processing |
+| `embed` | Embedding provider failed |
+| `unknown` | Unexpected error location |
 
 ## RetrieveInput
 
-The input to `engine.retrieve()`:
+When you call `engine.retrieve()`, you pass a query and optional parameters:
 
 ```ts
 type RetrieveInput = {
@@ -216,27 +183,33 @@ type RetrieveInput = {
 };
 ```
 
+The `query` is the search string. It gets embedded using the same model that embedded your chunks, then compared against stored embeddings to find matches.
+
+The `topK` parameter controls how many results you get back. The default of 8 is usually a good starting point—enough to find relevant content without overwhelming downstream processing.
+
+The `scope` parameter filters results. When you provide `{ sourceId: "docs:" }`, only chunks whose source ID starts with "docs:" are considered. This is how you implement scoped search, tenant isolation, or collection filtering.
+
 <TypeTable
   type={{
     query: {
-      description: 'The search query to embed and find similar chunks.',
-      type: 'string',
+      description: "The search query to embed and match against stored chunks.",
+      type: "string",
     },
     topK: {
-      description: 'How many results to return.',
-      type: 'number',
-      default: '8',
+      description: "How many results to return.",
+      type: "number",
+      default: "8",
     },
     scope: {
-      description: 'Optional filtering. sourceId uses prefix matching (e.g., "docs:" matches all docs).',
-      type: 'object',
+      description: "Optional filtering. sourceId uses prefix matching (e.g., \"docs:\" matches all docs).",
+      type: "object",
     },
   }}
 />
 
 ## RetrieveResult
 
-The output from `engine.retrieve()`:
+Retrieval returns the matching chunks with metadata:
 
 ```ts
 type RetrieveResult = {
@@ -246,19 +219,21 @@ type RetrieveResult = {
 };
 ```
 
+Each chunk includes a `score` representing similarity to the query. With cosine distance (the default), lower scores mean higher similarity. The chunks are sorted by score ascending, so the most relevant results come first.
+
 <TypeTable
   type={{
     chunks: {
-      description: 'Matching chunks with scores, ordered by score ascending (lower = more similar).',
-      type: 'Array<Chunk & { score: number }>',
+      description: "Matching chunks with scores, ordered by score ascending (lower = more similar).",
+      type: "Array<Chunk & { score: number }>",
     },
     embeddingModel: {
-      description: 'Which model embedded the query.',
-      type: 'string',
+      description: "Which model embedded the query.",
+      type: "string",
     },
     durations: {
-      description: 'Timing breakdown: totalMs, embeddingMs, retrievalMs.',
-      type: 'object',
+      description: "Timing breakdown: totalMs, embeddingMs, retrievalMs.",
+      type: "object",
     },
   }}
 />
@@ -269,82 +244,70 @@ The chunk type represents a piece of a document:
 
 ```ts
 type Chunk = {
-  id: string;                 // UUID of the chunk
-  documentId: string;         // UUID of the parent document
-  sourceId: string;           // Logical identifier from ingestion
-  index: number;              // Position in the original document (0, 1, 2, ...)
-  content: string;            // The chunk's text (may be empty if storage.storeChunkContent is false)
-  tokenCount: number;         // Approximate token count
-  metadata: Metadata;         // JSON metadata from ingestion
-  embedding?: number[];       // Vector (present during upsert, not in query results)
-  documentContent?: string;   // Full document text (during upsert only; may be empty if storage.storeDocumentContent is false)
+  id: string;
+  documentId: string;
+  sourceId: string;
+  index: number;
+  content: string;
+  tokenCount: number;
+  metadata: Metadata;
+  embedding?: number[];
+  documentContent?: string;
 };
 ```
 
-During retrieval, chunks include a `score` field representing similarity to the query.
+During retrieval, chunks include the `score` field. The `embedding` field is present during upsert operations but not returned in query results. The `documentContent` field contains the full document text during upsert and may be empty if you've disabled document content storage.
 
 ## Metadata
 
-Metadata is a flexible JSON object:
+Metadata is a flexible JSON structure:
 
 ```ts
 type MetadataValue = string | number | boolean | null;
-
-type Metadata = Record<
-  string,
-  MetadataValue | MetadataValue[] | undefined
->;
+type Metadata = Record<string, MetadataValue | MetadataValue[] | undefined>;
 ```
 
-Keep values simple and serializable. The adapter stores metadata as JSONB, so complex nested objects work but may be harder to query.
+Keep metadata simple and serializable. The adapter stores it as JSONB, so you can use it in queries, but complex nested structures are harder to work with.
 
 ## EmbeddingProvider
 
-The interface for embedding text into vectors:
+If you need to implement a custom embedding provider, it follows this interface:
 
 ```ts
 type EmbeddingInput = {
-  text: string;               // The text to embed
-  metadata: Metadata;         // Context (from chunk or query)
-  position: number;           // Chunk index (or 0 for queries)
-  sourceId: string;           // Document sourceId (or "query")
-  documentId: string;         // Document UUID (or "query")
+  text: string;
+  metadata: Metadata;
+  position: number;
+  sourceId: string;
+  documentId: string;
 };
 
 type EmbeddingProvider = {
-  name: string;               // Identifier for debugging
-  dimensions?: number;        // Expected output size (optional)
+  name: string;
+  dimensions?: number;
   embed: (input: EmbeddingInput) => Promise<number[]>;
 };
 ```
 
-The `embed` function receives context about what's being embedded, though most implementations only use `text`. Return a numeric array representing the embedding vector.
+The `embed` function receives context about what's being embedded, though most implementations only use the `text` field. Return a numeric array representing the embedding vector.
 
 ## VectorStore
 
-The interface for database operations:
+The store adapter interface handles database operations:
 
 ```ts
 type VectorStore = {
   upsert: (chunks: Chunk[]) => Promise<void>;
-  query: (params: {
-    embedding: number[];
-    topK: number;
-    scope?: { sourceId?: string };
-  }) => Promise<Array<Chunk & { score: number }>>;
+  query: (params: { embedding: number[]; topK: number; scope?: { sourceId?: string } }) => Promise<Array<Chunk & { score: number }>>;
   delete: (input: DeleteInput) => Promise<void>;
 };
 ```
 
-The `upsert` method replaces stored content for the logical document identified by `chunks[0].sourceId` (exact match).
-
-The `query` method finds the most similar chunks and returns them with similarity scores.
-
-The `delete` method removes stored content by logical identity (either an exact `sourceId` or a namespace `sourceIdPrefix`).
+The `upsert` method replaces stored content for the logical document. The `query` method finds similar chunks. The `delete` method removes documents by source ID or prefix.
 
 ## DeleteInput
 
-The input to `engine.delete()` and `store.delete()`:
+Deletion supports exact match or prefix match:
 
 ```ts
 type DeleteInput =
@@ -352,97 +315,34 @@ type DeleteInput =
   | { sourceIdPrefix: string };
 ```
 
-## AssetExtractor
+Use exact deletion for single documents. Use prefix deletion for namespaces (e.g., deleting all documents for a tenant).
 
-The interface for extractor modules that process rich media assets into text or embeddings. Extractors are installed via the CLI and registered in your engine configuration.
+## Chunker and ChunkingOptions
+
+Custom chunkers implement this interface:
 
 ```ts
-type AssetExtractor = {
-  name: string;
-  supports: (args: { asset: AssetInput; ctx: AssetExtractorContext }) => boolean;
-  extract: (args: { asset: AssetInput; ctx: AssetExtractorContext }) => Promise<{
-    texts: Array<{
-      label: string;
-      content: string;
-      confidence?: number;
-      pageRange?: [number, number];
-      timeRangeSec?: [number, number];
-    }>;
-    skipped?: { code: string; message: string };
-    metadata?: Metadata;
-    diagnostics?: { model?: string; tokens?: number; seconds?: number };
-  }>;
+type ChunkingOptions = {
+  chunkSize: number;
+  chunkOverlap: number;
+  minChunkSize?: number;
+  separators?: string[];
 };
+
+type ChunkText = {
+  index: number;
+  content: string;
+  tokenCount: number;
+};
+
+type Chunker = (content: string, options: ChunkingOptions) => ChunkText[] | Promise<ChunkText[]>;
 ```
 
-<TypeTable
-  type={{
-    name: {
-      description: 'Unique identifier for the extractor (e.g., "pdf:llm", "ocr:vision"). Stored in chunk.metadata.extractor.',
-      type: 'string',
-    },
-    supports: {
-      description: 'Returns true if this extractor can handle the given asset. Called for each asset to find the right extractor.',
-      type: '({ asset, ctx }) => boolean',
-    },
-    extract: {
-      description: 'Performs extraction and returns text segments with optional metadata and diagnostics.',
-      type: '(args) => Promise<ExtractResult>',
-    },
-  }}
-/>
-
-### Extract result
-
-The `extract` function returns:
-
-| Field | Description |
-|-------|-------------|
-| `texts` | Array of extracted text segments, each with a `label` (e.g., "page-1", "transcription") and `content` |
-| `texts[].confidence` | Optional confidence score (0-1) for the extraction |
-| `texts[].pageRange` | Optional page range `[start, end]` for PDFs |
-| `texts[].timeRangeSec` | Optional time range in seconds for audio/video |
-| `skipped` | Optional structured skip reason (e.g., disabled by config, too-large) |
-| `metadata` | Optional metadata merged into chunks created from this asset |
-| `diagnostics` | Optional diagnostic info (model used, token count, processing time) |
-
-### Example: Custom extractor
-
-```ts
-import type { AssetExtractor } from "@unrag/core";
-
-export function createAudioTranscriptExtractor(): AssetExtractor {
-  return {
-    name: "audio:whisper",
-    
-    supports: ({ asset, ctx }) => {
-      return asset.kind === "audio" && ctx.assetProcessing.audio.transcription.enabled;
-    },
-    
-    extract: async ({ asset, ctx }) => {
-      const audioBytes = asset.data.kind === "bytes" 
-        ? asset.data.bytes 
-        : await fetchAssetBytes(asset.data.url);
-      
-      const transcription = await whisperTranscribe(audioBytes);
-      
-      return {
-        texts: [
-          { label: "transcription", content: transcription.text },
-        ],
-        diagnostics: {
-          model: "whisper-large-v3",
-          seconds: transcription.durationSec,
-        },
-      };
-    },
-  };
-}
-```
+Your chunker receives the document content and configuration options. Return an array of chunks with sequential indices, the chunk text, and accurate token counts.
 
 ## ContextEngineConfig
 
-The configuration for creating an engine:
+When creating an engine, you provide this configuration:
 
 ```ts
 type ContextEngineConfig = {
@@ -455,58 +355,42 @@ type ContextEngineConfig = {
   chunker?: Chunker;
   idGenerator?: () => string;
 };
-
-type ChunkingOptions = {
-  chunkSize: number;      // Max tokens per chunk (default: 512)
-  chunkOverlap: number;   // Overlap tokens between chunks (default: 50)
-  minChunkSize?: number;  // Minimum tokens per chunk (default: 24)
-  separators?: string[];  // Custom separator hierarchy for recursive splitting
-};
-
-type Chunker = (content: string, options: ChunkingOptions) => ChunkText[] | Promise<ChunkText[]>;
-
-type ChunkText = {
-  index: number;
-  content: string;
-  tokenCount: number;
-};
 ```
 
 <TypeTable
   type={{
     embedding: {
-      description: 'The embedding provider for generating vectors.',
-      type: 'EmbeddingProvider',
+      description: "The embedding provider for generating vectors.",
+      type: "EmbeddingProvider",
     },
     store: {
-      description: 'The vector store adapter for database operations.',
-      type: 'VectorStore',
+      description: "The vector store adapter for database operations.",
+      type: "VectorStore",
     },
     extractors: {
-      description: 'Optional array of extractor modules for processing rich media assets. Install via CLI, then register here.',
-      type: 'AssetExtractor[]',
-      default: '[]',
+      description: "Optional array of extractors for processing rich media assets.",
+      type: "AssetExtractor[]",
+      default: "[]",
     },
     assetProcessing: {
-      description: 'Configuration for how assets are processed (fetch limits, extraction settings, error handling).',
-      type: 'DeepPartial<AssetProcessingConfig>',
+      description: "Configuration for how assets are processed (fetch limits, extraction settings).",
+      type: "DeepPartial<AssetProcessingConfig>",
     },
     storage: {
-      description: 'Controls what content is persisted to the database.',
-      type: 'object',
+      description: "Controls what content is persisted to the database.",
+      type: "object",
     },
     defaults: {
-      description: 'Default chunking settings (chunkSize, chunkOverlap).',
-      type: 'Partial<ChunkingOptions>',
+      description: "Default chunking settings (chunkSize, chunkOverlap, minChunkSize).",
+      type: "Partial<ChunkingOptions>",
     },
     chunker: {
-      description: 'Optional custom chunking function. Defaults to token-based recursive splitter using o200k_base encoding.',
-      type: 'Chunker',
+      description: "Optional custom chunking function. Defaults to token-based recursive splitting.",
+      type: "Chunker",
     },
     idGenerator: {
-      description: 'Optional custom UUID generator.',
-      type: '() => string',
+      description: "Optional custom UUID generator. Defaults to crypto.randomUUID().",
+      type: "() => string",
     },
   }}
 />
-

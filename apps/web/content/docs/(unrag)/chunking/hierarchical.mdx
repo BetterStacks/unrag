@@ -3,7 +3,19 @@ title: Hierarchical Chunking
 description: Section-first chunking that preserves header context in every chunk.
 ---
 
-Hierarchical chunking splits documents by sections (headings) and prepends the section header to each chunk. This ensures every chunk carries its structural context, improving retrieval relevance.
+When you chunk a long document, individual chunks can lose their place. A chunk containing "Set the timeout to 5000" might be perfectly clear in context—but in isolation, which timeout? For which feature? In what part of the system? The information is technically present, but the context that makes it useful is gone.
+
+Hierarchical chunking addresses this by prepending section headers to every chunk. If a chunk comes from "Configuration > Timeouts > Request Settings," that path appears at the top of the chunk. When the chunk is retrieved, the user (or the LLM using it) immediately knows where this information fits in the larger document.
+
+## How it differs from markdown chunking
+
+Both hierarchical and markdown chunking understand document structure. Both split at headings and keep code blocks intact. The difference is what happens when a section is large enough to require multiple chunks.
+
+With **markdown chunking**, only the first chunk of a section includes the heading. Subsequent chunks from the same section start with prose. If the Configuration section splits into three chunks, only the first says "## Configuration."
+
+With **hierarchical chunking**, every chunk includes the heading. All three chunks from Configuration start with "## Configuration." This makes each chunk self-documenting. You can look at any single chunk and know exactly what section it came from.
+
+The tradeoff is token overhead. Prepending headers to every chunk uses some of your token budget. A "## Configuration > ### Database Settings" prefix might be 8-10 tokens. For a 512-token chunk, that's about 2% overhead—usually worth it for the context it provides.
 
 ## Installation
 
@@ -11,9 +23,11 @@ Hierarchical chunking splits documents by sections (headings) and prepends the s
 bunx unrag add chunker:hierarchical
 ```
 
-No additional dependencies required.
+No additional dependencies required beyond what Unrag already provides.
 
 ## Configuration
+
+Enable hierarchical chunking in your `unrag.config.ts`:
 
 ```ts
 export default defineUnragConfig({
@@ -28,67 +42,35 @@ export default defineUnragConfig({
 });
 ```
 
-### Options
-
-<TypeTable
-  type={{
-    chunkSize: {
-      description: 'Maximum tokens per chunk (including header).',
-      type: 'number',
-      default: '512',
-    },
-    chunkOverlap: {
-      description: 'Overlap tokens between chunks within the same section.',
-      type: 'number',
-      default: '50',
-    },
-    minChunkSize: {
-      description: 'Minimum tokens per chunk.',
-      type: 'number',
-      default: '24',
-    },
-  }}
-/>
-
 ## How it works
 
-1. **Split by headings** — Document is divided into sections at `# H1` through `###### H6` boundaries
-2. **Chunk section content** — Each section's body is chunked using recursive token-based splitting
-3. **Prepend headers** — The section header is prepended to each chunk from that section
-4. **Preserve code blocks** — Fenced code blocks are kept intact during section splitting
+The hierarchical chunker processes documents in these steps:
 
-This creates chunks like:
+**First, it extracts the heading structure.** The chunker scans for headings at all levels (`#` through `######`) and builds a tree representing the document's hierarchy.
 
-```
-## Configuration
+**Second, it splits content by sections.** Each heading starts a new section. Content under a heading belongs to that section until the next heading at the same or higher level appears.
 
-The config file supports these options...
-```
+**Third, it chunks section content.** If a section's body fits within `chunkSize`, it becomes one chunk. If it exceeds the limit, the chunker splits it using recursive token-based splitting, creating multiple chunks from that section.
 
-Instead of just:
+**Fourth, it prepends headers.** Each chunk gets its section header prepended. For nested sections, this includes the full path: "# Top Level > ## Section > ### Subsection."
 
-```
-The config file supports these options...
-```
+**Finally, it protects code blocks.** Like the markdown chunker, fenced code blocks are kept intact and not split internally.
 
-## When to use
+## When hierarchical chunking helps most
 
-Hierarchical chunking is ideal for:
+The value of hierarchical chunking increases with document complexity. Consider these scenarios:
 
-- **Technical documentation** with clear section structure
-- **Reference manuals** where section context matters
-- **Long documents** where chunks might lose their place
-- **Multi-level content** with nested headings
+**Reference documentation** with deep nesting benefits significantly. An API reference might have sections for each endpoint, subsections for parameters and responses, and sub-subsections for specific fields. When a chunk about a response field includes "## POST /users > ### Response > #### body.email," the context is immediate.
 
-Consider alternatives when:
+**Technical specifications** where similar terms appear in different contexts need this disambiguation. A chunk saying "Set the value to 0" could mean anything. A chunk starting with "## Error Handling > ### Retry Logic" makes the meaning clear.
 
-- Document has no headings → [Recursive chunker](/docs/chunking/recursive)
-- You need semantic boundaries, not structural → [Semantic chunker](/docs/chunking/semantic)
-- You're chunking source code → [Code chunker](/docs/chunking/code)
+**Long documents** where chunks might be retrieved far from their source context benefit from carrying that context with them. If your retrieval results mix chunks from different parts of a 50-page document, headers help users orient.
 
-## Example
+**Multi-section searches** where users query across sections work better when chunks identify themselves. A search for "timeout configuration" might return chunks from three different sections; headers help users understand which timeout each chunk discusses.
 
-Input markdown:
+## A practical example
+
+Consider this API documentation:
 
 ```markdown
 # API Reference
@@ -103,67 +85,151 @@ All requests require an API key in the header:
 Authorization: Bearer YOUR_API_KEY
 ```
 
-Keys can be generated in the dashboard.
+Keys can be generated in the dashboard. Each key has configurable permissions.
 
 ## Endpoints
 
 ### GET /users
 
-Returns a list of users.
+Returns a list of users. Supports pagination via `limit` and `offset` query parameters.
+
+```json
+{
+  "users": [...],
+  "total": 150,
+  "limit": 20,
+  "offset": 0
+}
+```
 
 ### POST /users
 
-Creates a new user. Requires name and email fields.
+Creates a new user. Requires `name` and `email` fields in the request body.
+
+```json
+{
+  "name": "Alice",
+  "email": "alice@example.com"
+}
 ```
 
-With hierarchical chunking:
-
-```
-Chunk 1: "# API Reference\n\nThis document covers the REST API."
-
-Chunk 2: "## Authentication\n\nAll requests require an API key in the header:\n\n```\nAuthorization: Bearer <api-key>\n```\n\nKeys can be generated in the dashboard."
-
-Chunk 3: "### GET /users\n\nReturns a list of users."
-
-Chunk 4: "### POST /users\n\nCreates a new user. Requires name and email fields."
+Returns the created user with its assigned ID.
 ```
 
-Notice how each chunk starts with its heading, providing immediate context.
+With hierarchical chunking, this produces:
 
-## Long sections
-
-If a section's body exceeds `chunkSize`, it's split into multiple chunks. Each chunk gets the same header prepended:
-
+**Chunk 1:**
 ```
-## Installation
+# API Reference
 
-Chunk 1 content about package managers...
+This document covers the REST API.
 ```
 
+**Chunk 2:**
 ```
-## Installation
+## Authentication
 
-Chunk 2 content about manual installation...
+All requests require an API key in the header:
+
+```
+Authorization: Bearer YOUR_API_KEY
 ```
 
-This means the header counts toward each chunk's token budget. Account for this when setting `chunkSize`.
+Keys can be generated in the dashboard. Each key has configurable permissions.
+```
 
-## Comparison with markdown chunker
+**Chunk 3:**
+```
+### GET /users
 
-| Feature | Markdown | Hierarchical |
-|---------|----------|--------------|
-| Splits at headings | Yes | Yes |
-| Preserves code blocks | Yes | Yes |
-| Prepends header to chunks | No | Yes |
-| Multi-chunk sections | Header only on first | Header on all |
-| Best for | Code-heavy docs | Reference docs |
+Returns a list of users. Supports pagination via `limit` and `offset` query parameters.
 
-Use **markdown chunking** when chunks are self-contained and headers add overhead.
+```json
+{
+  "users": [...],
+  "total": 150,
+  "limit": 20,
+  "offset": 0
+}
+```
+```
 
-Use **hierarchical chunking** when context matters and you want every chunk to know where it came from.
+**Chunk 4:**
+```
+### POST /users
 
-## Header-only chunks
+Creates a new user. Requires `name` and `email` fields in the request body.
 
-If a section has no body (just a heading), it becomes a single-token chunk containing only the header. These small chunks are useful for navigation but may be filtered during retrieval if `minChunkSize` is set high.
+```json
+{
+  "name": "Alice",
+  "email": "alice@example.com"
+}
+```
 
-Consider lowering `minChunkSize` if you have many header-only sections you want to keep.
+Returns the created user with its assigned ID.
+```
+
+Each chunk starts with its heading. When a user searches for "how to create a user," they get back Chunk 4, which immediately identifies itself as documentation for "POST /users."
+
+## Long sections and repeated headers
+
+What happens when a section is long enough to split into multiple chunks? The header is prepended to each one.
+
+Suppose the "## Authentication" section had much more content—enough for three chunks. Each chunk would start with "## Authentication":
+
+```
+Chunk 2a: "## Authentication\n\nAll requests require an API key..."
+Chunk 2b: "## Authentication\n\nTokens expire after 24 hours..."
+Chunk 2c: "## Authentication\n\nFor service-to-service calls..."
+```
+
+This repetition uses tokens but ensures that any chunk from this section carries its context. When Chunk 2b is retrieved in isolation, the user knows it's about authentication without needing to see the other chunks.
+
+## Accounting for header overhead
+
+Because headers are prepended, your effective content per chunk is slightly less than `chunkSize`. The chunker accounts for this—it subtracts the header token count from the available budget before splitting content. You don't need to manually adjust settings.
+
+However, if you have very long heading paths (deeply nested sections with verbose headings), the overhead can become significant. A header like "# Comprehensive Guide to Advanced Configuration > ## Database Layer > ### PostgreSQL Settings > #### Connection Pooling" uses 20+ tokens. For a 512-token chunk, that's 4% overhead.
+
+If overhead concerns you, consider:
+
+1. Using shorter headings in your source documents
+2. Increasing `chunkSize` to give more room for content
+3. Using markdown chunking for less deeply-nested content
+
+## Header-only sections
+
+Some documents have heading placeholders that introduce subsections without substantial content:
+
+```markdown
+## Endpoints
+
+### GET /users
+...
+
+### POST /users
+...
+```
+
+The "## Endpoints" heading has no body—it just introduces the subsections. The hierarchical chunker handles this by creating a minimal chunk containing just the heading, or by merging it with the first subsection depending on `minChunkSize` settings.
+
+If you have many such structural headings, you might want a lower `minChunkSize` to preserve them as navigation markers, or a higher value to merge them away.
+
+## Choosing between markdown and hierarchical chunking
+
+Both chunkers understand markdown structure. Here's how to decide:
+
+Choose **markdown chunking** when:
+- Chunks are usually self-contained (one chunk per section)
+- You want minimal overhead
+- Headers are long or deeply nested
+- Your content is code-heavy and headers add limited value
+
+Choose **hierarchical chunking** when:
+- Sections often split into multiple chunks
+- Context is critical and worth the overhead
+- Your documentation is reference-style with users querying specific topics
+- You're building search where users need to understand where each result fits
+
+For many projects, both work well. Try markdown chunking first since it's simpler, and switch to hierarchical if you find that chunks are losing context in retrieval results.

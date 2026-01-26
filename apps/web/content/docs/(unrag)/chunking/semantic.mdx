@@ -3,17 +3,36 @@ title: Semantic Chunking
 description: LLM-guided chunking that splits at natural semantic boundaries.
 ---
 
-Semantic chunking uses an LLM to identify natural semantic boundaries in your text—places where topics shift or ideas complete. This produces chunks that are more coherent and self-contained than rule-based splitting.
+Rule-based chunkers like the recursive splitter look at text structure—paragraph breaks, sentence endings, punctuation. They work well because text structure often correlates with semantic structure. But the correlation isn't perfect. A topic can shift mid-paragraph. Two paragraphs might belong together as one coherent thought. Structural boundaries and meaning boundaries don't always align.
+
+Semantic chunking addresses this by using an LLM to identify where ideas actually change. Instead of splitting at every paragraph break, it analyzes the content and finds the natural joints—places where one topic ends and another begins, where an explanation completes, where the narrative shifts direction. The result is chunks that are more coherent and self-contained than what rule-based splitting can achieve.
+
+## How it works
+
+When you ingest a document with semantic chunking enabled, Unrag sends the content to an LLM with instructions to identify semantic boundaries. The model reads through the text, understanding context and meaning, and returns suggested split points. Unrag then divides the text at those points and applies token limits to ensure chunks stay within bounds.
+
+The LLM is prompted to prefer boundaries at:
+
+- Transitions between distinct topics or subjects
+- Completed thoughts or arguments
+- Points where the narrative or explanation shifts
+- Natural section breaks that aren't marked with formatting
+
+If the LLM suggests boundaries that would create chunks exceeding your configured `chunkSize`, Unrag further splits those chunks using sentence-based rules. This ensures you never exceed token limits while preserving semantic coherence wherever possible.
 
 ## Installation
+
+Semantic chunking requires an LLM, so it's packaged as a plugin rather than being built into core:
 
 ```bash
 bunx unrag add chunker:semantic
 ```
 
-This installs the semantic chunker plugin and adds the `ai` SDK dependency.
+This installs the semantic chunker and ensures the AI SDK dependencies are present. The chunker uses your configured AI provider, so there's no additional setup beyond what you've already done for embedding or other LLM features.
 
 ## Configuration
+
+Enable semantic chunking in your `unrag.config.ts`:
 
 ```ts
 export default defineUnragConfig({
@@ -22,116 +41,139 @@ export default defineUnragConfig({
     options: {
       chunkSize: 512,
       chunkOverlap: 50,
-      model: "gpt-4o-mini",  // optional: specify LLM model
+      model: "gpt-4o-mini",
     },
   },
   // ...
 });
 ```
 
-### Options
+The `model` option is optional. If you don't specify it, the chunker uses your provider's default model. Specifying a model lets you choose the cost-quality tradeoff explicitly.
 
-<TypeTable
-  type={{
-    chunkSize: {
-      description: 'Maximum tokens per chunk.',
-      type: 'number',
-      default: '512',
-    },
-    chunkOverlap: {
-      description: 'Overlap tokens between chunks.',
-      type: 'number',
-      default: '50',
-    },
-    minChunkSize: {
-      description: 'Minimum tokens per chunk.',
-      type: 'number',
-      default: '24',
-    },
-    model: {
-      description: 'LLM model for semantic analysis. Uses your configured AI provider.',
-      type: 'string',
-      default: 'Provider default',
-    },
-  }}
-/>
+## Configuration options
 
-## How it works
+**chunkSize** still matters even with semantic chunking. The LLM identifies boundaries, but if those boundaries would create chunks larger than your limit, Unrag splits further. Think of `chunkSize` as an upper bound that semantic chunking respects.
 
-1. The chunker sends your content to an LLM with instructions to identify semantic boundaries
-2. The LLM returns suggested split points based on topic shifts and idea completions
-3. Text is split at these boundaries, then merged/split further to respect token limits
-4. If the LLM call fails, it falls back to sentence-based splitting
+**chunkOverlap** works the same as with other chunkers. Overlapping tokens at boundaries help preserve context when ideas span chunks.
 
-The LLM is prompted to prefer boundaries between:
-- Distinct topics or subjects
-- Completed thoughts or arguments
-- Paragraph transitions
-- Section changes
+**minChunkSize** prevents the creation of tiny fragments. If the LLM identifies a boundary that would create a very small chunk, it gets merged with a neighbor.
 
-## When to use
+**model** specifies which LLM to use for boundary detection. Faster, cheaper models like `gpt-4o-mini` work well for most content. For complex or nuanced documents, a more capable model may identify better boundaries.
 
-Semantic chunking is ideal for:
+## When semantic chunking shines
 
-- **Long-form content** where topic boundaries aren't marked by formatting
-- **Narrative text** with flowing prose (essays, articles, stories)
-- **Mixed-topic documents** where you want each chunk to be about one thing
-- **High-value content** where retrieval precision matters more than cost
+The value of semantic chunking becomes clear with content that has subtle topic shifts. Consider a long article discussing machine learning:
 
-Consider alternatives when:
+```
+Machine learning models learn patterns from data. They can identify relationships
+that humans might miss, making them powerful for prediction tasks. The ability to
+generalize from training data to new situations is what makes these models useful.
 
-- **Cost is a concern** — Each document requires an LLM call
-- **Content is structured** — Markdown or code already has clear boundaries
-- **Latency matters** — LLM calls add processing time
+However, this power comes with limitations. Models require large amounts of training
+data. They can encode biases present in that data. And they can fail silently when
+faced with situations that differ from their training distribution.
 
-## Cost considerations
+Careful validation is therefore essential. You need test sets that represent real-world
+conditions. You need monitoring to catch drift over time. And you need humans in the
+loop for high-stakes decisions.
+```
 
-Semantic chunking calls an LLM for every document ingested. For a 10,000 token document:
+A recursive chunker might split this at paragraph boundaries, which isn't terrible. But semantic chunking recognizes that the first two paragraphs are really one thought (benefits and limitations), while the third paragraph is a distinct topic (validation practices). It might produce:
 
-- Input: ~10,000 tokens
-- Output: ~500 tokens (boundary markers)
-- Cost: ~$0.01-0.05 per document (varies by model)
+```
+Chunk 1: "Machine learning models learn patterns from data... And they can fail
+silently when faced with situations that differ from their training distribution."
 
-For bulk ingestion of thousands of documents, this adds up. Consider:
+Chunk 2: "Careful validation is therefore essential. You need test sets that
+represent real-world conditions..."
+```
 
-- Using semantic chunking only for high-value content
-- Using [markdown](/docs/chunking/markdown) or [recursive](/docs/chunking/recursive) for structured content
-- Batching ingestion during off-peak hours
+The word "However" in the second paragraph signals a contrast, not a topic change. A semantic chunker understands this; a rule-based chunker doesn't.
+
+## Cost and latency considerations
+
+Semantic chunking calls an LLM for every document you ingest. This has real costs:
+
+For a 10,000-token document using `gpt-4o-mini`:
+- Input: ~10,000 tokens at $0.15/1M tokens = ~$0.0015
+- Output: ~500 tokens (boundary markers) at $0.60/1M tokens = ~$0.0003
+- **Total: ~$0.002 per document**
+
+This seems small, but it adds up. Ingesting 10,000 documents costs roughly $20 in LLM fees on top of your embedding costs. For 100,000 documents, that's $200.
+
+Latency is also a factor. Each document requires a round-trip to an LLM API. With typical latencies of 1-3 seconds per call, bulk ingestion becomes significantly slower than with local chunking.
+
+Consider using semantic chunking for:
+
+- High-value content where retrieval quality directly impacts user experience
+- Relatively small corpuses where cost and latency are manageable
+- Content that will be queried frequently, amortizing the upfront chunking cost
+- Narrative or long-form content without clear structural markers
+
+Use simpler chunkers for:
+
+- Large-scale ingestion of thousands or millions of documents
+- Content with clear structure (markdown, code, structured data)
+- Real-time or near-real-time ingestion requirements
+- Budget-constrained environments
 
 ## Fallback behavior
 
-If the LLM call fails (rate limits, API errors, timeouts), the semantic chunker automatically falls back to sentence-based splitting. This ensures ingestion doesn't fail, though chunk quality may be lower.
+Network requests fail. APIs have rate limits. LLMs occasionally return unexpected responses. Semantic chunking is designed to degrade gracefully rather than fail hard.
 
-Check `result.warnings` after ingestion to detect fallback usage:
+If the LLM call fails for any reason—timeout, rate limit, malformed response—the semantic chunker automatically falls back to sentence-based splitting. Your document still gets chunked and ingested, just without the semantic awareness. The fallback uses the same `chunkSize` and overlap settings, so chunk sizes remain consistent.
+
+You can detect when fallback occurred by checking the warnings in the ingest result:
 
 ```ts
 const result = await engine.ingest({ sourceId, content });
-if (result.warnings.some(w => w.code === "semantic_fallback")) {
-  console.warn("Semantic chunking fell back to sentence splitting");
+
+for (const warning of result.warnings) {
+  if (warning.code === "semantic_fallback") {
+    console.warn(`Semantic chunking fell back for ${sourceId}:`, warning.message);
+  }
 }
 ```
 
-## Example
+This lets you log fallback occurrences, retry failed documents later, or alert on high fallback rates that might indicate API issues.
 
-Input text about machine learning:
+## Choosing between semantic and agentic chunking
 
+Unrag offers two LLM-powered chunking methods: semantic and agentic. Both use LLMs and have similar costs, but they optimize for different goals.
+
+**Semantic chunking** asks the LLM to find natural topic boundaries. It produces clean, coherent chunks that respect how content is organized.
+
+**Agentic chunking** asks the LLM to optimize chunks for retrieval. It considers what queries users might ask and structures chunks to match those queries.
+
+For most LLM-chunking use cases, semantic chunking is the right choice. It's more predictable and produces reliable results. Agentic chunking is a specialized option for when you've identified that retrieval quality is the limiting factor and you're willing to pay for maximum optimization. See [Agentic Chunking](/docs/chunking/agentic) for details.
+
+## Practical example
+
+Here's a complete example showing semantic chunking for a knowledge base:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+
+// Articles are narrative content well-suited to semantic chunking
+const article = await fetchArticle("understanding-kubernetes");
+
+const result = await engine.ingest({
+  sourceId: `kb:${article.slug}`,
+  content: article.body,
+  metadata: {
+    title: article.title,
+    author: article.author,
+    category: "infrastructure",
+  },
+});
+
+if (result.warnings.length > 0) {
+  console.warn("Ingestion warnings:", result.warnings);
+}
+
+console.log(`Created ${result.chunkCount} chunks for "${article.title}"`);
 ```
-Machine learning models learn patterns from data. They identify relationships
-that humans might miss. This makes them powerful for prediction tasks.
 
-However, ML models have limitations. They require large amounts of training data.
-They can also encode biases present in that data. Careful validation is essential.
-```
-
-With semantic chunking, this might produce:
-
-```
-Chunk 1: "Machine learning models learn patterns from data. They identify
-relationships that humans might miss. This makes them powerful for prediction tasks."
-
-Chunk 2: "However, ML models have limitations. They require large amounts of
-training data. They can also encode biases present in that data. Careful
-validation is essential."
-```
-
-The LLM identifies that "However" marks a topic shift from benefits to limitations, creating a clean semantic boundary.
+The semantic chunker analyzes the article's content, identifies where topics shift, and creates chunks that capture complete ideas. When users later search for Kubernetes concepts, they'll get back coherent explanations rather than fragments that start mid-thought.

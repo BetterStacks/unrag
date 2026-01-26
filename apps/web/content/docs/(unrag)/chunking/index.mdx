@@ -3,70 +3,125 @@ title: Chunking Overview
 description: How documents are split into chunks and why it matters for retrieval quality.
 ---
 
-Chunking is how Unrag splits your documents into smaller pieces before embedding them. The quality of your retrieval depends significantly on how well your chunking strategy matches your content type and use case.
+Before Unrag can embed your documents and make them searchable, it needs to break them into smaller pieces. This process—chunking—is one of the most important decisions in any RAG system, and getting it right has a significant impact on retrieval quality.
 
-## Why chunk at all?
+## Why chunking matters
 
-Embedding models have context limits. OpenAI's text-embedding-3-small, for example, accepts up to 8,191 tokens per call. But even within that limit, longer texts produce less useful embeddings. A 5,000-word document embedded as a single vector captures the overall topic but loses the nuance of individual sections.
+Embedding models turn text into vectors—arrays of numbers that represent semantic meaning. But these models have limits. OpenAI's text-embedding-3-small, for example, can accept up to 8,191 tokens per call. More importantly, even within that limit, longer texts produce less useful embeddings. When you embed a 5,000-word document as a single vector, you get a vague average of everything the document discusses. The nuance of individual paragraphs, the specifics of each section—all of that gets compressed into one point in vector space.
 
-Chunking solves this by breaking documents into pieces small enough that each embedding captures specific, queryable meaning. When someone searches for "how to configure authentication," you want to return the paragraph about authentication configuration, not an entire document that mentions authentication once.
+Chunking solves this by breaking documents into pieces small enough that each embedding captures specific, queryable meaning. When someone searches for "how to configure authentication," you want to return the paragraph that actually explains authentication configuration, not an entire document that happens to mention the word once.
 
-The tradeoff is that chunking can split information across boundaries. If an important concept spans two chunks, retrieval might only return one of them. Overlap helps with this—by repeating some text at chunk boundaries, you increase the chance that related content ends up in the same chunk.
+The tradeoff is that chunking can split information across boundaries. If an important concept spans two paragraphs, your chunks might separate them. When a user's query matches one half, they won't see the other. Overlap helps with this—by repeating some text at chunk boundaries, you increase the chance that related content ends up together. But overlap isn't free; it increases storage and embedding costs. Finding the right balance requires understanding your content and your users' queries.
 
 ## The default: Token-based recursive chunking
 
-Unrag uses **token-based recursive chunking** by default. It splits text using a hierarchy of separators (paragraphs → sentences → clauses → words → characters) while counting actual tokens using the `o200k_base` encoding—the same tokenizer used by GPT-5, GPT-4o, o1, o3, o4-mini, and gpt-4.1.
+Unrag uses **token-based recursive chunking** by default. The algorithm tries to split text at natural boundaries—paragraphs first, then sentences, then clauses, then words—while counting actual tokens using the `o200k_base` encoding. This is the same tokenizer used by GPT-5, GPT-4o, o1, o3, o4-mini, and gpt-4.1, which means token counts match exactly what OpenAI's embedding models will see.
 
-Default settings:
-- **chunkSize**: 512 tokens
-- **chunkOverlap**: 50 tokens
-- **minChunkSize**: 24 tokens
+The default settings work well for most content:
 
-This approach ensures chunks stay within embedding model limits and preserves semantic boundaries. See [Recursive Chunking](/docs/chunking/recursive) for details.
+- **chunkSize**: 512 tokens—large enough to preserve context, small enough for precise retrieval
+- **chunkOverlap**: 50 tokens—enough to bridge ideas that span chunk boundaries
+- **minChunkSize**: 24 tokens—prevents tiny fragments that add noise without value
+
+These numbers aren't magic. They're a reasonable starting point based on how embedding models behave and how users typically search. If your retrieval results feel too vague, try smaller chunks. If results feel like fragments missing context, try larger ones. The [Recursive Chunking](/docs/chunking/recursive) page explains the algorithm in detail.
 
 ## Available chunking methods
 
-| Method | Best for | Install |
-|--------|----------|---------|
-| [Recursive](/docs/chunking/recursive) | General text (default) | Built-in |
-| [Semantic](/docs/chunking/semantic) | LLM-guided semantic boundaries | `bunx unrag add chunker:semantic` |
-| [Markdown](/docs/chunking/markdown) | Documentation, READMEs | `bunx unrag add chunker:markdown` |
-| [Code](/docs/chunking/code) | Source code (AST-based) | `bunx unrag add chunker:code` |
-| [Hierarchical](/docs/chunking/hierarchical) | Structured docs with headers | `bunx unrag add chunker:hierarchical` |
-| [Agentic](/docs/chunking/agentic) | High-value content (LLM-powered) | `bunx unrag add chunker:agentic` |
-| [Custom](/docs/chunking/custom) | Your own logic | Bring your own |
+Different content types benefit from different chunking strategies. A legal contract has different structure than a TypeScript file, and both differ from a blog post. Unrag provides several chunking methods, each optimized for specific content:
+
+**Recursive chunking** (the default) works well for general prose. It respects natural text boundaries and handles mixed content gracefully. If you're not sure which chunker to use, start here. See [Recursive Chunking](/docs/chunking/recursive).
+
+**Semantic chunking** uses an LLM to identify where topics shift and ideas complete. This produces more coherent chunks than rule-based splitting, but adds cost and latency since every document requires an LLM call. It's ideal for long-form content without clear structural markers. See [Semantic Chunking](/docs/chunking/semantic).
+
+**Markdown chunking** understands markdown syntax. It splits at headings and horizontal rules while keeping fenced code blocks intact. This is the right choice for documentation, READMEs, and technical guides. See [Markdown Chunking](/docs/chunking/markdown).
+
+**Code chunking** uses tree-sitter to parse source code and split at function and class boundaries. Rather than cutting mid-function, it keeps complete definitions together. Currently supports TypeScript, JavaScript, Python, and Go. See [Code Chunking](/docs/chunking/code).
+
+**Hierarchical chunking** splits by section headings like markdown chunking, but goes further by prepending the section header to every chunk. This means each chunk knows where it came from, improving retrieval relevance for structured reference documentation. See [Hierarchical Chunking](/docs/chunking/hierarchical).
+
+**Agentic chunking** is the most sophisticated option. It uses an LLM not just to find boundaries but to actively optimize chunks for retrieval quality. The model considers what queries users might ask and structures chunks to match. This produces the best results but at the highest cost. See [Agentic Chunking](/docs/chunking/agentic).
+
+**Custom chunking** gives you full control. When none of the built-in options fit your content, you can implement your own chunker function. See [Custom Chunking](/docs/chunking/custom).
+
+## Installing plugin chunkers
+
+The recursive and token chunkers are built into Unrag's core. The others—semantic, markdown, code, hierarchical, and agentic—are plugins that you install when you need them:
+
+```bash
+bunx unrag add chunker:markdown
+bunx unrag add chunker:semantic
+bunx unrag add chunker:code
+bunx unrag add chunker:hierarchical
+bunx unrag add chunker:agentic
+```
+
+Each command installs the chunker's source files into your `lib/unrag/chunking/` directory and registers it so you can reference it by name in your config.
 
 ## Configuration
 
-Configure chunking in your `unrag.config.ts`:
+Once you've chosen a chunking method, configure it in your `unrag.config.ts`:
 
 ```ts
 export default defineUnragConfig({
   chunking: {
-    method: "recursive",  // or "semantic", "markdown", etc.
+    method: "markdown",
     options: {
-      chunkSize: 512,     // max tokens per chunk
-      chunkOverlap: 50,   // overlap tokens between chunks
-      minChunkSize: 24,   // minimum tokens per chunk
+      chunkSize: 512,
+      chunkOverlap: 50,
+      minChunkSize: 24,
     },
   },
   // ...
 });
 ```
 
-### Per-document overrides
+This becomes the default chunker for all `engine.ingest()` calls. You don't need to think about chunking on every ingest—the engine handles it automatically.
 
-Override chunking for specific ingests:
+## Overriding chunking per document
+
+Sometimes you need different chunking behavior for specific content. A long technical specification might need larger chunks than a FAQ page. Unrag lets you override chunking options on individual ingest calls:
 
 ```ts
+// Use larger chunks for this particular document
 await engine.ingest({
-  sourceId: "docs:api-reference",
-  content: technicalDoc,
+  sourceId: "specs:system-design-v2",
+  content: technicalSpec,
   chunking: { chunkSize: 768, chunkOverlap: 75 },
 });
 ```
 
+You can also override the chunking algorithm entirely for a single ingest:
+
+```ts
+import { markdownChunker } from "@unrag/chunking/markdown";
+
+// This document is markdown, even though our default is recursive
+await engine.ingest({
+  sourceId: "docs:readme",
+  content: readmeContent,
+  chunker: markdownChunker,
+});
+```
+
+This flexibility means you can handle heterogeneous content without maintaining multiple engine instances.
+
+## Choosing the right chunk size
+
+The `chunkSize` parameter has significant impact on retrieval quality. There's no universally correct value—the right choice depends on your content and how users query it.
+
+**Smaller chunks** (128-256 tokens) give you precision. Each chunk represents roughly one idea, so when it matches a query, it's likely directly relevant. The downside is loss of context. A chunk might contain the answer to a question but lack the surrounding explanation that makes it useful. Smaller chunks also mean more embeddings, which increases storage and API costs.
+
+**Medium chunks** (400-600 tokens) balance precision and context. This range works well for most applications. You capture enough surrounding text to preserve meaning while keeping chunks focused enough for accurate matching.
+
+**Larger chunks** (700-1000 tokens) preserve more context and keep related information together. They're cheaper to store and embed. But they're less precise—a large chunk might match because of one sentence, pulling in paragraphs of irrelevant text alongside it.
+
+**Very large chunks** (1000+ tokens) are usually too broad for effective semantic search. The embedding becomes a vague average of many topics, making it hard to match specific queries.
+
+For most applications, start with the default 512 tokens and adjust based on what you observe. If users find results that contain the right information but surrounded by noise, try smaller chunks. If results feel like fragments missing crucial context, try larger ones.
+
 ## Token counting
+
+Unrag uses token counts rather than character or word counts because embedding models think in tokens. A token is roughly 3-4 characters on average, but the exact mapping depends on the text. "Hello world" is 2 tokens. A complex technical term might be 3-4 tokens. A line of code with symbols might tokenize unexpectedly.
 
 Unrag exports a `countTokens` utility that uses the same tokenizer as the chunker:
 
@@ -74,19 +129,11 @@ Unrag exports a `countTokens` utility that uses the same tokenizer as the chunke
 import { countTokens } from "unrag";
 
 const tokens = countTokens("Hello world");  // 2
-const longText = countTokens(myDocument);   // exact token count
+const docTokens = countTokens(myDocument);   // exact count
 ```
 
-## Chunk size tradeoffs
+This is useful for understanding your content's size, debugging chunk boundaries, or building custom chunking logic.
 
-**Smaller chunks** (128-256 tokens) give you more precise retrieval. Each chunk is about one idea, so when it matches a query, it's likely directly relevant. The downside is that you lose context and generate more embeddings (higher cost).
-
-**Larger chunks** (512-768 tokens) preserve more context and keep related information together. They're cheaper to embed but less precise—a large chunk might match because of one sentence, returning irrelevant text alongside it.
-
-**Very large chunks** (1000+ tokens) are usually too broad for effective semantic search. The embedding becomes a vague average of many topics.
-
-For most applications, start with 400-600 tokens and adjust based on retrieval quality.
-
-<Callout title="Go deeper: Chunking strategies">
+<Callout title="Deep dive: Chunking strategies">
 The [RAG Handbook](/docs/rag) covers chunking in depth—including structure-aware strategies, multi-representation indexing, and how chunk size affects the quality-latency-cost triangle. See [Module 3: Chunking and Representation](/docs/rag/03-chunking-and-representation) for the full picture.
 </Callout>

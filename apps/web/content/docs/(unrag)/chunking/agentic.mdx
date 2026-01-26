@@ -3,122 +3,19 @@ title: Agentic Chunking
 description: LLM-powered chunking optimized for maximum retrieval quality.
 ---
 
-Agentic chunking uses an LLM to intelligently split documents with the explicit goal of maximizing retrieval quality. It keeps coherent ideas together and preserves nearby context, producing chunks optimized for semantic search.
+Most chunking methods focus on one goal: split documents into reasonable pieces. They respect structure (markdown chunking), identify topic boundaries (semantic chunking), or keep code units intact (code chunking). These are sensible approaches, and they work well.
 
-## Installation
+Agentic chunking takes a different perspective. Instead of asking "where should we split?", it asks "what chunks would best serve retrieval?" The LLM considers how users might query this content and structures chunks to maximize the chance of returning useful results. It's optimization for the end goal, not just for the splitting process.
 
-```bash
-bunx unrag add chunker:agentic
-```
+## What makes agentic chunking different
 
-This installs the agentic chunker plugin and adds the `ai` SDK dependency.
+The distinction between semantic and agentic chunking is subtle but important.
 
-## Configuration
+**Semantic chunking** finds natural boundaries. It looks at content and asks: where do topics shift? Where do ideas complete? The goal is coherence—chunks that are internally consistent and don't awkwardly split mid-thought.
 
-```ts
-export default defineUnragConfig({
-  chunking: {
-    method: "agentic",
-    options: {
-      chunkSize: 512,
-      chunkOverlap: 50,
-      model: "gpt-4o",  // optional: specify LLM model
-    },
-  },
-  // ...
-});
-```
+**Agentic chunking** optimizes for retrieval. It looks at content and asks: what would users search for? What chunks would best answer their questions? The goal is queryability—chunks that are likely to match user intent and provide useful answers.
 
-### Options
-
-<TypeTable
-  type={{
-    chunkSize: {
-      description: 'Maximum tokens per chunk.',
-      type: 'number',
-      default: '512',
-    },
-    chunkOverlap: {
-      description: 'Overlap tokens between chunks.',
-      type: 'number',
-      default: '50',
-    },
-    minChunkSize: {
-      description: 'Minimum tokens per chunk.',
-      type: 'number',
-      default: '24',
-    },
-    model: {
-      description: 'LLM model for chunking decisions. More capable models produce better results.',
-      type: 'string',
-      default: 'Provider default',
-    },
-  }}
-/>
-
-## How it works
-
-1. **Analyze content** — The LLM reads the document and identifies optimal split points
-2. **Optimize for retrieval** — Split points are chosen to maximize chunk coherence and queryability
-3. **Preserve context** — Related information stays together even across paragraph boundaries
-4. **Respect limits** — Chunks are sized to stay within token limits while maximizing quality
-
-The LLM is prompted to:
-- Keep coherent ideas together
-- Preserve nearby context that aids understanding
-- Create chunks that would match natural user queries
-- Avoid splitting mid-explanation or mid-example
-
-## When to use
-
-Agentic chunking is ideal for:
-
-- **High-value content** where retrieval quality is critical
-- **Complex documents** with nuanced structure
-- **Customer-facing search** where poor results have business impact
-- **Content that justifies LLM costs** (legal, medical, financial)
-
-Consider alternatives when:
-
-- **Cost is a concern** — Every document requires LLM processing
-- **Latency matters** — LLM calls add significant processing time
-- **Content is structured** — Markdown or code already has clear boundaries
-- **Bulk ingestion** — Thousands of documents would be expensive
-
-## Cost considerations
-
-Agentic chunking is the most expensive chunking method. For a 10,000 token document:
-
-| Model | Input cost | Output cost | Total |
-|-------|------------|-------------|-------|
-| gpt-4o-mini | ~$0.002 | ~$0.001 | ~$0.003 |
-| gpt-4o | ~$0.025 | ~$0.010 | ~$0.035 |
-| claude-3-opus | ~$0.15 | ~$0.075 | ~$0.225 |
-
-For 10,000 documents, costs range from $30 to $2,250 depending on model choice.
-
-**Recommendations:**
-- Start with `gpt-4o-mini` for most use cases
-- Use `gpt-4o` for complex, high-value content
-- Reserve `claude-3-opus` for critical content where quality justifies cost
-
-## Agentic vs semantic chunking
-
-Both use LLMs, but with different goals:
-
-| Aspect | Semantic | Agentic |
-|--------|----------|---------|
-| Goal | Find semantic boundaries | Maximize retrieval quality |
-| Prompt | "Split at topic changes" | "Optimize for search" |
-| Output | Clean topic boundaries | Query-optimized chunks |
-| Cost | Similar | Similar |
-| Best for | Narrative content | Search-critical content |
-
-For most LLM-chunking use cases, try **semantic** first. Use **agentic** when you need the highest possible retrieval quality.
-
-## Example
-
-Input text about a software feature:
+Consider documentation about a software feature:
 
 ```
 The export feature allows users to download their data in multiple formats.
@@ -134,26 +31,171 @@ to generate a new export. Enterprise customers can configure automatic
 scheduled exports via the API.
 ```
 
-With agentic chunking, the LLM might produce:
+Semantic chunking might produce two chunks: one about export formats, one combining the how-to instructions with availability information (since those paragraphs flow into each other).
 
+Agentic chunking might produce three chunks, each optimized for a different query pattern:
+1. "What export formats are available?" → format descriptions
+2. "How do I export my data?" → step-by-step instructions
+3. "How long are exports available?" → availability and enterprise features
+
+The agentic chunker anticipates what users will ask and structures content to match.
+
+## Installation
+
+```bash
+bunx unrag add chunker:agentic
 ```
-Chunk 1: "The export feature allows users to download their data in multiple formats.
-CSV exports include all fields by default, while JSON exports use a nested
-structure that mirrors the API response format."
 
-Chunk 2: "To export data, navigate to Settings > Data > Export. Select the format and
-date range, then click \"Generate Export\". Large exports may take several
-minutes to process. You'll receive an email when the export is ready."
+This installs the agentic chunker plugin. It uses the AI SDK, which should already be present if you're using Unrag's embedding features.
 
-Chunk 3: "Export files are available for download for 7 days. After that, you'll need
-to generate a new export. Enterprise customers can configure automatic
-scheduled exports via the API."
+## Configuration
+
+Enable agentic chunking in your `unrag.config.ts`:
+
+```ts
+export default defineUnragConfig({
+  chunking: {
+    method: "agentic",
+    options: {
+      chunkSize: 512,
+      chunkOverlap: 50,
+      model: "gpt-4o",  // optional: specify LLM model
+    },
+  },
+  // ...
+});
 ```
 
-The LLM groups content by user intent: format options, how-to steps, and availability/enterprise features.
+## When agentic chunking is worth it
+
+Agentic chunking is the most expensive option in Unrag's chunking toolkit. Every document requires an LLM call. For large corpuses, costs add up quickly. So when is it worth it?
+
+**High-value content where retrieval quality directly impacts business outcomes.** If poor search results mean lost customers, confused users, or missed sales, the cost of better chunking is easy to justify.
+
+**Customer-facing search and support systems.** Users have low tolerance for irrelevant results. When someone searches your help center, they expect the first result to answer their question. Agentic chunking maximizes that likelihood.
+
+**Content that will be queried frequently.** If a document will be searched thousands of times, spending an extra $0.03 to chunk it optimally has high ROI. The upfront cost is amortized across many retrievals.
+
+**Complex, nuanced documents.** Legal contracts, medical protocols, financial regulations—content where precision matters and the difference between a good and mediocre chunk could have real consequences.
+
+**When you've tried other chunkers and retrieval quality isn't good enough.** Agentic chunking is a tool to reach for when simpler approaches fall short, not a default starting point.
+
+## When to use simpler alternatives
+
+**Bulk ingestion of large corpuses.** If you're indexing 100,000 documents, agentic chunking at $0.03/document is $3,000. Consider using semantic or recursive chunking for the bulk, and reserve agentic chunking for the most important content.
+
+**Structured content.** Markdown with clear headings, code with function boundaries—these have explicit structure that rule-based chunkers handle well. The LLM's intelligence is less valuable when structure is already clear.
+
+**Latency-sensitive pipelines.** Each agentic chunking call takes 2-5 seconds (LLM inference time). For real-time or near-real-time ingestion, this may be unacceptable.
+
+**Experimental or rapidly-changing content.** If you're iterating on content that will be replaced soon, the premium for optimal chunking has less value.
+
+## Cost breakdown
+
+Agentic chunking costs vary by model and document size. Here are rough estimates for a 10,000-token document:
+
+| Model | Input Cost | Output Cost | Total |
+|-------|------------|-------------|-------|
+| gpt-4o-mini | ~$0.002 | ~$0.001 | ~$0.003 |
+| gpt-4o | ~$0.025 | ~$0.010 | ~$0.035 |
+| claude-3.5-sonnet | ~$0.030 | ~$0.015 | ~$0.045 |
+| claude-3-opus | ~$0.150 | ~$0.075 | ~$0.225 |
+
+The input cost dominates because the entire document is sent to the LLM. Output is relatively small—just boundary markers or restructured text.
+
+**Practical recommendations:**
+
+Start with `gpt-4o-mini`. It's remarkably capable for chunking tasks and costs an order of magnitude less than larger models. The chunking prompt is straightforward; you don't need GPT-4's full reasoning capacity for most content.
+
+Use `gpt-4o` for complex content. If your documents have subtle nuances, multiple interleaved topics, or require sophisticated judgment about what users might search for, the extra capability helps.
+
+Reserve `claude-3-opus` or equivalent for critical content. Legal documents, compliance materials, content where getting it wrong has real consequences—these justify the premium.
+
+## How the LLM is prompted
+
+The agentic chunker sends your content to the LLM with instructions focused on retrieval optimization:
+
+- Consider what queries users might ask about this content
+- Group information that would answer the same query together
+- Keep related context together even if it spans formatting boundaries
+- Never split mid-explanation or mid-example
+- Create chunks that would be useful standalone search results
+
+The LLM returns either explicit boundary markers or restructured content. Unrag then enforces token limits, adds overlap, and produces the final chunks.
 
 ## Fallback behavior
 
-If the LLM call fails, agentic chunking falls back to sentence-based splitting. This ensures ingestion completes, though chunk quality will be lower.
+LLM calls can fail. Rate limits, network issues, malformed responses—these happen, especially at scale. The agentic chunker handles failures gracefully.
 
-Monitor `result.warnings` to detect fallback usage and retry important documents later.
+When the LLM call fails, the chunker falls back to sentence-based splitting. Your document still gets chunked and ingested, just without the retrieval optimization. The ingest result includes a warning you can monitor:
+
+```ts
+const result = await engine.ingest({ sourceId, content });
+
+for (const warning of result.warnings) {
+  if (warning.code === "agentic_fallback") {
+    // Log for later retry
+    await logForRetry(sourceId, warning.message);
+  }
+}
+```
+
+For critical content, you might want to catch fallbacks and retry during off-peak hours or with a different model.
+
+## Practical example
+
+Here's how you might use agentic chunking for a knowledge base where search quality is critical:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+
+const engine = createUnragEngine();
+
+async function ingestSupportArticle(article: Article) {
+  const result = await engine.ingest({
+    sourceId: `support:${article.id}`,
+    content: article.body,
+    metadata: {
+      title: article.title,
+      category: article.category,
+      lastUpdated: article.updatedAt,
+    },
+  });
+
+  // Track chunking quality for monitoring
+  if (result.warnings.some(w => w.code === "agentic_fallback")) {
+    console.warn(`Agentic chunking failed for ${article.id}, using fallback`);
+    await metrics.increment("chunking.agentic_fallback");
+  }
+
+  console.log(`Chunked "${article.title}" into ${result.chunkCount} chunks`);
+  return result;
+}
+```
+
+The agentic chunker analyzes each article, considering how support users might search for help, and creates chunks optimized to match those queries.
+
+## Agentic vs semantic: a comparison
+
+Both methods use LLMs with similar costs. Here's how they differ:
+
+| Aspect | Semantic | Agentic |
+|--------|----------|---------|
+| Goal | Find natural boundaries | Optimize for retrieval |
+| Question asked | "Where do topics change?" | "What would users search for?" |
+| Chunk characteristic | Coherent | Queryable |
+| Best for | Narrative content | Search-critical content |
+| Predictability | More predictable | Less predictable |
+
+For most LLM-chunking use cases, start with semantic. It produces reliable, coherent chunks at the same cost. Switch to agentic when you've identified that retrieval quality is the specific bottleneck you need to address.
+
+## Monitoring and iteration
+
+Agentic chunking's value shows up in retrieval quality, not ingestion metrics. After implementing it, monitor:
+
+- **Relevance scores** — Are retrieved chunks more relevant to queries?
+- **User feedback** — Are search results solving user problems?
+- **Click-through rates** — Do users find what they need faster?
+- **Escalation rates** — (For support) Are users escalating less after searching?
+
+If metrics improve, the investment is paying off. If they don't, the content might already be well-suited to simpler chunking, or the retrieval problem lies elsewhere (embedding model, reranking, query formulation).

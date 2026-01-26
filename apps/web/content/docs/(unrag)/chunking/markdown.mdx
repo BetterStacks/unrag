@@ -3,7 +3,23 @@ title: Markdown Chunking
 description: Structure-aware chunking that respects markdown formatting.
 ---
 
-Markdown chunking understands markdown syntax and splits documents at structural boundaries—headings, code blocks, and horizontal rules—while keeping fenced code blocks intact.
+Markdown has explicit structure. Headings divide content into sections. Fenced code blocks mark off executable examples. Horizontal rules separate topics. When you're chunking markdown documents, you want a chunker that understands and respects this structure rather than treating the document as plain text.
+
+The markdown chunker does exactly this. It identifies structural boundaries in your markdown and uses them as natural split points. Code blocks stay intact. Sections become chunks. The result is chunks that align with how the author organized the content.
+
+## Why markdown needs special handling
+
+Consider what happens when you chunk markdown with a generic text splitter. A code block might get cut in half:
+
+```
+Chunk 1: "Install the package:\n\n```bash\nnpm install"
+
+Chunk 2: "my-package\n```\n\nThen configure it..."
+```
+
+This broken code block is useless in retrieval results. The user searching for "how to install" gets back invalid syntax. Even worse, embedding models might struggle to produce meaningful vectors for incomplete code.
+
+The markdown chunker prevents this. It recognizes fenced code blocks (``` or ~~~) and keeps them whole. It understands that a `## Heading` starts a new section and is a natural place to split. It preserves the structure that makes markdown readable.
 
 ## Installation
 
@@ -11,9 +27,11 @@ Markdown chunking understands markdown syntax and splits documents at structural
 bunx unrag add chunker:markdown
 ```
 
-No additional dependencies required.
+The markdown chunker is pure TypeScript with no external dependencies. It parses markdown structure directly without requiring a full markdown-to-AST library.
 
 ## Configuration
+
+Enable markdown chunking in your `unrag.config.ts`:
 
 ```ts
 export default defineUnragConfig({
@@ -28,120 +46,171 @@ export default defineUnragConfig({
 });
 ```
 
-### Options
-
-<TypeTable
-  type={{
-    chunkSize: {
-      description: 'Maximum tokens per chunk.',
-      type: 'number',
-      default: '512',
-    },
-    chunkOverlap: {
-      description: 'Overlap tokens between chunks.',
-      type: 'number',
-      default: '50',
-    },
-    minChunkSize: {
-      description: 'Minimum tokens per chunk.',
-      type: 'number',
-      default: '24',
-    },
-  }}
-/>
-
 ## How it works
 
-The markdown chunker:
+The markdown chunker processes documents in several passes:
 
-1. **Identifies structural boundaries**
-   - Headings (`# H1`, `## H2`, etc.)
-   - Horizontal rules (`---`, `***`, `___`)
-   - Fenced code blocks (``` or ~~~)
+**First, it identifies structural boundaries.** The chunker scans for headings at any level (`#` through `######`), horizontal rules (`---`, `***`, `___`), and fenced code block delimiters. These become potential split points.
 
-2. **Keeps code blocks intact**
-   - Never splits inside a fenced code block
-   - The entire block stays in one chunk (if under token limit)
+**Second, it protects code blocks.** Fenced code blocks are marked as atomic units. No matter how long they are, the chunker won't split inside them. This means a 400-token code example stays in one chunk.
 
-3. **Splits at headings**
-   - Each heading starts a new chunk
-   - Content flows until the next heading
+**Third, it splits at headings.** Each heading starts a new chunk. Content flows from one heading until the next, keeping related information together. A section about "Installation" stays separate from a section about "Configuration."
 
-4. **Merges small sections**
-   - Sections under `minChunkSize` are merged with neighbors
-   - Prevents tiny chunks from short sections
+**Fourth, it applies token limits.** If a section exceeds `chunkSize`, the chunker splits it using sentence boundaries while still respecting code block integrity. A long section becomes multiple chunks, each starting from the same heading.
 
-## When to use
+**Finally, it merges small sections.** Sections smaller than `minChunkSize` get merged with neighbors to avoid tiny, low-value chunks.
 
-Markdown chunking is ideal for:
+## Configuration options
 
-- **Documentation** — README files, API docs, guides
-- **Technical content** — Tutorials with code examples
-- **Wikis and knowledge bases** — Structured reference content
-- **Blog posts** — Articles written in markdown
+**chunkSize** sets the maximum tokens per chunk. With markdown content, this limit might be reached within a single section that contains lots of prose. Code-heavy documentation might have many sections that fit well under the limit.
 
-Consider alternatives when:
+**chunkOverlap** adds repeated tokens at chunk boundaries. This matters less for markdown chunking than for prose chunking because sections are usually self-contained. You might use lower overlap (20-30 tokens) for markdown.
 
-- Content isn't markdown (use [recursive](/docs/chunking/recursive))
-- You need semantic boundaries beyond structure (use [semantic](/docs/chunking/semantic))
-- Content is source code files (use [code](/docs/chunking/code))
+**minChunkSize** prevents tiny chunks from short sections. A single-line section like `## Related Links` followed by just a URL might fall below this threshold and get merged with the previous or next section.
 
-## Example
+## When to use markdown chunking
 
-Input markdown:
+Markdown chunking is the right choice whenever your content is written in markdown:
+
+- Documentation sites and READMEs
+- Technical guides with code examples
+- API documentation
+- Knowledge base articles in markdown format
+- Blog posts written in markdown
+- Wiki pages
+
+The chunker handles markdown-specific features that would trip up generic splitters:
+
+- Fenced code blocks with language tags
+- Indented code blocks
+- Block quotes
+- Lists (ordered and unordered)
+- Tables (kept intact when possible)
+- Front matter (YAML headers are stripped)
+
+## A practical example
+
+Consider this markdown documentation:
 
 ````markdown
 # Installation
 
-Install the package:
+Install the package from npm:
 
 ```bash
 npm install my-package
 ```
 
+Make sure you're using Node.js 18 or later.
+
 ## Configuration
 
-Create a config file:
+Create a config file at your project root:
 
 ```ts
+// my-package.config.ts
 export default {
   apiKey: process.env.API_KEY,
+  timeout: 5000,
 };
 ```
 
+The config supports these options:
+
+- `apiKey`: Your API key (required)
+- `timeout`: Request timeout in milliseconds
+- `retries`: Number of retry attempts
+
 ## Usage
 
-Import and use:
+Import and initialize the client:
 
 ```ts
-import { client } from "my-package";
+import { createClient } from "my-package";
+import config from "./my-package.config";
+
+const client = createClient(config);
 await client.connect();
 ```
 ````
 
-With markdown chunking, this produces:
+With markdown chunking, this becomes three chunks:
 
+**Chunk 1:**
 ```
-Chunk 1: "# Installation\n\nInstall the package:\n\n```bash\nnpm install my-package\n```"
+# Installation
 
-Chunk 2: "## Configuration\n\nCreate a config file:\n\n```ts\nexport default {\n  apiKey: process.env.API_KEY,\n};\n```"
+Install the package from npm:
 
-Chunk 3: "## Usage\n\nImport and use:\n\n```ts\nimport { client } from \"my-package\";\nawait client.connect();\n```"
+```bash
+npm install my-package
 ```
 
-Notice how:
-- Each section becomes its own chunk
-- Code blocks stay intact within their sections
-- Headers are preserved at the start of each chunk
+Make sure you're using Node.js 18 or later.
+```
 
-## Large code blocks
+**Chunk 2:**
+```
+## Configuration
 
-If a single code block exceeds `chunkSize`, the markdown chunker will split it at line boundaries to stay within limits. This is a fallback—ideally, configure `chunkSize` large enough to accommodate your typical code examples.
+Create a config file at your project root:
 
-For source code files (not code blocks in docs), use the [code chunker](/docs/chunking/code) instead, which understands AST structure.
+```ts
+// my-package.config.ts
+export default {
+  apiKey: process.env.API_KEY,
+  timeout: 5000,
+};
+```
+
+The config supports these options:
+
+- `apiKey`: Your API key (required)
+- `timeout`: Request timeout in milliseconds
+- `retries`: Number of retry attempts
+```
+
+**Chunk 3:**
+```
+## Usage
+
+Import and initialize the client:
+
+```ts
+import { createClient } from "my-package";
+import config from "./my-package.config";
+
+const client = createClient(config);
+await client.connect();
+```
+```
+
+Each chunk is a complete section. Code blocks are intact. When a user searches for "how to configure," they get back the Configuration section with its complete code example and options list.
+
+## Handling large code blocks
+
+What happens when a single code block exceeds `chunkSize`? The markdown chunker has a fallback: it splits the code block at line boundaries. This isn't ideal—you might end up with a function definition in one chunk and its body in another—but it ensures you never exceed token limits.
+
+If you frequently hit this situation, consider:
+
+1. **Increasing `chunkSize`** to accommodate your typical code examples. Documentation code samples are usually small; if yours are large, adjust accordingly.
+
+2. **Using the code chunker** for source code files. Markdown chunking is for documentation that contains code blocks. If you're chunking actual source code files, the [Code Chunker](/docs/chunking/code) understands AST structure and splits at function boundaries.
 
 ## Preserving context
 
-Each chunk includes its heading, making chunks more self-contained. When a chunk is retrieved, the heading provides context about what section it came from.
+Each chunk starts with its section heading, which provides immediate context. When a retrieval result includes "## Configuration" at the top, the user (or the LLM using the context) immediately knows this chunk is about configuration.
 
-For even better context preservation, consider the [hierarchical chunker](/docs/chunking/hierarchical), which prepends parent headings to each chunk.
+For even richer context, consider the [Hierarchical Chunker](/docs/chunking/hierarchical). It prepends the full heading path to each chunk, so a subsection chunk might start with "# API Reference > ## Authentication > ### OAuth Flow". This is more verbose but provides complete navigation context.
+
+## Mixed content documents
+
+Real documentation often mixes markdown with other content. A README might have YAML front matter, HTML blocks, or non-markdown sections. The markdown chunker handles these gracefully:
+
+- **YAML front matter** (content between `---` markers at the start) is stripped and not included in chunks. If you want to preserve front matter as metadata, extract it separately before ingestion.
+
+- **HTML blocks** are treated as opaque content. They're not split internally, similar to code blocks.
+
+- **Raw text sections** (content without markdown formatting) are chunked using the recursive fallback when necessary.
+
+The chunker is designed to never fail, even on malformed or unconventional markdown. It might not produce optimal chunks for pathological inputs, but it will produce something usable.
