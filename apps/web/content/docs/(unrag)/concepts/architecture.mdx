@@ -13,7 +13,7 @@ Every Unrag instance is built from three pluggable pieces:
 
 **The store adapter** handles persistence. It knows how to write documents, chunks, and their embeddings to your database, and how to query for similar vectors. Unrag ships adapters for Drizzle, Prisma, and raw SQL—all targeting Postgres with pgvector.
 
-**The chunker** splits documents into smaller pieces. The default implementation does simple word-based chunking with configurable size and overlap. If you need sentence-aware chunking, markdown-specific splitting, or token-based boundaries, you can provide your own chunker function.
+**The chunker** splits documents into smaller pieces. The default implementation uses token-based recursive chunking with the `o200k_base` tokenizer (same as GPT-5, GPT-4o). It splits at natural boundaries (paragraphs, sentences, clauses) while respecting token limits. For specialized content, you can install plugin chunkers (markdown, code, semantic) or provide your own chunker function.
 
 These components are assembled in your `unrag.config.ts` file to create a `ContextEngine` instance. The engine coordinates the components but doesn't contain business logic itself—it just calls the right methods in the right order.
 
@@ -28,7 +28,7 @@ When you call `engine.ingest({ sourceId, content, metadata, assets })`, here's w
 
 The content string is passed to the chunker function along with your configured chunk size and overlap. The chunker returns an array of chunk objects, each containing the text, its position index, and an approximate token count.
 
-For example, with a chunk size of 200 words and 40-word overlap, a 500-word document becomes roughly 3-4 chunks. Each chunk shares some text with its neighbors, which helps preserve context across chunk boundaries.
+For example, with the default chunk size of 512 tokens and 50-token overlap, a 1500-token document becomes roughly 3-4 chunks. Each chunk shares some text with its neighbors, which helps preserve context across chunk boundaries.
 
 </Step>
 <Step>

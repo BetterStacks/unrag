@@ -119,6 +119,18 @@ export async function inferInstallState(options: {
 		).sort()
 	}
 
+	// 8.1 Determine installed chunkers
+	let installedChunkers: string[] = []
+	if (unragJson?.chunkers && Array.isArray(unragJson.chunkers)) {
+		installedChunkers = unragJson.chunkers
+	}
+	if (installDirFull && installDirExists) {
+		const fsChunkers = await inferChunkersFromFilesystem(installDirFull)
+		installedChunkers = Array.from(
+			new Set([...installedChunkers, ...fsChunkers])
+		).sort()
+	}
+
 	// 9. Try to infer DB env var from config
 	let inferredDbEnvVar: string | null = null
 	if (configFileExists) {
@@ -145,6 +157,7 @@ export async function inferInstallState(options: {
 		embeddingProvider,
 		installedExtractors,
 		installedConnectors,
+		installedChunkers,
 		inferredDbEnvVar,
 		inferenceConfidence,
 		warnings
@@ -294,6 +307,36 @@ async function inferConnectorsFromFilesystem(
 	try {
 		const entries = await readdir(connectorsDir, {withFileTypes: true})
 		return entries.filter((e) => e.isDirectory()).map((e) => e.name)
+	} catch {
+		return []
+	}
+}
+
+/**
+ * Infer installed chunkers from filesystem.
+ */
+async function inferChunkersFromFilesystem(
+	installDir: string
+): Promise<string[]> {
+	const chunkersDir = path.join(installDir, 'chunkers')
+	if (!(await exists(chunkersDir))) {
+		return []
+	}
+
+	try {
+		const entries = await readdir(chunkersDir, {withFileTypes: true})
+		return entries
+			.filter((e) => e.isDirectory())
+			.map((e) => e.name)
+			.filter((name) => {
+				if (name === '_shared') {
+					return false
+				}
+				if (name.startsWith('_')) {
+					return false
+				}
+				return true
+			})
 	} catch {
 		return []
 	}

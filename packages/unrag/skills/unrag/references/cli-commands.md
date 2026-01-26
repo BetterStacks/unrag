@@ -91,7 +91,7 @@ The CLI patches your tsconfig.json to add path aliases:
 
 ## unrag add
 
-Add extractors, connectors, or batteries to an existing installation.
+Add extractors, connectors, chunkers, or batteries to an existing installation.
 
 ```bash
 bunx unrag@latest add <type> <name>
@@ -103,6 +103,7 @@ bunx unrag@latest add <type> <name>
 |------|-------------|
 | `extractor` | Asset extraction modules |
 | `connector` | External service connectors |
+| `chunker` | Specialized chunking plugins |
 | `battery` | Optional feature modules |
 
 ### Examples
@@ -113,6 +114,13 @@ bunx unrag@latest add extractor pdf-text-layer
 bunx unrag@latest add extractor pdf-llm
 bunx unrag@latest add extractor image-ocr
 bunx unrag@latest add extractor file-docx
+
+# Add chunkers
+bunx unrag@latest add chunker semantic      # LLM-guided semantic boundaries
+bunx unrag@latest add chunker markdown      # Markdown-aware chunking
+bunx unrag@latest add chunker code          # AST-based code chunking
+bunx unrag@latest add chunker hierarchical  # Section-first with headers
+bunx unrag@latest add chunker agentic       # LLM-powered highest quality
 
 # Add connectors
 bunx unrag@latest add connector notion
@@ -146,6 +154,13 @@ bunx unrag@latest add battery debug
 - `file-docx` - Word document extraction
 - `file-pptx` - PowerPoint extraction
 - `file-xlsx` - Excel extraction
+
+**Chunkers:**
+- `semantic` - LLM-guided semantic boundaries (requires `ai` SDK)
+- `markdown` - Markdown-aware (headers, fenced code blocks)
+- `code` - AST-based for source code (requires `tree-sitter`)
+- `hierarchical` - Section-first with header context
+- `agentic` - LLM-powered highest quality chunking (requires `ai` SDK)
 
 **Connectors:**
 - `notion` - Notion pages and databases
@@ -344,7 +359,7 @@ Metadata file tracking your installation:
   "embeddingProvider": "openai",
   "version": 2,
   "installedFrom": {
-    "unragVersion": "0.3.2"
+    "unragVersion": "0.4.0"
   },
   "scaffold": {
     "mode": "slim",
@@ -352,10 +367,12 @@ Metadata file tracking your installation:
   },
   "connectors": ["notion"],
   "extractors": ["pdf-text-layer", "file-text"],
+  "chunkers": ["semantic", "markdown"],
   "batteries": ["reranker", "debug"],
   "managedFiles": [
     "lib/unrag/core/types.ts",
     "lib/unrag/core/context-engine.ts",
+    "lib/unrag/core/chunking.ts",
     "..."
   ]
 }

@@ -80,12 +80,119 @@ export type ChunkText = {
 	tokenCount: number
 }
 
+/**
+ * Chunking options for token-based recursive chunking.
+ * All sizes are in TOKENS (not characters or words).
+ */
 export type ChunkingOptions = {
+	/**
+	 * Maximum chunk size in tokens.
+	 * Default: 512
+	 */
 	chunkSize: number
+	/**
+	 * Number of overlapping tokens between consecutive chunks.
+	 * Default: 50
+	 */
 	chunkOverlap: number
+	/**
+	 * Minimum chunk size in tokens. Chunks smaller than this will be merged.
+	 * Default: 24
+	 */
+	minChunkSize?: number
+	/**
+	 * Custom separator hierarchy for recursive splitting.
+	 * Default: ['\n\n', '\n', '. ', '? ', '! ', '; ', ': ', ', ', ' ', '']
+	 */
+	separators?: string[]
+	/**
+	 * Optional model override for LLM-driven chunkers (semantic/agentic).
+	 */
+	model?: string
+	/**
+	 * Optional language hint for code chunker (typescript, javascript, python, go).
+	 */
+	language?: string
+	/**
+	 * Source identifier for the current document (used for per-file inference).
+	 */
+	sourceId?: string
+	/**
+	 * Document metadata available during chunking.
+	 */
+	metadata?: Metadata
 }
 
-export type Chunker = (content: string, options: ChunkingOptions) => ChunkText[]
+export type ChunkerResult = ChunkText[] | Promise<ChunkText[]>
+
+export type Chunker = (
+	content: string,
+	options: ChunkingOptions
+) => ChunkerResult
+
+// ---------------------------------------------------------------------------
+// Chunking method & plugin types
+// ---------------------------------------------------------------------------
+
+/**
+ * Built-in chunking methods shipped with core.
+ * Uses token-based recursive chunking with js-tiktoken (o200k_base encoding).
+ */
+export type BuiltInChunkingMethod = 'recursive' | 'token'
+
+/**
+ * Plugin chunking methods (installed via CLI).
+ */
+export type PluginChunkingMethod =
+	| 'semantic'
+	| 'markdown'
+	| 'hierarchical'
+	| 'code'
+	| 'agentic'
+	| 'late'
+	| 'maxmin'
+	| 'proposition'
+
+/**
+ * All supported chunking methods.
+ */
+export type ChunkingMethod =
+	| BuiltInChunkingMethod
+	| PluginChunkingMethod
+	| 'custom'
+
+/**
+ * Chunking configuration for unrag.config.ts.
+ */
+export type ChunkingConfig = {
+	/**
+	 * Chunking method to use. Default: "recursive".
+	 * Built-in: "recursive" (token-based recursive), "token" (fixed-size tokens)
+	 * Plugins: "semantic", "markdown", "hierarchical", "code", "agentic", "late", "maxmin", "proposition"
+	 */
+	method?: ChunkingMethod
+	/**
+	 * Method-specific options. Shape depends on the chosen method.
+	 */
+	options?: ChunkingOptions & Record<string, unknown>
+	/**
+	 * Custom chunker function. Only used when method is "custom".
+	 */
+	chunker?: Chunker
+}
+
+/**
+ * Plugin interface for chunker modules.
+ * Installed via `bunx unrag add chunker:<name>`.
+ */
+export type ChunkerPlugin = {
+	/** Unique name matching the method (e.g. "semantic", "markdown"). */
+	name: string
+	/** Create a chunker function with the given options. */
+	createChunker: (
+		options?: ChunkingOptions & Record<string, unknown>
+	) => Chunker
+}
 
 /**
  * Data reference for an ingested asset.
@@ -702,6 +809,16 @@ export type IngestInput = {
 	sourceId: string
 	content: string
 	metadata?: Metadata
+	/**
+	 * Per-ingest chunker override.
+	 *
+	 * Use this to switch chunking algorithms for a single ingest call without
+	 * changing the engine's configured chunker.
+	 *
+	 * Note: This affects chunking for both the main `content` and any text derived
+	 * from `assets` during this ingest.
+	 */
+	chunker?: Chunker
 	chunking?: Partial<ChunkingOptions>
 	/** Optional rich media attached to the document. */
 	assets?: AssetInput[]
@@ -998,6 +1115,23 @@ export type UnragEmbeddingConfig =
 
 export type DefineUnragConfigInput = {
 	defaults?: UnragDefaultsConfig
+	/**
+	 * Chunking configuration.
+	 * Controls how documents are split into chunks for embedding.
+	 *
+	 * @example
+	 * ```typescript
+	 * chunking: {
+	 *   method: "recursive",  // default, uses js-tiktoken with o200k_base
+	 *   options: {
+	 *     chunkSize: 512,     // max tokens per chunk
+	 *     chunkOverlap: 50,   // overlap tokens between chunks
+	 *     minChunkSize: 24    // minimum tokens per chunk
+	 *   }
+	 * }
+	 * ```
+	 */
+	chunking?: ChunkingConfig
 	/**
 	 * Engine configuration (everything except embedding/store/defaults).
 	 * This is where you configure storage, asset processing, chunker/idGenerator, etc.

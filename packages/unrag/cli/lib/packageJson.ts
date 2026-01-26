@@ -174,6 +174,13 @@ export type ExtractorName =
 	| 'file-pptx'
 	| 'file-xlsx'
 
+export type ChunkerName =
+	| 'semantic'
+	| 'markdown'
+	| 'hierarchical'
+	| 'code'
+	| 'agentic'
+
 export function depsForExtractor(extractor: ExtractorName) {
 	const deps: Record<string, string> = {}
 	const devDeps: Record<string, string> = {}
@@ -218,6 +225,25 @@ export function depsForExtractor(extractor: ExtractorName) {
 
 	if (extractor === 'file-xlsx') {
 		deps.xlsx = '^0.18.5'
+	}
+
+	return {deps, devDeps}
+}
+
+export function depsForChunker(_chunker: ChunkerName) {
+	const deps: Record<string, string> = {}
+	const devDeps: Record<string, string> = {}
+
+	if (_chunker === 'semantic' || _chunker === 'agentic') {
+		deps.ai = '^6.0.3'
+	}
+
+	if (_chunker === 'code') {
+		deps['tree-sitter'] = '^0.22.6'
+		deps['tree-sitter-typescript'] = '^0.21.2'
+		deps['tree-sitter-javascript'] = '^0.21.4'
+		deps['tree-sitter-python'] = '^0.21.0'
+		deps['tree-sitter-go'] = '^0.21.0'
 	}
 
 	return {deps, devDeps}
