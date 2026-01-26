@@ -24,9 +24,7 @@ declare module '@prisma/client' {
 	 * so `@prisma/client` types may be absent. Projects using the Prisma adapter
 	 * will have real generated types.
 	 */
-	// biome-ignore lint/suspicious/noExplicitAny: shim for optional generated client
 	export class PrismaClient {
-		[key: string]: any
+		[key: string]: unknown
 	}
 }
-

@@ -315,7 +315,9 @@ async function inferConnectorsFromFilesystem(
 /**
  * Infer installed chunkers from filesystem.
  */
-async function inferChunkersFromFilesystem(installDir: string): Promise<string[]> {
+async function inferChunkersFromFilesystem(
+	installDir: string
+): Promise<string[]> {
 	const chunkersDir = path.join(installDir, 'chunkers')
 	if (!(await exists(chunkersDir))) {
 		return []

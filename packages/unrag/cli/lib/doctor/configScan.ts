@@ -102,7 +102,10 @@ function detectChunkingMethod(configContent: string): string | null {
 	return m?.[1] ? String(m[1]).trim() : null
 }
 
-function detectHasChunkerImport(configContent: string, chunker: string): boolean {
+function detectHasChunkerImport(
+	configContent: string,
+	chunker: string
+): boolean {
 	// Plugin chunkers register on import, so config needs a side-effect import:
 	//   import "./<installDir>/chunkers/<chunker>";
 	return new RegExp(`/chunkers/${chunker}\\b`, 'i').test(configContent)
@@ -218,7 +221,8 @@ async function checkPerIngestChunkerOverrideSupport(
 			id: 'api.ingest.chunker_override',
 			title: 'Per-ingest chunker override',
 			status: 'skip',
-			summary: 'Install directory not found; cannot verify vendored engine API.'
+			summary:
+				'Install directory not found; cannot verify vendored engine API.'
 		}
 	}
 
@@ -233,15 +237,15 @@ async function checkPerIngestChunkerOverrideSupport(
 			id: 'api.ingest.chunker_override',
 			title: 'Per-ingest chunker override',
 			status: 'warn',
-			summary: 'Could not find vendored core/types.ts to verify API support.',
+			summary:
+				'Could not find vendored core/types.ts to verify API support.',
 			details: [vendoredTypesPath]
 		}
 	}
 
 	const raw = await readFile(vendoredTypesPath, 'utf8').catch(() => '')
-	const hasChunkerField = /export\s+type\s+IngestInput\s*=\s*\{[\s\S]*?\bchunker\s*\?:/m.test(
-		raw
-	)
+	const hasChunkerField =
+		/export\s+type\s+IngestInput\s*=\s*\{[\s\S]*?\bchunker\s*\?:/m.test(raw)
 
 	return {
 		id: 'api.ingest.chunker_override',

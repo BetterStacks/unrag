@@ -219,10 +219,7 @@ export const ingest = async (
 					.filter((t) => t.content.trim().length > 0)
 
 				for (const item of nonEmptyItems) {
-					const chunks = await chunker(
-						item.content,
-						chunkingOptions
-					)
+					const chunks = await chunker(item.content, chunkingOptions)
 					for (const c of chunks) {
 						outSpecs.push({
 							documentId,
@@ -412,10 +409,7 @@ export const ingest = async (
 					storedTokenCount: storedCaptionTokenCount
 				})
 			} else if (caption) {
-				const captionChunks = await chunker(
-					caption,
-					chunkingOptions
-				)
+				const captionChunks = await chunker(caption, chunkingOptions)
 				for (const c of captionChunks) {
 					specs.push({
 						documentId,

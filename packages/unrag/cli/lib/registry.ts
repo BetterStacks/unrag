@@ -465,7 +465,8 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 		if (/^\s*minChunkSize\s*:/m.test(block)) {
 			block = block.replace(
 				/^\s*minChunkSize[^\n]*$/m,
-				(line) => `${line.trimEnd().endsWith(',') ? line : `${line},`}\n${indent}${key}: ${JSON.stringify(value)},`
+				(line) =>
+					`${line.trimEnd().endsWith(',') ? line : `${line},`}\n${indent}${key}: ${JSON.stringify(value)},`
 			)
 		} else {
 			block = `${block}\n${indent}${key}: ${JSON.stringify(value)},`

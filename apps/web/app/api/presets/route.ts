@@ -159,8 +159,7 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 	const chunkingMethod = String(input.chunking?.method ?? 'recursive')
 		.trim()
 		.toLowerCase()
-	const chunkingMinChunkSize =
-		Number(input.chunking?.minChunkSize) || 24
+	const chunkingMinChunkSize = Number(input.chunking?.minChunkSize) || 24
 	const chunkingModelRaw = String(input.chunking?.model ?? '').trim()
 	const chunkingLanguageRaw = String(input.chunking?.language ?? '').trim()
 
@@ -255,17 +254,21 @@ function makePresetFromWizard(state: WizardStateV1): PresetPayloadV1 {
 			chunkers: (state.modules.chunkers ?? []).map(String).filter(Boolean)
 		},
 		config: {
-			...(state.chunking && state.chunking.method
+			...(state.chunking?.method
 				? {
 						chunking: {
 							method: state.chunking.method,
 							options: {
 								...(typeof state.chunking.minChunkSize ===
 								'number'
-									? {minChunkSize: state.chunking.minChunkSize}
+									? {
+											minChunkSize:
+												state.chunking.minChunkSize
+										}
 									: {}),
 								...(state.chunking.model &&
-								state.chunking.model !== CHUNKER_MODEL_DEFAULT_VALUE
+								state.chunking.model !==
+									CHUNKER_MODEL_DEFAULT_VALUE
 									? {model: state.chunking.model}
 									: {}),
 								...(state.chunking.language &&

@@ -3037,25 +3037,29 @@ export default function InstallWizardClient() {
 																.minChunkSize
 														)}
 														onValueChange={(v) =>
-															setState((prev) => ({
-																...prev,
-																chunking: {
-																	...prev.chunking,
-																	minChunkSize:
-																		Number(
-																			v
-																		)
-																}
-															}))
+															setState(
+																(prev) => ({
+																	...prev,
+																	chunking: {
+																		...prev.chunking,
+																		minChunkSize:
+																			Number(
+																				v
+																			)
+																	}
+																})
+															)
 														}
 													>
 														<SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
 															<SelectValue>
 																<div className="flex items-center gap-2 w-full min-w-0">
 																	<span className="font-mono text-sm">
-																		{state
-																			.chunking
-																			.minChunkSize}
+																		{
+																			state
+																				.chunking
+																				.minChunkSize
+																		}
 																	</span>
 																	{state
 																		.chunking
@@ -3080,7 +3084,9 @@ export default function InstallWizardClient() {
 																	>
 																		<div className="flex items-center gap-2 w-full min-w-0">
 																			<span className="font-mono text-sm">
-																				{n}
+																				{
+																					n
+																				}
 																			</span>
 																			{n ===
 																			DEFAULT_STATE
@@ -3098,7 +3104,7 @@ export default function InstallWizardClient() {
 											</div>
 
 											{state.chunking.method ===
-												'semantic' ? (
+											'semantic' ? (
 												<div className="mt-4">
 													<FieldGroup
 														label="Chunker model"
@@ -3108,7 +3114,9 @@ export default function InstallWizardClient() {
 															value={
 																semanticChunkerModelValue
 															}
-															onValueChange={(v) =>
+															onValueChange={(
+																v
+															) =>
 																setState(
 																	(prev) => ({
 																		...prev,
@@ -3148,7 +3156,8 @@ export default function InstallWizardClient() {
 																	}
 																	className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
 																>
-																	provider default
+																	provider
+																	default
 																</SelectItem>
 																{SEMANTIC_CHUNKER_MODELS.map(
 																	(model) => (
@@ -3162,7 +3171,9 @@ export default function InstallWizardClient() {
 																			className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
 																		>
 																			<span className="font-mono text-sm">
-																				{model}
+																				{
+																					model
+																				}
 																			</span>
 																		</SelectItem>
 																	)
@@ -3174,7 +3185,8 @@ export default function InstallWizardClient() {
 																	}
 																	className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
 																>
-																	Custom model…
+																	Custom
+																	model…
 																</SelectItem>
 															</SelectContent>
 														</Select>
@@ -3188,7 +3200,9 @@ export default function InstallWizardClient() {
 																			.model ??
 																		''
 																	}
-																	onChange={(e) =>
+																	onChange={(
+																		e
+																	) =>
 																		setState(
 																			(
 																				prev
@@ -3197,10 +3211,9 @@ export default function InstallWizardClient() {
 																				chunking:
 																					{
 																						...prev.chunking,
-																						model:
-																							e
-																								.target
-																								.value
+																						model: e
+																							.target
+																							.value
 																					}
 																			})
 																		)
@@ -3223,7 +3236,9 @@ export default function InstallWizardClient() {
 															value={
 																agenticChunkerModelValue
 															}
-															onValueChange={(v) =>
+															onValueChange={(
+																v
+															) =>
 																setState(
 																	(prev) => ({
 																		...prev,
@@ -3263,7 +3278,8 @@ export default function InstallWizardClient() {
 																	}
 																	className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
 																>
-																	provider default
+																	provider
+																	default
 																</SelectItem>
 																{SEMANTIC_CHUNKER_MODELS.map(
 																	(model) => (
@@ -3277,7 +3293,9 @@ export default function InstallWizardClient() {
 																			className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
 																		>
 																			<span className="font-mono text-sm">
-																				{model}
+																				{
+																					model
+																				}
 																			</span>
 																		</SelectItem>
 																	)
@@ -3289,7 +3307,8 @@ export default function InstallWizardClient() {
 																	}
 																	className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
 																>
-																	Custom model…
+																	Custom
+																	model…
 																</SelectItem>
 															</SelectContent>
 														</Select>
@@ -3303,7 +3322,9 @@ export default function InstallWizardClient() {
 																			.model ??
 																		''
 																	}
-																	onChange={(e) =>
+																	onChange={(
+																		e
+																	) =>
 																		setState(
 																			(
 																				prev
@@ -3312,10 +3333,9 @@ export default function InstallWizardClient() {
 																				chunking:
 																					{
 																						...prev.chunking,
-																						model:
-																							e
-																								.target
-																								.value
+																						model: e
+																							.target
+																							.value
 																					}
 																			})
 																		)
@@ -3353,8 +3373,9 @@ export default function InstallWizardClient() {
 																			chunking:
 																				{
 																					...prev.chunking,
-																				// Persist AUTO as a sentinel; preset generation will omit it.
-																				language: v
+																					// Persist AUTO as a sentinel; preset generation will omit it.
+																					language:
+																						v
 																				}
 																		})
 																	)
@@ -3363,17 +3384,17 @@ export default function InstallWizardClient() {
 																<SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
 																	<SelectValue>
 																		<span className="font-mono text-sm">
-																		{state
-																			.chunking
-																			.language &&
-																		state
-																			.chunking
-																			.language !==
-																			AUTO_LANGUAGE_VALUE
-																			? state
-																					.chunking
-																					.language
-																			: 'auto'}
+																			{state
+																				.chunking
+																				.language &&
+																			state
+																				.chunking
+																				.language !==
+																				AUTO_LANGUAGE_VALUE
+																				? state
+																						.chunking
+																						.language
+																				: 'auto'}
 																		</span>
 																	</SelectValue>
 																</SelectTrigger>
