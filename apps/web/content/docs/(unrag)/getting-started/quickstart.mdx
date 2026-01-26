@@ -183,7 +183,7 @@ The chunks are sorted by score ascending, so the first chunk is the most similar
 
 Open `unrag.config.ts` to adjust settings. The most common customizations are:
 
-1. **Chunking parameters**: Adjust `chunkSize` and `chunkOverlap` to change how documents are split. Smaller chunks give more precise retrieval but cost more to embed.
+1. **Chunking parameters**: Adjust `chunkSize` and `chunkOverlap` (in tokens) to change how documents are split. Smaller chunks give more precise retrieval but cost more to embed. Default: 512 tokens with 50 token overlap.
 
 2. **Default topK**: Change how many chunks are returned by default when you don't specify `topK` in your retrieve call.
 

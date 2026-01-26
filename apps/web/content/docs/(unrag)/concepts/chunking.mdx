@@ -3,150 +3,105 @@ title: Chunking
 description: How documents are split into chunks and why it matters for retrieval quality.
 ---
 
-Chunking is how Unrag splits your documents into smaller pieces before embedding them. The quality of your retrieval depends significantly on how well your chunking strategy matches your content type and use case.
+Before your documents can be searched semantically, they need to be embedded—turned into vectors that represent their meaning. But embedding models work best with focused pieces of text, not sprawling documents. A 10,000-word article embedded as a single vector becomes a vague point in semantic space, losing the nuance of individual sections and paragraphs.
 
-## Why chunk at all?
-
-Embedding models have context limits. OpenAI's text-embedding-3-small, for example, accepts up to 8,191 tokens per call. But even within that limit, longer texts produce less useful embeddings. A 5,000-word document embedded as a single vector captures the overall topic but loses the nuance of individual sections.
-
-Chunking solves this by breaking documents into pieces small enough that each embedding captures specific, queryable meaning. When someone searches for "how to configure authentication," you want to return the paragraph about authentication configuration, not an entire document that mentions authentication once.
-
-The tradeoff is that chunking can split information across boundaries. If an important concept spans two chunks, retrieval might only return one of them. Overlap helps with this—by repeating some text at chunk boundaries, you increase the chance that related content ends up in the same chunk.
+Chunking is how Unrag splits documents into those focused pieces. Each chunk gets its own embedding, its own position in vector space, its own chance to match user queries. The quality of your retrieval depends significantly on how well your chunking strategy matches your content.
 
 ## The default chunker
 
-Unrag ships with a simple word-based chunker. It splits text on whitespace, groups words into chunks of the configured size, and creates overlap by starting each new chunk some words back from where the previous one ended.
+When you create a new Unrag project, you get token-based recursive chunking out of the box. This algorithm tries to split text at natural boundaries—paragraphs first, then sentences, then clauses—while respecting token limits. It uses the `o200k_base` tokenizer, the same encoding used by GPT-5, GPT-4o, and current OpenAI models.
 
-Default settings:
-- **chunkSize**: 200 words
-- **chunkOverlap**: 40 words
+The default settings work well for most content:
 
-These defaults work reasonably well for prose content like documentation, articles, and help center pages. They produce chunks of roughly 150-300 tokens, which embed efficiently and retrieve precisely.
+- **chunkSize**: 512 tokens
+- **chunkOverlap**: 50 tokens
+- **minChunkSize**: 24 tokens
 
-You can change the defaults in `unrag.config.ts`:
+These values balance precision (chunks focused enough to match specific queries) with context (chunks large enough to be self-contained). The overlap ensures that ideas spanning chunk boundaries appear in both adjacent chunks, reducing the chance of missing relevant content.
+
+## Choosing a chunking method
+
+Different content types benefit from different approaches. Unrag provides several chunking methods:
+
+**Recursive chunking** (the default) works for general prose. It's fast, predictable, and handles mixed content gracefully.
+
+**Semantic chunking** uses an LLM to identify where topics actually shift, rather than relying on formatting cues. It costs more but produces more coherent chunks.
+
+**Markdown chunking** understands markdown structure—headings, code blocks, horizontal rules. It keeps code blocks intact and splits at section boundaries.
+
+**Code chunking** parses source code with tree-sitter and splits at function and class boundaries, keeping complete definitions together.
+
+**Hierarchical chunking** prepends section headers to every chunk, so each chunk carries context about where it fits in the document.
+
+**Agentic chunking** uses an LLM to optimize chunks specifically for retrieval, considering what users might search for.
+
+**Custom chunking** lets you implement your own logic when built-in options don't fit.
+
+You can configure your preferred method in `unrag.config.ts`:
 
 ```ts
-export const unrag = defineUnragConfig({
-  // ...
-  defaults: {
+export default defineUnragConfig({
   chunking: {
-    chunkSize: 300,
-    chunkOverlap: 60,
+    method: "markdown",
+    options: {
+      chunkSize: 512,
+      chunkOverlap: 50,
+    },
   },
-  },
-} as const);
-```
-
-## Per-document overrides
-
-Different content types benefit from different chunking strategies. A long technical document might need larger chunks to keep code examples intact, while short FAQ entries might work better with smaller chunks.
-
-Override chunking for specific ingests:
-
-```ts
-// Large chunks for technical docs with code blocks
-await engine.ingest({
-  sourceId: "docs:api-reference",
-  content: technicalDoc,
-  chunking: { chunkSize: 500, chunkOverlap: 100 },
-});
-
-// Smaller chunks for FAQ-style content
-await engine.ingest({
-  sourceId: "faq:billing",
-  content: faqContent,
-  chunking: { chunkSize: 100, chunkOverlap: 20 },
+  // ...
 });
 ```
 
-## Chunk size tradeoffs
+## Per-ingest overrides
 
-Choosing the right chunk size involves balancing several factors:
+The configured chunking method becomes your default, but you're not locked into it. You can override chunking behavior for individual `engine.ingest()` calls in two ways.
 
-**Smaller chunks** (50-150 words) give you more precise retrieval. Each chunk is about one idea, so when it matches a query, it's likely directly relevant. The downside is that you lose context—the chunk might not have enough surrounding information to be useful on its own. You also generate more embeddings, increasing cost and storage.
-
-**Larger chunks** (300-500 words) preserve more context and keep related information together. They're cheaper to embed and store. But they're less precise—a large chunk might match a query because of one sentence, then return a lot of irrelevant text along with it.
-
-**Very large chunks** (500+ words) are usually too broad for effective semantic search. The embedding becomes a vague average of many topics rather than a specific representation.
-
-For most applications, start with 150-250 words and adjust based on your retrieval quality. If you're getting good matches but not enough context, increase chunk size. If you're getting too much irrelevant text in results, decrease it.
-
-## Custom chunkers
-
-The default word-based chunker is simple but naive. It doesn't understand sentence boundaries, paragraphs, markdown structure, or code blocks. If your content has structure that matters, you might want a smarter chunker.
-
-To use a custom chunker, pass it when constructing the engine:
+**Override just the options** when you want to keep the same algorithm but adjust parameters:
 
 ```ts
-import { defineUnragConfig } from "@unrag/core";
-import type { Chunker, ChunkText, ChunkingOptions } from "@unrag/core";
-
-// A sentence-aware chunker (simplified example)
-const sentenceChunker: Chunker = (
-  content: string, 
-  options: ChunkingOptions
-): ChunkText[] => {
-  const sentences = content.split(/(?<=[.!?])\s+/);
-  const chunks: ChunkText[] = [];
-  
-  let current = "";
-  let wordCount = 0;
-  let index = 0;
-  
-  for (const sentence of sentences) {
-    const sentenceWords = sentence.split(/\s+/).length;
-    
-    if (wordCount + sentenceWords > options.chunkSize && current) {
-      chunks.push({
-        index: index++,
-        content: current.trim(),
-        tokenCount: wordCount,
-      });
-      current = "";
-      wordCount = 0;
-    }
-    
-    current += sentence + " ";
-    wordCount += sentenceWords;
-  }
-  
-  if (current.trim()) {
-    chunks.push({
-      index: index++,
-      content: current.trim(),
-      tokenCount: wordCount,
-    });
-  }
-  
-  return chunks;
-};
-
-// Use it in your engine config
-const unrag = defineUnragConfig({
-  defaults: {
-    chunking: { chunkSize: 200, chunkOverlap: 0 },
-    retrieval: { topK: 8 },
-  },
-  embedding: { provider: "custom", create: () => myEmbeddingProvider },
-  engine: {
-    chunker: sentenceChunker,
-  },
-} as const);
-
-const engine = unrag.createEngine({ store: myStore });
+await engine.ingest({
+  sourceId: "specs:detailed-design",
+  content: designDoc,
+  chunking: { chunkSize: 768, chunkOverlap: 75 },
+});
 ```
 
-Common reasons to build a custom chunker:
+This uses your configured chunker but with larger chunks and more overlap—useful for dense technical content where you want more context per chunk.
 
-1. **Sentence boundaries**: Never split mid-sentence
-2. **Paragraph awareness**: Keep paragraphs together when possible
-3. **Markdown structure**: Respect heading boundaries, keep code blocks intact
-4. **Token-based sizing**: Count actual tokens instead of words for more predictable embedding behavior
-5. **Semantic sections**: Split on topic boundaries detected through heuristics or ML
+**Override the chunker itself** when different content needs a different algorithm:
 
-For most text content, the default chunker works fine. Invest in a custom chunker when you notice retrieval quality issues that trace back to poor chunk boundaries.
+```ts
+import { codeChunker } from "@unrag/chunking/code";
 
-<Callout title="Go deeper: Chunking strategies">
-The [RAG Handbook](/docs/rag) covers chunking in depth—including structure-aware strategies, multi-representation indexing, and how chunk size affects the quality-latency-cost triangle. See [Module 3: Chunking and Representation](/docs/rag/03-chunking-and-representation) for the full picture.
-</Callout>
+await engine.ingest({
+  sourceId: "src/utils/helpers.ts",
+  content: sourceCode,
+  chunker: codeChunker,  // Use code chunking for this file
+});
+```
 
+The per-ingest `chunker` parameter takes precedence over your configured method. This means you can handle heterogeneous content—documentation, code, articles—with a single engine instance, applying the appropriate chunking strategy to each.
+
+## Token counting
+
+Unrag measures chunk sizes in tokens, not characters or words. This matters because embedding models process tokens, and their context limits are defined in tokens. A 512-token chunk is guaranteed to fit in any modern embedding model's context window.
+
+If you're building custom logic or want to understand your content better, Unrag exports a `countTokens` utility:
+
+```ts
+import { countTokens } from "unrag";
+
+const tokens = countTokens("Hello world");  // 2
+const docSize = countTokens(myDocument);    // exact count
+```
+
+This uses the same tokenizer as the chunker, so counts are consistent.
+
+<Cards>
+  <Card title="Chunking Guide" href="/docs/chunking">
+    Complete guide to all chunking methods with examples
+  </Card>
+  <Card title="RAG Handbook" href="/docs/rag/03-chunking-and-representation">
+    Deep dive into chunking strategies and tradeoffs
+  </Card>
+</Cards>

@@ -385,6 +385,54 @@
 			"devDeps": {}
 		}
 	],
+	"chunkers": [
+		{
+			"id": "semantic",
+			"label": "semantic",
+			"description": "LLM-guided semantic chunking for general text",
+			"status": "available",
+			"deps": { "ai": "^6.0.3" },
+			"devDeps": {}
+		},
+		{
+			"id": "markdown",
+			"label": "markdown",
+			"description": "Markdown-aware chunking with fenced code preservation",
+			"status": "available",
+			"deps": {},
+			"devDeps": {}
+		},
+		{
+			"id": "hierarchical",
+			"label": "hierarchical",
+			"description": "Section-first chunking with header context",
+			"status": "available",
+			"deps": {},
+			"devDeps": {}
+		},
+		{
+			"id": "code",
+			"label": "code",
+			"description": "Structure-aware chunking for source code",
+			"status": "available",
+			"deps": {
+				"tree-sitter": "^0.22.6",
+				"tree-sitter-typescript": "^0.21.2",
+				"tree-sitter-javascript": "^0.21.4",
+				"tree-sitter-python": "^0.21.0",
+				"tree-sitter-go": "^0.21.0"
+			},
+			"devDeps": {}
+		},
+		{
+			"id": "agentic",
+			"label": "agentic",
+			"description": "LLM-guided chunking for highest quality",
+			"status": "available",
+			"deps": { "ai": "^6.0.3" },
+			"devDeps": {}
+		}
+	],
 	"batteries": [
 		{
 			"id": "reranker",

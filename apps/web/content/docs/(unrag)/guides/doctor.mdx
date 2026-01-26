@@ -7,9 +7,9 @@ After setting up Unrag, you might wonder whether everything is wired correctly. 
 
 ## Why doctor exists
 
-Unrag is vendored source code, which means you own it and can modify it. This flexibility comes with a trade-off: there's no central registry keeping track of what you've installed or whether it's configured correctly. You might add an extractor but forget to register it in your config. You might set up the database schema but miss an index that becomes important as your data grows.
+Unrag is vendored source code. When you run `init`, you're copying files into your project that you own and can modify. This flexibility comes with a trade-off: there's no central registry keeping track of what you've installed or whether it's configured correctly. You might add an extractor but forget to register it in your config. You might set up the database schema but miss an index that becomes important as your data grows. You might install a plugin chunker but never wire it into your configuration.
 
-Doctor scans your project and reports what it finds. It reads your `unrag.json`, examines your `unrag.config.ts`, checks your environment variables, and optionally connects to your database to verify the schema. The goal is to surface issues before they become production problems.
+Doctor scans your project and reports what it finds. It reads your `unrag.json` manifest, examines your `unrag.config.ts`, checks your environment variables, and optionally connects to your database to verify the schema. The goal is to surface issues before they become production problems.
 
 ## Running the basic checks
 
@@ -19,21 +19,23 @@ The simplest invocation runs static checks—things that don't require a databas
 bunx unrag doctor
 ```
 
-This examines your project for:
+This examines your project across several dimensions:
 
-**Installation integrity.** Does `unrag.json` exist and parse correctly? Is there a `unrag.config.ts` file? Does your install directory contain the expected folders (`core/`, `store/`, `embedding/`)?
+**Installation integrity.** Does `unrag.json` exist and parse correctly? Is there a `unrag.config.ts` file at your project root? Does your install directory contain the expected folders (`core/`, `store/`, `embedding/`)? These are the foundational files that every Unrag project needs.
 
-**Environment variables.** Based on your embedding provider and store adapter, doctor checks whether the required environment variables are set. If you're using the default AI Gateway provider, it looks for `AI_GATEWAY_API_KEY`. If you're using the Drizzle adapter with Postgres, it looks for `DATABASE_URL`.
+**Environment variables.** Based on your embedding provider and store adapter, doctor checks whether the required environment variables are set. If you're using the default AI Gateway provider, it looks for `AI_GATEWAY_API_KEY`. If you're using the Drizzle adapter with Postgres, it looks for `DATABASE_URL`. Missing variables are reported with clear messages about what each one is for.
 
-**Module presence.** If you've installed extractors or connectors, doctor verifies that the source files exist in the expected locations. A module directory without its main files suggests a partial installation.
+**Module presence.** If you've installed extractors, connectors, or chunkers, doctor verifies that the source files exist in the expected locations. A module listed in `unrag.json` but missing its directory suggests a partial installation. Doctor checks that each installed module has its main files (`index.ts`, configuration, etc.) in place.
 
-**Config coherence.** Doctor performs static analysis on your `unrag.config.ts` to check whether installed extractors are actually registered and enabled. If you've installed `pdf-llm` but didn't add it to your extractors array, doctor warns you.
+**Config coherence.** Doctor performs static analysis on your `unrag.config.ts` to check whether things are wired correctly. If you've installed the `pdf-llm` extractor but didn't register it in your extractors array, doctor warns you. If you've configured `chunking.method: "semantic"` but haven't installed the semantic chunker module, doctor flags the mismatch. For custom chunkers (`method: "custom"`), doctor verifies that you've actually provided a `chunker` function in your config.
 
-The output tells you what passed, what needs attention, and how to fix any issues. Passing checks show a checkmark; warnings show a caution symbol with suggested fixes.
+**API feature support.** Doctor can verify that your vendored engine sources support newer API capabilities. For example, if you upgrade to a version of Unrag that supports per-ingest chunker overrides, doctor checks whether your vendored `core/types.ts` includes the new `chunker` field in `IngestInput`. This helps you catch API mismatches after partial upgrades.
+
+The output tells you what passed, what needs attention, and how to fix issues. Passing checks show a checkmark; warnings show a caution symbol with suggested fixes; failures show what went wrong and what to do about it.
 
 ## Checking the database
 
-Static checks can only go so far. To verify that your database is correctly set up, add the `--db` flag:
+Static checks only go so far. To verify that your database is correctly set up, add the `--db` flag:
 
 ```bash
 bunx unrag doctor --db
@@ -41,21 +43,19 @@ bunx unrag doctor --db
 
 This connects to your Postgres database and runs additional checks:
 
-**Connectivity.** Can doctor establish a connection? It reports the PostgreSQL version, database name, and connected user.
+**Connectivity.** Can doctor establish a connection? This is the most basic test—if it fails, nothing else database-related will work. Doctor reports the PostgreSQL version, database name, and connected user, helping you verify you're connected to the right place.
 
-**pgvector extension.** Is the vector extension installed and working? Doctor tests that the `<=>` operator works and checks for HNSW index support.
+**pgvector extension.** Is the vector extension installed and working? Doctor tests that the `<=>` operator (cosine distance) works correctly and checks for HNSW index support. If pgvector isn't installed, you'll need to run `CREATE EXTENSION vector` before using Unrag.
 
-**Schema validation.** Do the expected tables exist (`documents`, `chunks`, `embeddings`)? Do they have the required columns? Are foreign key constraints configured with `ON DELETE CASCADE`?
+**Schema validation.** Do the expected tables exist (`documents`, `chunks`, `embeddings`)? Do they have the required columns with correct types? Are foreign key constraints configured with `ON DELETE CASCADE`? Doctor compares your actual schema against what Unrag expects and reports any discrepancies.
 
-**Index recommendations.** Doctor checks for btree indexes on `source_id` columns, which speed up filtering and deletes. It also checks for vector indexes on the embeddings table. For small datasets, sequential scan is fine—doctor only warns about missing vector indexes when you have more than 50,000 embeddings.
+**Index recommendations.** Doctor checks for btree indexes on `source_id` columns, which speed up filtering and cascade deletes. It also checks for vector indexes on the embeddings table. For small datasets, sequential scan is fine—doctor only warns about missing vector indexes when you have more than 50,000 embeddings. At that scale, an HNSW or IVFFlat index becomes important for query performance.
 
-**Dimension consistency.** If you've switched embedding models at some point, you might have embeddings with different dimensions in the same database. Doctor detects this and warns you, because mixed dimensions can cause retrieval issues.
+**Dimension consistency.** If you've switched embedding models at some point, you might have embeddings with different dimensions in the same database. Doctor detects this and warns you, because pgvector can't compare vectors of different dimensions. Mixed dimensions usually mean you need to re-embed some content.
 
 ## Configuring doctor for your project
 
-Every project is a little different. Maybe your database URL lives in a custom environment variable. Maybe you use a non-standard schema name. Maybe you want strict mode in CI but not locally.
-
-The `doctor setup` command walks you through these options and generates a config file:
+Every project is different. Maybe your database URL lives in a custom environment variable. Maybe you use a non-standard schema name. Maybe you want strict mode in CI but not locally. The `doctor setup` command walks you through these options:
 
 ```bash
 bunx unrag doctor setup
@@ -73,15 +73,15 @@ This interactive wizard asks about your setup and creates `.unrag/doctor.json` w
 }
 ```
 
-Now your team can run `npm run unrag:doctor` and get consistent results. The CI script adds `--strict` (treat warnings as failures) and `--json` (machine-readable output) for use in automated pipelines.
+Now your team can run `npm run unrag:doctor` and get consistent results based on your project's configuration. The CI script adds `--strict` (treat warnings as failures) and `--json` (machine-readable output) for use in automated pipelines.
 
-If you prefer non-interactive setup, pass `--yes` to use detected defaults:
+If you prefer to skip the interactive prompts, pass `--yes` to accept detected defaults:
 
 ```bash
 bunx unrag doctor setup --yes
 ```
 
-## The config file
+## Understanding the config file
 
 The `.unrag/doctor.json` file stores your project-specific settings. It doesn't contain secrets—those stay in environment variables. Here's what the file looks like:
 
@@ -108,9 +108,11 @@ The `.unrag/doctor.json` file stores your project-specific settings. It doesn't 
 }
 ```
 
-The `env.loadFiles` array controls which dotenv files doctor loads before running checks. The `env.databaseUrlEnv` field tells doctor which environment variable contains your database URL—useful if you've renamed it from the default `DATABASE_URL`.
+The `env.loadFiles` array controls which dotenv files doctor loads before running checks. This matters because doctor checks environment variables—if they're in `.env.local` but you didn't configure that file to be loaded, checks will fail incorrectly.
 
-The `db` section lets you specify a custom schema name or table names if you've customized the Drizzle schema. The `defaults` section sets default values for flags like `--strict`.
+The `env.databaseUrlEnv` field tells doctor which environment variable contains your database URL. This is useful if you've renamed it from the default `DATABASE_URL` to something like `POSTGRES_URL` or `UNRAG_DATABASE_URL`.
+
+The `db` section lets you specify custom schema or table names if you've modified the default Drizzle schema. If you're using `app_data` schema instead of `public`, configure it here.
 
 When you run `unrag doctor --config .unrag/doctor.json`, these settings are applied automatically. CLI flags still override config values, so you can always do `npm run unrag:doctor -- --strict` to add strict mode for a single run.
 
@@ -132,11 +134,13 @@ This runs with `--json` for structured output and `--strict` to fail on warnings
     AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
 ```
 
-If doctor finds issues, the step fails and the JSON output tells you exactly what went wrong.
+If doctor finds issues, the step fails and the JSON output tells you exactly what went wrong. This catches configuration drift early—before broken configs reach production.
 
 ## Common issues and fixes
 
-**Missing source_id indexes.** Doctor recommends btree indexes on `chunks.source_id` and `documents.source_id`. These speed up queries that filter by source and are essential for efficient prefix deletes. If you're using Drizzle, add indexes to your schema:
+Here are the issues doctor most commonly finds, with guidance on fixing them:
+
+**Missing source_id indexes.** Doctor recommends btree indexes on `chunks.source_id` and `documents.source_id`. These speed up queries that filter by source and are essential for efficient prefix deletes. Without them, a delete operation scans the entire table. If you're using Drizzle, add indexes to your schema:
 
 ```ts
 export const documents = pgTable(
@@ -166,9 +170,13 @@ engine: {
 }
 ```
 
+**Chunker method not installed.** You've set `chunking.method: "semantic"` in your config, but the semantic chunker module isn't installed. Either install it with `bunx unrag add chunker:semantic` or change your config to use a built-in method like `"recursive"`.
+
+**Custom chunker without chunker function.** You've set `chunking.method: "custom"` but haven't provided a `chunker` function. Custom chunking requires you to pass your own chunker implementation in the config. See [Custom Chunking](/docs/chunking/custom) for examples.
+
 **DATABASE_URL not set.** Doctor looks in your environment and the dotenv files it loads. If you're storing the URL in a custom variable, either use `--database-url-env YOUR_VAR_NAME` or configure it in `.unrag/doctor.json` under `env.databaseUrlEnv`.
 
-**Mixed embedding dimensions.** You changed embedding models at some point, and now your database contains vectors of different sizes. This causes retrieval errors because pgvector can't compare vectors of different dimensions. You'll need to re-ingest your content with the current model, or use the `--scope` flag to limit checks to a specific source prefix:
+**Mixed embedding dimensions.** You changed embedding models at some point, and now your database contains vectors of different sizes. This causes retrieval errors because pgvector can't compare vectors of different dimensions. You'll need to re-ingest your content with the current model. You can use the `--scope` flag to limit checks to a specific source prefix:
 
 ```bash
 unrag doctor --db --scope "docs:"
@@ -176,13 +184,13 @@ unrag doctor --db --scope "docs:"
 
 This checks only embeddings for chunks whose `source_id` starts with "docs:".
 
+**Per-ingest chunker override not supported.** After upgrading Unrag, you might have new API capabilities in the registry that your vendored code doesn't include yet. Doctor detects this by checking whether your vendored `IngestInput` type includes the `chunker` field. If it doesn't, you can re-vendor the core types by running `bunx unrag add core` or manually adding the field to your local `core/types.ts`.
+
 ## What doctor doesn't do
 
-Doctor is a diagnostic tool, not a repair tool. It tells you what's wrong but doesn't automatically fix anything. This is intentional—database changes and file modifications should be deliberate actions you control.
+Doctor is a diagnostic tool, not a repair tool. It tells you what's wrong but doesn't automatically fix anything. Database changes, file modifications, and configuration updates should be deliberate actions you control. Doctor gives you the information; you decide what to do with it.
 
-Doctor also doesn't test your application's runtime behavior. It can verify that your config file exists and parses, but it doesn't actually call `engine.ingest()` or `engine.retrieve()`. If you want to verify the full pipeline works, write an integration test that ingests sample content and retrieves it.
-
-## Next steps
+Doctor also doesn't test runtime behavior. It can verify that your config file exists and parses, that modules are present, and that your schema looks right. But it doesn't actually call `engine.ingest()` or `engine.retrieve()`. If you want to verify the full pipeline works end-to-end, write an integration test that ingests sample content and retrieves it.
 
 <Cards>
   <Card title="Database Setup" href="/docs/getting-started/database">

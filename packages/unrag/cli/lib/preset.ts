@@ -12,6 +12,7 @@ export type PresetPayloadV1 = {
 		extractors: string[]
 		connectors: string[]
 		batteries?: string[]
+		chunkers?: string[]
 	}
 	config?: unknown
 }
@@ -56,6 +57,12 @@ function isPresetPayloadV1(x: unknown): x is PresetPayloadV1 {
 	if ('batteries' in modulesObj) {
 		const batteries = modulesObj.batteries
 		if (batteries != null && !Array.isArray(batteries)) {
+			return false
+		}
+	}
+	if ('chunkers' in modulesObj) {
+		const chunkers = modulesObj.chunkers
+		if (chunkers != null && !Array.isArray(chunkers)) {
 			return false
 		}
 	}

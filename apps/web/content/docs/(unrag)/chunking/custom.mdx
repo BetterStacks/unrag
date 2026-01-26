@@ -1,0 +1,332 @@
+---
+title: Custom Chunking
+description: Build your own chunker for specialized content or unique requirements.
+---
+
+Unrag's built-in chunkers cover common cases well. Recursive chunking handles prose. Markdown chunking handles documentation. Code chunking handles source files. But your content might be different. Maybe you're processing legal documents with specific section numbering. Maybe you need to handle a mix of languages with different splitting rules. Maybe your domain has conventions that no generic chunker would understand.
+
+Custom chunking gives you complete control. You write a function that takes content and returns chunks. Unrag handles everything else—token counting utilities, integration with the ingest pipeline, embedding and storage. Your chunker just focuses on the splitting logic.
+
+## The chunker interface
+
+A chunker is a function with a simple signature:
+
+```ts
+type Chunker = (
+  content: string,
+  options: ChunkingOptions
+) => ChunkText[] | Promise<ChunkText[]>;
+```
+
+It receives the document content and configuration options. It returns an array of chunks. That's it. The function can be synchronous or asynchronous, depending on whether your logic needs to make network calls or process asynchronously.
+
+The `ChunkingOptions` type includes the standard parameters:
+
+```ts
+type ChunkingOptions = {
+  chunkSize: number;      // Maximum tokens per chunk
+  chunkOverlap: number;   // Tokens to repeat at boundaries
+  minChunkSize?: number;  // Minimum tokens per chunk
+  separators?: string[];  // Optional custom separator list
+  // Plus any custom options you add
+};
+```
+
+Each chunk you return has this structure:
+
+```ts
+type ChunkText = {
+  index: number;      // Position in document (0, 1, 2, ...)
+  content: string;    // The chunk text
+  tokenCount: number; // Token count for this chunk
+};
+```
+
+The `index` field orders chunks within the document. Unrag uses this for overlap calculation and to preserve document structure in storage.
+
+## Configuring a custom chunker
+
+Once you've written your chunker function, register it in your config:
+
+```ts
+import { defineUnragConfig, countTokens } from "unrag";
+import type { Chunker, ChunkText, ChunkingOptions } from "unrag";
+
+const myChunker: Chunker = (content: string, options: ChunkingOptions): ChunkText[] => {
+  // Your splitting logic here
+  const parts = splitByYourRules(content);
+  
+  return parts.map((text, index) => ({
+    index,
+    content: text,
+    tokenCount: countTokens(text),
+  }));
+};
+
+export default defineUnragConfig({
+  chunking: {
+    method: "custom",
+    chunker: myChunker,
+    options: {
+      chunkSize: 512,
+      chunkOverlap: 50,
+    },
+  },
+  // ...
+});
+```
+
+The `method: "custom"` tells Unrag to use the function you provide via `chunker` rather than a built-in method.
+
+## Using the token counting utility
+
+Accurate token counts are essential for chunking. Unrag exports a `countTokens` function that uses the same `o200k_base` tokenizer as the default chunker:
+
+```ts
+import { countTokens } from "unrag";
+
+const tokens = countTokens("Hello world");  // 2
+const docTokens = countTokens(longDocument); // exact count
+```
+
+This matches what OpenAI's embedding models will see. If you're using a different embedding provider with a different tokenizer, you might need your own token counting logic, but for most cases `countTokens` is what you want.
+
+Always use token counts in your `ChunkText` return values. Unrag uses these for overlap calculations and to validate that chunks stay within limits.
+
+## Example: Sentence-based chunker
+
+Here's a complete chunker that never splits mid-sentence. It accumulates sentences until adding another would exceed the token limit, then starts a new chunk:
+
+```ts
+import { countTokens } from "unrag";
+import type { Chunker, ChunkText, ChunkingOptions } from "unrag";
+
+const sentenceChunker: Chunker = (
+  content: string,
+  options: ChunkingOptions
+): ChunkText[] => {
+  const { chunkSize, minChunkSize = 24 } = options;
+
+  // Split on sentence boundaries (period, question mark, exclamation mark followed by space)
+  // The regex uses a lookbehind to keep the punctuation with the sentence
+  const sentences = content.split(/(?<=[.!?])\s+/).filter(s => s.trim());
+  
+  const chunks: ChunkText[] = [];
+  let currentText = "";
+  let currentTokens = 0;
+  let chunkIndex = 0;
+
+  for (const sentence of sentences) {
+    const sentenceTokens = countTokens(sentence);
+    const spaceTokens = currentText ? 1 : 0; // Space between sentences
+
+    // Would adding this sentence exceed the limit?
+    if (currentTokens + sentenceTokens + spaceTokens > chunkSize && currentText) {
+      // Only save if it meets minimum size
+      if (currentTokens >= minChunkSize) {
+        chunks.push({
+          index: chunkIndex++,
+          content: currentText.trim(),
+          tokenCount: currentTokens,
+        });
+      }
+      currentText = "";
+      currentTokens = 0;
+    }
+
+    // Add sentence to current chunk
+    currentText += (currentText ? " " : "") + sentence;
+    currentTokens += sentenceTokens + spaceTokens;
+  }
+
+  // Don't forget the final chunk
+  if (currentText.trim() && currentTokens >= minChunkSize) {
+    chunks.push({
+      index: chunkIndex++,
+      content: currentText.trim(),
+      tokenCount: countTokens(currentText.trim()),
+    });
+  }
+
+  return chunks;
+};
+```
+
+This chunker respects natural language boundaries. No sentence is ever cut in half. The tradeoff is that chunks might be smaller than optimal if sentences are long, but each chunk is guaranteed to be grammatically complete.
+
+## Example: Legal document chunker
+
+Legal documents often have explicit section structure: "1.", "1.1", "Section 2", etc. A custom chunker can split at these markers:
+
+```ts
+import { countTokens } from "unrag";
+import type { Chunker, ChunkText, ChunkingOptions } from "unrag";
+
+const legalChunker: Chunker = (
+  content: string,
+  options: ChunkingOptions
+): ChunkText[] => {
+  const { chunkSize, minChunkSize = 24 } = options;
+  
+  // Pattern matches section numbers at line start
+  // "1.", "1.1", "1.1.1", "Section 1", "ARTICLE II", etc.
+  const sectionPattern = /(?=(?:^|\n)(?:\d+\.[\d.]*|\bSection\s+\d+|\bARTICLE\s+[IVXLCDM]+))/gi;
+  const sections = content.split(sectionPattern).filter(s => s.trim());
+
+  const chunks: ChunkText[] = [];
+  let chunkIndex = 0;
+
+  for (const section of sections) {
+    const sectionTokens = countTokens(section);
+
+    if (sectionTokens <= chunkSize) {
+      // Section fits in one chunk
+      if (sectionTokens >= minChunkSize) {
+        chunks.push({
+          index: chunkIndex++,
+          content: section.trim(),
+          tokenCount: sectionTokens,
+        });
+      }
+    } else {
+      // Section too large—split by paragraphs within the section
+      const paragraphs = section.split(/\n\n+/).filter(p => p.trim());
+      let current = "";
+      let currentTokens = 0;
+
+      for (const para of paragraphs) {
+        const paraTokens = countTokens(para);
+
+        if (currentTokens + paraTokens > chunkSize && current) {
+          if (currentTokens >= minChunkSize) {
+            chunks.push({
+              index: chunkIndex++,
+              content: current.trim(),
+              tokenCount: currentTokens,
+            });
+          }
+          current = "";
+          currentTokens = 0;
+        }
+
+        current += (current ? "\n\n" : "") + para;
+        currentTokens += paraTokens;
+      }
+
+      if (current.trim() && currentTokens >= minChunkSize) {
+        chunks.push({
+          index: chunkIndex++,
+          content: current.trim(),
+          tokenCount: countTokens(current.trim()),
+        });
+      }
+    }
+  }
+
+  return chunks;
+};
+```
+
+This chunker preserves legal document structure. Each numbered section becomes a chunk (or multiple chunks if large). When users search for "Section 3.2 liability provisions," they get back the complete section, not a fragment that starts mid-paragraph.
+
+## Example: Async chunker with LLM
+
+Sometimes you want human-like judgment in your chunking logic but need control the built-in LLM chunkers don't provide. You can build an async chunker that calls an LLM:
+
+```ts
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { countTokens } from "unrag";
+import type { Chunker, ChunkText, ChunkingOptions } from "unrag";
+
+const llmChunker: Chunker = async (
+  content: string,
+  options: ChunkingOptions
+): Promise<ChunkText[]> => {
+  const { chunkSize } = options;
+
+  // Custom prompt for your specific use case
+  const { text } = await generateText({
+    model: openai("gpt-4o-mini"),
+    prompt: `You are chunking a customer support article for search.
+Split this text into chunks of roughly ${chunkSize} tokens each.
+Each chunk should be a self-contained answer to a potential user question.
+Return the text with "---SPLIT---" markers where chunks should divide.
+Never split mid-paragraph or mid-sentence.
+
+Text to chunk:
+${content}`,
+  });
+
+  // Parse LLM response
+  const parts = text
+    .split("---SPLIT---")
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  return parts.map((part, index) => ({
+    index,
+    content: part,
+    tokenCount: countTokens(part),
+  }));
+};
+```
+
+This gives you the flexibility of LLM-powered chunking with complete control over the prompt. You can tailor the instructions to your specific content type and search patterns.
+
+## Per-ingest chunker overrides
+
+You don't have to use your custom chunker for everything. Unrag supports overriding the chunker on a per-ingest basis:
+
+```ts
+import { semanticChunker } from "@unrag/chunking/semantic";
+
+// Use your custom chunker by default (from config)
+await engine.ingest({
+  sourceId: "legal:contract-123",
+  content: contractContent,
+});
+
+// Override with a different chunker for specific content
+await engine.ingest({
+  sourceId: "faq:general",
+  content: faqContent,
+  chunker: sentenceChunker,  // Your custom sentence-based chunker
+});
+
+// Or use a built-in chunker
+await engine.ingest({
+  sourceId: "blog:post-456",
+  content: blogContent,
+  chunker: semanticChunker,  // Semantic chunker for this ingest only
+});
+```
+
+This flexibility lets you handle heterogeneous content without multiple engine instances.
+
+## Best practices
+
+When building custom chunkers, keep these principles in mind:
+
+**Always use `countTokens` for accurate token counts.** Estimating based on characters or words leads to chunks that exceed limits or waste space.
+
+**Respect `chunkSize` as a hard limit.** Chunks should never exceed this value. If a single unit (sentence, section, function) exceeds the limit, you need logic to split it further.
+
+**Consider `minChunkSize` to avoid tiny fragments.** A chunk with 5 tokens adds noise without value. Merge small chunks with neighbors or filter them out.
+
+**Return sequential indices starting at 0.** The index field should count 0, 1, 2, ... in order. Unrag uses this for overlap calculation and document reconstruction.
+
+**Trim whitespace from chunk content.** Chunks shouldn't start or end with extra spaces or newlines. This wastes tokens and creates inconsistent embeddings.
+
+**Handle edge cases gracefully.** Empty content, single sentences, massive documents without structure—your chunker should handle these without crashing.
+
+## When to build custom
+
+Build a custom chunker when:
+
+- Your content has **domain-specific structure** that generic chunkers don't understand (legal documents, medical records, financial filings)
+- You need **language-specific handling** with different rules for different languages
+- You want to **combine strategies** based on content detection (use markdown chunking for docs, code chunking for source files)
+- Built-in chunkers **consistently produce poor results** for your content type
+
+For most use cases, start with a built-in chunker. The recursive chunker handles general prose well, and the specialized chunkers (markdown, code, semantic) cover common structured content. Custom chunking is a power tool for when those don't fit.

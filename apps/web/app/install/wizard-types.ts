@@ -27,6 +27,13 @@ export type WizardStateV1 = {
 		extractors: string[]
 		connectors: string[]
 		batteries: string[]
+		chunkers: string[]
+	}
+	chunking: {
+		method: string
+		minChunkSize: number
+		model?: string
+		language?: string
 	}
 	defaults: {
 		chunkSize: number
@@ -69,6 +76,13 @@ export type RegistryManifest = {
 			required?: boolean
 			notes?: string
 		}>
+	}>
+	chunkers?: Array<{
+		id: string
+		label?: string
+		description?: string
+		status?: 'available' | 'coming-soon'
+		docsPath?: string | null
 	}>
 	batteries?: Array<{
 		id: string

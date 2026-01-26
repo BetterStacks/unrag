@@ -18,8 +18,8 @@ import { Pool } from "pg";
 export const unrag = defineUnragConfig({
   defaults: {
   chunking: {
-    chunkSize: 200,
-    chunkOverlap: 40,
+    chunkSize: 512,
+    chunkOverlap: 50,
   },
   retrieval: {
     topK: 8,
@@ -98,19 +98,24 @@ This object holds your default settings. Changing values here affects all operat
 
 ### defaults.chunking
 
-Controls how documents are split into chunks. See [Chunking](/docs/concepts/chunking) for details on strategies.
+Controls how documents are split into chunks. Unrag uses token-based recursive chunking with the `o200k_base` tokenizer (same as GPT-5, GPT-4o). See [Chunking](/docs/concepts/chunking) for details on strategies and plugin chunkers.
 
 <TypeTable
   type={{
     chunkSize: {
-      description: 'Approximate words per chunk. Smaller = more precise retrieval, higher embedding cost.',
+      description: 'Maximum tokens per chunk. Smaller = more precise retrieval, higher embedding cost.',
       type: 'number',
-      default: '200',
+      default: '512',
     },
     chunkOverlap: {
-      description: 'Words that overlap between adjacent chunks. Preserves context across boundaries.',
+      description: 'Tokens that overlap between adjacent chunks. Preserves context across boundaries.',
       type: 'number',
-      default: '40',
+      default: '50',
+    },
+    minChunkSize: {
+      description: 'Minimum tokens per chunk. Chunks smaller than this will be merged with neighbors.',
+      type: 'number',
+      default: '24',
     },
   }}
 />
@@ -151,6 +156,52 @@ You can set these under `defaults.embedding` (recommended). If you need a per-en
     },
   }}
 />
+
+### chunking
+
+Configures the chunking method and options at the top level. This is an alternative to `defaults.chunking` that also lets you specify which chunking method to use (built-in, plugin, or custom).
+
+```ts
+export default defineUnragConfig({
+  chunking: {
+    method: "recursive",  // or "markdown", "code", "semantic", etc.
+    options: {
+      chunkSize: 512,
+      chunkOverlap: 50,
+      minChunkSize: 24,
+    },
+  },
+  // ...
+});
+```
+
+<TypeTable
+  type={{
+    method: {
+      description: 'Chunking method to use. Built-in: "recursive" (default), "token". Plugins: "semantic", "markdown", "hierarchical", "code", "agentic". Use "custom" with a chunker function.',
+      type: '"recursive" | "token" | "semantic" | "markdown" | "hierarchical" | "code" | "agentic" | "custom"',
+      default: '"recursive"',
+    },
+    options: {
+      description: 'Chunking options (chunkSize, chunkOverlap, minChunkSize). Same as defaults.chunking.',
+      type: 'ChunkingOptions',
+    },
+    chunker: {
+      description: 'Custom chunker function. Only used when method is "custom".',
+      type: 'Chunker',
+    },
+  }}
+/>
+
+Plugin chunkers must be installed via CLI before use:
+
+```bash
+bunx unrag add chunker:markdown    # For documentation
+bunx unrag add chunker:code        # For source code (uses tree-sitter)
+bunx unrag add chunker:semantic    # LLM-guided semantic boundaries
+bunx unrag add chunker:hierarchical # Section-first with header context
+bunx unrag add chunker:agentic     # LLM-powered highest quality
+```
 
 ### storage
 

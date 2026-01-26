@@ -30,6 +30,13 @@ type WizardStateV1 = {
 		extractors: string[]
 		connectors: string[]
 		batteries?: string[]
+		chunkers?: string[]
+	}
+	chunking?: {
+		method?: string
+		minChunkSize?: number
+		model?: string
+		language?: string
 	}
 	defaults: {
 		chunkSize: number
@@ -63,8 +70,17 @@ type PresetPayloadV1 = {
 		extractors: string[]
 		connectors: string[]
 		batteries: string[]
+		chunkers: string[]
 	}
 	config: {
+		chunking?: {
+			method?: string
+			options?: {
+				minChunkSize?: number
+				model?: string
+				language?: string
+			}
+		}
 		defaults: {
 			chunking: {chunkSize: number; chunkOverlap: number}
 			retrieval: {topK: number}
@@ -110,6 +126,15 @@ function isWizardStateV1(x: unknown): x is WizardStateV1 {
 	) {
 		return false
 	}
+	if (
+		o.modules &&
+		typeof o.modules === 'object' &&
+		'chunkers' in o.modules &&
+		(o.modules as Record<string, unknown>).chunkers != null &&
+		!Array.isArray((o.modules as Record<string, unknown>).chunkers)
+	) {
+		return false
+	}
 	return true
 }
 
@@ -127,6 +152,36 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 	const batteries = Array.isArray(input.modules.batteries)
 		? input.modules.batteries.map(String).filter(Boolean)
 		: []
+	const chunkers = Array.isArray(input.modules.chunkers)
+		? input.modules.chunkers.map(String).filter(Boolean)
+		: []
+
+	const chunkingMethod = String(input.chunking?.method ?? 'recursive')
+		.trim()
+		.toLowerCase()
+	const chunkingMinChunkSize = Number(input.chunking?.minChunkSize) || 24
+	const chunkingModelRaw = String(input.chunking?.model ?? '').trim()
+	const chunkingLanguageRaw = String(input.chunking?.language ?? '').trim()
+
+	// These sentinels are used by the /install wizard UI. They should not be
+	// emitted into presets/config as literal values.
+	const CHUNKER_MODEL_DEFAULT_VALUE = '__default__'
+	const AUTO_LANGUAGE_VALUE = '__auto__'
+
+	const chunkingModel =
+		chunkingModelRaw === CHUNKER_MODEL_DEFAULT_VALUE ? '' : chunkingModelRaw
+	const chunkingLanguage =
+		chunkingLanguageRaw === AUTO_LANGUAGE_VALUE ? '' : chunkingLanguageRaw
+
+	const isBuiltInMethod =
+		chunkingMethod === 'recursive' ||
+		chunkingMethod === 'token' ||
+		chunkingMethod === 'custom'
+	const ensuredChunkers = isBuiltInMethod
+		? chunkers
+		: chunkers.includes(chunkingMethod)
+			? chunkers
+			: [...chunkers, chunkingMethod].sort()
 
 	const chunkSize = Number(input.defaults.chunkSize) || 200
 	const chunkOverlap = Number(input.defaults.chunkOverlap) || 40
@@ -160,7 +215,13 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 	return {
 		v: 1,
 		install: {installDir, storeAdapter, aliasBase},
-		modules: {extractors, connectors, batteries},
+		modules: {extractors, connectors, batteries, chunkers: ensuredChunkers},
+		chunking: {
+			method: chunkingMethod,
+			minChunkSize: chunkingMinChunkSize,
+			...(chunkingModel ? {model: chunkingModel} : {}),
+			...(chunkingLanguage ? {language: chunkingLanguage} : {})
+		},
 		defaults: {chunkSize, chunkOverlap, topK},
 		embedding: {
 			type: embeddingType,
@@ -174,6 +235,8 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 
 function makePresetFromWizard(state: WizardStateV1): PresetPayloadV1 {
 	const assetProcessing = state.engine?.assetProcessing
+	const CHUNKER_MODEL_DEFAULT_VALUE = '__default__'
+	const AUTO_LANGUAGE_VALUE = '__auto__'
 	return {
 		version: 1,
 		createdAt: new Date().toISOString(),
@@ -187,9 +250,35 @@ function makePresetFromWizard(state: WizardStateV1): PresetPayloadV1 {
 			connectors: state.modules.connectors,
 			batteries: (state.modules.batteries ?? [])
 				.map(String)
-				.filter(Boolean)
+				.filter(Boolean),
+			chunkers: (state.modules.chunkers ?? []).map(String).filter(Boolean)
 		},
 		config: {
+			...(state.chunking?.method
+				? {
+						chunking: {
+							method: state.chunking.method,
+							options: {
+								...(typeof state.chunking.minChunkSize ===
+								'number'
+									? {
+											minChunkSize:
+												state.chunking.minChunkSize
+										}
+									: {}),
+								...(state.chunking.model &&
+								state.chunking.model !==
+									CHUNKER_MODEL_DEFAULT_VALUE
+									? {model: state.chunking.model}
+									: {}),
+								...(state.chunking.language &&
+								state.chunking.language !== AUTO_LANGUAGE_VALUE
+									? {language: state.chunking.language}
+									: {})
+							}
+						}
+					}
+				: {}),
 			defaults: {
 				chunking: {
 					chunkSize: state.defaults.chunkSize,
@@ -281,6 +370,11 @@ export async function POST(req: NextRequest) {
 			.filter((b) => b.status === 'available')
 			.map((b) => b.id)
 	)
+	const allowedChunkers = new Set(
+		(manifest.chunkers ?? [])
+			.filter((c) => c.status === 'available')
+			.map((c) => c.id)
+	)
 
 	const unknownExtractors = state.modules.extractors.filter(
 		(x) => !allowedExtractors.has(x)
@@ -309,6 +403,17 @@ export async function POST(req: NextRequest) {
 	if (unknownBatteries.length > 0) {
 		return NextResponse.json(
 			{error: 'Unknown or unavailable batteries', unknownBatteries},
+			{status: 400}
+		)
+	}
+
+	const chunkerIds = (state.modules.chunkers ?? [])
+		.map(String)
+		.filter(Boolean)
+	const unknownChunkers = chunkerIds.filter((x) => !allowedChunkers.has(x))
+	if (unknownChunkers.length > 0) {
+		return NextResponse.json(
+			{error: 'Unknown or unavailable chunkers', unknownChunkers},
 			{status: 400}
 		)
 	}

@@ -1,0 +1,230 @@
+---
+title: Code Chunking
+description: AST-based chunking that splits code at function and class boundaries.
+---
+
+Source code isn't prose. It has explicit structure—functions, classes, type definitions, imports—that determines how it should be split. A function is a logical unit. Cutting it in half produces two fragments that neither make sense alone nor embed usefully for retrieval.
+
+The code chunker understands this structure. It parses source code into an Abstract Syntax Tree (AST) using tree-sitter, identifies meaningful boundaries like function and class definitions, and splits there. The result is chunks that contain complete, coherent units of code.
+
+## Why AST-based chunking matters
+
+Consider a simple TypeScript file:
+
+```ts
+import { db } from "./db";
+
+interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
+export async function getUser(id: string): Promise<User | null> {
+  const result = await db.query("SELECT * FROM users WHERE id = $1", [id]);
+  return result.rows[0] ?? null;
+}
+
+export async function createUser(data: Omit<User, "id">): Promise<User> {
+  const id = crypto.randomUUID();
+  await db.query(
+    "INSERT INTO users (id, name, email) VALUES ($1, $2, $3)",
+    [id, data.name, data.email]
+  );
+  return { id, ...data };
+}
+```
+
+A token-based chunker might split this mid-function, producing a chunk that ends with `const result = await db.query(` and another that starts with `"SELECT * FROM users...`. Neither chunk is useful. The first has incomplete code. The second has no context about what function it's in or what `result` is for.
+
+The code chunker produces three chunks:
+1. The imports and interface definition
+2. The `getUser` function, complete
+3. The `createUser` function, complete
+
+When a user searches for "how to create a user," they get back the complete `createUser` function—not a fragment that's missing its opening signature or closing brace.
+
+## Installation
+
+```bash
+bunx unrag add chunker:code
+```
+
+This installs tree-sitter and language grammars for TypeScript, JavaScript, Python, and Go. These are native dependencies that provide fast, accurate parsing.
+
+## Configuration
+
+Enable code chunking in your `unrag.config.ts`:
+
+```ts
+export default defineUnragConfig({
+  chunking: {
+    method: "code",
+    options: {
+      chunkSize: 512,
+      chunkOverlap: 50,
+      language: "typescript",  // optional: auto-detected from sourceId
+    },
+  },
+  // ...
+});
+```
+
+## Supported languages
+
+The code chunker currently supports four languages:
+
+**TypeScript** (`.ts`, `.tsx`) — Functions, classes, interfaces, type aliases, enums. The parser handles modern TypeScript including decorators, generics, and JSX.
+
+**JavaScript** (`.js`, `.jsx`, `.mjs`, `.cjs`) — Functions, classes, and arrow function expressions. ES modules and CommonJS are both supported.
+
+**Python** (`.py`) — Functions, classes, and decorated definitions. The parser handles Python 3 syntax including async functions and type hints.
+
+**Go** (`.go`) — Functions, methods, and type declarations. Package-level organization is preserved.
+
+Each language has different AST node types, and the chunker knows which ones represent meaningful boundaries in that language.
+
+## Language detection
+
+The code chunker can auto-detect the programming language from context. You don't need to specify it explicitly for every file.
+
+**Detection from sourceId:** If your source ID looks like a file path with an extension, the chunker uses that extension:
+
+```ts
+await engine.ingest({
+  sourceId: "src/utils/helpers.ts",  // Detected as TypeScript
+  content: codeContent,
+});
+```
+
+**Detection from metadata:** You can provide a file path in metadata:
+
+```ts
+await engine.ingest({
+  sourceId: "code:12345",
+  content: codeContent,
+  metadata: { filePath: "lib/main.py" },  // Detected as Python
+});
+```
+
+**Explicit override:** For cases where detection doesn't work, specify the language directly:
+
+```ts
+await engine.ingest({
+  sourceId: "snippet:clipboard-paste",
+  content: codeContent,
+  chunking: { language: "go" },
+});
+```
+
+If language detection fails and no override is provided, the chunker falls back to treating the content as plain text and using token-based splitting.
+
+## How the chunker works
+
+The code chunker processes files in several steps:
+
+**Parse the AST.** Tree-sitter reads the source code and builds a syntax tree. This is fast—tree-sitter is designed for IDE use cases where parsing happens on every keystroke.
+
+**Identify major boundaries.** The chunker walks the AST looking for top-level definitions: functions, classes, interfaces, type declarations. These are the natural units of code.
+
+**Create chunks from definitions.** Each major definition becomes a chunk (or part of a chunk). Imports and small declarations at the top of the file are grouped together.
+
+**Respect token limits.** If a single function exceeds `chunkSize`, the chunker must split it. It does so at statement boundaries when possible—between lines rather than mid-expression.
+
+**Merge small pieces.** Tiny chunks (under `minChunkSize`) are combined with neighbors. A single-line type alias might be grouped with the function that uses it.
+
+## When to use code chunking
+
+Code chunking is ideal when you're building search over source code:
+
+- **Codebase search** — Help developers find relevant code across a large repository
+- **Code documentation** — Index code alongside its documentation for unified search
+- **Code assistants** — Provide accurate context for LLM-powered coding help
+- **Onboarding tools** — Help new developers discover how things work
+
+The chunker handles multiple languages in the same index. You can ingest TypeScript, Python, and Go files together, and each will be chunked appropriately based on its language.
+
+## When to use something else
+
+Code chunking is specifically for source code files. For other content types:
+
+- **Markdown with code blocks** — Use the [Markdown Chunker](/docs/chunking/markdown). It keeps code blocks intact while also respecting markdown structure like headings.
+
+- **Prose documentation** — Use the [Recursive Chunker](/docs/chunking/recursive) or [Semantic Chunker](/docs/chunking/semantic). They're optimized for natural language, not programming language.
+
+- **Unsupported languages** — If you're working with Rust, Ruby, C#, or other languages not yet supported, you'll get fallback text-based chunking. Consider contributing a grammar or using custom chunking logic.
+
+## A practical example
+
+Here's how you might index a TypeScript project:
+
+```ts
+import { createUnragEngine } from "@unrag/config";
+import { glob } from "glob";
+import { readFile } from "fs/promises";
+
+const engine = createUnragEngine();
+
+async function indexCodebase(rootDir: string) {
+  const files = await glob(`${rootDir}/**/*.{ts,tsx}`, {
+    ignore: ["**/node_modules/**", "**/dist/**"],
+  });
+
+  for (const filePath of files) {
+    const content = await readFile(filePath, "utf-8");
+    
+    await engine.ingest({
+      sourceId: filePath,  // Language detected from .ts/.tsx extension
+      content,
+      metadata: {
+        type: "source-code",
+        language: "typescript",
+      },
+    });
+  }
+
+  console.log(`Indexed ${files.length} files`);
+}
+
+await indexCodebase("./src");
+```
+
+Each TypeScript file is parsed, split at function and class boundaries, and indexed with chunks that represent complete, searchable units of code.
+
+## Handling parse failures
+
+Not all code is valid. You might have work-in-progress files with syntax errors, or experimental code that tree-sitter's grammar doesn't handle. The code chunker degrades gracefully in these situations.
+
+When parsing fails, the chunker falls back to treating the file as plain text. It uses line-based splitting to stay within token limits, preferring to split at blank lines when possible. The result isn't as semantically meaningful as AST-based chunks, but ingestion doesn't fail.
+
+You can detect parse failures through ingest warnings:
+
+```ts
+const result = await engine.ingest({ sourceId, content });
+
+for (const warning of result.warnings) {
+  if (warning.code === "code_parse_fallback") {
+    console.warn(`Parse failed for ${sourceId}, using text fallback`);
+  }
+}
+```
+
+This lets you track which files might benefit from manual review or re-ingestion once syntax issues are fixed.
+
+## Dependencies
+
+The code chunker relies on tree-sitter for parsing. These are native dependencies:
+
+```json
+{
+  "dependencies": {
+    "tree-sitter": "^0.22.6",
+    "tree-sitter-typescript": "^0.21.2",
+    "tree-sitter-javascript": "^0.21.4",
+    "tree-sitter-python": "^0.21.0",
+    "tree-sitter-go": "^0.21.0"
+  }
+}
+```
+
+These are installed automatically when you run `bunx unrag add chunker:code`. The native bindings compile during installation, so you'll need a working C/C++ toolchain on your system. Most development machines have this already; if you encounter build errors, check that you have build tools installed (Xcode Command Line Tools on macOS, build-essential on Ubuntu, etc.).
