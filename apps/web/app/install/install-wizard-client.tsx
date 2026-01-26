@@ -237,11 +237,6 @@ const STEPS: Step[] = [
 		icon: <Sparkles className="w-4 h-4" />
 	},
 	{
-		id: 'chunkers',
-		label: 'Chunkers',
-		icon: <FileText className="w-4 h-4" />
-	},
-	{
 		id: 'extractors',
 		label: 'Extractors',
 		icon: <Puzzle className="w-4 h-4" />
@@ -667,6 +662,9 @@ const EMBEDDING_MODELS_BY_PROVIDER: Partial<
 }
 
 const CUSTOM_MODEL_VALUE = '__custom__'
+const AUTO_LANGUAGE_VALUE = '__auto__'
+const CHUNKER_MODEL_DEFAULT_VALUE = '__default__'
+const CHUNKER_MODEL_CUSTOM_VALUE = '__custom_chunker__'
 
 const RECOMMENDED_DEFAULTS = {
 	chunkSize: 200,
@@ -678,6 +676,12 @@ const CHUNK_SIZE_OPTIONS = [
 	64, 96, 128, 160, 200, 240, 300, 400, 512, 768, 1024, 1536, 2048
 ]
 const CHUNK_OVERLAP_OPTIONS = [0, 10, 20, 30, 40, 60, 80, 100, 150, 200, 256]
+const MIN_CHUNK_SIZE_OPTIONS = [8, 12, 16, 24, 32, 48, 64, 96]
+const SEMANTIC_CHUNKER_MODELS = [
+	'openai/gpt-5-mini',
+	'openai/gpt-4o-mini',
+	'openai/gpt-4o'
+]
 const TOP_K_OPTIONS = [3, 5, 8, 10, 12, 15, 20, 30, 50, 100]
 
 const EXTRACTOR_ICONS: Record<string, React.ReactNode> = {
@@ -786,7 +790,8 @@ function normalizeState(s: WizardStateV1): WizardStateV1 {
 			''
 	).trim()
 	const chunkingLanguage = String(
-		(s as unknown as {chunking?: {language?: unknown}})?.chunking?.language ??
+		(s as unknown as {chunking?: {language?: unknown}})?.chunking
+			?.language ??
 			DEFAULT_STATE.chunking.language ??
 			''
 	).trim()
@@ -1607,6 +1612,44 @@ export default function InstallWizardClient() {
 		return m
 	}, [embeddingModelOptionsAll])
 
+	const semanticChunkerModelValue = useMemo(() => {
+		if (state.chunking.method !== 'semantic') {
+			return CHUNKER_MODEL_DEFAULT_VALUE
+		}
+		if (
+			!state.chunking.model ||
+			state.chunking.model === CHUNKER_MODEL_DEFAULT_VALUE
+		) {
+			return CHUNKER_MODEL_DEFAULT_VALUE
+		}
+		return SEMANTIC_CHUNKER_MODELS.includes(state.chunking.model)
+			? state.chunking.model
+			: CHUNKER_MODEL_CUSTOM_VALUE
+	}, [state.chunking.method, state.chunking.model])
+
+	const isCustomSemanticChunkerModel =
+		state.chunking.method === 'semantic' &&
+		semanticChunkerModelValue === CHUNKER_MODEL_CUSTOM_VALUE
+
+	const agenticChunkerModelValue = useMemo(() => {
+		if (state.chunking.method !== 'agentic') {
+			return CHUNKER_MODEL_DEFAULT_VALUE
+		}
+		if (
+			!state.chunking.model ||
+			state.chunking.model === CHUNKER_MODEL_DEFAULT_VALUE
+		) {
+			return CHUNKER_MODEL_DEFAULT_VALUE
+		}
+		return SEMANTIC_CHUNKER_MODELS.includes(state.chunking.model)
+			? state.chunking.model
+			: CHUNKER_MODEL_CUSTOM_VALUE
+	}, [state.chunking.method, state.chunking.model])
+
+	const isCustomAgenticChunkerModel =
+		state.chunking.method === 'agentic' &&
+		agenticChunkerModelValue === CHUNKER_MODEL_CUSTOM_VALUE
+
 	const selectedEmbeddingModelOption = embeddingModelOptionById.get(
 		state.embedding.model
 	)
@@ -1692,7 +1735,8 @@ export default function InstallWizardClient() {
 			extractorCount: state.modules.extractors.length,
 			connectorCount: state.modules.connectors.length,
 			batteryCount: state.modules.batteries.length,
-			chunkerCount: state.modules.chunkers.length
+			chunkerCount: state.modules.chunkers.length,
+			chunkingMethod: state.chunking.method
 		}
 	}, [state])
 
@@ -2426,311 +2470,208 @@ export default function InstallWizardClient() {
 										) : null}
 									</FieldGroup>
 
-									<FieldGroup
-										label="Embedding model"
-										hint={
-											state.embedding.type ===
-											'multimodal'
-												? 'Multimodal: pick a provider/model that supports image embeddings (Voyage recommended)'
-												: 'Choose a preset or use a custom model id'
-										}
-									>
-										<div className="space-y-3">
-											<Select
-												value={
-													embeddingModelSelectValue
-												}
-												onValueChange={(v) => {
-													if (
-														v === CUSTOM_MODEL_VALUE
-													) {
-														setForceCustomEmbeddingModel(
-															true
-														)
-														return
+									<div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_220px] gap-4 items-start">
+										<FieldGroup
+											label="Embedding model"
+											hint={
+												state.embedding.type ===
+												'multimodal'
+													? 'Multimodal: pick a provider/model that supports image embeddings (Voyage recommended)'
+													: 'Choose a preset or use a custom model id'
+											}
+										>
+											<div className="space-y-3">
+												<Select
+													value={
+														embeddingModelSelectValue
 													}
-													setForceCustomEmbeddingModel(
-														false
-													)
-													setState((prev) => ({
-														...prev,
-														embedding: {
-															...prev.embedding,
-															model: v
-														}
-													}))
-												}}
-											>
-												<SelectTrigger className="h-12 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
-													<SelectValue>
-														<div className="inline-flex items-center gap-2.5">
-															<div className="w-7 h-7 rounded-lg bg-olive-950/[0.04] border border-olive-950/10 flex items-center justify-center shrink-0 dark:bg-white/5 dark:border-[#757572]/20">
-																{(() => {
-																	return (
-																		<ThemeIcon
-																			icon={
-																				embeddingTriggerIcon
-																			}
-																			width={
-																				16
-																			}
-																			height={
-																				16
-																			}
-																			className="text-olive-950/90 dark:text-white/90"
-																			aria-label="Model provider"
-																		/>
-																	)
-																})()}
-															</div>
-															<span className="font-mono text-sm text-olive-950/85 dark:text-white/85">
-																{
-																	embeddingTriggerLabel
-																}
-															</span>
-														</div>
-													</SelectValue>
-												</SelectTrigger>
-												<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
-													{embeddingModelOptions.map(
-														(opt) => {
-															const Icon =
-																opt.icon
-															return (
-																<SelectItem
-																	key={opt.id}
-																	value={
-																		opt.id
-																	}
-																	className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
-																>
-																	<span className="flex items-center gap-2 w-full">
-																		<span className="w-5 h-5 rounded bg-olive-950/[0.04] border border-olive-950/10 flex items-center justify-center dark:bg-white/5 dark:border-[#757572]/20">
-																			<ThemeIcon
-																				icon={
-																					Icon
-																				}
-																				width={
-																					14
-																				}
-																				height={
-																					14
-																				}
-																				className="text-olive-950/85 dark:text-white/85"
-																				aria-label={
-																					opt.providerLabel
-																				}
-																			/>
-																		</span>
-																		<span className="font-mono text-sm">
-																			{
-																				opt.label
-																			}
-																		</span>
-																		<span className="ml-auto text-xs text-olive-600 dark:text-white/35">
-																			{
-																				opt.providerLabel
-																			}
-																		</span>
-																	</span>
-																</SelectItem>
-															)
-														}
-													)}
-													<SelectSeparator className="bg-olive-950/10 dark:bg-white/10" />
-													<SelectItem
-														value={
+													onValueChange={(v) => {
+														if (
+															v ===
 															CUSTOM_MODEL_VALUE
-														}
-														className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
-													>
-														<span className="flex items-center gap-2 w-full">
-															<span className="w-5 h-5 rounded bg-olive-950/[0.04] border border-olive-950/10 flex items-center justify-center dark:bg-white/5 dark:border-[#757572]/20">
-																<ThemeIcon
-																	icon={{
-																		light: VercelLight,
-																		dark: VercelDark
-																	}}
-																	width={14}
-																	height={14}
-																	className="text-olive-950/85 dark:text-white/85"
-																	aria-label="Custom model"
-																/>
-															</span>
-															<span className="text-sm">
-																Custom model…
-															</span>
-														</span>
-													</SelectItem>
-												</SelectContent>
-											</Select>
-
-											{isCustomEmbeddingModel ? (
-												<div className="space-y-2">
-													<Input
-														value={
-															state.embedding
-																.model
-														}
-														onChange={(e) => {
+														) {
 															setForceCustomEmbeddingModel(
 																true
 															)
-															setState(
-																(prev) => ({
-																	...prev,
-																	embedding: {
-																		...prev.embedding,
-																		model: e
-																			.target
-																			.value
+															return
+														}
+														setForceCustomEmbeddingModel(
+															false
+														)
+														setState((prev) => ({
+															...prev,
+															embedding: {
+																...prev.embedding,
+																model: v
+															}
+														}))
+													}}
+												>
+													<SelectTrigger className="h-12 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
+														<SelectValue>
+															<div className="inline-flex items-center gap-2.5">
+																<div className="w-7 h-7 rounded-lg bg-olive-950/[0.04] border border-olive-950/10 flex items-center justify-center shrink-0 dark:bg-white/5 dark:border-[#757572]/20">
+																	{(() => {
+																		return (
+																			<ThemeIcon
+																				icon={
+																					embeddingTriggerIcon
+																				}
+																				width={
+																					16
+																				}
+																				height={
+																					16
+																				}
+																				className="text-olive-950/90 dark:text-white/90"
+																				aria-label="Model provider"
+																			/>
+																		)
+																	})()}
+																</div>
+																<span className="font-mono text-sm text-olive-950/85 dark:text-white/85">
+																	{
+																		embeddingTriggerLabel
 																	}
-																})
-															)
-														}}
-														placeholder={
-															MODEL_PLACEHOLDER_BY_PROVIDER[
-																state.embedding
-																	.provider
-															] ?? 'model-id'
-														}
-														className="bg-white border-olive-950/10 text-olive-950 font-mono text-sm placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
-													/>
-													<div className="text-xs text-olive-700/80 dark:text-white/40">
-														{state.embedding
-															.type ===
-														'multimodal'
-															? 'Make sure this model supports image embeddings.'
-															: state.embedding
-																		.provider ===
-																	'ai'
-																? 'Tip: for AI Gateway, use the AI SDK model id (e.g. openai/text-embedding-3-small).'
-																: 'Tip: use the provider-native model id (see provider docs).'}
-													</div>
-												</div>
-											) : null}
-										</div>
-									</FieldGroup>
+																</span>
+															</div>
+														</SelectValue>
+													</SelectTrigger>
+													<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
+														{embeddingModelOptions.map(
+															(opt) => {
+																const Icon =
+																	opt.icon
+																return (
+																	<SelectItem
+																		key={
+																			opt.id
+																		}
+																		value={
+																			opt.id
+																		}
+																		className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																	>
+																		<span className="flex items-center gap-2 w-full">
+																			<span className="w-5 h-5 rounded bg-olive-950/[0.04] border border-olive-950/10 flex items-center justify-center dark:bg-white/5 dark:border-[#757572]/20">
+																				<ThemeIcon
+																					icon={
+																						Icon
+																					}
+																					width={
+																						14
+																					}
+																					height={
+																						14
+																					}
+																					className="text-olive-950/85 dark:text-white/85"
+																					aria-label={
+																						opt.providerLabel
+																					}
+																				/>
+																			</span>
+																			<span className="font-mono text-sm">
+																				{
+																					opt.label
+																				}
+																			</span>
+																			<span className="ml-auto text-xs text-olive-600 dark:text-white/35">
+																				{
+																					opt.providerLabel
+																				}
+																			</span>
+																		</span>
+																	</SelectItem>
+																)
+															}
+														)}
+														<SelectSeparator className="bg-olive-950/10 dark:bg-white/10" />
+														<SelectItem
+															value={
+																CUSTOM_MODEL_VALUE
+															}
+															className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+														>
+															<span className="flex items-center gap-2 w-full">
+																<span className="w-5 h-5 rounded bg-olive-950/[0.04] border border-olive-950/10 flex items-center justify-center dark:bg-white/5 dark:border-[#757572]/20">
+																	<ThemeIcon
+																		icon={{
+																			light: VercelLight,
+																			dark: VercelDark
+																		}}
+																		width={
+																			14
+																		}
+																		height={
+																			14
+																		}
+																		className="text-olive-950/85 dark:text-white/85"
+																		aria-label="Custom model"
+																	/>
+																</span>
+																<span className="text-sm">
+																	Custom
+																	model…
+																</span>
+															</span>
+														</SelectItem>
+													</SelectContent>
+												</Select>
 
-									<div className="grid grid-cols-3 gap-4">
-										<FieldGroup label="Chunk size">
-											<Select
-												value={String(
-													state.defaults.chunkSize
-												)}
-												onValueChange={(v) =>
-													setState((prev) => ({
-														...prev,
-														defaults: {
-															...prev.defaults,
-															chunkSize: Number(v)
-														}
-													}))
-												}
-											>
-												<SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
-													<SelectValue>
-														<div className="flex items-center gap-2 w-full min-w-0">
-															<span className="font-mono text-sm">
-																{
+												{isCustomEmbeddingModel ? (
+													<div className="space-y-2">
+														<Input
+															value={
+																state.embedding
+																	.model
+															}
+															onChange={(e) => {
+																setForceCustomEmbeddingModel(
+																	true
+																)
+																setState(
+																	(prev) => ({
+																		...prev,
+																		embedding:
+																			{
+																				...prev.embedding,
+																				model: e
+																					.target
+																					.value
+																			}
+																	})
+																)
+															}}
+															placeholder={
+																MODEL_PLACEHOLDER_BY_PROVIDER[
 																	state
-																		.defaults
-																		.chunkSize
-																}
-															</span>
-															{state.defaults
-																.chunkSize ===
-															RECOMMENDED_DEFAULTS.chunkSize ? (
-																<RecommendedBadge className="ml-auto shrink-0" />
-															) : null}
+																		.embedding
+																		.provider
+																] ?? 'model-id'
+															}
+															className="bg-white border-olive-950/10 text-olive-950 font-mono text-sm placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
+														/>
+														<div className="text-xs text-olive-700/80 dark:text-white/40">
+															{state.embedding
+																.type ===
+															'multimodal'
+																? 'Make sure this model supports image embeddings.'
+																: state
+																			.embedding
+																			.provider ===
+																		'ai'
+																	? 'Tip: for AI Gateway, use the AI SDK model id (e.g. openai/text-embedding-3-small).'
+																	: 'Tip: use the provider-native model id (see provider docs).'}
 														</div>
-													</SelectValue>
-												</SelectTrigger>
-												<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
-													{CHUNK_SIZE_OPTIONS.map(
-														(n) => (
-															<SelectItem
-																key={n}
-																value={String(
-																	n
-																)}
-																className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
-															>
-																<div className="flex items-center gap-2 w-full min-w-0">
-																	<span className="font-mono text-sm">
-																		{n}
-																	</span>
-																	{n ===
-																	RECOMMENDED_DEFAULTS.chunkSize ? (
-																		<RecommendedBadge className="ml-auto shrink-0" />
-																	) : null}
-																</div>
-															</SelectItem>
-														)
-													)}
-												</SelectContent>
-											</Select>
+													</div>
+												) : null}
+											</div>
 										</FieldGroup>
-										<FieldGroup label="Overlap">
-											<Select
-												value={String(
-													state.defaults.chunkOverlap
-												)}
-												onValueChange={(v) =>
-													setState((prev) => ({
-														...prev,
-														defaults: {
-															...prev.defaults,
-															chunkOverlap:
-																Number(v)
-														}
-													}))
-												}
-											>
-												<SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
-													<SelectValue>
-														<div className="flex items-center gap-2 w-full min-w-0">
-															<span className="font-mono text-sm">
-																{
-																	state
-																		.defaults
-																		.chunkOverlap
-																}
-															</span>
-															{state.defaults
-																.chunkOverlap ===
-															RECOMMENDED_DEFAULTS.chunkOverlap ? (
-																<RecommendedBadge className="ml-auto shrink-0" />
-															) : null}
-														</div>
-													</SelectValue>
-												</SelectTrigger>
-												<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
-													{CHUNK_OVERLAP_OPTIONS.map(
-														(n) => (
-															<SelectItem
-																key={n}
-																value={String(
-																	n
-																)}
-																className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
-															>
-																<div className="flex items-center gap-2 w-full min-w-0">
-																	<span className="font-mono text-sm">
-																		{n}
-																	</span>
-																	{n ===
-																	RECOMMENDED_DEFAULTS.chunkOverlap ? (
-																		<RecommendedBadge className="ml-auto shrink-0" />
-																	) : null}
-																</div>
-															</SelectItem>
-														)
-													)}
-												</SelectContent>
-											</Select>
-										</FieldGroup>
-										<FieldGroup label="Top K">
+
+										<FieldGroup
+											label="Top K"
+											hint="Chunks to return per query"
+										>
 											<Select
 												value={String(
 													state.defaults.topK
@@ -2786,6 +2727,876 @@ export default function InstallWizardClient() {
 										</FieldGroup>
 									</div>
 
+									<div className="mt-8 pt-6 border-t border-olive-950/10 space-y-6 dark:border-[#757572]/20">
+										<SectionHeader
+											title="Chunking"
+											description="Choose how Unrag splits content before embedding. This sets your defaults in unrag.config.ts, and you can still override chunking per ingest when needed."
+										/>
+
+										<div className="rounded-xl border border-olive-950/10 bg-white/80 p-5 dark:border-[#757572]/20 dark:bg-white/[0.03]">
+											<div className="text-sm font-medium text-olive-950/90 dark:text-white/70 mb-4">
+												Active chunking configuration
+											</div>
+
+											<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+												<FieldGroup label="Method">
+													<Select
+														value={
+															state.chunking
+																.method
+														}
+														onValueChange={(v) =>
+															setState((prev) => {
+																const method =
+																	String(v)
+																		.trim()
+																		.toLowerCase()
+																const isBuiltIn =
+																	method ===
+																		'recursive' ||
+																	method ===
+																		'token' ||
+																	method ===
+																		'custom'
+																const nextChunkers =
+																	isBuiltIn
+																		? prev
+																				.modules
+																				.chunkers
+																		: prev.modules.chunkers.includes(
+																					method
+																				)
+																			? prev
+																					.modules
+																					.chunkers
+																			: [
+																					...prev
+																						.modules
+																						.chunkers,
+																					method
+																				].sort()
+																return {
+																	...prev,
+																	modules: {
+																		...prev.modules,
+																		chunkers:
+																			nextChunkers
+																	},
+																	chunking: {
+																		...prev.chunking,
+																		method
+																	}
+																}
+															})
+														}
+													>
+														<SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
+															<SelectValue>
+																<span className="font-mono text-sm">
+																	{
+																		state
+																			.chunking
+																			.method
+																	}
+																</span>
+															</SelectValue>
+														</SelectTrigger>
+														<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
+															<SelectItem
+																value="recursive"
+																className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+															>
+																<div className="flex items-center justify-between gap-2">
+																	<span className="font-mono text-sm">
+																		recursive
+																	</span>
+																	<span className="text-xs text-olive-600 dark:text-white/40">
+																		default
+																	</span>
+																</div>
+															</SelectItem>
+															<SelectItem
+																value="token"
+																className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+															>
+																<span className="font-mono text-sm">
+																	token
+																</span>
+															</SelectItem>
+															<SelectSeparator />
+															{(availableChunkers.length >
+															0
+																? availableChunkers
+																: [
+																		{
+																			id: 'agentic'
+																		},
+																		{
+																			id: 'code'
+																		},
+																		{
+																			id: 'hierarchical'
+																		},
+																		{
+																			id: 'markdown'
+																		},
+																		{
+																			id: 'semantic'
+																		}
+																	]
+															)
+																.filter(
+																	(c) =>
+																		String(
+																			(
+																				c as unknown as {
+																					status?: unknown
+																				}
+																			)
+																				.status ??
+																				'available'
+																		) ===
+																		'available'
+																)
+																.map((c) => {
+																	const id =
+																		String(
+																			(
+																				c as unknown as {
+																					id?: unknown
+																				}
+																			).id
+																		)
+																	return (
+																		<SelectItem
+																			key={
+																				id
+																			}
+																			value={
+																				id
+																			}
+																			className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																		>
+																			<div className="flex items-center justify-between gap-2">
+																				<span className="font-mono text-sm">
+																					{
+																						id
+																					}
+																				</span>
+																				<span className="text-xs text-olive-600 dark:text-white/40">
+																					plugin
+																				</span>
+																			</div>
+																		</SelectItem>
+																	)
+																})}
+														</SelectContent>
+													</Select>
+												</FieldGroup>
+
+												<FieldGroup label="Chunk size (tokens)">
+													<Select
+														value={String(
+															state.defaults
+																.chunkSize
+														)}
+														onValueChange={(v) =>
+															setState(
+																(prev) => ({
+																	...prev,
+																	defaults: {
+																		...prev.defaults,
+																		chunkSize:
+																			Number(
+																				v
+																			)
+																	}
+																})
+															)
+														}
+													>
+														<SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
+															<SelectValue>
+																<div className="flex items-center gap-2 w-full min-w-0">
+																	<span className="font-mono text-sm">
+																		{
+																			state
+																				.defaults
+																				.chunkSize
+																		}
+																	</span>
+																	{state
+																		.defaults
+																		.chunkSize ===
+																	RECOMMENDED_DEFAULTS.chunkSize ? (
+																		<RecommendedBadge className="ml-auto shrink-0" />
+																	) : null}
+																</div>
+															</SelectValue>
+														</SelectTrigger>
+														<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
+															{CHUNK_SIZE_OPTIONS.map(
+																(n) => (
+																	<SelectItem
+																		key={n}
+																		value={String(
+																			n
+																		)}
+																		className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																	>
+																		<div className="flex items-center gap-2 w-full min-w-0">
+																			<span className="font-mono text-sm">
+																				{
+																					n
+																				}
+																			</span>
+																			{n ===
+																			RECOMMENDED_DEFAULTS.chunkSize ? (
+																				<RecommendedBadge className="ml-auto shrink-0" />
+																			) : null}
+																		</div>
+																	</SelectItem>
+																)
+															)}
+														</SelectContent>
+													</Select>
+												</FieldGroup>
+
+												<FieldGroup label="Overlap (tokens)">
+													<Select
+														value={String(
+															state.defaults
+																.chunkOverlap
+														)}
+														onValueChange={(v) =>
+															setState(
+																(prev) => ({
+																	...prev,
+																	defaults: {
+																		...prev.defaults,
+																		chunkOverlap:
+																			Number(
+																				v
+																			)
+																	}
+																})
+															)
+														}
+													>
+														<SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
+															<SelectValue>
+																<div className="flex items-center gap-2 w-full min-w-0">
+																	<span className="font-mono text-sm">
+																		{
+																			state
+																				.defaults
+																				.chunkOverlap
+																		}
+																	</span>
+																	{state
+																		.defaults
+																		.chunkOverlap ===
+																	RECOMMENDED_DEFAULTS.chunkOverlap ? (
+																		<RecommendedBadge className="ml-auto shrink-0" />
+																	) : null}
+																</div>
+															</SelectValue>
+														</SelectTrigger>
+														<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
+															{CHUNK_OVERLAP_OPTIONS.map(
+																(n) => (
+																	<SelectItem
+																		key={n}
+																		value={String(
+																			n
+																		)}
+																		className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																	>
+																		<div className="flex items-center gap-2 w-full min-w-0">
+																			<span className="font-mono text-sm">
+																				{
+																					n
+																				}
+																			</span>
+																			{n ===
+																			RECOMMENDED_DEFAULTS.chunkOverlap ? (
+																				<RecommendedBadge className="ml-auto shrink-0" />
+																			) : null}
+																		</div>
+																	</SelectItem>
+																)
+															)}
+														</SelectContent>
+													</Select>
+												</FieldGroup>
+
+												<FieldGroup label="Min chunk size">
+													<Select
+														value={String(
+															state.chunking
+																.minChunkSize
+														)}
+														onValueChange={(v) =>
+															setState((prev) => ({
+																...prev,
+																chunking: {
+																	...prev.chunking,
+																	minChunkSize:
+																		Number(
+																			v
+																		)
+																}
+															}))
+														}
+													>
+														<SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
+															<SelectValue>
+																<div className="flex items-center gap-2 w-full min-w-0">
+																	<span className="font-mono text-sm">
+																		{state
+																			.chunking
+																			.minChunkSize}
+																	</span>
+																	{state
+																		.chunking
+																		.minChunkSize ===
+																	DEFAULT_STATE
+																		.chunking
+																		.minChunkSize ? (
+																		<RecommendedBadge className="ml-auto shrink-0" />
+																	) : null}
+																</div>
+															</SelectValue>
+														</SelectTrigger>
+														<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
+															{MIN_CHUNK_SIZE_OPTIONS.map(
+																(n) => (
+																	<SelectItem
+																		key={n}
+																		value={String(
+																			n
+																		)}
+																		className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																	>
+																		<div className="flex items-center gap-2 w-full min-w-0">
+																			<span className="font-mono text-sm">
+																				{n}
+																			</span>
+																			{n ===
+																			DEFAULT_STATE
+																				.chunking
+																				.minChunkSize ? (
+																				<RecommendedBadge className="ml-auto shrink-0" />
+																			) : null}
+																		</div>
+																	</SelectItem>
+																)
+															)}
+														</SelectContent>
+													</Select>
+												</FieldGroup>
+											</div>
+
+											{state.chunking.method ===
+												'semantic' ? (
+												<div className="mt-4">
+													<FieldGroup
+														label="Chunker model"
+														hint="Optional. Leave on default unless you want a specific LLM."
+													>
+														<Select
+															value={
+																semanticChunkerModelValue
+															}
+															onValueChange={(v) =>
+																setState(
+																	(prev) => ({
+																		...prev,
+																		chunking:
+																			{
+																				...prev.chunking,
+																				model:
+																					v ===
+																					CHUNKER_MODEL_DEFAULT_VALUE
+																						? CHUNKER_MODEL_DEFAULT_VALUE
+																						: v ===
+																								CHUNKER_MODEL_CUSTOM_VALUE
+																							? prev
+																									.chunking
+																									.model &&
+																								prev
+																									.chunking
+																									.model !==
+																									CHUNKER_MODEL_DEFAULT_VALUE
+																								? prev
+																										.chunking
+																										.model
+																								: ''
+																							: v
+																			}
+																	})
+																)
+															}
+														>
+															<SelectTrigger className="h-11 w-full bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
+																<SelectValue />
+															</SelectTrigger>
+															<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
+																<SelectItem
+																	value={
+																		CHUNKER_MODEL_DEFAULT_VALUE
+																	}
+																	className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																>
+																	provider default
+																</SelectItem>
+																{SEMANTIC_CHUNKER_MODELS.map(
+																	(model) => (
+																		<SelectItem
+																			key={
+																				model
+																			}
+																			value={
+																				model
+																			}
+																			className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																		>
+																			<span className="font-mono text-sm">
+																				{model}
+																			</span>
+																		</SelectItem>
+																	)
+																)}
+																<SelectSeparator className="bg-olive-950/10 dark:bg-white/10" />
+																<SelectItem
+																	value={
+																		CHUNKER_MODEL_CUSTOM_VALUE
+																	}
+																	className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																>
+																	Custom model…
+																</SelectItem>
+															</SelectContent>
+														</Select>
+
+														{isCustomSemanticChunkerModel ? (
+															<div className="mt-2">
+																<Input
+																	value={
+																		state
+																			.chunking
+																			.model ??
+																		''
+																	}
+																	onChange={(e) =>
+																		setState(
+																			(
+																				prev
+																			) => ({
+																				...prev,
+																				chunking:
+																					{
+																						...prev.chunking,
+																						model:
+																							e
+																								.target
+																								.value
+																					}
+																			})
+																		)
+																	}
+																	placeholder="openai/gpt-5-mini"
+																	className="bg-white border-olive-950/10 text-olive-950 font-mono text-sm placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
+																/>
+															</div>
+														) : null}
+													</FieldGroup>
+												</div>
+											) : state.chunking.method ===
+												'agentic' ? (
+												<div className="mt-4">
+													<FieldGroup
+														label="Chunker model"
+														hint="Optional. Leave on default unless you want a specific LLM."
+													>
+														<Select
+															value={
+																agenticChunkerModelValue
+															}
+															onValueChange={(v) =>
+																setState(
+																	(prev) => ({
+																		...prev,
+																		chunking:
+																			{
+																				...prev.chunking,
+																				model:
+																					v ===
+																					CHUNKER_MODEL_DEFAULT_VALUE
+																						? CHUNKER_MODEL_DEFAULT_VALUE
+																						: v ===
+																								CHUNKER_MODEL_CUSTOM_VALUE
+																							? prev
+																									.chunking
+																									.model &&
+																								prev
+																									.chunking
+																									.model !==
+																									CHUNKER_MODEL_DEFAULT_VALUE
+																								? prev
+																										.chunking
+																										.model
+																								: ''
+																							: v
+																			}
+																	})
+																)
+															}
+														>
+															<SelectTrigger className="h-11 w-full bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
+																<SelectValue />
+															</SelectTrigger>
+															<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
+																<SelectItem
+																	value={
+																		CHUNKER_MODEL_DEFAULT_VALUE
+																	}
+																	className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																>
+																	provider default
+																</SelectItem>
+																{SEMANTIC_CHUNKER_MODELS.map(
+																	(model) => (
+																		<SelectItem
+																			key={
+																				model
+																			}
+																			value={
+																				model
+																			}
+																			className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																		>
+																			<span className="font-mono text-sm">
+																				{model}
+																			</span>
+																		</SelectItem>
+																	)
+																)}
+																<SelectSeparator className="bg-olive-950/10 dark:bg-white/10" />
+																<SelectItem
+																	value={
+																		CHUNKER_MODEL_CUSTOM_VALUE
+																	}
+																	className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																>
+																	Custom model…
+																</SelectItem>
+															</SelectContent>
+														</Select>
+
+														{isCustomAgenticChunkerModel ? (
+															<div className="mt-2">
+																<Input
+																	value={
+																		state
+																			.chunking
+																			.model ??
+																		''
+																	}
+																	onChange={(e) =>
+																		setState(
+																			(
+																				prev
+																			) => ({
+																				...prev,
+																				chunking:
+																					{
+																						...prev.chunking,
+																						model:
+																							e
+																								.target
+																								.value
+																					}
+																			})
+																		)
+																	}
+																	placeholder="openai/gpt-5-mini"
+																	className="bg-white border-olive-950/10 text-olive-950 font-mono text-sm placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
+																/>
+															</div>
+														) : null}
+													</FieldGroup>
+												</div>
+											) : state.chunking.method ===
+												'code' ? (
+												<div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+													<div className="md:col-span-2">
+														<FieldGroup
+															label="Language"
+															hint='Used as a hint for the code chunker. Choose "Auto" to infer from sourceId/metadata.'
+														>
+															<Select
+																value={
+																	(state
+																		.chunking
+																		.language ??
+																		AUTO_LANGUAGE_VALUE) as string
+																}
+																onValueChange={(
+																	v
+																) =>
+																	setState(
+																		(
+																			prev
+																		) => ({
+																			...prev,
+																			chunking:
+																				{
+																					...prev.chunking,
+																				// Persist AUTO as a sentinel; preset generation will omit it.
+																				language: v
+																				}
+																		})
+																	)
+																}
+															>
+																<SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
+																	<SelectValue>
+																		<span className="font-mono text-sm">
+																		{state
+																			.chunking
+																			.language &&
+																		state
+																			.chunking
+																			.language !==
+																			AUTO_LANGUAGE_VALUE
+																			? state
+																					.chunking
+																					.language
+																			: 'auto'}
+																		</span>
+																	</SelectValue>
+																</SelectTrigger>
+																<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
+																	<SelectItem
+																		value={
+																			AUTO_LANGUAGE_VALUE
+																		}
+																		className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																	>
+																		<span className="font-mono text-sm">
+																			auto
+																		</span>
+																	</SelectItem>
+																	<SelectItem
+																		value="typescript"
+																		className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																	>
+																		<span className="font-mono text-sm">
+																			typescript
+																		</span>
+																	</SelectItem>
+																	<SelectItem
+																		value="javascript"
+																		className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																	>
+																		<span className="font-mono text-sm">
+																			javascript
+																		</span>
+																	</SelectItem>
+																	<SelectItem
+																		value="python"
+																		className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																	>
+																		<span className="font-mono text-sm">
+																			python
+																		</span>
+																	</SelectItem>
+																	<SelectItem
+																		value="go"
+																		className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																	>
+																		<span className="font-mono text-sm">
+																			go
+																		</span>
+																	</SelectItem>
+																</SelectContent>
+															</Select>
+														</FieldGroup>
+													</div>
+												</div>
+											) : null}
+
+											<div className="mt-3 text-xs text-olive-700/80 dark:text-white/40">
+												This sets `chunking.method` and
+												`chunking.options` in
+												`unrag.config.ts`. If you pick a
+												plugin method, the wizard will
+												also install the corresponding
+												chunker module.
+											</div>
+										</div>
+
+										<div className="rounded-xl border border-olive-950/10 bg-white/60 p-5 dark:border-[#757572]/15 dark:bg-white/[0.02]">
+											<div className="flex items-start justify-between gap-4">
+												<div>
+													<div className="text-sm font-medium text-olive-950/90 dark:text-white/70">
+														Optional chunkers to
+														install
+													</div>
+													<div className="mt-1 text-xs text-olive-700/80 dark:text-white/40">
+														Install extra chunkers
+														now so you can switch
+														methods later without
+														rerunning the CLI.
+													</div>
+												</div>
+											</div>
+
+											<div className="mt-4">
+												{!manifest ? (
+													<div className="flex items-center justify-center h-24 text-white/40">
+														Loading chunkers...
+													</div>
+												) : (
+													<div className="space-y-3">
+														{(availableChunkers.length >
+														0
+															? availableChunkers
+															: [
+																	{
+																		id: 'semantic',
+																		label: 'semantic',
+																		description:
+																			'LLM-guided semantic chunking for general text',
+																		status: 'available',
+																		docsPath:
+																			'/docs/chunking/semantic'
+																	},
+																	{
+																		id: 'markdown',
+																		label: 'markdown',
+																		description:
+																			'Markdown-aware chunking with fenced code preservation',
+																		status: 'available',
+																		docsPath:
+																			'/docs/chunking/markdown'
+																	},
+																	{
+																		id: 'hierarchical',
+																		label: 'hierarchical',
+																		description:
+																			'Section-first chunking with header context',
+																		status: 'available',
+																		docsPath:
+																			'/docs/chunking/hierarchical'
+																	},
+																	{
+																		id: 'code',
+																		label: 'code',
+																		description:
+																			'Structure-aware chunking for source code',
+																		status: 'available',
+																		docsPath:
+																			'/docs/chunking/code'
+																	},
+																	{
+																		id: 'agentic',
+																		label: 'agentic',
+																		description:
+																			'LLM-guided chunking for highest quality',
+																		status: 'available',
+																		docsPath:
+																			'/docs/chunking/agentic'
+																	}
+																]
+														).map((c) => {
+															const id = String(
+																(
+																	c as unknown as {
+																		id?: unknown
+																	}
+																).id
+															)
+															return (
+																<ChunkerCard
+																	key={id}
+																	id={id}
+																	label={
+																		(
+																			c as unknown as {
+																				label?: unknown
+																			}
+																		)
+																			.label as
+																			| string
+																			| undefined
+																	}
+																	description={
+																		(
+																			c as unknown as {
+																				description?: unknown
+																			}
+																		)
+																			.description as
+																			| string
+																			| undefined
+																	}
+																	status={
+																		(
+																			c as unknown as {
+																				status?: unknown
+																			}
+																		)
+																			.status as
+																			| 'available'
+																			| 'coming-soon'
+																			| undefined
+																	}
+																	docsHref={
+																		((
+																			c as unknown as {
+																				docsPath?: unknown
+																			}
+																		)
+																			.docsPath as
+																			| string
+																			| null
+																			| undefined) ??
+																		null
+																	}
+																	selected={state.modules.chunkers.includes(
+																		id
+																	)}
+																	onToggle={() =>
+																		setState(
+																			(
+																				prev
+																			) => ({
+																				...prev,
+																				modules:
+																					{
+																						...prev.modules,
+																						chunkers:
+																							toggleInList(
+																								prev
+																									.modules
+																									.chunkers,
+																								id
+																							)
+																					}
+																			})
+																		)
+																	}
+																/>
+															)
+														})}
+													</div>
+												)}
+											</div>
+										</div>
+									</div>
+
 									{requiredEmbeddingEnvVars.length > 0 ? (
 										<div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
 											<div className="flex items-start gap-3">
@@ -2822,294 +3633,6 @@ export default function InstallWizardClient() {
 										</div>
 									) : null}
 								</div>
-							</div>
-						)}
-
-						{currentStepId === 'chunkers' && (
-							<div
-								className={cn(
-									'animate-in fade-in duration-300',
-									slideDirection === 'right'
-										? 'slide-in-from-right-4'
-										: 'slide-in-from-left-4'
-								)}
-							>
-								<SectionHeader
-									title="Chunking Strategies"
-									description="Install optional chunkers to split content by semantics, markdown structure, or code syntax. Switch methods later via unrag.config.ts."
-								/>
-
-								<div className="rounded-xl border border-olive-950/10 bg-white/80 p-5 mb-6 dark:border-[#757572]/20 dark:bg-white/[0.03]">
-									<div className="text-sm font-medium text-olive-950/90 dark:text-white/70 mb-4">
-										Active chunker configuration
-									</div>
-									<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-										<FieldGroup label="Method">
-											<Select
-												value={state.chunking.method}
-												onValueChange={(v) =>
-													setState((prev) => {
-														const method = String(v)
-															.trim()
-															.toLowerCase()
-														const isBuiltIn =
-															method ===
-																'recursive' ||
-															method ===
-																'token' ||
-															method === 'custom'
-														const nextChunkers =
-															isBuiltIn
-																? prev.modules
-																		.chunkers
-																: prev.modules
-																			.chunkers.includes(
-																			method
-																		)
-																	? prev
-																			.modules
-																			.chunkers
-																	: [
-																			...prev
-																				.modules
-																				.chunkers,
-																			method
-																		].sort()
-														const needsModel =
-															method ===
-																'semantic' ||
-															method ===
-																'agentic'
-														const needsLanguage =
-															method === 'code'
-														return {
-															...prev,
-															modules: {
-																...prev.modules,
-																chunkers: nextChunkers
-															},
-															chunking: {
-																...prev.chunking,
-																method,
-																model: needsModel
-																	? (prev
-																			.chunking
-																			.model ??
-																			'openai/gpt-5-mini')
-																	: prev
-																			.chunking
-																			.model,
-																language: needsLanguage
-																	? (prev
-																			.chunking
-																			.language ??
-																			'typescript')
-																	: prev
-																			.chunking
-																			.language
-															}
-														}
-													})
-												}
-											>
-												<SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
-													<SelectValue>
-														<span className="font-mono text-sm">
-															{state.chunking.method}
-														</span>
-													</SelectValue>
-												</SelectTrigger>
-												<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
-													<SelectItem
-														value="recursive"
-														className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
-													>
-														<div className="flex items-center justify-between gap-2">
-															<span className="font-mono text-sm">
-																recursive
-															</span>
-															<span className="text-xs text-olive-600 dark:text-white/40">
-																default
-															</span>
-														</div>
-													</SelectItem>
-													<SelectItem
-														value="token"
-														className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
-													>
-														<span className="font-mono text-sm">
-															token
-														</span>
-													</SelectItem>
-													<SelectSeparator />
-													{availableChunkers
-														.filter(
-															(c) =>
-																String(
-																	c.status ??
-																		'available'
-																) ===
-																'available'
-														)
-														.map((c) => {
-															const id = String(
-																c.id
-															)
-															return (
-																<SelectItem
-																	key={id}
-																	value={id}
-																	className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
-																>
-																	<div className="flex items-center justify-between gap-2">
-																		<span className="font-mono text-sm">
-																			{id}
-																		</span>
-																		<span className="text-xs text-olive-600 dark:text-white/40">
-																			plugin
-																		</span>
-																	</div>
-																</SelectItem>
-															)
-														})}
-												</SelectContent>
-											</Select>
-										</FieldGroup>
-
-										<FieldGroup label="Min chunk size (tokens)">
-											<Input
-												value={String(
-													state.chunking.minChunkSize
-												)}
-												onChange={(e) =>
-													setState((prev) => ({
-														...prev,
-														chunking: {
-															...prev.chunking,
-															minChunkSize: Math.max(
-																1,
-																Number(
-																	e.target
-																		.value
-																) || 1
-															)
-														}
-													}))
-												}
-												inputMode="numeric"
-												className="bg-white border-olive-950/10 text-olive-950 font-mono text-sm placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
-											/>
-										</FieldGroup>
-
-										{state.chunking.method === 'semantic' ||
-										state.chunking.method === 'agentic' ? (
-											<FieldGroup label="Chunker model">
-												<Input
-													value={
-														state.chunking.model ??
-														''
-													}
-													onChange={(e) =>
-														setState((prev) => ({
-															...prev,
-															chunking: {
-																...prev.chunking,
-																model: e.target
-																	.value
-															}
-														}))
-													}
-													placeholder="openai/gpt-5-mini"
-													className="bg-white border-olive-950/10 text-olive-950 font-mono text-sm placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
-												/>
-											</FieldGroup>
-										) : state.chunking.method === 'code' ? (
-											<FieldGroup label="Language hint">
-												<Input
-													value={
-														state.chunking.language ??
-														''
-													}
-													onChange={(e) =>
-														setState((prev) => ({
-															...prev,
-															chunking: {
-																...prev.chunking,
-																language:
-																	e.target
-																		.value
-															}
-														}))
-													}
-													placeholder="typescript"
-													className="bg-white border-olive-950/10 text-olive-950 font-mono text-sm placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
-												/>
-											</FieldGroup>
-										) : (
-											<div />
-										)}
-									</div>
-									<div className="mt-3 text-xs text-olive-700/80 dark:text-white/40">
-										This sets `chunking.method` and
-										`chunking.options` in `unrag.config.ts`.
-										If you pick a plugin method, the wizard
-										will also install the corresponding
-										chunker module.
-									</div>
-								</div>
-
-								{!manifest ? (
-									<div className="flex items-center justify-center h-40 text-white/40">
-										Loading chunkers...
-									</div>
-								) : availableChunkers.length === 0 ? (
-									<div className="rounded-xl border border-[#757572]/15 bg-white/[0.02] p-6 text-center">
-										<FileText className="w-8 h-8 mx-auto mb-3 text-white/20" />
-										<div className="text-sm text-white/50">
-											No chunkers available yet.
-										</div>
-										<div className="mt-1 text-xs text-white/30">
-											Chunkers like markdown and semantic
-											will appear here when available.
-										</div>
-									</div>
-								) : (
-									<div className="space-y-3">
-										{availableChunkers.map((c) => {
-											const id = String(c.id)
-											return (
-												<ChunkerCard
-													key={id}
-													id={id}
-													label={c.label}
-													description={c.description}
-													status={c.status}
-													docsHref={
-														c.docsPath ?? null
-													}
-													selected={state.modules.chunkers.includes(
-														id
-													)}
-													onToggle={() =>
-														setState((prev) => ({
-															...prev,
-															modules: {
-																...prev.modules,
-																chunkers:
-																	toggleInList(
-																		prev
-																			.modules
-																			.chunkers,
-																		id
-																	)
-															}
-														}))
-													}
-												/>
-											)
-										})}
-									</div>
-								)}
 							</div>
 						)}
 
@@ -3463,18 +3986,40 @@ export default function InstallWizardClient() {
 										</div>
 										<div className="rounded-xl border border-olive-950/10 bg-white/70 p-4 dark:border-[#757572]/15 dark:bg-olive-800/10">
 											<div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">
-												Chunkers
+												Chunking
 											</div>
 											<div className="text-lg font-medium text-olive-950 dark:text-olive-100">
-												{summary.chunkerCount} selected
+												<span className="font-mono">
+													{summary.chunkingMethod}
+												</span>
 											</div>
-											{summary.chunkerCount > 0 && (
-												<div className="mt-1 text-xs text-olive-600 dark:text-olive-400">
+											<div className="mt-1 text-xs text-olive-600 dark:text-olive-400">
+												<span className="font-mono">
+													{state.defaults.chunkSize}
+												</span>
+												<span className="text-olive-500 dark:text-olive-500/70">
+													{' '}
+													tokens
+												</span>
+												<span className="text-olive-500 dark:text-olive-500/70">
+													{' '}
+													• overlap{' '}
+												</span>
+												<span className="font-mono">
+													{
+														state.defaults
+															.chunkOverlap
+													}
+												</span>
+											</div>
+											{summary.chunkerCount > 0 ? (
+												<div className="mt-2 text-xs text-olive-600 dark:text-olive-400">
+													Installed chunkers:{' '}
 													{state.modules.chunkers.join(
 														', '
 													)}
 												</div>
-											)}
+											) : null}
 										</div>
 										<div className="rounded-xl border border-olive-950/10 bg-white/70 p-4 dark:border-[#757572]/15 dark:bg-olive-800/10">
 											<div className="text-xs font-medium uppercase tracking-wider text-olive-500 mb-2">
@@ -3879,7 +4424,7 @@ export default function InstallWizardClient() {
 								{state.modules.chunkers.length > 0 && (
 									<div className="mb-4">
 										<div className="text-xs text-olive-500 mb-2">
-											Chunkers
+											Chunking
 										</div>
 										<div className="flex flex-wrap gap-1.5">
 											{state.modules.chunkers.map(
@@ -3887,7 +4432,7 @@ export default function InstallWizardClient() {
 													const href =
 														chunkerDocsById.get(
 															id
-														) ?? '/docs/chunkers'
+														) ?? '/docs/chunking'
 													return (
 														<Link
 															key={id}

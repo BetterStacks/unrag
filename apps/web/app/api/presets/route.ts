@@ -161,8 +161,18 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 		.toLowerCase()
 	const chunkingMinChunkSize =
 		Number(input.chunking?.minChunkSize) || 24
-	const chunkingModel = String(input.chunking?.model ?? '').trim()
-	const chunkingLanguage = String(input.chunking?.language ?? '').trim()
+	const chunkingModelRaw = String(input.chunking?.model ?? '').trim()
+	const chunkingLanguageRaw = String(input.chunking?.language ?? '').trim()
+
+	// These sentinels are used by the /install wizard UI. They should not be
+	// emitted into presets/config as literal values.
+	const CHUNKER_MODEL_DEFAULT_VALUE = '__default__'
+	const AUTO_LANGUAGE_VALUE = '__auto__'
+
+	const chunkingModel =
+		chunkingModelRaw === CHUNKER_MODEL_DEFAULT_VALUE ? '' : chunkingModelRaw
+	const chunkingLanguage =
+		chunkingLanguageRaw === AUTO_LANGUAGE_VALUE ? '' : chunkingLanguageRaw
 
 	const isBuiltInMethod =
 		chunkingMethod === 'recursive' ||
@@ -226,6 +236,8 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 
 function makePresetFromWizard(state: WizardStateV1): PresetPayloadV1 {
 	const assetProcessing = state.engine?.assetProcessing
+	const CHUNKER_MODEL_DEFAULT_VALUE = '__default__'
+	const AUTO_LANGUAGE_VALUE = '__auto__'
 	return {
 		version: 1,
 		createdAt: new Date().toISOString(),
@@ -252,10 +264,12 @@ function makePresetFromWizard(state: WizardStateV1): PresetPayloadV1 {
 								'number'
 									? {minChunkSize: state.chunking.minChunkSize}
 									: {}),
-								...(state.chunking.model
+								...(state.chunking.model &&
+								state.chunking.model !== CHUNKER_MODEL_DEFAULT_VALUE
 									? {model: state.chunking.model}
 									: {}),
-								...(state.chunking.language
+								...(state.chunking.language &&
+								state.chunking.language !== AUTO_LANGUAGE_VALUE
 									? {language: state.chunking.language}
 									: {})
 							}
