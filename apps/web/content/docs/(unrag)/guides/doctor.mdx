@@ -25,9 +25,11 @@ This examines your project for:
 
 **Environment variables.** Based on your embedding provider and store adapter, doctor checks whether the required environment variables are set. If you're using the default AI Gateway provider, it looks for `AI_GATEWAY_API_KEY`. If you're using the Drizzle adapter with Postgres, it looks for `DATABASE_URL`.
 
-**Module presence.** If you've installed extractors or connectors, doctor verifies that the source files exist in the expected locations. A module directory without its main files suggests a partial installation.
+**Module presence.** If you've installed extractors, connectors, or chunkers, doctor verifies that the source files exist in the expected locations. A module directory without its main files suggests a partial installation.
 
-**Config coherence.** Doctor performs static analysis on your `unrag.config.ts` to check whether installed extractors are actually registered and enabled. If you've installed `pdf-llm` but didn't add it to your extractors array, doctor warns you.
+**Config coherence.** Doctor performs static analysis on your `unrag.config.ts` to check whether installed extractors are actually registered and enabled, and whether your configured chunking method is correctly wired (plugin installed + imported). If you've installed `pdf-llm` but didn't add it to your extractors array, doctor warns you.
+
+**API feature checks.** Doctor can verify that your vendored engine sources include newer API capabilities (for example, support for per-ingest `engine.ingest({ chunker })` overrides) without running your app.
 
 The output tells you what passed, what needs attention, and how to fix any issues. Passing checks show a checkmark; warnings show a caution symbol with suggested fixes.
 

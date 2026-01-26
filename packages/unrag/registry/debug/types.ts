@@ -193,6 +193,17 @@ export type IngestCommand = {
 	chunking?: {
 		chunkSize?: number
 		chunkOverlap?: number
+		minChunkSize?: number
+		/**
+		 * Model hint for LLM-driven chunkers (semantic/agentic) when supported.
+		 * Example: "openai/gpt-5-mini"
+		 */
+		model?: string
+		/**
+		 * Language hint for the code chunker when supported.
+		 * Example: "typescript" | "javascript" | "python" | "go"
+		 */
+		language?: string
 	}
 }
 

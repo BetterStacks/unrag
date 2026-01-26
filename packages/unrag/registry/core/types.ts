@@ -809,6 +809,16 @@ export type IngestInput = {
 	sourceId: string
 	content: string
 	metadata?: Metadata
+	/**
+	 * Per-ingest chunker override.
+	 *
+	 * Use this to switch chunking algorithms for a single ingest call without
+	 * changing the engine's configured chunker.
+	 *
+	 * Note: This affects chunking for both the main `content` and any text derived
+	 * from `assets` during this ingest.
+	 */
+	chunker?: Chunker
 	chunking?: Partial<ChunkingOptions>
 	/** Optional rich media attached to the document. */
 	assets?: AssetInput[]

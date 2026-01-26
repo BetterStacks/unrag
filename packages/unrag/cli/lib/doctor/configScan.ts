@@ -53,6 +53,12 @@ export async function runConfigCoherenceChecks(
 		return results
 	}
 
+	// Chunker config checks (method wiring + plugin presence)
+	results.push(...checkChunkerCoherence(state, scanResult))
+
+	// Verify that the installed/vendored engine supports per-ingest `chunker` overrides
+	results.push(await checkPerIngestChunkerOverrideSupport(state))
+
 	// Report scan confidence
 	if (scanResult.parseWarnings.length > 0) {
 		results.push({
@@ -85,6 +91,173 @@ export async function runConfigCoherenceChecks(
 	}
 
 	return results
+}
+
+function detectChunkingMethod(configContent: string): string | null {
+	// Match: chunking: { ... method: "recursive" ... }
+	// Keep this conservative: prefer explicit string literal.
+	const m = configContent.match(
+		/chunking\s*:\s*\{[\s\S]*?\bmethod\s*:\s*['"]([a-z0-9_-]+)['"]/i
+	)
+	return m?.[1] ? String(m[1]).trim() : null
+}
+
+function detectHasChunkerImport(configContent: string, chunker: string): boolean {
+	// Plugin chunkers register on import, so config needs a side-effect import:
+	//   import "./<installDir>/chunkers/<chunker>";
+	return new RegExp(`/chunkers/${chunker}\\b`, 'i').test(configContent)
+}
+
+function detectHasCustomChunkerFn(configContent: string): boolean {
+	// Best-effort: look for `chunker:` field inside chunking block.
+	return /chunking\s*:\s*\{[\s\S]*?\bchunker\s*:/i.test(configContent)
+}
+
+function checkChunkerCoherence(
+	state: InferredInstallState,
+	scanResult: ConfigScanResult
+): CheckResult[] {
+	const out: CheckResult[] = []
+	const content = scanResult.configContent ?? ''
+	const method = detectChunkingMethod(content)
+
+	if (!method) {
+		out.push({
+			id: 'chunking.method',
+			title: 'Chunking method',
+			status: 'warn',
+			summary: 'Could not detect `chunking.method` in unrag.config.ts.',
+			details: [
+				'Doctor expects a config block like:',
+				'  chunking: { method: "recursive", options: { ... } }'
+			],
+			docsLink: docsUrl('/docs/reference/unrag-config')
+		})
+		return out
+	}
+
+	const builtIn = method === 'recursive' || method === 'token'
+	if (builtIn) {
+		out.push({
+			id: 'chunking.method',
+			title: 'Chunking method',
+			status: 'pass',
+			summary: `Using built-in chunker "${method}".`,
+			meta: {method}
+		})
+		return out
+	}
+
+	if (method === 'custom') {
+		const hasFn = detectHasCustomChunkerFn(content)
+		out.push({
+			id: 'chunking.custom',
+			title: 'Custom chunker',
+			status: hasFn ? 'pass' : 'fail',
+			summary: hasFn
+				? 'Custom chunker appears to be configured.'
+				: 'chunking.method is "custom" but no `chunking.chunker` function was detected.',
+			fixHints: hasFn
+				? undefined
+				: [
+						'Add `chunking: { method: "custom", chunker: (content, options) => [...] }` to unrag.config.ts.'
+					],
+			docsLink: docsUrl('/docs/chunking')
+		})
+		return out
+	}
+
+	// Plugin chunker
+	const installed = state.installedChunkers.includes(method)
+	const hasImport = detectHasChunkerImport(content, method)
+
+	out.push({
+		id: 'chunking.method',
+		title: 'Chunking method',
+		status: installed ? 'pass' : 'warn',
+		summary: installed
+			? `Using plugin chunker "${method}".`
+			: `Config references plugin chunker "${method}", but it does not appear to be installed.`,
+		fixHints: installed ? undefined : [`Run: unrag add chunker ${method}`],
+		meta: {method}
+	})
+
+	out.push({
+		id: 'chunking.import',
+		title: 'Chunker module import',
+		status: hasImport ? 'pass' : 'warn',
+		summary: hasImport
+			? `Chunker module "${method}" appears to be imported (plugin registration).`
+			: `Chunker module "${method}" does not appear to be imported in unrag.config.ts.`,
+		details: hasImport
+			? undefined
+			: [
+					'Plugin chunkers register on import. Without the import, the engine may throw at startup.',
+					'Expected a line like:',
+					state.installDir
+						? `  import "./${state.installDir}/chunkers/${method}";`
+						: `  import "./lib/unrag/chunkers/${method}";`
+				],
+		fixHints: hasImport
+			? undefined
+			: [
+					'Install chunker via CLI (auto-patches config):',
+					`  unrag add chunker ${method}`
+				],
+		docsLink: docsUrl('/docs/chunking')
+	})
+
+	return out
+}
+
+async function checkPerIngestChunkerOverrideSupport(
+	state: InferredInstallState
+): Promise<CheckResult> {
+	if (!state.installDir || !state.installDirExists) {
+		return {
+			id: 'api.ingest.chunker_override',
+			title: 'Per-ingest chunker override',
+			status: 'skip',
+			summary: 'Install directory not found; cannot verify vendored engine API.'
+		}
+	}
+
+	const vendoredTypesPath = path.join(
+		state.projectRoot,
+		state.installDir,
+		'core',
+		'types.ts'
+	)
+	if (!(await exists(vendoredTypesPath))) {
+		return {
+			id: 'api.ingest.chunker_override',
+			title: 'Per-ingest chunker override',
+			status: 'warn',
+			summary: 'Could not find vendored core/types.ts to verify API support.',
+			details: [vendoredTypesPath]
+		}
+	}
+
+	const raw = await readFile(vendoredTypesPath, 'utf8').catch(() => '')
+	const hasChunkerField = /export\s+type\s+IngestInput\s*=\s*\{[\s\S]*?\bchunker\s*\?:/m.test(
+		raw
+	)
+
+	return {
+		id: 'api.ingest.chunker_override',
+		title: 'Per-ingest chunker override',
+		status: hasChunkerField ? 'pass' : 'warn',
+		summary: hasChunkerField
+			? 'Your vendored engine supports `engine.ingest({ chunker })` overrides.'
+			: 'Your vendored engine may not support `engine.ingest({ chunker })` overrides yet.',
+		fixHints: hasChunkerField
+			? undefined
+			: [
+					'Upgrade vendored Unrag files (recommended):',
+					'  unrag upgrade'
+				],
+		docsLink: docsUrl('/docs/upgrade')
+	}
 }
 
 /**

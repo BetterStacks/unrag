@@ -491,7 +491,13 @@ async function handleIngest(command: {
 	content?: string
 	contentPath?: string
 	metadata?: Metadata
-	chunking?: {chunkSize?: number; chunkOverlap?: number}
+	chunking?: {
+		chunkSize?: number
+		chunkOverlap?: number
+		minChunkSize?: number
+		model?: string
+		language?: string
+	}
 }): Promise<IngestResult> {
 	const runtime = getUnragDebugRuntime()
 	if (!runtime?.engine) {

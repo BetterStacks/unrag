@@ -112,6 +112,21 @@ type WizardStateV1 = {
 		batteries: string[]
 		chunkers: string[]
 	}
+	chunking: {
+		/**
+		 * Chunking method to use.
+		 * - Built-in: "recursive" (default), "token"
+		 * - Plugins: e.g. "markdown", "semantic", "code"
+		 * - "custom" is supported in unrag.config.ts, but not scaffolded by this wizard.
+		 */
+		method: string
+		/** Minimum chunk size in tokens (small chunks are merged). */
+		minChunkSize: number
+		/** Model hint for LLM-driven chunkers (semantic/agentic). */
+		model?: string
+		/** Language hint for the code chunker. */
+		language?: string
+	}
 	defaults: {
 		chunkSize: number
 		chunkOverlap: number
@@ -256,6 +271,12 @@ const DEFAULT_STATE: WizardStateV1 = {
 		connectors: [],
 		batteries: [],
 		chunkers: []
+	},
+	chunking: {
+		method: 'recursive',
+		minChunkSize: 24,
+		model: 'openai/gpt-5-mini',
+		language: 'typescript'
 	},
 	defaults: {
 		chunkSize: 200,
@@ -749,6 +770,37 @@ function normalizeState(s: WizardStateV1): WizardStateV1 {
 	const chunkers = Array.isArray(s.modules?.chunkers)
 		? s.modules.chunkers.map(String)
 		: []
+	const chunkingMethodRaw = String(
+		(s as unknown as {chunking?: {method?: unknown}})?.chunking?.method ??
+			DEFAULT_STATE.chunking.method
+	)
+	const chunkingMethod = chunkingMethodRaw.trim().toLowerCase() || 'recursive'
+	const minChunkSize =
+		Number(
+			(s as unknown as {chunking?: {minChunkSize?: unknown}})?.chunking
+				?.minChunkSize ?? DEFAULT_STATE.chunking.minChunkSize
+		) || DEFAULT_STATE.chunking.minChunkSize
+	const chunkingModel = String(
+		(s as unknown as {chunking?: {model?: unknown}})?.chunking?.model ??
+			DEFAULT_STATE.chunking.model ??
+			''
+	).trim()
+	const chunkingLanguage = String(
+		(s as unknown as {chunking?: {language?: unknown}})?.chunking?.language ??
+			DEFAULT_STATE.chunking.language ??
+			''
+	).trim()
+
+	// If a plugin chunker method is selected, ensure it is installed as a module.
+	const isBuiltInMethod =
+		chunkingMethod === 'recursive' ||
+		chunkingMethod === 'token' ||
+		chunkingMethod === 'custom'
+	const ensuredChunkers = isBuiltInMethod
+		? chunkers
+		: chunkers.includes(chunkingMethod)
+			? chunkers
+			: [...chunkers, chunkingMethod].sort()
 	const chunkSize =
 		Number(s.defaults?.chunkSize ?? DEFAULT_STATE.defaults.chunkSize) ||
 		DEFAULT_STATE.defaults.chunkSize
@@ -796,7 +848,22 @@ function normalizeState(s: WizardStateV1): WizardStateV1 {
 	return {
 		v: 1,
 		install: {installDir, storeAdapter, aliasBase},
-		modules: {extractors, connectors, batteries, chunkers},
+		modules: {extractors, connectors, batteries, chunkers: ensuredChunkers},
+		chunking: {
+			method: chunkingMethod,
+			minChunkSize,
+			// Keep defaults around even when not used, so switching methods is easy.
+			model:
+				chunkingModel ||
+				(chunkingMethod === 'semantic' || chunkingMethod === 'agentic'
+					? DEFAULT_STATE.chunking.model
+					: ''),
+			language:
+				chunkingLanguage ||
+				(chunkingMethod === 'code'
+					? DEFAULT_STATE.chunking.language
+					: '')
+		},
 		defaults: {chunkSize, chunkOverlap, topK},
 		embedding: {
 			type: embeddingType,
@@ -2771,6 +2838,226 @@ export default function InstallWizardClient() {
 									title="Chunking Strategies"
 									description="Install optional chunkers to split content by semantics, markdown structure, or code syntax. Switch methods later via unrag.config.ts."
 								/>
+
+								<div className="rounded-xl border border-olive-950/10 bg-white/80 p-5 mb-6 dark:border-[#757572]/20 dark:bg-white/[0.03]">
+									<div className="text-sm font-medium text-olive-950/90 dark:text-white/70 mb-4">
+										Active chunker configuration
+									</div>
+									<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+										<FieldGroup label="Method">
+											<Select
+												value={state.chunking.method}
+												onValueChange={(v) =>
+													setState((prev) => {
+														const method = String(v)
+															.trim()
+															.toLowerCase()
+														const isBuiltIn =
+															method ===
+																'recursive' ||
+															method ===
+																'token' ||
+															method === 'custom'
+														const nextChunkers =
+															isBuiltIn
+																? prev.modules
+																		.chunkers
+																: prev.modules
+																			.chunkers.includes(
+																			method
+																		)
+																	? prev
+																			.modules
+																			.chunkers
+																	: [
+																			...prev
+																				.modules
+																				.chunkers,
+																			method
+																		].sort()
+														const needsModel =
+															method ===
+																'semantic' ||
+															method ===
+																'agentic'
+														const needsLanguage =
+															method === 'code'
+														return {
+															...prev,
+															modules: {
+																...prev.modules,
+																chunkers: nextChunkers
+															},
+															chunking: {
+																...prev.chunking,
+																method,
+																model: needsModel
+																	? (prev
+																			.chunking
+																			.model ??
+																			'openai/gpt-5-mini')
+																	: prev
+																			.chunking
+																			.model,
+																language: needsLanguage
+																	? (prev
+																			.chunking
+																			.language ??
+																			'typescript')
+																	: prev
+																			.chunking
+																			.language
+															}
+														}
+													})
+												}
+											>
+												<SelectTrigger className="h-11 bg-white border-olive-950/10 text-olive-950 hover:bg-white/80 focus:ring-olive-950/15 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:hover:bg-white/[0.04] dark:focus:ring-white/20">
+													<SelectValue>
+														<span className="font-mono text-sm">
+															{state.chunking.method}
+														</span>
+													</SelectValue>
+												</SelectTrigger>
+												<SelectContent className="border-olive-950/10 bg-lemon-50 text-olive-950 dark:border-[#757572]/20 dark:bg-lemon-900 dark:text-white">
+													<SelectItem
+														value="recursive"
+														className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+													>
+														<div className="flex items-center justify-between gap-2">
+															<span className="font-mono text-sm">
+																recursive
+															</span>
+															<span className="text-xs text-olive-600 dark:text-white/40">
+																default
+															</span>
+														</div>
+													</SelectItem>
+													<SelectItem
+														value="token"
+														className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+													>
+														<span className="font-mono text-sm">
+															token
+														</span>
+													</SelectItem>
+													<SelectSeparator />
+													{availableChunkers
+														.filter(
+															(c) =>
+																String(
+																	c.status ??
+																		'available'
+																) ===
+																'available'
+														)
+														.map((c) => {
+															const id = String(
+																c.id
+															)
+															return (
+																<SelectItem
+																	key={id}
+																	value={id}
+																	className="focus:bg-olive-950/[0.04] focus:text-olive-950 data-[state=checked]:text-olive-950 dark:focus:bg-white/5 dark:focus:text-white dark:data-[state=checked]:text-white"
+																>
+																	<div className="flex items-center justify-between gap-2">
+																		<span className="font-mono text-sm">
+																			{id}
+																		</span>
+																		<span className="text-xs text-olive-600 dark:text-white/40">
+																			plugin
+																		</span>
+																	</div>
+																</SelectItem>
+															)
+														})}
+												</SelectContent>
+											</Select>
+										</FieldGroup>
+
+										<FieldGroup label="Min chunk size (tokens)">
+											<Input
+												value={String(
+													state.chunking.minChunkSize
+												)}
+												onChange={(e) =>
+													setState((prev) => ({
+														...prev,
+														chunking: {
+															...prev.chunking,
+															minChunkSize: Math.max(
+																1,
+																Number(
+																	e.target
+																		.value
+																) || 1
+															)
+														}
+													}))
+												}
+												inputMode="numeric"
+												className="bg-white border-olive-950/10 text-olive-950 font-mono text-sm placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
+											/>
+										</FieldGroup>
+
+										{state.chunking.method === 'semantic' ||
+										state.chunking.method === 'agentic' ? (
+											<FieldGroup label="Chunker model">
+												<Input
+													value={
+														state.chunking.model ??
+														''
+													}
+													onChange={(e) =>
+														setState((prev) => ({
+															...prev,
+															chunking: {
+																...prev.chunking,
+																model: e.target
+																	.value
+															}
+														}))
+													}
+													placeholder="openai/gpt-5-mini"
+													className="bg-white border-olive-950/10 text-olive-950 font-mono text-sm placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
+												/>
+											</FieldGroup>
+										) : state.chunking.method === 'code' ? (
+											<FieldGroup label="Language hint">
+												<Input
+													value={
+														state.chunking.language ??
+														''
+													}
+													onChange={(e) =>
+														setState((prev) => ({
+															...prev,
+															chunking: {
+																...prev.chunking,
+																language:
+																	e.target
+																		.value
+															}
+														}))
+													}
+													placeholder="typescript"
+													className="bg-white border-olive-950/10 text-olive-950 font-mono text-sm placeholder:text-olive-500 focus:border-olive-950/20 dark:bg-white/[0.03] dark:border-[#757572]/20 dark:text-white dark:placeholder:text-white/30 dark:focus:border-[#757572]/30"
+												/>
+											</FieldGroup>
+										) : (
+											<div />
+										)}
+									</div>
+									<div className="mt-3 text-xs text-olive-700/80 dark:text-white/40">
+										This sets `chunking.method` and
+										`chunking.options` in `unrag.config.ts`.
+										If you pick a plugin method, the wizard
+										will also install the corresponding
+										chunker module.
+									</div>
+								</div>
+
 								{!manifest ? (
 									<div className="flex items-center justify-center h-40 text-white/40">
 										Loading chunkers...

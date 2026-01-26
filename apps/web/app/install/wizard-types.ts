@@ -29,6 +29,12 @@ export type WizardStateV1 = {
 		batteries: string[]
 		chunkers: string[]
 	}
+	chunking: {
+		method: string
+		minChunkSize: number
+		model?: string
+		language?: string
+	}
 	defaults: {
 		chunkSize: number
 		chunkOverlap: number

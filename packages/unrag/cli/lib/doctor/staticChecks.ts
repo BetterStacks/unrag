@@ -581,6 +581,39 @@ async function runModuleChecks(
 		}
 	}
 
+	// Check chunkers
+	for (const chunker of state.installedChunkers) {
+		const chunkerDir = path.join(installDirFull, 'chunkers', chunker)
+		const chunkerExists = await exists(chunkerDir)
+		const hasIndex =
+			chunkerExists && (await exists(path.join(chunkerDir, 'index.ts')))
+
+		if (chunkerExists && hasIndex) {
+			results.push({
+				id: `module-chunker-${chunker}`,
+				title: `Chunker: ${chunker}`,
+				status: 'pass',
+				summary: 'Module files present.'
+			})
+		} else if (chunkerExists) {
+			results.push({
+				id: `module-chunker-${chunker}`,
+				title: `Chunker: ${chunker}`,
+				status: 'warn',
+				summary: 'Module directory exists but may be incomplete.',
+				details: ['Expected index.ts not found.']
+			})
+		} else {
+			results.push({
+				id: `module-chunker-${chunker}`,
+				title: `Chunker: ${chunker}`,
+				status: 'fail',
+				summary: 'Listed in unrag.json but directory not found.',
+				fixHints: [`Run: unrag add chunker ${chunker}`]
+			})
+		}
+	}
+
 	// Check extractor dependencies
 	const depResults = await checkExtractorDependencies(state)
 	results.push(...depResults)

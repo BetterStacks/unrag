@@ -32,6 +32,12 @@ type WizardStateV1 = {
 		batteries?: string[]
 		chunkers?: string[]
 	}
+	chunking?: {
+		method?: string
+		minChunkSize?: number
+		model?: string
+		language?: string
+	}
 	defaults: {
 		chunkSize: number
 		chunkOverlap: number
@@ -67,6 +73,14 @@ type PresetPayloadV1 = {
 		chunkers: string[]
 	}
 	config: {
+		chunking?: {
+			method?: string
+			options?: {
+				minChunkSize?: number
+				model?: string
+				language?: string
+			}
+		}
 		defaults: {
 			chunking: {chunkSize: number; chunkOverlap: number}
 			retrieval: {topK: number}
@@ -142,6 +156,24 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 		? input.modules.chunkers.map(String).filter(Boolean)
 		: []
 
+	const chunkingMethod = String(input.chunking?.method ?? 'recursive')
+		.trim()
+		.toLowerCase()
+	const chunkingMinChunkSize =
+		Number(input.chunking?.minChunkSize) || 24
+	const chunkingModel = String(input.chunking?.model ?? '').trim()
+	const chunkingLanguage = String(input.chunking?.language ?? '').trim()
+
+	const isBuiltInMethod =
+		chunkingMethod === 'recursive' ||
+		chunkingMethod === 'token' ||
+		chunkingMethod === 'custom'
+	const ensuredChunkers = isBuiltInMethod
+		? chunkers
+		: chunkers.includes(chunkingMethod)
+			? chunkers
+			: [...chunkers, chunkingMethod].sort()
+
 	const chunkSize = Number(input.defaults.chunkSize) || 200
 	const chunkOverlap = Number(input.defaults.chunkOverlap) || 40
 	const topK = Number(input.defaults.topK) || 8
@@ -174,7 +206,13 @@ function normalizeWizardState(input: WizardStateV1): WizardStateV1 {
 	return {
 		v: 1,
 		install: {installDir, storeAdapter, aliasBase},
-		modules: {extractors, connectors, batteries, chunkers},
+		modules: {extractors, connectors, batteries, chunkers: ensuredChunkers},
+		chunking: {
+			method: chunkingMethod,
+			minChunkSize: chunkingMinChunkSize,
+			...(chunkingModel ? {model: chunkingModel} : {}),
+			...(chunkingLanguage ? {language: chunkingLanguage} : {})
+		},
 		defaults: {chunkSize, chunkOverlap, topK},
 		embedding: {
 			type: embeddingType,
@@ -205,6 +243,25 @@ function makePresetFromWizard(state: WizardStateV1): PresetPayloadV1 {
 			chunkers: (state.modules.chunkers ?? []).map(String).filter(Boolean)
 		},
 		config: {
+			...(state.chunking && state.chunking.method
+				? {
+						chunking: {
+							method: state.chunking.method,
+							options: {
+								...(typeof state.chunking.minChunkSize ===
+								'number'
+									? {minChunkSize: state.chunking.minChunkSize}
+									: {}),
+								...(state.chunking.model
+									? {model: state.chunking.model}
+									: {}),
+								...(state.chunking.language
+									? {language: state.chunking.language}
+									: {})
+							}
+						}
+					}
+				: {}),
 			defaults: {
 				chunking: {
 					chunkSize: state.defaults.chunkSize,

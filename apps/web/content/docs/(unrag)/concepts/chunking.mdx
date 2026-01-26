@@ -48,6 +48,30 @@ export default defineUnragConfig({
 });
 ```
 
+## Per-ingest overrides
+
+You can override chunking **per `engine.ingest()` call** in two ways:
+
+- **Options only** (keep the engine’s configured chunker):
+
+```ts
+await engine.ingest({
+  sourceId,
+  content,
+  chunking: { chunkSize: 768, chunkOverlap: 80 },
+});
+```
+
+- **Chunker function** (override the algorithm for this ingest only):
+
+```ts
+await engine.ingest({
+  sourceId,
+  content,
+  chunker: (text, options) => myChunks(text, options),
+});
+```
+
 <Cards>
   <Card title="Chunking Guide" href="/docs/chunking">
     Complete guide to all chunking methods

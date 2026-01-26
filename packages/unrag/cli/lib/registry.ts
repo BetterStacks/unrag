@@ -16,6 +16,14 @@ export type RegistrySelection = {
 	yes?: boolean // non-interactive
 	overwrite?: 'skip' | 'force' // behavior when dest exists
 	presetConfig?: {
+		chunking?: {
+			method?: string
+			options?: {
+				minChunkSize?: number
+				model?: string
+				language?: string
+			}
+		}
 		defaults?: {
 			chunking?: {chunkSize?: number; chunkOverlap?: number}
 			retrieval?: {topK?: number}
@@ -358,40 +366,115 @@ const renderUnragConfig = (content: string, selection: RegistrySelection) => {
 	const presetChunkSize = preset?.defaults?.chunking?.chunkSize
 	const presetChunkOverlap = preset?.defaults?.chunking?.chunkOverlap
 	const presetTopK = preset?.defaults?.retrieval?.topK
+	const presetChunkingMethod =
+		typeof preset?.chunking?.method === 'string'
+			? preset.chunking.method.trim()
+			: undefined
+	const presetMinChunkSize =
+		typeof preset?.chunking?.options?.minChunkSize === 'number'
+			? preset.chunking.options.minChunkSize
+			: undefined
+	const presetChunkerModel =
+		typeof preset?.chunking?.options?.model === 'string'
+			? preset.chunking.options.model.trim()
+			: undefined
+	const presetChunkerLanguage =
+		typeof preset?.chunking?.options?.language === 'string'
+			? preset.chunking.options.language.trim()
+			: undefined
 
 	if (typeof presetChunkSize === 'number') {
 		out = out.replace(
-			/chunkSize:\s*200\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkSize__/,
-			`chunkSize: ${presetChunkSize},`
+			/chunkSize:\s*[\d_]+\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkSize__/,
+			`chunkSize: ${presetChunkSize}, // __UNRAG_DEFAULT_chunkSize__`
 		)
 	} else {
 		out = out.replace(
-			/chunkSize:\s*200\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkSize__/,
-			'chunkSize: 200,'
+			/chunkSize:\s*[\d_]+\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkSize__/,
+			'chunkSize: 200, // __UNRAG_DEFAULT_chunkSize__'
 		)
 	}
 	if (typeof presetChunkOverlap === 'number') {
 		out = out.replace(
-			/chunkOverlap:\s*40\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkOverlap__/,
-			`chunkOverlap: ${presetChunkOverlap},`
+			/chunkOverlap:\s*[\d_]+\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkOverlap__/,
+			`chunkOverlap: ${presetChunkOverlap}, // __UNRAG_DEFAULT_chunkOverlap__`
 		)
 	} else {
 		out = out.replace(
-			/chunkOverlap:\s*40\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkOverlap__/,
-			'chunkOverlap: 40,'
+			/chunkOverlap:\s*[\d_]+\s*,?\s*\/\/ __UNRAG_DEFAULT_chunkOverlap__/,
+			'chunkOverlap: 40, // __UNRAG_DEFAULT_chunkOverlap__'
 		)
 	}
 	if (typeof presetTopK === 'number') {
 		out = out.replace(
-			/topK:\s*8\s*,?\s*\/\/ __UNRAG_DEFAULT_topK__/,
-			`topK: ${presetTopK},`
+			/topK:\s*[\d_]+\s*,?\s*\/\/ __UNRAG_DEFAULT_topK__/,
+			`topK: ${presetTopK}, // __UNRAG_DEFAULT_topK__`
 		)
 	} else {
 		out = out.replace(
-			/topK:\s*8\s*,?\s*\/\/ __UNRAG_DEFAULT_topK__/,
-			'topK: 8,'
+			/topK:\s*[\d_]+\s*,?\s*\/\/ __UNRAG_DEFAULT_topK__/,
+			'topK: 8, // __UNRAG_DEFAULT_topK__'
 		)
 	}
+
+	// Chunking method (defaults to "recursive" in template).
+	if (presetChunkingMethod) {
+		out = out.replace(
+			/method:\s*['"][^'"]*['"]\s*,?\s*\/\/ __UNRAG_CHUNKING_METHOD__/,
+			`method: '${presetChunkingMethod}', // __UNRAG_CHUNKING_METHOD__`
+		)
+	}
+
+	// Chunking options: minChunkSize is template-driven; model/language are inserted when provided.
+	if (typeof presetMinChunkSize === 'number') {
+		out = out.replace(
+			/minChunkSize:\s*[\d_]+\s*,?\s*\/\/ __UNRAG_DEFAULT_minChunkSize__/,
+			`minChunkSize: ${presetMinChunkSize} // __UNRAG_DEFAULT_minChunkSize__`
+		)
+	}
+
+	const injectChunkingOption = (
+		input: string,
+		key: 'model' | 'language',
+		value?: string
+	) => {
+		if (!value) {
+			return input
+		}
+		// If key exists anywhere already, replace the first occurrence.
+		const existing = new RegExp(`^([ \\t]*)${key}\\s*:\\s*[^\\n]*$`, 'm')
+		if (existing.test(input)) {
+			return input.replace(existing, (_m, indent: string) => {
+				return `${indent}${key}: ${JSON.stringify(value)},`
+			})
+		}
+
+		// Otherwise, insert inside the chunking.options block.
+		const optionsRegex =
+			/(chunking:\s*{[\s\S]*?options:\s*{)([\s\S]*?)(\n\s*}\s*,?)/m
+		const match = input.match(optionsRegex)
+		if (!match) {
+			return input
+		}
+		const prefix = match[1] ?? ''
+		const suffix = match[3] ?? ''
+		let block = match[2] ?? ''
+		const indentMatch = block.match(/\n([ \t]*)\w/)
+		const indent = indentMatch?.[1] ?? '\t\t\t'
+		// Insert after minChunkSize when present, else append.
+		if (/^\s*minChunkSize\s*:/m.test(block)) {
+			block = block.replace(
+				/^\s*minChunkSize[^\n]*$/m,
+				(line) => `${line.trimEnd().endsWith(',') ? line : `${line},`}\n${indent}${key}: ${JSON.stringify(value)},`
+			)
+		} else {
+			block = `${block}\n${indent}${key}: ${JSON.stringify(value)},`
+		}
+		return input.replace(optionsRegex, `${prefix}${block}${suffix}`)
+	}
+
+	out = injectChunkingOption(out, 'model', presetChunkerModel)
+	out = injectChunkingOption(out, 'language', presetChunkerLanguage)
 
 	// Embedding config:
 	// - Provider always comes from `selection.embeddingProvider` (or preset override, if provided).

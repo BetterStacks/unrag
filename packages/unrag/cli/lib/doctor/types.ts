@@ -57,6 +57,7 @@ export type InferredInstallState = {
 	embeddingProvider: string | null
 	installedExtractors: string[]
 	installedConnectors: string[]
+	installedChunkers: string[]
 	inferredDbEnvVar: string | null
 	inferenceConfidence: 'high' | 'medium' | 'low'
 	warnings: string[]
@@ -72,6 +73,7 @@ export type UnragJsonConfig = {
 	connectors?: string[]
 	extractors?: string[]
 	batteries?: string[]
+	chunkers?: string[]
 	managedFiles?: string[]
 }
 

@@ -93,6 +93,8 @@ export const ingest = async (
 		metadata: input.metadata ?? {}
 	}
 
+	const chunker = input.chunker ?? config.chunker
+
 	const metadata = input.metadata ?? {}
 	const documentId = config.idGenerator()
 	const assets: AssetInput[] = Array.isArray(input.assets) ? input.assets : []
@@ -128,7 +130,7 @@ export const ingest = async (
 	const prepared: PreparedChunk[] = []
 	const warnings: IngestWarning[] = []
 
-	const baseTextChunks = await config.chunker(input.content, chunkingOptions)
+	const baseTextChunks = await chunker(input.content, chunkingOptions)
 	for (const c of baseTextChunks) {
 		prepared.push({
 			chunk: {
@@ -217,7 +219,7 @@ export const ingest = async (
 					.filter((t) => t.content.trim().length > 0)
 
 				for (const item of nonEmptyItems) {
-					const chunks = await config.chunker(
+					const chunks = await chunker(
 						item.content,
 						chunkingOptions
 					)
@@ -410,7 +412,7 @@ export const ingest = async (
 					storedTokenCount: storedCaptionTokenCount
 				})
 			} else if (caption) {
-				const captionChunks = await config.chunker(
+				const captionChunks = await chunker(
 					caption,
 					chunkingOptions
 				)

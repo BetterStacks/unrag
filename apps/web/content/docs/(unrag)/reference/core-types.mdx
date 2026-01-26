@@ -14,6 +14,7 @@ type IngestInput = {
   sourceId: string;
   content: string;
   metadata?: Metadata;
+  chunker?: Chunker;
   chunking?: { chunkSize?: number; chunkOverlap?: number; minChunkSize?: number };
   assets?: AssetInput[];
   assetProcessing?: DeepPartial<AssetProcessingConfig>;
@@ -39,6 +40,11 @@ type IngestInput = {
     chunking: {
       description: 'Optional per-call chunking override (chunkSize, chunkOverlap, minChunkSize). All sizes are in tokens.',
       type: 'object',
+    },
+    chunker: {
+      description:
+        'Optional per-call chunker override. Use this to switch chunking algorithms for a single ingest() call without changing your engine config.',
+      type: 'Chunker',
     },
     assets: {
       description:

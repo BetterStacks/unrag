@@ -109,6 +109,7 @@ type IngestInput = {
   sourceId: string;                    // Stable document identifier
   content: string;                     // Document text
   metadata?: Metadata;                 // Optional metadata
+  chunker?: Chunker;                   // Override chunking algorithm for this ingest
   chunking?: Partial<ChunkingOptions>; // Override chunking (all sizes in tokens)
   assets?: AssetInput[];               // Rich media attachments
   assetProcessing?: DeepPartial<AssetProcessingConfig>;
