@@ -1,5 +1,13 @@
 # unrag
 
+## 0.3.3
+
+### Patch Changes
+
+- Advanced chunking methods: semantic, hierarchical, markdown, code, and agentic chunkers
+- Shared utilities for LLM-based and text-based chunking operations
+- Upgrade CLI crashes due to path resolution conflict on Windows
+
 ## 0.3.2
 
 ### Patch Changes
